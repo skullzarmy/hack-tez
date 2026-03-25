@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { TezosToolkit } from "@taquito/taquito";
 import { BeaconWallet } from "@taquito/beacon-wallet";
-import { NetworkType } from "@tezos-x/octez.connect-sdk";
+import { NetworkType, BeaconEvent } from "@tezos-x/octez.connect-sdk";
 import config from "../config/tezos";
 
 interface TezosState {
@@ -30,6 +30,21 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             name: "hack.tez",
             preferredNetwork: config.name === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET,
         });
+
+        // Subscribe to active account changes BEFORE any account checks
+        w.client.subscribeToEvent(BeaconEvent.ACTIVE_ACCOUNT_SET, async (account) => {
+            if (account) {
+                setAddress(account.address);
+                try {
+                    const bal = await tezos.tz.getBalance(account.address);
+                    setBalance(bal.toNumber() / 1_000_000);
+                } catch {}
+            } else {
+                setAddress(null);
+                setBalance(null);
+            }
+        });
+
         tezos.setWalletProvider(w);
         setWallet(w);
 

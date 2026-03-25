@@ -21,7 +21,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         name: "ghostnet",
         rpcUrl: "https://rpc.ghostnet.teztnets.com",
         tzktApi: "https://api.ghostnet.tzkt.io",
-        domainsGraphql: "https://api.ghostnet.tezos.domains/graphql",
+        domainsGraphql: "https://ghostnet-api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS || "",
         nameRegistrySetChild: "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU",
         nameRegistryUpdateRecord: "KT1Ln4t64RdCG1bK8zkH6Xi4nNQVxz7qNgyj",
