@@ -1,96 +1,37 @@
-import { useState } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useSubdomains } from "../hooks/useSubdomains";
-import { getRedirect, setRedirect } from "../lib/api";
+import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 
+const TED_APP_URL = config.name === "mainnet" ? "https://app.tezos.domains" : "https://ghostnet.app.tezos.domains";
+
 function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
-    const { wallet, address } = useTezos();
-    const [redirectUrl, setRedirectUrl] = useState("");
-    const [currentRedirect, setCurrentRedirect] = useState<string | null>(null);
-    const [loadingRedirect, setLoadingRedirect] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
-
-    const subdomain = domain.name.replace(".hack.tez", "");
-
-    const loadRedirect = async () => {
-        setLoadingRedirect(true);
-        const url = await getRedirect(subdomain);
-        setCurrentRedirect(url);
-        if (url) setRedirectUrl(url);
-        setLoadingRedirect(false);
-    };
-
-    const handleSaveRedirect = async () => {
-        if (!wallet || !address) return;
-        setSaving(true);
-        setMessage(null);
-        try {
-            // Sign proof of ownership
-            const msg = `Set redirect for ${subdomain}.hack.tez`;
-            const payload =
-                "05" +
-                Array.from(new TextEncoder().encode(msg))
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
-            const signResult = await wallet.client.requestSignPayload({ payload });
-            const account = await wallet.client.getActiveAccount();
-
-            await setRedirect({
-                subdomain,
-                redirectUrl,
-                walletSignature: signResult.signature,
-                walletPublicKey: account?.publicKey || "",
-                address,
-            });
-            setCurrentRedirect(redirectUrl);
-            setMessage("Redirect saved!");
-        } catch (e) {
-            setMessage(e instanceof Error ? e.message : "Failed to save redirect");
-        } finally {
-            setSaving(false);
-        }
-    };
-
     return (
         <div className="p-4 rounded-lg bg-gray-800 border border-gray-700">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
                 <h3 className="font-mono text-emerald-400 font-medium">{domain.name}</h3>
-                <span className="text-xs text-gray-500">
-                    → {domain.address ? `${domain.address.slice(0, 8)}…` : "no address"}
+                <span className="text-xs text-gray-500 font-mono">
+                    → {domain.address ? `${domain.address.slice(0, 8)}…${domain.address.slice(-4)}` : "no address"}
                 </span>
             </div>
 
-            <div className="space-y-2">
-                <button
-                    onClick={loadRedirect}
-                    className="text-xs text-gray-400 hover:text-gray-300 underline cursor-pointer"
-                >
-                    {loadingRedirect ? "Loading…" : "Manage redirect →"}
-                </button>
-
-                {currentRedirect !== null && (
-                    <div className="mt-2 space-y-2">
-                        <div className="text-xs text-gray-400">Current: {currentRedirect || "none set"}</div>
-                        <input
-                            type="url"
-                            value={redirectUrl}
-                            onChange={(e) => setRedirectUrl(e.target.value)}
-                            placeholder="https://your-site.com"
-                            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
-                        />
-                        <button
-                            onClick={handleSaveRedirect}
-                            disabled={saving || !redirectUrl}
-                            className="px-3 py-1.5 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                            {saving ? "Saving…" : "Save Redirect"}
-                        </button>
-                        {message && <p className="text-xs text-emerald-400">{message}</p>}
+            <div className="text-sm text-gray-400 space-y-1 mb-3">
+                {domain.expiresAt && (
+                    <div className="flex justify-between">
+                        <span>Expires</span>
+                        <span className="text-xs text-gray-300">{new Date(domain.expiresAt).toLocaleDateString()}</span>
                     </div>
                 )}
             </div>
+
+            <a
+                href={`${TED_APP_URL}/domain/${domain.name}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-3 py-1.5 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+            >
+                Manage on Tezos Domains →
+            </a>
         </div>
     );
 }
@@ -120,9 +61,16 @@ export default function Dashboard() {
                 </button>
             </div>
 
+            <div className="text-xs text-gray-500 mb-4">
+                You own your subdomains on Tezos Domains. Manage them directly on TED.
+            </div>
+
             {subdomains.length === 0 ? (
                 <div className="text-center text-gray-500 py-8 bg-gray-800/50 rounded-lg">
-                    No subdomains yet. Go register one!
+                    <p className="mb-2">No subdomains yet.</p>
+                    <a href="/" className="text-emerald-400 text-sm hover:underline">
+                        Register one →
+                    </a>
                 </div>
             ) : (
                 <div className="space-y-3">

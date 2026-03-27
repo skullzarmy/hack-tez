@@ -1,56 +1,94 @@
 /**
  * HackTezRegistrar contract interaction helpers
+ * Following BCD pattern: DAppClient.requestOperation() with raw Michelson
+ *
+ * Two-phase commit-reveal registration:
+ *   1. commit(hash) — submit blake2b(pack(label, sender, target, salt))
+ *   2. wait ≥ min_commit_age
+ *   3. register(label, target_address, salt) — reveal and register
+ *
+ * After registration, user owns the TED record and manages it via Tezos Domains.
  */
-import { TezosToolkit } from "@taquito/taquito";
+import { DAppClient, TezosOperationType } from "@tezos-x/octez.connect-sdk";
+import { computeCommitmentHash } from "./commitment";
 import config from "../config/tezos";
 
-export interface RegisterParams {
-    label: string; // hex bytes
-    targetAddress: string;
-    permitSignature: string;
-    expiry: string; // ISO timestamp
+/**
+ * Convert a string label to hex bytes for the contract.
+ */
+export function labelToHexBytes(label: string): string {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(label);
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 /**
- * Submit a register() transaction to the HackTezRegistrar contract.
- * The user's wallet signs and pays gas.
+ * Generate a random salt (16 bytes, hex-encoded).
  */
-export async function submitRegister(tezos: TezosToolkit, params: RegisterParams) {
-    const contract = await tezos.wallet.at(config.registrarAddress);
-
-    const op = await contract.methodsObject
-        .register({
-            label: params.label,
-            target_address: params.targetAddress,
-            permit_sig: params.permitSignature,
-            expiry: params.expiry,
-        })
-        .send();
-
-    return op;
+export function generateSalt(): string {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 /**
- * Submit an update_record transaction directly to Tezos Domains.
- * The user must be the record owner.
+ * Phase 1: Compute commitment hash and submit it to the contract.
+ * Returns the hash and operation result so the caller can store the salt.
  */
-export async function updateRecord(
-    tezos: TezosToolkit,
-    params: {
-        name: string; // hex bytes of full name e.g. "foo.hack.tez"
-        address: string;
-    },
+export async function submitCommit(
+    client: DAppClient,
+    params: { labelHex: string; sender: string; targetAddress: string; saltHex: string },
 ) {
-    const contract = await tezos.wallet.at(config.nameRegistryUpdateRecord);
+    const commitmentHash = computeCommitmentHash(params.labelHex, params.sender, params.targetAddress, params.saltHex);
 
-    const op = await contract.methodsObject
-        .default({
-            name: params.name,
-            address: params.address,
-            owner: params.address,
-            data: {},
-        })
-        .send();
+    const result = await client.requestOperation({
+        operationDetails: [
+            {
+                kind: TezosOperationType.TRANSACTION,
+                destination: config.registrarAddress,
+                amount: "0",
+                parameters: {
+                    entrypoint: "commit",
+                    value: { bytes: commitmentHash },
+                },
+            },
+        ],
+    });
+    return { ...result, commitmentHash };
+}
 
-    return op;
+/**
+ * Phase 2: Reveal and register after the commit waiting period.
+ * SmartPy alphabetical field order: (label, (salt, target_address))
+ */
+export async function submitRegister(
+    client: DAppClient,
+    params: { label: string; targetAddress: string; salt: string },
+) {
+    const result = await client.requestOperation({
+        operationDetails: [
+            {
+                kind: TezosOperationType.TRANSACTION,
+                destination: config.registrarAddress,
+                amount: "0",
+                parameters: {
+                    entrypoint: "register",
+                    value: {
+                        prim: "Pair",
+                        args: [
+                            { bytes: params.label },
+                            {
+                                prim: "Pair",
+                                args: [{ bytes: params.salt }, { string: params.targetAddress }],
+                            },
+                        ],
+                    },
+                },
+            },
+        ],
+    });
+    return result;
 }

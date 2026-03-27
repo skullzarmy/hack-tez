@@ -1,10 +1,56 @@
+import { useState, useEffect } from "react";
 import SubdomainSearch from "../components/SubdomainSearch";
+import { loadPendingCommits, type PendingCommit } from "../components/SubdomainSearch";
 import { useTezos } from "../context/TezosContext";
 import { useEligibility } from "../hooks/useEligibility";
+import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
+import config from "../config/tezos";
+
+function PendingCommitsPanel() {
+    const { address } = useTezos();
+    const contractConfig = useContractConfig();
+    const minCommitAgeMs = contractConfig.minCommitAgeSec * 1000;
+    const [commits, setCommits] = useState<PendingCommit[]>([]);
+
+    useEffect(() => {
+        if (!address) return;
+        const all = loadPendingCommits().filter((c) => c.targetAddress === address);
+        setCommits(all);
+    }, [address]);
+
+    if (commits.length === 0) return null;
+
+    return (
+        <section className="max-w-lg mx-auto">
+            <div className="p-4 rounded-lg bg-amber-900/20 border border-amber-800/50">
+                <h3 className="text-sm font-medium text-amber-300 mb-3">⏳ Pending Registrations</h3>
+                <div className="space-y-2">
+                    {commits.map((commit) => {
+                        const elapsed = Date.now() - commit.commitTime;
+                        const ready = elapsed >= minCommitAgeMs;
+                        return (
+                            <div key={commit.label} className="flex items-center justify-between text-sm">
+                                <span className="font-mono text-white">
+                                    {commit.label}.hack.{config.tld}
+                                </span>
+                                <span className={ready ? "text-emerald-400 text-xs" : "text-amber-400 text-xs"}>
+                                    {ready ? "✓ Ready to register" : "Waiting…"}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Search for the name above to continue registration.</p>
+            </div>
+        </section>
+    );
+}
 
 export default function Home() {
     const { address } = useTezos();
     const eligibility = useEligibility(address);
+    const contractConfig = useContractConfig();
+    const waitDescription = formatDuration(contractConfig.minCommitAgeSec);
 
     return (
         <div className="space-y-16">
@@ -22,6 +68,9 @@ export default function Home() {
             <section>
                 <SubdomainSearch />
             </section>
+
+            {/* Pending commits */}
+            {address && <PendingCommitsPanel />}
 
             {/* Eligibility Status */}
             {address && (
@@ -80,7 +129,7 @@ export default function Home() {
                         {
                             step: "3",
                             title: "Register",
-                            desc: "Sign a message, approve a tiny gas transaction (~0.01 ꜩ), and your subdomain is live!",
+                            desc: `Commit your name, wait ${waitDescription}, then register. Only gas costs (~0.02 ꜩ).`,
                         },
                     ].map((item) => (
                         <div

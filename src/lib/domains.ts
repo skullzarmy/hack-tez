@@ -18,7 +18,7 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
 
 /** Check if a subdomain of hack.tez is available */
 export async function checkAvailability(label: string): Promise<boolean> {
-    const name = `${label}.hack.tez`;
+    const name = `${label}.hack.${config.tld}`;
     const data = await gql<{ domain: { name: string } | null }>(
         `query CheckDomain($name: String!) {
       domain(name: $name) {
@@ -52,7 +52,7 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
         }
       }
     }`,
-        { owner: ownerAddress, parent: ".hack.tez" },
+        { owner: ownerAddress, parent: `.hack.${config.tld}` },
     );
     return data.domains.items.map((d) => ({
         name: d.name,
@@ -65,6 +65,7 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
 /** Validate a subdomain label (lowercase alphanumeric + hyphens, 1-63 chars) */
 export function validateLabel(label: string): { valid: boolean; error?: string } {
     if (label.length === 0) return { valid: false, error: "Name cannot be empty" };
+    if (label.length < 3) return { valid: false, error: "Name must be at least 3 characters" };
     if (label.length > 63) return { valid: false, error: "Name must be 63 characters or fewer" };
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(label)) {
         return { valid: false, error: "Only lowercase letters, numbers, and hyphens allowed" };
@@ -109,14 +110,17 @@ export function isReserved(label: string): boolean {
     return RESERVED_NAMES.has(label.toLowerCase());
 }
 
-/** Convert a string label to bytes (hex-encoded UTF-8) for on-chain use */
-export function labelToBytes(label: string): string {
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(label);
-    return (
-        "0x" +
-        Array.from(bytes)
-            .map((b) => b.toString(16).padStart(2, "0"))
-            .join("")
+/** Reverse-resolve a tz address to its .tez domain name (if any) */
+export async function resolveAddressToDomain(address: string): Promise<string | null> {
+    const data = await gql<{ reverseRecord: { domain: { name: string } } | null }>(
+        `query ReverseLookup($address: String!) {
+      reverseRecord(address: $address) {
+        domain {
+          name
+        }
+      }
+    }`,
+        { address },
     );
+    return data.reverseRecord?.domain?.name ?? null;
 }
