@@ -15,39 +15,36 @@ export default function ConnectWallet() {
     };
 
     if (address) {
+        const label = domain ?? `${address.slice(0, 6)}…${address.slice(-4)}`;
         return (
-            <div className="wallet-info">
-                <div className="wallet-addr" aria-label={`Connected: ${domain ?? address}`}>
-                    {domain && <span className="wallet-domain">{domain}</span>}
-                    <span style={{ display: domain ? "block" : "inline" }}>
-                        {address.slice(0, 8)}…{address.slice(-4)}
-                    </span>
-                </div>
+            <div className="wallet-chip" aria-label={`Connected: ${domain ?? address}`}>
+                <span className="wallet-chip-label">{label}</span>
                 <button
                     onClick={disconnect}
-                    className="btn btn-ghost btn-sm"
+                    className="wallet-chip-disconnect"
                     aria-label="Disconnect wallet"
+                    title="Disconnect"
                 >
-                    Disconnect
+                    ×
                 </button>
             </div>
         );
     }
 
     return (
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div className="wallet-connect-row">
             <button
                 onClick={connect}
                 disabled={connecting || resetting}
                 className="btn btn-primary btn-sm"
                 aria-label="Connect Tezos wallet"
             >
-                {connecting ? "Connecting…" : "Connect"}
+                {connecting ? "Connecting…" : "Connect Wallet"}
             </button>
             <button
                 onClick={handleReset}
                 disabled={resetting || connecting}
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm wallet-reset"
                 title="Clear cached wallet state"
                 aria-label="Reset wallet connection"
             >

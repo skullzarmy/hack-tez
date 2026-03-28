@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
 import PendingCommitsPanel from "../components/PendingCommitsPanel";
 import EligibilityPanel from "../components/EligibilityPanel";
+import { loadPendingCommits } from "../lib/commits";
 import config from "../config/tezos";
 
 export default function Home() {
@@ -14,6 +15,14 @@ export default function Home() {
     const year = new Date().getFullYear();
     const yearDisplay = year > 2026 ? `2026–${year}` : "2026";
     const [commitKey, setCommitKey] = useState(0);
+
+    const hasActivePending = useMemo(() => {
+        if (!address) return false;
+        const now = Date.now();
+        return loadPendingCommits().some(
+            (c) => c.targetAddress === address && now - c.commitTime < contractConfig.maxCommitAgeSec * 1000
+        );
+    }, [address, commitKey, contractConfig.maxCommitAgeSec]);
 
     return (
         <>
@@ -63,12 +72,14 @@ export default function Home() {
                         Claim your name — early access open now
                     </p>
 
-                    {address && <PendingCommitsPanel commitKey={commitKey} />}
+                    {address && <PendingCommitsPanel commitKey={commitKey} onRelease={() => setCommitKey((k) => k + 1)} />}
 
-                    <div className="search-wrap">
-                        <SubdomainSearch onCommit={() => setCommitKey((k) => k + 1)} />
-                        {address && <EligibilityPanel />}
-                    </div>
+                    {!hasActivePending && (
+                        <div className="search-wrap">
+                            <SubdomainSearch onCommit={() => setCommitKey((k) => k + 1)} />
+                            {address && <EligibilityPanel />}
+                        </div>
+                    )}
                 </div>
 
                 <span className="hero-scroll-hint" aria-hidden="true">

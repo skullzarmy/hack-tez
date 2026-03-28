@@ -8,7 +8,7 @@ import config from "../config/tezos";
 type ClaimState = "idle" | "claiming" | "success" | "error";
 type ReleaseState = "idle" | "releasing" | "error";
 
-export default function PendingCommitsPanel({ commitKey = 0 }: { commitKey?: number }) {
+export default function PendingCommitsPanel({ commitKey = 0, onRelease }: { commitKey?: number; onRelease?: () => void }) {
     const { client, address } = useTezos();
     const contractConfig = useContractConfig();
     const minCommitAgeMs = contractConfig.minCommitAgeSec * 1000;
@@ -52,6 +52,7 @@ export default function PendingCommitsPanel({ commitKey = 0 }: { commitKey?: num
             removePendingCommit(commit.label);
             setCommits((prev) => prev.filter((c) => c.label !== commit.label));
             setClaimState((s) => ({ ...s, [commit.label]: "success" }));
+            onRelease?.();
         } catch (e) {
             if (import.meta.env.DEV) console.error("Claim failed:", e);
             setClaimState((s) => ({ ...s, [commit.label]: "error" }));
@@ -71,6 +72,7 @@ export default function PendingCommitsPanel({ commitKey = 0 }: { commitKey?: num
             removePendingCommit(commit.label);
             setCommits((prev) => prev.filter((c) => c.label !== commit.label));
             setReleaseState((s) => ({ ...s, [commit.label]: "idle" }));
+            onRelease?.();
         } catch (e) {
             if (import.meta.env.DEV) console.error("Release failed:", e);
             setReleaseState((s) => ({ ...s, [commit.label]: "error" }));
