@@ -39,7 +39,7 @@ export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord 
     const tzkt = useTzktAccount(address);
 
     const label = subdomain.name.replace(`.hack.${config.tld}`, "");
-    const profileUrl = address ? `${config.tzktApi.replace("api.", "")}/${address}` : null;
+    const profileUrl = "https://profiles.tzkt.io/";
     const domainsUrl = `https://app.tezos.domains/domain/${subdomain.name}`;
 
     return (
