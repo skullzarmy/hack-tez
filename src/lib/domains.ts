@@ -42,7 +42,7 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
     const data = await gql<{
         domains: { items: Array<{ name: string; address: string | null; owner: string; expiresAtUtc: string | null }> };
     }>(
-        `query OwnerDomains($owner: String!, $parent: String!) {
+        `query OwnerDomains($owner: Address!, $parent: String!) {
       domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
         items {
           name
@@ -110,6 +110,42 @@ export function isReserved(label: string): boolean {
     return RESERVED_NAMES.has(label.toLowerCase());
 }
 
+/** Resolve a tz address to its tzkt profile alias (if any) */
+export async function resolveAddressToAlias(address: string): Promise<string | null> {
+    try {
+        const res = await fetch(`${config.tzktApi}/v1/accounts/${address}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.alias ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/** Get the first hack.tez subdomain owned by an address (if any) */
+async function getFirstHackTezSubdomain(address: string): Promise<string | null> {
+    const subs = await getSubdomainsByOwner(address);
+    return subs[0]?.name ?? null;
+}
+
+/**
+ * Resolve the best available display name for a tz address.
+ * Priority (best → fallback):
+ *   1. Owned hack.tez subdomain
+ *   2. Tezos Domains reverse record
+ *   3. tzkt profile alias
+ *   4. null (caller shows truncated address)
+ */
+export async function resolveDisplayName(address: string): Promise<string | null> {
+    const [hackTez, domain, alias] = await Promise.allSettled([
+        getFirstHackTezSubdomain(address),
+        resolveAddressToDomain(address),
+        resolveAddressToAlias(address),
+    ]);
+    const best = (r: PromiseSettledResult<string | null>) =>
+        r.status === "fulfilled" ? r.value : null;
+    return best(hackTez) ?? best(domain) ?? best(alias);
+}
 /** Reverse-resolve a tz address to its .tez domain name (if any) */
 export async function resolveAddressToDomain(address: string): Promise<string | null> {
     const data = await gql<{ reverseRecord: { domain: { name: string } } | null }>(

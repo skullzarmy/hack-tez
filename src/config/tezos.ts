@@ -27,7 +27,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         rpcUrl: "https://rpc.ghostnet.teztnets.com",
         tzktApi: "https://api.ghostnet.tzkt.io",
         domainsGraphql: "https://ghostnet-api.tezos.domains/graphql",
-        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS || "KT1X2ZbjZBaeRnnkzLyaZ3FtGp7wKuaimbzg",
+        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
     },
     shadownet: {
         name: "shadownet",
@@ -35,7 +35,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         rpcUrl: "https://rpc.shadownet.teztnets.com",
         tzktApi: "https://api.shadownet.tzkt.io",
         domainsGraphql: "",
-        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS || "KT1XgZbjNVuRrJsKLHqh2cFLAzUTqjZ3tuub",
+        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
     },
     mainnet: {
         name: "mainnet",
@@ -43,7 +43,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         rpcUrl: "https://mainnet.tezos.marigold.dev",
         tzktApi: "https://api.tzkt.io",
         domainsGraphql: "https://api.tezos.domains/graphql",
-        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS || "",
+        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
     },
 };
 

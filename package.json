@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
+        "netlify:dev": "cross-env NODE_OPTIONS='--require ./scripts/netlify-dev-patch.cjs' VITE_HMR_CLIENT_PORT=8888 netlify dev",
         "build": "tsc -b && vite build",
         "preview": "vite preview"
     },
@@ -15,24 +16,24 @@
         "@taquito/utils": "^24.2.0",
         "@tezos-x/octez.connect-sdk": "^4.8.3",
         "blakejs": "^1.2.1",
-        "buffer": "^6.0.3",
-        "process": "^0.11.10",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
-        "react-router-dom": "^7.13.2",
-        "stream-browserify": "^3.0.0",
-        "util": "^0.12.5"
+        "react-router-dom": "^7.13.2"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.2.2",
-        "@types/node": "^24.12.0",
+        "@types/node": "^25.5.0",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-react": "^6.0.1",
+        "buffer": "^6.0.3",
+        "cross-env": "^10.1.0",
+        "process": "^0.11.10",
+        "stream-browserify": "^3.0.0",
         "tailwindcss": "^4.2.2",
         "tsx": "^4.21.0",
         "typescript": "~5.9.3",
-        "vite": "^8.0.1",
-        "vite-plugin-node-polyfills": "^0.25.0"
+        "util": "^0.12.5",
+        "vite": "^8.0.3"
     }
 }

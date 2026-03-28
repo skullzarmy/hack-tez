@@ -33,3 +33,7 @@ dist-ssr
 
 # Local Netlify folder
 .netlify
+
+# SmartPy compiled output
+contract/output/
+__pycache__

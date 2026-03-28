@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { checkAvailability, validateLabel, isReserved } from "../lib/domains";
 import { useTezos } from "../context/TezosContext";
 import config from "../config/tezos";
 import { useEligibility } from "../hooks/useEligibility";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import { submitCommit, submitRegister, labelToHexBytes, generateSalt } from "../lib/contract";
+import {
+    type PendingCommit,
+    loadPendingCommits,
+    savePendingCommit,
+    removePendingCommit,
+} from "../lib/commits";
 
 type Status =
     | "idle"
@@ -19,38 +24,7 @@ type Status =
     | "success"
     | "error";
 
-const COMMIT_STORAGE_KEY = "hack-tez-pending-commits";
-
-export interface PendingCommit {
-    label: string;
-    targetAddress: string;
-    salt: string;
-    commitHash: string;
-    commitTime: number; // epoch ms
-    txHash: string;
-}
-
-export function loadPendingCommits(): PendingCommit[] {
-    try {
-        return JSON.parse(localStorage.getItem(COMMIT_STORAGE_KEY) || "[]");
-    } catch {
-        return [];
-    }
-}
-
-function savePendingCommit(commit: PendingCommit) {
-    const commits = loadPendingCommits().filter((c) => c.label !== commit.label);
-    commits.push(commit);
-    localStorage.setItem(COMMIT_STORAGE_KEY, JSON.stringify(commits));
-}
-
-function removePendingCommit(label: string) {
-    const commits = loadPendingCommits().filter((c) => c.label !== label);
-    localStorage.setItem(COMMIT_STORAGE_KEY, JSON.stringify(commits));
-}
-
 export default function SubdomainSearch() {
-    const navigate = useNavigate();
     const { client, address } = useTezos();
     const eligibility = useEligibility(address);
     const contractConfig = useContractConfig();
@@ -131,8 +105,10 @@ export default function SubdomainSearch() {
         }
 
         setStatus("checking");
+        const searchLabel = label;
         try {
-            const available = await checkAvailability(label);
+            const available = await checkAvailability(searchLabel);
+            if (searchLabel !== label) return;
             if (!available) {
                 setStatus("taken");
                 return;
@@ -140,7 +116,7 @@ export default function SubdomainSearch() {
             // Check for existing pending commit
             if (address) {
                 const commits = loadPendingCommits();
-                const existing = commits.find((c) => c.label === label && c.targetAddress === address);
+                const existing = commits.find((c) => c.label === searchLabel && c.targetAddress === address);
                 if (existing) {
                     setPendingCommit(existing);
                     const elapsed = Date.now() - existing.commitTime;
@@ -150,6 +126,7 @@ export default function SubdomainSearch() {
             }
             setStatus("available");
         } catch {
+            if (searchLabel !== label) return;
             setStatus("error");
             setError("Failed to check availability");
         }
@@ -157,6 +134,17 @@ export default function SubdomainSearch() {
 
     const handleCommit = async () => {
         if (!client || !address) return;
+
+        // Block if an active commitment already exists for this address (contract enforces 1 per wallet)
+        const allCommits = loadPendingCommits();
+        const activeForAddress = allCommits.find(
+            (c) => c.targetAddress === address && Date.now() - c.commitTime < contractConfig.maxCommitAgeSec * 1000
+        );
+        if (activeForAddress && activeForAddress.label !== label) {
+            setStatus("error");
+            setError(`You already have an active commitment for "${activeForAddress.label}". Release it or wait for it to expire before committing a new name.`);
+            return;
+        }
 
         setStatus("committing");
         setError(null);
@@ -185,7 +173,7 @@ export default function SubdomainSearch() {
             setTxHash(result.transactionHash);
             setStatus("waiting");
         } catch (e) {
-            console.error("Commit failed:", e);
+            if (import.meta.env.DEV) console.error("Commit failed:", e);
             setStatus("error");
             setError(e instanceof Error ? e.message : "Commit failed");
         }
@@ -209,7 +197,7 @@ export default function SubdomainSearch() {
             setTxHash(result.transactionHash);
             setStatus("success");
         } catch (e) {
-            console.error("Registration failed:", e);
+            if (import.meta.env.DEV) console.error("Registration failed:", e);
             setStatus("error");
             setError(e instanceof Error ? e.message : "Registration failed");
         }
@@ -218,17 +206,21 @@ export default function SubdomainSearch() {
     const waitDescription = formatDuration(contractConfig.minCommitAgeSec);
 
     return (
-        <div className="w-full max-w-lg mx-auto">
+        <div style={{ width: "100%" }}>
             {/* Contract paused banner */}
             {contractConfig.paused && (
-                <div className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-800 text-red-300 text-sm text-center">
-                    ⚠️ Registrations are temporarily paused. Please check back later.
+                <div className="status-panel status-panel--err" role="alert">
+                    ⚠ Registrations are temporarily paused. Please check back later.
                 </div>
             )}
 
-            <div className="flex gap-2">
-                <div className="flex-1 relative">
+            <div className="search-row" role="search">
+                <div className="search-input-wrap">
+                    <label htmlFor="subdomain-input" className="sr-only">
+                        Subdomain name
+                    </label>
                     <input
+                        id="subdomain-input"
                         type="text"
                         value={label}
                         onChange={(e) => {
@@ -239,65 +231,61 @@ export default function SubdomainSearch() {
                         }}
                         onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                         placeholder="yourname"
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-mono"
+                        className="search-input"
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-label="Enter subdomain name"
+                        aria-describedby="search-suffix"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono text-sm">
+                    <span id="search-suffix" className="search-suffix" aria-hidden="true">
                         .hack.{config.tld}
                     </span>
                 </div>
                 <button
                     onClick={handleSearch}
                     disabled={!label || status === "checking" || contractConfig.paused}
-                    className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                    className="search-btn"
+                    aria-label={status === "checking" ? "Checking availability…" : "Search for subdomain"}
                 >
                     {status === "checking" ? "…" : "Search"}
                 </button>
             </div>
 
             {error && (
-                <div className="mt-3 p-3 rounded-lg bg-red-900/30 border border-red-800 text-red-300 text-sm">
+                <div className="status-panel status-panel--err" role="alert">
                     {error}
                 </div>
             )}
 
             {status === "taken" && (
-                <div className="mt-3 p-3 rounded-lg bg-yellow-900/30 border border-yellow-800 text-yellow-300 text-sm">
-                    <strong>
-                        {label}.hack.{config.tld}
-                    </strong>{" "}
-                    is already taken.
+                <div className="status-panel status-panel--warn" role="status">
+                    <strong>{label}.hack.{config.tld}</strong> is already taken.
                 </div>
             )}
 
             {status === "available" && (
-                <div className="mt-3 p-4 rounded-lg bg-emerald-900/30 border border-emerald-800">
-                    <p className="text-emerald-300 font-medium mb-3">
-                        ✓{" "}
-                        <strong>
-                            {label}.hack.{config.tld}
-                        </strong>{" "}
-                        is available!
+                <div className="status-panel status-panel--ok" role="status">
+                    <p style={{ marginBottom: "0.6rem" }}>
+                        ✓ <strong>{label}.hack.{config.tld}</strong> is available.
                     </p>
 
                     {!address && (
-                        <p className="text-gray-400 text-sm">Connect your wallet to register this subdomain.</p>
+                        <p style={{ color: "var(--fg-2)", fontSize: "0.75rem" }}>
+                            Connect your wallet to register this name.
+                        </p>
                     )}
 
                     {address && !eligibility.eligible && (
-                        <p className="text-yellow-300 text-sm">{eligibility.reason}</p>
+                        <p style={{ color: "var(--warn)", fontSize: "0.75rem" }}>{eligibility.reason}</p>
                     )}
 
                     {address && eligibility.eligible && (
-                        <div>
-                            <p className="text-gray-400 text-sm mb-3">
-                                Registration is two steps: commit now, then register after {waitDescription}. This
-                                prevents name frontrunning.
+                        <div className="panel-action">
+                            <p style={{ color: "var(--fg-2)", fontSize: "0.75rem", marginBottom: "0.75rem" }}>
+                                Two steps: commit now, then register after {waitDescription}. Prevents frontrunning.
                             </p>
-                            <button
-                                onClick={handleCommit}
-                                className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors cursor-pointer"
-                            >
-                                Step 1: Commit to {label}.hack.{config.tld} (gas only)
+                            <button onClick={handleCommit} className="btn btn-primary btn-full">
+                                Step 1 — Commit to {label}.hack.{config.tld}
                             </button>
                         </div>
                     )}
@@ -305,31 +293,29 @@ export default function SubdomainSearch() {
             )}
 
             {status === "committing" && (
-                <div className="mt-3 p-4 rounded-lg bg-blue-900/30 border border-blue-800 text-blue-300 text-sm">
-                    Submitting commitment… please approve the transaction in your wallet.
+                <div className="status-panel status-panel--info" role="status" aria-live="polite">
+                    Submitting commitment… approve the transaction in your wallet.
                 </div>
             )}
 
             {status === "waiting" && (
-                <div className="mt-3 p-4 rounded-lg bg-amber-900/30 border border-amber-800">
-                    <p className="text-amber-300 font-medium mb-1">
-                        ⏳ Commitment submitted for{" "}
-                        <strong>
-                            {label}.hack.{config.tld}
-                        </strong>
+                <div className="status-panel status-panel--warn" role="status" aria-live="polite">
+                    <p style={{ marginBottom: "0.35rem" }}>
+                        ⏳ Committed — <strong>{label}.hack.{config.tld}</strong>
                     </p>
-                    <p className="text-amber-200 text-sm">
-                        You can register in: <strong className="font-mono">{timeLeft}</strong>
+                    <p style={{ fontSize: "0.75rem" }}>
+                        Register in: <strong className="mono">{timeLeft}</strong>
                     </p>
-                    <p className="text-gray-400 text-xs mt-2">
-                        You can close this page and come back later. Your commitment is saved locally and on-chain.
+                    <p style={{ fontSize: "0.65rem", color: "var(--fg-2)", marginTop: "0.4rem" }}>
+                        Safe to close — commitment saved locally and on-chain.
                     </p>
                     {pendingCommit?.txHash && (
                         <a
                             href={`https://${config.name === "mainnet" ? "" : `${config.name}.`}tzkt.io/${pendingCommit.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-amber-400 text-xs underline mt-1 inline-block"
+                            style={{ fontSize: "0.65rem", display: "inline-block", marginTop: "0.5rem" }}
+                            aria-label="View commit transaction on TzKT (opens in new tab)"
                         >
                             View commit tx ↗
                         </a>
@@ -338,55 +324,39 @@ export default function SubdomainSearch() {
             )}
 
             {status === "committed" && (
-                <div className="mt-3 p-4 rounded-lg bg-emerald-900/30 border border-emerald-800">
-                    <p className="text-emerald-300 font-medium mb-3">
-                        ✓ Your commitment for{" "}
-                        <strong>
-                            {label}.hack.{config.tld}
-                        </strong>{" "}
-                        is ready!
+                <div className="status-panel status-panel--ok" role="status">
+                    <p style={{ marginBottom: "0.75rem" }}>
+                        ✓ Commitment ready — <strong>{label}.hack.{config.tld}</strong>
                     </p>
-                    <button
-                        onClick={handleRegister}
-                        className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors cursor-pointer"
-                    >
-                        Step 2: Register {label}.hack.{config.tld} (gas only)
+                    <button onClick={handleRegister} className="btn btn-primary btn-full">
+                        Step 2 — Register {label}.hack.{config.tld}
                     </button>
                 </div>
             )}
 
             {status === "registering" && (
-                <div className="mt-3 p-4 rounded-lg bg-blue-900/30 border border-blue-800 text-blue-300 text-sm">
-                    Registering… please approve the transaction in your wallet.
+                <div className="status-panel status-panel--info" role="status" aria-live="polite">
+                    Registering… approve the transaction in your wallet.
                 </div>
             )}
 
             {status === "success" && (
-                <div className="mt-3 p-4 rounded-lg bg-emerald-900/30 border border-emerald-800">
-                    <p className="text-emerald-300 font-medium mb-2">
-                        🎉{" "}
-                        <strong>
-                            {label}.hack.{config.tld}
-                        </strong>{" "}
-                        registered successfully!
+                <div className="status-panel status-panel--ok" role="status" aria-live="polite">
+                    <p style={{ marginBottom: "0.75rem" }}>
+                        ✓ <strong>{label}.hack.{config.tld}</strong> registered.
                     </p>
-                    <div className="flex items-center gap-3">
+                    <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
                         {txHash && (
                             <a
                                 href={`https://${config.name === "mainnet" ? "" : `${config.name}.`}tzkt.io/${txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-emerald-400 text-xs underline"
+                                style={{ fontSize: "0.7rem" }}
+                                aria-label="View registration transaction on TzKT (opens in new tab)"
                             >
                                 View on TzKT ↗
                             </a>
                         )}
-                        <button
-                            onClick={() => navigate("/manage")}
-                            className="text-emerald-400 text-xs underline cursor-pointer"
-                        >
-                            Manage your subdomains →
-                        </button>
                     </div>
                 </div>
             )}

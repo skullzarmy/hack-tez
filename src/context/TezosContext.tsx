@@ -7,20 +7,33 @@ import {
     type Network,
 } from "@tezos-x/octez.connect-sdk";
 import config from "../config/tezos";
-import { resolveAddressToDomain } from "../lib/domains";
+import { resolveDisplayName } from "../lib/domains";
 
 interface TezosState {
     client: DAppClient;
     address: string | null;
     domain: string | null;
-    balance: number | null;
     connecting: boolean;
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     resetConnection: () => Promise<void>;
 }
 
-const TezosContext = createContext<TezosState | null>(null);
+// Preserve context identity across HMR — a new createContext() call on every
+// hot reload would break all consumers (they'd read from a different context
+// object than the one TezosProvider is writing to).
+declare global {
+    interface Window {
+        __TEZOS_CONTEXT__?: ReturnType<typeof createContext<TezosState | null>>;
+    }
+}
+const TezosContext: ReturnType<typeof createContext<TezosState | null>> =
+    (import.meta.env.DEV && window.__TEZOS_CONTEXT__) ||
+    createContext<TezosState | null>(null);
+
+if (import.meta.env.DEV) {
+    window.__TEZOS_CONTEXT__ = TezosContext;
+}
 
 // Use CUSTOM network type with explicit RPC URL for non-mainnet.
 // This bypasses wallet extension's internal network lookup which can fail
@@ -45,16 +58,6 @@ function createClient(): DAppClient {
 
 let dAppClient = createClient();
 
-async function fetchBalance(addr: string): Promise<number | null> {
-    try {
-        const res = await fetch(`${config.rpcUrl}/chains/main/blocks/head/context/contracts/${addr}/balance`);
-        const raw = await res.json();
-        return parseInt(raw, 10) / 1_000_000;
-    } catch {
-        return null;
-    }
-}
-
 // Clear all beacon-related localStorage entries to reset stale state
 function clearBeaconState() {
     const keysToRemove: string[] = [];
@@ -68,30 +71,28 @@ function clearBeaconState() {
 export function TezosProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
     const [domain, setDomain] = useState<string | null>(null);
-    const [balance, setBalance] = useState<number | null>(null);
     const [connecting, setConnecting] = useState(false);
     const clientRef = useRef(dAppClient);
 
     const hydrateAccount = useCallback(async (addr: string) => {
         setAddress(addr);
-        resolveAddressToDomain(addr).then(setDomain).catch(() => {});
-        fetchBalance(addr).then(setBalance);
+        resolveDisplayName(addr).then(setDomain).catch(() => {});
     }, []);
 
     useEffect(() => {
-        // Check for an existing active account (session restore)
-        clientRef.current.getActiveAccount().then((account) => {
-            if (account) hydrateAccount(account.address);
-        });
-
+        // Subscribe first so session-restore fires correctly
         clientRef.current.subscribeToEvent(BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
             if (account) {
                 hydrateAccount(account.address);
             } else {
                 setAddress(null);
                 setDomain(null);
-                setBalance(null);
             }
+        });
+
+        // Then check for an existing active account (session restore)
+        clientRef.current.getActiveAccount().then((account) => {
+            if (account) hydrateAccount(account.address);
         });
     }, [hydrateAccount]);
 
@@ -114,12 +115,14 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             }
         } catch (err: unknown) {
             const errObj = err as Record<string, unknown>;
-            console.error("Wallet connection failed:", {
-                errorType: errObj?.errorType,
-                description: errObj?.description,
-                message: errObj?.message,
-                raw: err,
-            });
+            if (import.meta.env.DEV) {
+                console.error("Wallet connection failed:", {
+                    errorType: errObj?.errorType,
+                    description: errObj?.description,
+                    message: errObj?.message,
+                    raw: err,
+                });
+            }
         } finally {
             setConnecting(false);
         }
@@ -129,7 +132,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         await clientRef.current.clearActiveAccount();
         setAddress(null);
         setDomain(null);
-        setBalance(null);
     }, []);
 
     // Nuclear option: wipe all beacon state and recreate the client
@@ -142,7 +144,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         clientRef.current = dAppClient;
         setAddress(null);
         setDomain(null);
-        setBalance(null);
     }, []);
 
     return (
@@ -151,7 +152,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 client: clientRef.current,
                 address,
                 domain,
-                balance,
                 connecting,
                 connect,
                 disconnect,

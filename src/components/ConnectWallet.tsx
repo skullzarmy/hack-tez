@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTezos } from "../context/TezosContext";
 
 export default function ConnectWallet() {
-    const { address, domain, balance, connecting, connect, disconnect, resetConnection } = useTezos();
+    const { address, domain, connecting, connect, disconnect, resetConnection } = useTezos();
     const [resetting, setResetting] = useState(false);
 
     const handleReset = async () => {
@@ -16,20 +16,17 @@ export default function ConnectWallet() {
 
     if (address) {
         return (
-            <div className="flex items-center gap-3">
-                <div className="text-sm text-right">
-                    {domain ? (
-                        <div className="font-mono text-emerald-400 text-xs font-medium">{domain}</div>
-                    ) : (
-                        <div className="font-mono text-green-400 text-xs">
-                            {address.slice(0, 8)}…{address.slice(-4)}
-                        </div>
-                    )}
-                    {balance !== null && <div className="text-gray-400 text-xs">{balance.toFixed(2)} ꜩ</div>}
+            <div className="wallet-info">
+                <div className="wallet-addr" aria-label={`Connected: ${domain ?? address}`}>
+                    {domain && <span className="wallet-domain">{domain}</span>}
+                    <span style={{ display: domain ? "block" : "inline" }}>
+                        {address.slice(0, 8)}…{address.slice(-4)}
+                    </span>
                 </div>
                 <button
                     onClick={disconnect}
-                    className="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors cursor-pointer"
+                    className="btn btn-ghost btn-sm"
+                    aria-label="Disconnect wallet"
                 >
                     Disconnect
                 </button>
@@ -38,21 +35,23 @@ export default function ConnectWallet() {
     }
 
     return (
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <button
                 onClick={connect}
                 disabled={connecting || resetting}
-                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                className="btn btn-primary btn-sm"
+                aria-label="Connect Tezos wallet"
             >
-                {connecting ? "Connecting…" : "Connect Wallet"}
+                {connecting ? "Connecting…" : "Connect"}
             </button>
             <button
                 onClick={handleReset}
                 disabled={resetting || connecting}
-                title="Clear cached wallet state and start fresh"
-                className="px-2 py-2 rounded-lg bg-gray-800 hover:bg-red-900/50 text-gray-500 hover:text-red-400 text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                className="btn btn-ghost btn-sm"
+                title="Clear cached wallet state"
+                aria-label="Reset wallet connection"
             >
-                {resetting ? "…" : "↻ Reset"}
+                {resetting ? "…" : "↻"}
             </button>
         </div>
     );

@@ -1,3 +1,10 @@
+import { Buffer } from "buffer";
+import process from "process";
+
+// Ensure Node globals are available for Taquito/Beacon SDK
+globalThis.Buffer = globalThis.Buffer ?? Buffer;
+globalThis.process = globalThis.process ?? process;
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -8,3 +15,11 @@ createRoot(document.getElementById("root")!).render(
         <App />
     </StrictMode>,
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {
+            // SW registration failure is non-fatal
+        });
+    });
+}

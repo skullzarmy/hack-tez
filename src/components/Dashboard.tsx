@@ -7,31 +7,29 @@ const TED_APP_URL = config.name === "mainnet" ? "https://app.tezos.domains" : "h
 
 function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
     return (
-        <div className="p-4 rounded-lg bg-gray-800 border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-                <h3 className="font-mono text-emerald-400 font-medium">{domain.name}</h3>
-                <span className="text-xs text-gray-500 font-mono">
-                    → {domain.address ? `${domain.address.slice(0, 8)}…${domain.address.slice(-4)}` : "no address"}
-                </span>
-            </div>
-
-            <div className="text-sm text-gray-400 space-y-1 mb-3">
-                {domain.expiresAt && (
-                    <div className="flex justify-between">
-                        <span>Expires</span>
-                        <span className="text-xs text-gray-300">{new Date(domain.expiresAt).toLocaleDateString()}</span>
+        <div className="domain-card">
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                <div>
+                    <div className="domain-name">{domain.name}</div>
+                    <div className="domain-meta">
+                        → {domain.address ? `${domain.address.slice(0, 10)}…${domain.address.slice(-6)}` : "no address set"}
+                        {domain.expiresAt && (
+                            <span style={{ marginLeft: "0.75rem" }}>
+                                · Expires {new Date(domain.expiresAt).toLocaleDateString()}
+                            </span>
+                        )}
                     </div>
-                )}
+                </div>
+                <a
+                    href={`${TED_APP_URL}/domain/${domain.name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost btn-sm"
+                    aria-label={`Manage ${domain.name} on Tezos Domains (opens in new tab)`}
+                >
+                    Manage ↗
+                </a>
             </div>
-
-            <a
-                href={`${TED_APP_URL}/domain/${domain.name}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-3 py-1.5 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-            >
-                Manage on Tezos Domains →
-            </a>
         </div>
     );
 }
@@ -41,41 +39,74 @@ export default function Dashboard() {
     const { subdomains, loading, error, refresh } = useSubdomains(address);
 
     if (!address) {
-        return <div className="text-center text-gray-400 py-12">Connect your wallet to view your subdomains.</div>;
+        return (
+            <div
+                style={{ textAlign: "center", padding: "4rem 1rem", fontFamily: "var(--font)", color: "var(--fg-2)", fontSize: "0.85rem" }}
+                role="status"
+            >
+                Connect your wallet to view your subdomains.
+            </div>
+        );
     }
 
     if (loading) {
-        return <div className="text-center text-gray-400 py-12">Loading your subdomains…</div>;
+        return (
+            <div
+                style={{ textAlign: "center", padding: "4rem 1rem", fontFamily: "var(--font)", color: "var(--fg-3)", fontSize: "0.8rem" }}
+                role="status"
+                aria-live="polite"
+            >
+                Loading…
+            </div>
+        );
     }
 
     if (error) {
-        return <div className="text-center text-red-400 py-12">Error: {error}</div>;
+        return (
+            <div className="status-panel status-panel--err" role="alert">
+                Error: {error}
+            </div>
+        );
     }
 
     return (
-        <div className="max-w-2xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">Your Subdomains</h2>
-                <button onClick={refresh} className="text-xs text-gray-400 hover:text-gray-300 cursor-pointer">
+        <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
+                <p className="text-subtle" style={{ fontFamily: "var(--font)", fontSize: "0.7rem", letterSpacing: "0.06em" }}>
+                    You own your subdomains on Tezos Domains. Manage them directly on TED.
+                </p>
+                <button
+                    onClick={refresh}
+                    className="btn btn-ghost btn-sm"
+                    aria-label="Refresh subdomain list"
+                >
                     ↻ Refresh
                 </button>
             </div>
 
-            <div className="text-xs text-gray-500 mb-4">
-                You own your subdomains on Tezos Domains. Manage them directly on TED.
-            </div>
-
             {subdomains.length === 0 ? (
-                <div className="text-center text-gray-500 py-8 bg-gray-800/50 rounded-lg">
-                    <p className="mb-2">No subdomains yet.</p>
-                    <a href="/" className="text-emerald-400 text-sm hover:underline">
-                        Register one →
+                <div
+                    style={{
+                        textAlign: "center",
+                        padding: "3rem",
+                        border: "1px solid var(--border-2)",
+                        fontFamily: "var(--font)",
+                        fontSize: "0.8rem",
+                        color: "var(--fg-2)",
+                    }}
+                    role="status"
+                >
+                    <p style={{ marginBottom: "0.75rem" }}>No subdomains yet.</p>
+                    <a href="/" className="btn btn-primary btn-sm">
+                        Claim your name →
                     </a>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div role="list" aria-label="Your subdomains">
                     {subdomains.map((d) => (
-                        <SubdomainCard key={d.name} domain={d} />
+                        <div key={d.name} role="listitem">
+                            <SubdomainCard domain={d} />
+                        </div>
                     ))}
                 </div>
             )}

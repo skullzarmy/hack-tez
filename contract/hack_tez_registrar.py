@@ -15,12 +15,13 @@ This contract's scope is strictly:
 Registration uses a commit-reveal pattern enforced entirely on-chain:
 
   1. commit(hash) — user submits blake2b(pack(label, sender, target, salt))
-  2. Wait ≥ min_commit_age (default 4 hours)
+  2. Wait ≥ min_commit_age (currently 2 min on ghostnet — TODO: 30s for production)
   3. register(label, target_address, salt) — contract verifies the hash,
      checks timing, calls set_child_record on TED with owner=sp.sender
 
 On-chain anti-gaming:
   - Commit-reveal with mandatory wait period (sybil must wait per name)
+  - 1 active commitment per wallet at a time (enforced by pending_commitments)
   - 1 registration per wallet (permanent — claims are not refundable)
   - Label length bounds enforced (default 3-64 bytes)
   - Label content validation (a-z, 0-9, hyphen only; no leading/trailing hyphens)
@@ -54,6 +55,7 @@ def main():
         proposed_admin=sp.option[sp.address],
         metadata=sp.big_map[sp.string, sp.bytes],
         commitments=sp.big_map[sp.bytes, sp.timestamp],
+        pending_commitments=sp.big_map[sp.address, sp.bytes],
         registrations=sp.big_map[sp.address, sp.nat],
         whitelist=sp.big_map[sp.address, sp.bool],
         whitelist_enabled=sp.bool,
@@ -93,6 +95,9 @@ def main():
             self.data.commitments = sp.cast(
                 sp.big_map({}), sp.big_map[sp.bytes, sp.timestamp]
             )
+            self.data.pending_commitments = sp.cast(
+                sp.big_map({}), sp.big_map[sp.address, sp.bytes]
+            )
             self.data.registrations = sp.cast(
                 sp.big_map({}), sp.big_map[sp.address, sp.nat]
             )
@@ -105,7 +110,7 @@ def main():
             self.data.max_per_wallet = sp.nat(1)
             self.data.min_label_length = sp.nat(3)
             self.data.max_label_length = sp.nat(64)
-            self.data.min_commit_age = 14400  # 4 hours in seconds
+            self.data.min_commit_age = 14400  # 4 hours in seconds — TODO: change to 30 before next deploy
             self.data.max_commit_age = 86400  # 24 hours in seconds
             self.data.paused = False
             sp.cast(self.data, t_storage)
@@ -156,15 +161,28 @@ def main():
         def commit(self, commitment_hash):
             """Phase 1: Submit a commitment hash.
             hash = blake2b(pack(record(label, sender, target_address, salt)))
+            Only one active commitment per wallet is allowed at a time.
+            If a previous commitment has expired, it is cleared automatically.
             """
             sp.cast(commitment_hash, sp.bytes)
             assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
             assert not self.data.paused, "CONTRACT_PAUSED"
             self._check_access()
+            # Enforce 1 active commitment per sender.
+            # If they have a previous commitment, it must have expired.
+            if self.data.pending_commitments.contains(sp.sender):
+                prev_hash = self.data.pending_commitments[sp.sender]
+                if self.data.commitments.contains(prev_hash):
+                    prev_age = sp.now - self.data.commitments[prev_hash]
+                    assert prev_age > self.data.max_commit_age, "COMMITMENT_ALREADY_PENDING"
+                    # Previous commitment provably expired — clean it up
+                    del self.data.commitments[prev_hash]
+                del self.data.pending_commitments[sp.sender]
             assert not self.data.commitments.contains(
                 commitment_hash
             ), "COMMITMENT_EXISTS"
             self.data.commitments[commitment_hash] = sp.now
+            self.data.pending_commitments[sp.sender] = commitment_hash
             sp.emit(
                 sp.record(hash=commitment_hash, sender=sp.sender),
                 tag="commit",
@@ -232,6 +250,8 @@ def main():
             # Bookkeeping
             self.data.registrations[sp.sender] = current_count + 1
             del self.data.commitments[commitment_hash]
+            if self.data.pending_commitments.contains(sp.sender):
+                del self.data.pending_commitments[sp.sender]
 
             # Emit event for indexers
             sp.emit(
@@ -241,6 +261,22 @@ def main():
                     target_address=target_address,
                 ),
                 tag="register",
+            )
+
+        @sp.entrypoint
+        def release_commitment(self):
+            """Cancel your own pending commitment. Removes it from both
+            commitments and pending_commitments, freeing you to commit again.
+            The on-chain hash slot is released immediately."""
+            assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
+            assert self.data.pending_commitments.contains(sp.sender), "NO_PENDING_COMMITMENT"
+            commitment_hash = self.data.pending_commitments[sp.sender]
+            if self.data.commitments.contains(commitment_hash):
+                del self.data.commitments[commitment_hash]
+            del self.data.pending_commitments[sp.sender]
+            sp.emit(
+                sp.record(hash=commitment_hash, sender=sp.sender),
+                tag="release_commitment",
             )
 
         # --- Admin entrypoints ---
@@ -405,7 +441,8 @@ def main():
 
         @sp.entrypoint
         def clear_commitments(self, hashes):
-            """Remove expired/stale commitments from storage (admin only, batch)."""
+            """Remove expired/stale commitments from storage (admin only, batch).
+            Also cleans up pending_commitments entries for affected senders."""
             sp.cast(hashes, sp.list[sp.bytes])
             assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
             assert sp.sender == self.data.admin_address, "NOT_ADMIN"
@@ -421,7 +458,8 @@ def main():
         def clear_expired_commitment(self, commitment_hash):
             """Permissionless cleanup: anyone can remove a commitment that
             has provably expired (age > max_commit_age). Cannot touch
-            commitments still within the valid timing window."""
+            commitments still within the valid timing window.
+            Also cleans up the sender's pending_commitments entry."""
             sp.cast(commitment_hash, sp.bytes)
             assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
             commit_time = self.data.commitments.get(
@@ -494,6 +532,16 @@ def main():
                 )
             )
 
+        @sp.onchain_view()
+        def get_pending_commitment(self, wallet):
+            """Get the active pending commitment hash for a wallet, if any."""
+            sp.cast(wallet, sp.address)
+            return (
+                self.data.pending_commitments.get(
+                    wallet, default=sp.cast(sp.bytes("0x"), sp.bytes)
+                )
+            )
+
 
 # === Tests ===
 
@@ -545,21 +593,39 @@ def test_initial_state():
 
 @sp.add_test()
 def test_commit():
-    """Test commit stores hash with timestamp, rejects duplicates."""
+    """Test commit stores hash with timestamp, rejects duplicate hash,
+    and rejects a second commit from the same sender while first is active."""
     scenario = sp.test_scenario("Commit", main)
 
     admin = sp.test_account("Admin")
     user = sp.test_account("User")
+    user2 = sp.test_account("User2")
     registry = sp.test_account("Registry")
 
     contract = _make_contract(scenario, admin, registry)
 
     test_hash = sp.blake2b(sp.bytes("0xdeadbeef"))
-    contract.commit(test_hash, _sender=user)
+    contract.commit(test_hash, _sender=user, _now=sp.timestamp(0))
     scenario.verify(contract.data.commitments.contains(test_hash))
+    scenario.verify(contract.data.pending_commitments[user.address] == test_hash)
 
-    # Duplicate fails
-    contract.commit(test_hash, _sender=user, _valid=False)
+    # Same hash again (even from different sender) — hash already in commitments
+    contract.commit(test_hash, _sender=user2, _valid=False)
+
+    # Same sender with a different hash — blocked while first is still active
+    test_hash2 = sp.blake2b(sp.bytes("0xcafebabe"))
+    contract.commit(test_hash2, _sender=user, _now=sp.timestamp(100), _valid=False)
+
+    # Different sender with different hash — allowed
+    test_hash3 = sp.blake2b(sp.bytes("0xc0ffee"))
+    contract.commit(test_hash3, _sender=user2, _now=sp.timestamp(0))
+    scenario.verify(contract.data.pending_commitments[user2.address] == test_hash3)
+
+    # After expiry, same sender CAN commit again — expired commitment auto-cleared
+    test_hash4 = sp.blake2b(sp.bytes("0xf00d"))
+    contract.commit(test_hash4, _sender=user, _now=sp.timestamp(86401))
+    scenario.verify(~contract.data.commitments.contains(test_hash))
+    scenario.verify(contract.data.pending_commitments[user.address] == test_hash4)
 
 
 @sp.add_test()
@@ -857,8 +923,10 @@ def test_admin_functions():
     # --- clear_commitments (batch) ---
     h1 = sp.blake2b(sp.bytes("0xcafebabe"))
     h2 = sp.blake2b(sp.bytes("0xdeadbeef"))
-    contract.commit(h1, _sender=user)
-    contract.commit(h2, _sender=user)
+    user_a = sp.test_account("UserA")
+    user_b = sp.test_account("UserB")
+    contract.commit(h1, _sender=user_a)
+    contract.commit(h2, _sender=user_b)
     scenario.verify(contract.data.commitments.contains(h1))
     scenario.verify(contract.data.commitments.contains(h2))
     contract.clear_commitments(
@@ -1043,79 +1111,83 @@ def test_label_valid_chars():
 
 @sp.add_test()
 def test_label_leading_trailing_hyphen():
-    """Labels with leading or trailing hyphens should be rejected."""
+    """Labels with leading or trailing hyphens should be rejected.
+    Each invalid label is tested with a fresh user to avoid pending_commitments conflicts."""
     scenario = sp.test_scenario("Label hyphen edges", main)
 
     admin = sp.test_account("Admin")
-    user = sp.test_account("User")
     registry = sp.test_account("Registry")
 
     contract = _make_contract(scenario, admin, registry)
 
     # "-ab" = 0x2d6162 (leading hyphen)
+    user1 = sp.test_account("User1")
     label1 = sp.bytes("0x2d6162")
     salt = sp.bytes("0x01")
     payload1 = sp.pack(
         sp.record(
-            label=label1, sender=user.address,
-            target_address=user.address, salt=salt,
+            label=label1, sender=user1.address,
+            target_address=user1.address, salt=salt,
         )
     )
     h1 = sp.blake2b(payload1)
-    contract.commit(h1, _sender=user, _now=sp.timestamp(0))
+    contract.commit(h1, _sender=user1, _now=sp.timestamp(0))
     contract.register(
-        sp.record(label=label1, target_address=user.address, salt=salt),
-        _sender=user, _now=sp.timestamp(14401), _valid=False,
+        sp.record(label=label1, target_address=user1.address, salt=salt),
+        _sender=user1, _now=sp.timestamp(14401), _valid=False,
     )
 
     # "ab-" = 0x61622d (trailing hyphen)
+    user2 = sp.test_account("User2")
     label2 = sp.bytes("0x61622d")
     salt2 = sp.bytes("0x02")
     payload2 = sp.pack(
         sp.record(
-            label=label2, sender=user.address,
-            target_address=user.address, salt=salt2,
+            label=label2, sender=user2.address,
+            target_address=user2.address, salt=salt2,
         )
     )
     h2 = sp.blake2b(payload2)
-    contract.commit(h2, _sender=user, _now=sp.timestamp(0))
+    contract.commit(h2, _sender=user2, _now=sp.timestamp(0))
     contract.register(
-        sp.record(label=label2, target_address=user.address, salt=salt2),
-        _sender=user, _now=sp.timestamp(14401), _valid=False,
+        sp.record(label=label2, target_address=user2.address, salt=salt2),
+        _sender=user2, _now=sp.timestamp(14401), _valid=False,
     )
 
     # "---" = 0x2d2d2d (all hyphens — leading AND trailing)
+    user3 = sp.test_account("User3")
     label3 = sp.bytes("0x2d2d2d")
     salt3 = sp.bytes("0x03")
     payload3 = sp.pack(
         sp.record(
-            label=label3, sender=user.address,
-            target_address=user.address, salt=salt3,
+            label=label3, sender=user3.address,
+            target_address=user3.address, salt=salt3,
         )
     )
     h3 = sp.blake2b(payload3)
-    contract.commit(h3, _sender=user, _now=sp.timestamp(0))
+    contract.commit(h3, _sender=user3, _now=sp.timestamp(0))
     contract.register(
-        sp.record(label=label3, target_address=user.address, salt=salt3),
-        _sender=user, _now=sp.timestamp(14401), _valid=False,
+        sp.record(label=label3, target_address=user3.address, salt=salt3),
+        _sender=user3, _now=sp.timestamp(14401), _valid=False,
     )
 
     # "a-b" = 0x612d62 (middle hyphen — should pass)
+    user4 = sp.test_account("User4")
     label4 = sp.bytes("0x612d62")
     salt4 = sp.bytes("0x04")
     payload4 = sp.pack(
         sp.record(
-            label=label4, sender=user.address,
-            target_address=user.address, salt=salt4,
+            label=label4, sender=user4.address,
+            target_address=user4.address, salt=salt4,
         )
     )
     h4 = sp.blake2b(payload4)
-    contract.commit(h4, _sender=user, _now=sp.timestamp(0))
+    contract.commit(h4, _sender=user4, _now=sp.timestamp(0))
     contract.register(
-        sp.record(label=label4, target_address=user.address, salt=salt4),
-        _sender=user, _now=sp.timestamp(14401),
+        sp.record(label=label4, target_address=user4.address, salt=salt4),
+        _sender=user4, _now=sp.timestamp(14401),
     )
-    scenario.verify(contract.data.registrations[user.address] == 1)
+    scenario.verify(contract.data.registrations[user4.address] == 1)
 
 
 @sp.add_test()
@@ -1163,3 +1235,74 @@ def test_clear_expired_commitment():
         _now=sp.timestamp(86401), _amount=sp.mutez(1), _valid=False,
     )
 
+
+@sp.add_test()
+def test_release_commitment():
+    """User can release their own pending commitment, freeing them to commit again."""
+    scenario = sp.test_scenario("Release commitment", main)
+
+    admin = sp.test_account("Admin")
+    user = sp.test_account("User")
+    user2 = sp.test_account("User2")
+    registry = sp.test_account("Registry")
+
+    contract = _make_contract(scenario, admin, registry)
+
+    test_hash = sp.blake2b(sp.bytes("0xdeadbeef"))
+    contract.commit(test_hash, _sender=user, _now=sp.timestamp(0))
+    scenario.verify(contract.data.commitments.contains(test_hash))
+    scenario.verify(contract.data.pending_commitments.contains(user.address))
+
+    # Another user cannot release someone else's commitment
+    contract.release_commitment(_sender=user2, _valid=False)
+
+    # User releases their own commitment
+    contract.release_commitment(_sender=user)
+    scenario.verify(~contract.data.commitments.contains(test_hash))
+    scenario.verify(~contract.data.pending_commitments.contains(user.address))
+
+    # Releasing when no pending commitment fails
+    contract.release_commitment(_sender=user, _valid=False)
+
+    # After release, user can immediately commit a new hash
+    new_hash = sp.blake2b(sp.bytes("0xcafebabe"))
+    contract.commit(new_hash, _sender=user, _now=sp.timestamp(100))
+    scenario.verify(contract.data.commitments.contains(new_hash))
+    scenario.verify(contract.data.pending_commitments[user.address] == new_hash)
+
+    # Rejects tez
+    contract.release_commitment(_sender=user, _amount=sp.mutez(1), _valid=False)
+
+
+@sp.add_test()
+def test_one_commitment_per_wallet():
+    """A wallet cannot have more than one active commitment at a time."""
+    scenario = sp.test_scenario("One commitment per wallet", main)
+
+    admin = sp.test_account("Admin")
+    user = sp.test_account("User")
+    registry = sp.test_account("Registry")
+
+    contract = _make_contract(scenario, admin, registry)
+
+    h1 = sp.blake2b(sp.bytes("0xdeadbeef"))
+    h2 = sp.blake2b(sp.bytes("0xcafebabe"))
+    h3 = sp.blake2b(sp.bytes("0xf00dcafe"))
+
+    # First commit succeeds
+    contract.commit(h1, _sender=user, _now=sp.timestamp(0))
+    scenario.verify(contract.data.pending_commitments[user.address] == h1)
+
+    # Second commit from same wallet while first active — blocked
+    contract.commit(h2, _sender=user, _now=sp.timestamp(60), _valid=False)
+
+    # Release and try again — now allowed
+    contract.release_commitment(_sender=user)
+    contract.commit(h2, _sender=user, _now=sp.timestamp(120))
+    scenario.verify(contract.data.pending_commitments[user.address] == h2)
+    scenario.verify(~contract.data.commitments.contains(h1))
+
+    # Let h2 expire, then commit h3 — auto-clears expired h2
+    contract.commit(h3, _sender=user, _now=sp.timestamp(86522))
+    scenario.verify(~contract.data.commitments.contains(h2))
+    scenario.verify(contract.data.pending_commitments[user.address] == h3)

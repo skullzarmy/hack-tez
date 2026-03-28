@@ -92,3 +92,20 @@ export async function submitRegister(
     });
     return result;
 }
+
+export async function submitReleaseCommitment(client: DAppClient) {
+    const result = await client.requestOperation({
+        operationDetails: [
+            {
+                kind: TezosOperationType.TRANSACTION,
+                destination: config.registrarAddress,
+                amount: "0",
+                parameters: {
+                    entrypoint: "release_commitment",
+                    value: { prim: "Unit" },
+                },
+            },
+        ],
+    });
+    return result;
+}

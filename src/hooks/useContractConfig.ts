@@ -26,7 +26,7 @@ export function useContractConfig(): ContractConfig {
 
     useEffect(() => {
         if (cachedConfig && Date.now() - cacheTime < CACHE_TTL) return;
-        if (!config.registrarAddress) return;
+        if (!config.registrarAddress?.length) return;
 
         fetch(`${config.tzktApi}/v1/contracts/${config.registrarAddress}/storage`)
             .then((r) => r.json())

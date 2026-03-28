@@ -6,8 +6,11 @@
  * Uses locally compiled SmartPy Michelson (not fetched from old contract).
  *
  * Usage:
- *   source .env && export TEZOS_WALLET_PUB_KEY
- *   npx tsx scripts/redeploy-ghostnet.ts
+ *   # Compile contract first:
+ *   SMARTPY_OUTPUT_DIR=contract/output python3 contract/hack_tez_registrar.py
+ *
+ *   # Then deploy:
+ *   source .env && npx tsx scripts/redeploy-ghostnet.ts
  *
  * After deployment:
  *   1. Add the NEW contract as operator on hack.gho NFT from tz1Qi77... wallet
@@ -27,7 +30,7 @@ const SET_CHILD_RECORD_PROXY = "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU";
 
 // Path to compiled Michelson JSON from SmartPy (any test dir has the contract)
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONTRACT_JSON = resolve(__dirname, "../Commit/step_001_cont_0_contract.json");
+const CONTRACT_JSON = resolve(__dirname, "../contract/output/Commit/step_001_cont_0_contract.json");
 
 async function main() {
     // ─── Setup signer ────────────────────────────────────────────
@@ -75,11 +78,12 @@ async function main() {
         max_label_length: 64,
         max_per_wallet: 1,
         metadata: metadata,
-        min_commit_age: 120,           // 2 minutes for testing
+        min_commit_age: 30,            // 30s for ghostnet testing
         min_label_length: 3,
         name_registry: SET_CHILD_RECORD_PROXY,
-        parent_name: "6861636b2e67686f",  // "hack.gho" in hex (full parent name for ghostnet)
+        parent_name: "6861636b2e67686f",  // "hack.gho" in hex
         paused: false,
+        pending_commitments: new MichelsonMap(),
         proposed_admin: null,
         registrations: new MichelsonMap(),
         whitelist: new MichelsonMap(),

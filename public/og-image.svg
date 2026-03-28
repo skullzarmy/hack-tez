@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#000"/>
+  <!-- Scanline effect -->
+  <rect width="1200" height="630" fill="url(#scanlines)" opacity="0.04"/>
+  <defs>
+    <pattern id="scanlines" x="0" y="0" width="1200" height="4" patternUnits="userSpaceOnUse">
+      <rect width="1200" height="2" fill="#fff" opacity="0.5"/>
+    </pattern>
+  </defs>
+  <!-- Border -->
+  <rect x="24" y="24" width="1152" height="582" fill="none" stroke="#fff" stroke-width="1" opacity="0.2"/>
+  <!-- Top label -->
+  <text x="48" y="72" font-family="'Courier New',monospace" font-size="14" fill="#fff" opacity="0.5" letter-spacing="4">// TEZOS DOMAINS</text>
+  <!-- Main title -->
+  <text x="48" y="340" font-family="'Courier New',monospace" font-size="160" font-weight="700" fill="#fff" letter-spacing="-4">HACK</text>
+  <text x="48" y="490" font-family="'Courier New',monospace" font-size="160" font-weight="700" fill="#fff" letter-spacing="-4" opacity="0.4">.TEZ</text>
+  <!-- Tagline -->
+  <text x="48" y="570" font-family="'Courier New',monospace" font-size="18" fill="#fff" opacity="0.6" letter-spacing="2">CLAIM YOUR FREE SUBDOMAIN — FOR HACKERS, BUILDERS, ARTISTS, TEZONIANS</text>
+  <!-- Corner mark -->
+  <text x="1100" y="580" font-family="'Courier New',monospace" font-size="14" fill="#fff" opacity="0.3" text-anchor="end">hack.tez.page</text>
+</svg>
