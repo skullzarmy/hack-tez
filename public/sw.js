@@ -1,5 +1,5 @@
 /* hack.tez service worker — cache-first for app shell, network-first for API */
-const CACHE = "hack-tez-v4";
+const CACHE = "hack-tez-v5";
 const SHELL = ["/", "/manage", "/site.webmanifest", "/favicon.svg", "/favicon.ico", "/favicon-96x96.png"];
 const SKIP_CACHE = ["tzkt.io", "tezos.domains", "api.", "rpc.", "walletbeacon", "matrix.papers"];
 
