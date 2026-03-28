@@ -1,4 +1,7 @@
+import config from "../config/tezos";
+
 const COMMIT_STORAGE_KEY = "hack-tez-pending-commits";
+const COMMIT_CONTRACT_KEY = "hack-tez-pending-commits-contract";
 
 export interface PendingCommit {
     label: string;
@@ -9,7 +12,16 @@ export interface PendingCommit {
     txHash: string;
 }
 
+function clearIfContractChanged() {
+    const stored = localStorage.getItem(COMMIT_CONTRACT_KEY);
+    if (stored !== config.registrarAddress) {
+        localStorage.removeItem(COMMIT_STORAGE_KEY);
+        localStorage.setItem(COMMIT_CONTRACT_KEY, config.registrarAddress);
+    }
+}
+
 export function loadPendingCommits(): PendingCommit[] {
+    clearIfContractChanged();
     try {
         return JSON.parse(localStorage.getItem(COMMIT_STORAGE_KEY) || "[]");
     } catch {
