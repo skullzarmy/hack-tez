@@ -40,7 +40,8 @@ export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord 
 
     const label = subdomain.name.replace(`.hack.${config.tld}`, "");
     const profileUrl = "https://profiles.tzkt.io/";
-    const domainsUrl = `https://app.tezos.domains/domain/${subdomain.name}`;
+    const domainsBase = config.name === "mainnet" ? "https://app.tezos.domains" : `https://${config.name}.tezos.domains`;
+    const domainsUrl = `${domainsBase}/domain/${subdomain.name}`;
 
     return (
         <div className="claimed-view" role="region" aria-label="Your claimed name">
