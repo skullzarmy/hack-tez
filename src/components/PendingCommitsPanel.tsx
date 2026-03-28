@@ -78,6 +78,8 @@ export default function PendingCommitsPanel() {
 
 
 
+    if (commits.length === 0) return null;
+
     const now = Date.now();
 
     return (
