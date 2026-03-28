@@ -20,7 +20,7 @@ export default function Home() {
         if (!address) return false;
         const now = Date.now();
         return loadPendingCommits().some(
-            (c) => c.targetAddress === address && now - c.commitTime < contractConfig.maxCommitAgeSec * 1000
+            (c) => c.targetAddress === address && now - c.commitTime < contractConfig.maxCommitAgeSec * 1000,
         );
     }, [address, commitKey, contractConfig.maxCommitAgeSec]);
 
@@ -61,10 +61,10 @@ export default function Home() {
                     <div className="hero-manifesto" role="doc-subtitle">
                         <p>
                             <strong className="manifesto-bold">This is an invitation.</strong>
-                            <span className="manifesto-line">For those who build what doesn't exist yet.</span>
-                            <span className="manifesto-line">For those who break what should be broken.</span>
-                            <span className="manifesto-line">For those who create without asking permission.</span>
-                            <span className="manifesto-line">For tezonians who know what's possible on-chain.</span>
+                            <span className="manifesto-line">For those who build what should exist.</span>
+                            <span className="manifesto-line">For those who break what can be broken.</span>
+                            <span className="manifesto-line">For those who create without permission.</span>
+                            <span className="manifesto-line">For Tezos.</span>
                         </p>
                     </div>
 
@@ -72,7 +72,9 @@ export default function Home() {
                         Claim your name — early access open now
                     </p>
 
-                    {address && <PendingCommitsPanel commitKey={commitKey} onRelease={() => setCommitKey((k) => k + 1)} />}
+                    {address && (
+                        <PendingCommitsPanel commitKey={commitKey} onRelease={() => setCommitKey((k) => k + 1)} />
+                    )}
 
                     {!hasActivePending && (
                         <div className="search-wrap">
@@ -145,16 +147,43 @@ export default function Home() {
                         Something bigger is coming.
                     </h2>
                     <p className="section-body" style={{ marginBottom: "1rem" }}>
-                        hack.tez is phase one. An invitation. A name you claim before the revolution starts.
+                        <strong>
+                            hack.tez is phase one. An invitation. A step towards a future built better, together.
+                        </strong>
                     </p>
                     <p className="section-body" style={{ marginBottom: "1rem" }}>
-                        Your subdomain lives fully on-chain — you own it, not a server, not a company. Subdomains are
-                        functional tokens. They can be used as addresses, logins, profiles, and more. Manage at{" "}
+                        Your subdomain lives fully on-chain. It can be used as an address, login, profile, and more.
+                        Manage at{" "}
                         <a href="https://tezos.domains" target="_blank" rel="noopener noreferrer">
                             Tezos Domains
                         </a>
                     </p>
                     <p className="section-body">You pay gas (~0.02 ꜩ). That's it. 1 claim per wallet.</p>
+                    <p className="section-body">
+                        FAFOlab retains ownership of the main hack.tez domain and provides this service with no warranty
+                        or guarantee. The future is not sure, but we're building it anyway. Join us.
+                    </p>
+                    <p className="section-body" aria-label="terminal prompt">
+                        <span className="manifesto-bold">/hack-the-future</span>
+                        <span className="typing-cursor" aria-hidden="true">
+                            _
+                        </span>
+                    </p>
+
+                    <style>
+                        {`
+                          .typing-cursor {
+                            display: inline-block;
+                            margin-left: 0.15rem;
+                            animation: hacktez-blink 1s steps(1, end) infinite;
+                          }
+
+                          @keyframes hacktez-blink {
+                            0%, 49% { opacity: 1; }
+                            50%, 100% { opacity: 0; }
+                          }
+                        `}
+                    </style>
                 </div>
             </section>
 
@@ -162,7 +191,6 @@ export default function Home() {
             <footer className="footer">
                 <div className="container footer-inner">
                     <span className="footer-copy">
-                        <span className="footer-copy-symbol">&copy;</span>
                         <span>
                             copyright {yearDisplay} a{" "}
                             <a

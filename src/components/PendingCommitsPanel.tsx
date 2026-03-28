@@ -115,7 +115,7 @@ export default function PendingCommitsPanel({ commitKey = 0, onRelease }: { comm
                             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                                 <span className="pending-expiry">expires in {expiresDisplay}</span>
                                 <button
-                                    className="btn-inline pending-dismiss"
+                                    className="btn-inline pending-dismiss pending-release"
                                     aria-label={`Release commitment for ${commit.label}`}
                                     disabled={relState === "releasing"}
                                     onClick={() => handleRelease(commit)}
