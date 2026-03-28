@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
+import ActivityFeedPanel from "./components/ActivityFeedPanel";
+import ActivityToastQueue from "./components/ActivityToastQueue";
+import { useRecentActivity } from "./hooks/useRecentActivity";
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -116,6 +119,18 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
     );
 }
 
+function ActivityLayer() {
+    const { events, newEvents, isLoading } = useRecentActivity();
+    return (
+        <>
+            {/* Desktop: fixed side panel (lg+ only, hidden via CSS on smaller screens) */}
+            <ActivityFeedPanel events={events} isLoading={isLoading} />
+            {/* Mobile: toast queue (hidden on lg+ via CSS) */}
+            <ActivityToastQueue newEvents={newEvents} />
+        </>
+    );
+}
+
 export default function App() {
     const { theme, setTheme } = useTheme();
 
@@ -152,6 +167,8 @@ export default function App() {
                         <Route path="*" element={<Home />} />
                     </Routes>
                 </main>
+
+                <ActivityLayer />
             </BrowserRouter>
         </TezosProvider>
         </ErrorBoundary>

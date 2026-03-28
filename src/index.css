@@ -2076,3 +2076,273 @@ a:hover {
     white-space: nowrap;
     border-width: 0;
 }
+
+/* =============================================================
+   ACTIVITY FEED — Desktop side panel + Mobile toasts
+   ============================================================= */
+
+/* --- SHARED HELPERS ----------------------------------------- */
+.activity-ok   { color: var(--ok); }
+.activity-info { color: var(--info); }
+.toast-ok      { color: var(--ok); }
+.toast-info    { color: var(--info); }
+
+/* --- DESKTOP SIDE PANEL (lg+ only) -------------------------- */
+.activity-panel {
+    display: none; /* hidden by default; shown at lg breakpoint below */
+}
+
+@media (min-width: 1024px) {
+    .activity-panel {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 5rem;
+        right: 0;
+        width: 200px;
+        max-height: calc(100dvh - 7rem);
+        background: color-mix(in srgb, var(--bg) 85%, transparent);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid var(--border);
+        border-right: none;
+        font-family: var(--font);
+        font-size: 0.6rem;
+        z-index: 40;
+        transition: width 0.2s ease;
+    }
+
+    .activity-panel--collapsed {
+        width: auto;
+    }
+}
+
+.activity-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.activity-panel-title {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    white-space: nowrap;
+}
+
+.activity-panel-toggle {
+    background: transparent;
+    border: none;
+    color: var(--fg-3);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.65rem;
+    line-height: 1;
+    padding: 0.1rem 0.2rem;
+    transition: color 0.15s;
+    flex-shrink: 0;
+}
+
+.activity-panel-toggle:hover {
+    color: var(--fg);
+}
+
+.activity-panel-body {
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-2) transparent;
+}
+
+.activity-panel-body::-webkit-scrollbar {
+    width: 3px;
+}
+.activity-panel-body::-webkit-scrollbar-thumb {
+    background: var(--border-2);
+}
+
+.activity-list {
+    padding: 0.25rem 0;
+}
+
+.activity-row {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.4;
+}
+
+.activity-row:last-child {
+    border-bottom: none;
+}
+
+.activity-row-main {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+}
+
+.activity-addr {
+    color: var(--fg-2);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.activity-verb {
+    font-size: 0.55rem;
+    letter-spacing: 0.04em;
+}
+
+.activity-name {
+    color: var(--fg);
+    font-size: 0.58rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 0.1rem;
+}
+
+.activity-time {
+    display: block;
+    color: var(--fg-3);
+    font-size: 0.52rem;
+    margin-top: 0.15rem;
+    letter-spacing: 0.03em;
+}
+
+.activity-empty {
+    padding: 0.75rem 0.6rem;
+    color: var(--fg-3);
+    font-size: 0.55rem;
+    font-style: italic;
+}
+
+/* --- MOBILE TOAST QUEUE (hidden on lg+) --------------------- */
+.toast-queue {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    z-index: 60;
+    pointer-events: none;
+    width: min(calc(100vw - 2rem), 280px);
+}
+
+@media (min-width: 1024px) {
+    .toast-queue {
+        display: none;
+    }
+}
+
+.activity-toast {
+    background: color-mix(in srgb, var(--bg-2) 95%, transparent);
+    border: 1px solid var(--border-2);
+    font-family: var(--font);
+    font-size: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.6rem;
+    pointer-events: all;
+    animation: toast-in 0.25s ease forwards;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.activity-toast--exit {
+    animation: toast-out 0.3s ease forwards;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.5rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toast-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(0.5rem);
+    }
+}
+
+.toast-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    line-height: 1.4;
+}
+
+.toast-content {
+    min-width: 0;
+    flex: 1;
+    line-height: 1.5;
+}
+
+.toast-addr {
+    color: var(--fg-2);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.toast-verb {
+    letter-spacing: 0.03em;
+}
+
+.toast-name {
+    color: var(--fg);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.toast-time {
+    display: block;
+    color: var(--fg-3);
+    font-size: 0.58rem;
+}
+
+.toast-dismiss {
+    background: transparent;
+    border: none;
+    color: var(--fg-3);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.6rem;
+    line-height: 1;
+    padding: 0.1rem;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+
+.toast-dismiss:hover {
+    color: var(--fg);
+}
