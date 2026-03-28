@@ -4,7 +4,11 @@ import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
 import PendingCommitsPanel from "../components/PendingCommitsPanel";
 import EligibilityPanel from "../components/EligibilityPanel";
+import ClaimedView from "../components/ClaimedView";
+import ClaimUsedView from "../components/ClaimUsedView";
 import { loadPendingCommits } from "../lib/commits";
+import { useSubdomains } from "../hooks/useSubdomains";
+import { useRegistrationCount } from "../hooks/useRegistrationCount";
 import config from "../config/tezos";
 import { CircuitBackground } from "../components/CircuitBackground";
 
@@ -16,6 +20,14 @@ export default function Home() {
     const year = new Date().getFullYear();
     const yearDisplay = year > 2026 ? `2026–${year}` : "2026";
     const [commitKey, setCommitKey] = useState(0);
+
+    const { subdomains, loading: subdomainsLoading } = useSubdomains(address);
+    const { count: registrationCount, loading: regLoading } = useRegistrationCount(address);
+
+    const hasSubdomain = subdomains.length > 0;
+    const isStatusLoading = address ? subdomainsLoading || regLoading : false;
+    const hasUsedAllClaims =
+        !subdomainsLoading && !regLoading && registrationCount >= contractConfig.maxPerWallet && !hasSubdomain;
 
     const hasActivePending = useMemo(() => {
         if (!address) return false;
@@ -74,11 +86,15 @@ export default function Home() {
                         Claim your name — early access open now
                     </p>
 
-                    {address && (
+                    {address && hasSubdomain && <ClaimedView subdomain={subdomains[0]} />}
+
+                    {address && hasUsedAllClaims && !hasSubdomain && <ClaimUsedView />}
+
+                    {address && !hasSubdomain && !hasUsedAllClaims && (
                         <PendingCommitsPanel commitKey={commitKey} onRelease={() => setCommitKey((k) => k + 1)} />
                     )}
 
-                    {!hasActivePending && (
+                    {!hasSubdomain && !hasUsedAllClaims && !hasActivePending && !isStatusLoading && (
                         <div className="search-wrap">
                             <SubdomainSearch onCommit={() => setCommitKey((k) => k + 1)} />
                             {address && <EligibilityPanel />}
