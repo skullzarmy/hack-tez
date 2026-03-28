@@ -20,6 +20,7 @@ export default function PendingCommitsPanel({ commitKey = 0, onRelease }: { comm
     const [releaseError, setReleaseError] = useState<Record<string, string>>({});
     const [, setTick] = useState(0);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: commitKey is an intentional external refresh trigger
     useEffect(() => {
         if (!address) return;
         const load = () => {
