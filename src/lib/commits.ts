@@ -33,6 +33,7 @@ export function savePendingCommit(commit: PendingCommit) {
     const commits = loadPendingCommits().filter((c) => c.label !== commit.label);
     commits.push(commit);
     localStorage.setItem(COMMIT_STORAGE_KEY, JSON.stringify(commits));
+    window.dispatchEvent(new CustomEvent("pendingcommit"));
 }
 
 export function removePendingCommit(label: string) {

@@ -169,9 +169,10 @@ export default function SubdomainSearch() {
                 txHash: result.transactionHash,
             };
             savePendingCommit(commit);
-            setPendingCommit(commit);
-            setTxHash(result.transactionHash);
-            setStatus("waiting");
+            // Hand off to PendingCommitsPanel — reset search to idle
+            setLabel("");
+            setStatus("idle");
+            setError(null);
         } catch (e) {
             if (import.meta.env.DEV) console.error("Commit failed:", e);
             setStatus("error");

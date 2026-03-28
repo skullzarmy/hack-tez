@@ -22,10 +22,15 @@ export default function PendingCommitsPanel() {
 
     useEffect(() => {
         if (!address) return;
-        const all = loadPendingCommits().filter((c) => c.targetAddress === address);
-        const now = Date.now();
-        all.filter((c) => now - c.commitTime >= maxCommitAgeMs).forEach((c) => removePendingCommit(c.label));
-        setCommits(all.filter((c) => now - c.commitTime < maxCommitAgeMs));
+        const load = () => {
+            const all = loadPendingCommits().filter((c) => c.targetAddress === address);
+            const now = Date.now();
+            all.filter((c) => now - c.commitTime >= maxCommitAgeMs).forEach((c) => removePendingCommit(c.label));
+            setCommits(all.filter((c) => now - c.commitTime < maxCommitAgeMs));
+        };
+        load();
+        window.addEventListener("pendingcommit", load);
+        return () => window.removeEventListener("pendingcommit", load);
     }, [address, maxCommitAgeMs]);
 
     useEffect(() => {
