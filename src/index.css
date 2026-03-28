@@ -924,16 +924,19 @@ a:hover {
 .status-panel {
     margin-top: 0.75rem;
     padding: 1rem 1.25rem;
-    border-left: 3px solid;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--fg);
+    background: var(--bg-2);
     font-family: var(--font);
     font-size: 0.8rem;
     line-height: 1.6;
+    color: var(--fg);
 }
-.status-panel--err   { background: var(--err-bg);  border-color: var(--err);  color: var(--err); }
-.status-panel--ok    { background: var(--ok-bg);   border-color: var(--ok);   color: var(--ok); }
-.status-panel--warn  { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
-.status-panel--info  { background: var(--info-bg); border-color: var(--info); color: var(--info); }
-.status-panel strong { color: var(--fg); }
+.status-panel--err  { border-left-color: var(--err);  color: var(--err); }
+.status-panel--ok   { border-left-color: var(--fg);   color: var(--fg); }
+.status-panel--warn { border-left-color: var(--fg-3); color: var(--fg-2); }
+.status-panel--info { border-left-color: var(--fg-3); color: var(--fg-2); font-style: italic; }
+.status-panel strong { color: var(--fg); font-style: normal; }
 .status-panel .panel-action {
     margin-top: 0.75rem;
 }
