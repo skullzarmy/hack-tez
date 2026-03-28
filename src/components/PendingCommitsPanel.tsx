@@ -8,7 +8,7 @@ import config from "../config/tezos";
 type ClaimState = "idle" | "claiming" | "success" | "error";
 type ReleaseState = "idle" | "releasing" | "error";
 
-export default function PendingCommitsPanel() {
+export default function PendingCommitsPanel({ commitKey = 0 }: { commitKey?: number }) {
     const { client, address } = useTezos();
     const contractConfig = useContractConfig();
     const minCommitAgeMs = contractConfig.minCommitAgeSec * 1000;
@@ -31,7 +31,7 @@ export default function PendingCommitsPanel() {
         load();
         window.addEventListener("pendingcommit", load);
         return () => window.removeEventListener("pendingcommit", load);
-    }, [address, maxCommitAgeMs]);
+    }, [address, maxCommitAgeMs, commitKey]);
 
     useEffect(() => {
         if (commits.length === 0) return;

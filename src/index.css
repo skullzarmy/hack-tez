@@ -925,18 +925,33 @@ a:hover {
     margin-top: 0.75rem;
     padding: 1rem 1.25rem;
     border: 1px solid var(--border);
-    border-left: 3px solid var(--fg);
+    border-left: 3px solid var(--fg-3);
     background: var(--bg-2);
     font-family: var(--font);
     font-size: 0.8rem;
     line-height: 1.6;
     color: var(--fg);
 }
-.status-panel--err  { border-left-color: var(--err);  color: var(--err); }
-.status-panel--ok   { border-left-color: var(--fg);   color: var(--fg); }
-.status-panel--warn { border-left-color: var(--fg-3); color: var(--fg-2); }
-.status-panel--info { border-left-color: var(--fg-3); color: var(--fg-2); font-style: italic; }
-.status-panel strong { color: var(--fg); font-style: normal; }
+.status-panel--err  {
+    border-left-color: var(--err);
+    border-color: var(--err);
+    background: transparent;
+    color: var(--err);
+}
+.status-panel--ok   {
+    border-left-width: 3px;
+    border-left-color: var(--fg);
+}
+.status-panel--warn {
+    border-left-color: var(--fg-2);
+    color: var(--fg-2);
+}
+.status-panel--info {
+    border-left-color: var(--fg-3);
+    color: var(--fg-2);
+    letter-spacing: 0.01em;
+}
+.status-panel strong { color: var(--fg); }
 .status-panel .panel-action {
     margin-top: 0.75rem;
 }

@@ -9,7 +9,7 @@ import { loadPendingCommits, savePendingCommit } from "../lib/commits";
 
 type Status = "idle" | "checking" | "available" | "taken" | "committing" | "error";
 
-export default function SubdomainSearch() {
+export default function SubdomainSearch({ onCommit }: { onCommit?: () => void }) {
     const { client, address } = useTezos();
     const eligibility = useEligibility(address);
     const contractConfig = useContractConfig();
@@ -80,6 +80,7 @@ export default function SubdomainSearch() {
                 commitTime: Date.now(),
                 txHash: result.transactionHash,
             });
+            onCommit?.();
             setLabel("");
             setStatus("idle");
             setError(null);

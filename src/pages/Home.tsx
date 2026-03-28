@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
@@ -12,6 +13,7 @@ export default function Home() {
     const maxAgeDescription = formatDuration(contractConfig.maxCommitAgeSec);
     const year = new Date().getFullYear();
     const yearDisplay = year > 2026 ? `2026–${year}` : "2026";
+    const [commitKey, setCommitKey] = useState(0);
 
     return (
         <>
@@ -61,10 +63,10 @@ export default function Home() {
                         Claim your name — early access open now
                     </p>
 
-                    {address && <PendingCommitsPanel />}
+                    {address && <PendingCommitsPanel commitKey={commitKey} />}
 
                     <div className="search-wrap">
-                        <SubdomainSearch />
+                        <SubdomainSearch onCommit={() => setCommitKey((k) => k + 1)} />
                         {address && <EligibilityPanel />}
                     </div>
                 </div>
