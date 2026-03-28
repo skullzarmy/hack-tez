@@ -6,6 +6,7 @@ import PendingCommitsPanel from "../components/PendingCommitsPanel";
 import EligibilityPanel from "../components/EligibilityPanel";
 import { loadPendingCommits } from "../lib/commits";
 import config from "../config/tezos";
+import { CircuitBackground } from "../components/CircuitBackground";
 
 export default function Home() {
     const { address } = useTezos();
@@ -29,6 +30,7 @@ export default function Home() {
             {/* ── HERO ─────────────────────────────────────────────── */}
             <section className="hero scanlines" aria-labelledby="hero-title">
                 <div className="video-bg-wrap" aria-hidden="true">
+                    <CircuitBackground />
                     <div className="video-bg-overlay" />
                 </div>
 
