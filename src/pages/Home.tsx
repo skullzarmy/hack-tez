@@ -102,13 +102,15 @@ export default function Home() {
                     )}
                 </div>
 
-                <span className="hero-scroll-hint" aria-hidden="true">
-                    How it works
-                </span>
+                {!hasSubdomain && !hasUsedAllClaims && (
+                    <span className="hero-scroll-hint" aria-hidden="true">
+                        How it works
+                    </span>
+                )}
             </section>
 
             {/* ── HOW IT WORKS ─────────────────────────────────────── */}
-            <section
+            {!hasSubdomain && !hasUsedAllClaims && <section
                 className="section how-it-works-section"
                 aria-labelledby="how-it-works-title"
                 style={{ background: "var(--bg-2)" }}
@@ -153,7 +155,7 @@ export default function Home() {
                         ))}
                     </div>
                 </div>
-            </section>
+            </section>}
 
             {/* ── MANIFESTO CLOSE ──────────────────────────────────── */}
             <section className="section" aria-label="About hack.tez">
