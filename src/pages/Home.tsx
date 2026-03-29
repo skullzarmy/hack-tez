@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
@@ -11,7 +11,10 @@ import { useSubdomains } from "../hooks/useSubdomains";
 import { useRegistrationCount } from "../hooks/useRegistrationCount";
 import type { SubdomainRecord } from "../lib/domains";
 import config from "../config/tezos";
-import { CircuitBackground } from "../components/CircuitBackground";
+
+const CircuitBackground = lazy(() =>
+    import("../components/CircuitBackground").then((m) => ({ default: m.CircuitBackground })),
+);
 
 export default function Home() {
     const { address } = useTezos();
@@ -51,9 +54,11 @@ export default function Home() {
     return (
         <>
             {/* ── HERO ─────────────────────────────────────────────── */}
-            <section className="hero scanlines" aria-labelledby="hero-title">
+            <section className="hero scanlines" aria-label={`*.hack.${config.tld} — Tezos Subdomain Registry`}>
                 <div className="video-bg-wrap" aria-hidden="true">
-                    <CircuitBackground />
+                    <Suspense fallback={null}>
+                        <CircuitBackground />
+                    </Suspense>
                     <div className="video-bg-overlay" />
                 </div>
 
@@ -62,14 +67,14 @@ export default function Home() {
                         Tezos <span className="eyebrow-sub">sub</span>domain Registry
                     </span>
 
-                    <div className="hero-title-wrap" aria-label={`*.hack.${config.tld}`} id="hero-title">
+                    <div className="hero-title-wrap" aria-hidden="true" id="hero-title">
                         <span className="hero-star glitch-star" data-text="*" aria-hidden="true">
                             *
                         </span>
                         <span className="hero-dot" aria-hidden="true">
                             .
                         </span>
-                        <h1 className="hero-title glitch" data-text="HACK" aria-hidden="true">
+                        <h1 className="hero-title glitch" data-text="HACK">
                             HACK
                         </h1>
                         <span
@@ -93,7 +98,7 @@ export default function Home() {
                         </p>
                     </div>
 
-                    <p className="hero-cta-label" aria-label="Claim your name">
+                    <p className="hero-cta-label">
                         Claim your name — early access open now
                     </p>
 
@@ -201,7 +206,7 @@ export default function Home() {
                         FAFOlab retains ownership of the main hack.tez domain and provides this service with no warranty
                         or guarantee. The future is not sure, but we're building it anyway. Join us.
                     </p>
-                    <p className="section-body" aria-label="terminal prompt">
+                    <p className="section-body">
                         <span className="manifesto-bold">/hack-the-future</span>
                         <span className="typing-cursor" aria-hidden="true">
                             _

@@ -9,8 +9,7 @@
  *
  * After registration, user owns the TED record and manages it via Tezos Domains.
  */
-import { DAppClient, TezosOperationType } from "@tezos-x/octez.connect-sdk";
-import { computeCommitmentHash } from "./commitment";
+import type { DAppClient, TezosOperationType } from "@tezos-x/octez.connect-sdk";
 import config from "../config/tezos";
 
 /**
@@ -42,12 +41,13 @@ export async function submitCommit(
     client: DAppClient,
     params: { labelHex: string; sender: string; targetAddress: string; saltHex: string },
 ) {
+    const { computeCommitmentHash } = await import("./commitment");
     const commitmentHash = computeCommitmentHash(params.labelHex, params.sender, params.targetAddress, params.saltHex);
 
     const result = await client.requestOperation({
         operationDetails: [
             {
-                kind: TezosOperationType.TRANSACTION,
+                kind: "transaction" as TezosOperationType.TRANSACTION,
                 destination: config.registrarAddress,
                 amount: "0",
                 parameters: {
@@ -71,7 +71,7 @@ export async function submitRegister(
     const result = await client.requestOperation({
         operationDetails: [
             {
-                kind: TezosOperationType.TRANSACTION,
+                kind: "transaction" as TezosOperationType.TRANSACTION,
                 destination: config.registrarAddress,
                 amount: "0",
                 parameters: {
@@ -97,7 +97,7 @@ export async function submitReleaseCommitment(client: DAppClient) {
     const result = await client.requestOperation({
         operationDetails: [
             {
-                kind: TezosOperationType.TRANSACTION,
+                kind: "transaction" as TezosOperationType.TRANSACTION,
                 destination: config.registrarAddress,
                 amount: "0",
                 parameters: {

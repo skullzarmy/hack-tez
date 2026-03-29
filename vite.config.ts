@@ -57,6 +57,38 @@ export default defineConfig({
             process: "process",
         },
     },
+    build: {
+        // Generate source maps for the Best Practices audit
+        sourcemap: true,
+        // Disable the module preload polyfill — it injects an inline script,
+        // which would require 'unsafe-inline' in CSP.  All target browsers
+        // support <link rel="modulepreload"> natively.
+        modulePreload: { polyfill: false },
+        rollupOptions: {
+                output: {
+                    manualChunks(id: string) {
+                        if (id.includes("node_modules")) {
+                            if (
+                                id.includes("/react/") ||
+                                id.includes("/react-dom/") ||
+                                id.includes("/react-router")
+                            ) {
+                                return "vendor-react";
+                            }
+                            if (
+                                id.includes("/buffer/") ||
+                                id.includes("stream-browserify") ||
+                                id.includes("/util/") ||
+                                id.includes("/process/") ||
+                                id.includes("/events/")
+                            ) {
+                                return "vendor-polyfill";
+                            }
+                        }
+                    },
+                },
+            },
+    },
     optimizeDeps: {
         // Pre-bundle the ENTIRE dependency chain at startup.
         //

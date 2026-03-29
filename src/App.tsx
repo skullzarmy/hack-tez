@@ -1,11 +1,12 @@
-import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
-import ActivityFeedPanel from "./components/ActivityFeedPanel";
-import ActivityToastQueue from "./components/ActivityToastQueue";
 import { useRecentActivity } from "./hooks/useRecentActivity";
+
+const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
+const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -124,9 +125,13 @@ function ActivityLayer() {
     return (
         <>
             {/* Desktop: fixed side panel (lg+ only, hidden via CSS on smaller screens) */}
-            <ActivityFeedPanel events={events} isLoading={isLoading} />
+            <Suspense fallback={null}>
+                <ActivityFeedPanel events={events} isLoading={isLoading} />
+            </Suspense>
             {/* Mobile: toast queue (hidden on lg+ via CSS) */}
-            <ActivityToastQueue newEvents={newEvents} />
+            <Suspense fallback={null}>
+                <ActivityToastQueue newEvents={newEvents} />
+            </Suspense>
         </>
     );
 }
