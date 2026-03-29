@@ -15,7 +15,7 @@
   <text x="48" y="340" font-family="'Courier New',monospace" font-size="160" font-weight="700" fill="#fff" letter-spacing="-4">HACK</text>
   <text x="48" y="490" font-family="'Courier New',monospace" font-size="160" font-weight="700" fill="#fff" letter-spacing="-4" opacity="0.4">.TEZ</text>
   <!-- Tagline -->
-  <text x="48" y="570" font-family="'Courier New',monospace" font-size="18" fill="#fff" opacity="0.6" letter-spacing="2">CLAIM YOUR FREE SUBDOMAIN — FOR HACKERS, BUILDERS, ARTISTS, TEZONIANS</text>
+  <text x="48" y="570" font-family="'Courier New',monospace" font-size="18" fill="#fff" opacity="0.6" letter-spacing="2">CLAIM YOUR SUBDOMAIN — FOR HACKERS, BUILDERS, ARTISTS, TEZONIANS</text>
   <!-- Corner mark -->
   <text x="1100" y="580" font-family="'Courier New',monospace" font-size="14" fill="#fff" opacity="0.3" text-anchor="end">hack.tez.page</text>
 </svg>
