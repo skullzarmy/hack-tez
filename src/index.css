@@ -1,5 +1,37 @@
 @import "tailwindcss";
 
+/* Self-hosted Space Mono with font-display:optional to prevent LCP re-trigger.
+   The 400-normal and 700-normal variants are preloaded in index.html so they
+   are available before the browser's font block period expires. */
+@font-face {
+    font-family: "Space Mono";
+    font-style: normal;
+    font-display: optional;
+    font-weight: 400;
+    src: url("../node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Space Mono";
+    font-style: italic;
+    font-display: optional;
+    font-weight: 400;
+    src: url("../node_modules/@fontsource/space-mono/files/space-mono-latin-400-italic.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Space Mono";
+    font-style: normal;
+    font-display: optional;
+    font-weight: 700;
+    src: url("../node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Space Mono";
+    font-style: italic;
+    font-display: optional;
+    font-weight: 700;
+    src: url("../node_modules/@fontsource/space-mono/files/space-mono-latin-700-italic.woff2") format("woff2");
+}
+
 /* =============================================================
    HACK.TEZ — DESIGN SYSTEM
    Raw. Unpolished. Punk. Actually perfect.

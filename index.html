@@ -48,8 +48,15 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="hack.tez" />
 
-        <!-- Font Preload — Space Mono self-hosted via @fontsource (no external request) -->
+        <!-- Font Preload — Space Mono self-hosted, font-display:optional (no swap = no LCP re-trigger) -->
         <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/space-mono-latin-400-normal.woff2" crossorigin />
+        <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/space-mono-latin-700-normal.woff2" crossorigin />
+
+        <!-- Preconnect to blockchain data API (tzkt) -->
+        <link rel="preconnect" href="https://api.tzkt.io" />
+        <link rel="preconnect" href="https://api.ghostnet.tzkt.io" />
+        <link rel="dns-prefetch" href="https://api.tzkt.io" />
+        <link rel="dns-prefetch" href="https://api.ghostnet.tzkt.io" />
 
         <!-- JSON-LD Structured Data -->
         <script type="application/ld+json">
