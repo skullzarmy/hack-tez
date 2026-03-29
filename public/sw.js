@@ -1,5 +1,5 @@
 /* hack.tez service worker — cache-first for app shell, network-first for API */
-const CACHE = "hack-tez-v5";
+const CACHE = "hack-tez-v6";
 const SHELL = ["/", "/manage", "/site.webmanifest", "/favicon.svg", "/favicon.ico", "/favicon-96x96.png"];
 const SKIP_CACHE = ["tzkt.io", "tezos.domains", "api.", "rpc.", "walletbeacon", "matrix.papers"];
 
@@ -30,10 +30,20 @@ self.addEventListener("fetch", (e) => {
     // Let the browser handle them directly.
     if (!url.startsWith(self.location.origin)) return;
 
-    // Navigation requests: serve from cache, fall back to network
+    // Navigation requests: network-first (ensures fresh Content-Type headers),
+    // fall back to cache only when offline.
     if (e.request.mode === "navigate") {
         e.respondWith(
-            caches.match("/").then((cached) => cached || fetch(e.request))
+            fetch(e.request)
+                .then((res) => {
+                    // Update the cache with the fresh response
+                    if (res && res.ok) {
+                        const clone = res.clone();
+                        caches.open(CACHE).then((c) => c.put("/", clone));
+                    }
+                    return res;
+                })
+                .catch(() => caches.match("/").then((cached) => cached || caches.match(e.request)))
         );
         return;
     }
