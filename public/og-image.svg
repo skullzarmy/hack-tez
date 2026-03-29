@@ -12,15 +12,17 @@
   <!-- Border -->
   <rect x="32" y="32" width="1136" height="566" fill="none" stroke="#fff" stroke-width="1" opacity="0.15"/>
 
-  <!-- Main title: *.HACK.TEZ — tight, massive, centered -->
-  <text x="600" y="310" font-family="'Courier New',monospace" font-size="180" font-weight="700" fill="#fff" letter-spacing="-2" text-anchor="middle">*.hack.tez</text>
+  <!-- Main title: * .hack .tez — three tspans for color control -->
+  <text x="600" y="310" font-family="'Courier New',monospace" font-size="180" font-weight="700" letter-spacing="-2" text-anchor="middle">
+    <tspan fill="#666">*</tspan><tspan fill="#fff">.hack</tspan><tspan fill="#555">.tez</tspan>
+  </text>
 
   <!-- Divider -->
   <rect x="480" y="345" width="240" height="2" fill="#fff" opacity="0.35"/>
 
-  <!-- Single punchy line -->
-  <text x="600" y="420" font-family="'Courier New',monospace" font-size="28" font-weight="700" fill="#888" letter-spacing="6" text-anchor="middle">CLAIM YOUR NAME.</text>
+  <!-- Punchy line — near white -->
+  <text x="600" y="418" font-family="'Courier New',monospace" font-size="28" font-weight="700" fill="#ddd" letter-spacing="6" text-anchor="middle">CLAIM YOUR NAME.</text>
 
-  <!-- Intrigue hook -->
-  <text x="600" y="480" font-family="'Courier New',monospace" font-size="20" fill="#555" letter-spacing="4" text-anchor="middle">For hackers. For builders. For Tezos.</text>
+  <!-- Intrigue hook — brighter than before -->
+  <text x="600" y="478" font-family="'Courier New',monospace" font-size="20" fill="#bbb" letter-spacing="4" text-anchor="middle">For hackers. For builders. For Tezos.</text>
 </svg>
