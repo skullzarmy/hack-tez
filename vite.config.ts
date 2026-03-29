@@ -66,6 +66,13 @@ export default defineConfig({
         modulePreload: { polyfill: false },
         rollupOptions: {
                 output: {
+                    // Stable filenames for fonts so index.html can preload them
+                    assetFileNames: (assetInfo) => {
+                        if (assetInfo.name?.endsWith(".woff2")) {
+                            return "assets/fonts/[name][extname]";
+                        }
+                        return "assets/[name]-[hash][extname]";
+                    },
                     manualChunks(id: string) {
                         if (id.includes("node_modules")) {
                             if (

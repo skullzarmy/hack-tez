@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense, useEffect } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
@@ -26,6 +26,17 @@ export default function Home() {
     const [commitKey, setCommitKey] = useState(0);
     const [claimedSubdomain, setClaimedSubdomain] = useState<SubdomainRecord | null>(null);
     const [lastAddress, setLastAddress] = useState(address);
+    // Defer canvas until browser is idle after initial paint so the hero h1
+    // text — not the canvas — is the LCP element.
+    const [canvasReady, setCanvasReady] = useState(false);
+    useEffect(() => {
+        if (typeof requestIdleCallback !== "undefined") {
+            const id = requestIdleCallback(() => setCanvasReady(true));
+            return () => cancelIdleCallback(id);
+        }
+        const id = setTimeout(() => setCanvasReady(true), 200);
+        return () => clearTimeout(id);
+    }, []);
 
     if (address !== lastAddress) {
         setLastAddress(address);
@@ -56,9 +67,11 @@ export default function Home() {
             {/* ── HERO ─────────────────────────────────────────────── */}
             <section className="hero scanlines" aria-label={`*.hack.${config.tld} — Tezos Subdomain Registry`}>
                 <div className="video-bg-wrap" aria-hidden="true">
-                    <Suspense fallback={null}>
-                        <CircuitBackground />
-                    </Suspense>
+                    {canvasReady && (
+                        <Suspense fallback={null}>
+                            <CircuitBackground />
+                        </Suspense>
+                    )}
                     <div className="video-bg-overlay" />
                 </div>
 
