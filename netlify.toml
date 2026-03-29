@@ -24,18 +24,6 @@
     # data blocks, not executable code, and are unaffected by script-src.
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-src 'self' https://verify.walletconnect.org https://verify.walletconnect.com; connect-src 'self' ws://localhost:* http://localhost:* https://*.tzkt.io https://*.tezos.domains https://*.teztnets.com https://mainnet.tezos.marigold.dev https://matrix.papers.tech wss://matrix.papers.tech wss://relay.walletbeacon.io https://beacon-node-1.octez.io https://beacon-node-2.octez.io https://beacon-node-3.octez.io https://beacon-node-4.octez.io https://beacon-node-5.octez.io https://beacon-node-6.octez.io https://beacon-node-7.octez.io https://beacon-node-8.octez.io wss://beacon-node-1.octez.io wss://beacon-node-2.octez.io wss://beacon-node-3.octez.io wss://beacon-node-4.octez.io wss://beacon-node-5.octez.io wss://beacon-node-6.octez.io wss://beacon-node-7.octez.io wss://beacon-node-8.octez.io https://beacon-backend.prod.gke.papers.tech wss://beacon-backend.prod.gke.papers.tech https://rpc.walletconnect.org wss://relay.walletconnect.com wss://relay.walletconnect.org wss://us-east-1.relay.walletconnect.com wss://eu-central-1.relay.walletconnect.com wss://ap-southeast-1.relay.walletconnect.com https://pulse.walletconnect.org https://verify.walletconnect.org https://verify.walletconnect.com https://echo.walletconnect.com https://explorer-api.walletconnect.com; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'"
 
-# Explicit UTF-8 charset on HTML responses — required for Lighthouse Best Practices
-[[headers]]
-  for = "/*.html"
-  [headers.values]
-    Content-Type = "text/html; charset=utf-8"
-
-# Also cover the SPA index served at bare paths (e.g. /)
-[[headers]]
-  for = "/"
-  [headers.values]
-    Content-Type = "text/html; charset=utf-8"
-
 # Long-lived immutable cache for content-hashed Vite assets
 [[headers]]
   for = "/assets/*"
