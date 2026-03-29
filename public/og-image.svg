@@ -1,21 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#000"/>
-  <!-- Scanline effect -->
-  <rect width="1200" height="630" fill="url(#scanlines)" opacity="0.04"/>
   <defs>
     <pattern id="scanlines" x="0" y="0" width="1200" height="4" patternUnits="userSpaceOnUse">
       <rect width="1200" height="2" fill="#fff" opacity="0.5"/>
     </pattern>
   </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#000"/>
+  <rect width="1200" height="630" fill="url(#scanlines)" opacity="0.03"/>
+
   <!-- Border -->
-  <rect x="24" y="24" width="1152" height="582" fill="none" stroke="#fff" stroke-width="1" opacity="0.2"/>
+  <rect x="32" y="32" width="1136" height="566" fill="none" stroke="#fff" stroke-width="1" opacity="0.15"/>
+
   <!-- Top label -->
-  <text x="48" y="72" font-family="'Courier New',monospace" font-size="14" fill="#fff" opacity="0.5" letter-spacing="4">// TEZOS DOMAINS</text>
-  <!-- Main title -->
-  <text x="48" y="340" font-family="'Courier New',monospace" font-size="160" font-weight="700" fill="#fff" letter-spacing="-4">HACK</text>
-  <text x="48" y="490" font-family="'Courier New',monospace" font-size="160" font-weight="700" fill="#fff" letter-spacing="-4" opacity="0.4">.TEZ</text>
-  <!-- Tagline -->
-  <text x="48" y="570" font-family="'Courier New',monospace" font-size="18" fill="#fff" opacity="0.6" letter-spacing="2">CLAIM YOUR SUBDOMAIN — FOR HACKERS, BUILDERS, ARTISTS, TEZONIANS</text>
-  <!-- Corner mark -->
-  <text x="1100" y="580" font-family="'Courier New',monospace" font-size="14" fill="#fff" opacity="0.3" text-anchor="end">hack.tez.page</text>
+  <text x="600" y="110" font-family="'Courier New',monospace" font-size="13" fill="#fff" opacity="0.4" letter-spacing="6" text-anchor="middle">TEZOS SUBDOMAIN REGISTRY</text>
+
+  <!-- Main title centered -->
+  <text x="600" y="310" font-family="'Courier New',monospace" font-size="200" font-weight="700" fill="#fff" letter-spacing="-6" text-anchor="middle">hack</text>
+
+  <!-- TLD accent -->
+  <text x="600" y="420" font-family="'Courier New',monospace" font-size="72" font-weight="700" fill="#fff" opacity="0.35" letter-spacing="4" text-anchor="middle">.tez</text>
+
+  <!-- Tagline centered -->
+  <text x="600" y="530" font-family="'Courier New',monospace" font-size="16" fill="#fff" opacity="0.5" letter-spacing="3" text-anchor="middle">YOUR NAME ON-CHAIN — 1 CLAIM PER WALLET — JUST GAS</text>
+
+  <!-- URL -->
+  <text x="600" y="580" font-family="'Courier New',monospace" font-size="13" fill="#fff" opacity="0.25" letter-spacing="2" text-anchor="middle">hack.tez.page</text>
 </svg>
