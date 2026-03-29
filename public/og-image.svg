@@ -12,28 +12,15 @@
   <!-- Border -->
   <rect x="32" y="32" width="1136" height="566" fill="none" stroke="#fff" stroke-width="1" opacity="0.15"/>
 
-  <!-- Eyebrow: "Tezos subdomain Registry" -->
-  <text x="600" y="120" font-family="'Courier New',monospace" font-size="15" fill="#888" letter-spacing="4" text-anchor="middle">Tezos subdomain Registry</text>
-
-  <!-- Hero title: *.HACK.TEZ -->
-  <!-- * -->
-  <text x="242" y="360" font-family="'Courier New',monospace" font-size="100" font-weight="700" fill="#888" text-anchor="middle" dominant-baseline="auto">*</text>
-  <!-- . (small dot before HACK) -->
-  <text x="318" y="365" font-family="'Courier New',monospace" font-size="22" font-weight="700" fill="#888" text-anchor="middle">.</text>
-  <!-- HACK -->
-  <text x="600" y="370" font-family="'Courier New',monospace" font-size="220" font-weight="700" fill="#fff" letter-spacing="-4" text-anchor="middle" dominant-baseline="auto">HACK</text>
-  <!-- .TEZ -->
-  <text x="1050" y="365" font-family="'Courier New',monospace" font-size="22" font-weight="700" fill="#fff" opacity="0.55" letter-spacing="3" text-anchor="middle">.TEZ</text>
+  <!-- Main title: *.HACK.TEZ — tight, massive, centered -->
+  <text x="600" y="310" font-family="'Courier New',monospace" font-size="180" font-weight="700" fill="#fff" letter-spacing="-2" text-anchor="middle">*.hack.tez</text>
 
   <!-- Divider -->
-  <rect x="540" y="400" width="120" height="2" fill="#fff" opacity="0.4"/>
+  <rect x="480" y="345" width="240" height="2" fill="#fff" opacity="0.35"/>
 
-  <!-- Manifesto lines -->
-  <text x="600" y="448" font-family="'Courier New',monospace" font-size="15" fill="#999" letter-spacing="3" text-anchor="middle">This is an invitation.</text>
-  <text x="600" y="474" font-family="'Courier New',monospace" font-size="14" fill="#666" letter-spacing="2" text-anchor="middle">For those who build what should exist.</text>
-  <text x="600" y="498" font-family="'Courier New',monospace" font-size="14" fill="#666" letter-spacing="2" text-anchor="middle">For those who break what can be broken.</text>
-  <text x="600" y="522" font-family="'Courier New',monospace" font-size="14" fill="#666" letter-spacing="2" text-anchor="middle">For Tezos.</text>
+  <!-- Single punchy line -->
+  <text x="600" y="420" font-family="'Courier New',monospace" font-size="28" font-weight="700" fill="#888" letter-spacing="6" text-anchor="middle">CLAIM YOUR NAME.</text>
 
-  <!-- CTA -->
-  <text x="600" y="575" font-family="'Courier New',monospace" font-size="13" fill="#555" letter-spacing="3" text-anchor="middle">Claim your name — early access open now</text>
+  <!-- Intrigue hook -->
+  <text x="600" y="480" font-family="'Courier New',monospace" font-size="20" fill="#555" letter-spacing="4" text-anchor="middle">For hackers. For builders. For Tezos.</text>
 </svg>
