@@ -214,6 +214,7 @@ a:hover {
     color: var(--fg);
     background: var(--bg);
     overflow: hidden;
+    will-change: transform, clip-path;
 }
 /* Layer 1 — top slice, fast jitter, slight color shift */
 .glitch::before {
@@ -255,6 +256,7 @@ a:hover {
     letter-spacing: inherit;
     text-transform: inherit;
     opacity: 0.55;
+    will-change: transform, clip-path;
 }
 .glitch-tld::before {
     clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
@@ -290,6 +292,7 @@ a:hover {
     font-size: inherit;
     font-weight: inherit;
     color: var(--fg-3);
+    will-change: transform, clip-path;
 }
 .glitch-star::before {
     clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);

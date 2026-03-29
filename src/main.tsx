@@ -5,6 +5,12 @@ import process from "process";
 globalThis.Buffer = globalThis.Buffer ?? Buffer;
 globalThis.process = globalThis.process ?? process;
 
+// Self-hosted Space Mono — eliminates render-blocking Google Fonts request
+import "@fontsource/space-mono/latin-400.css";
+import "@fontsource/space-mono/latin-400-italic.css";
+import "@fontsource/space-mono/latin-700.css";
+import "@fontsource/space-mono/latin-700-italic.css";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
