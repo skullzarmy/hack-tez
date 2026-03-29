@@ -9,6 +9,7 @@ import ClaimUsedView from "../components/ClaimUsedView";
 import { loadPendingCommits } from "../lib/commits";
 import { useSubdomains } from "../hooks/useSubdomains";
 import { useRegistrationCount } from "../hooks/useRegistrationCount";
+import type { SubdomainRecord } from "../lib/domains";
 import config from "../config/tezos";
 import { CircuitBackground } from "../components/CircuitBackground";
 
@@ -20,21 +21,19 @@ export default function Home() {
     const year = new Date().getFullYear();
     const yearDisplay = year > 2026 ? `2026–${year}` : "2026";
     const [commitKey, setCommitKey] = useState(0);
-    const [justClaimedLabel, setJustClaimedLabel] = useState<string | null>(null);
+    const [claimedSubdomain, setClaimedSubdomain] = useState<SubdomainRecord | null>(null);
     const [lastAddress, setLastAddress] = useState(address);
 
     if (address !== lastAddress) {
         setLastAddress(address);
-        setJustClaimedLabel(null);
+        setClaimedSubdomain(null);
     }
 
-    const { subdomains, loading: subdomainsLoading, refresh: refreshSubdomains } = useSubdomains(address);
+    const { subdomains, loading: subdomainsLoading } = useSubdomains(address);
     const { count: registrationCount, loading: regLoading } = useRegistrationCount(address);
 
-    // The subdomain to display — real one from GraphQL, or optimistic from just-claimed label
-    const displaySubdomain = subdomains[0] ?? (justClaimedLabel && address
-        ? { name: `${justClaimedLabel}.hack.${config.tld}`, address, owner: address, expiresAt: null }
-        : null);
+    // Real on-chain subdomain takes priority over the just-claimed one
+    const displaySubdomain: SubdomainRecord | null = subdomains[0] ?? claimedSubdomain;
 
     const hasSubdomain = !!displaySubdomain;
     const isStatusLoading = address ? subdomainsLoading || regLoading : false;
@@ -106,10 +105,9 @@ export default function Home() {
                         <PendingCommitsPanel
                             commitKey={commitKey}
                             onRelease={() => setCommitKey((k) => k + 1)}
-                            onClaim={(label) => {
-                                setJustClaimedLabel(label);
+                            onClaim={(subdomain) => {
+                                setClaimedSubdomain(subdomain);
                                 setCommitKey((k) => k + 1);
-                                refreshSubdomains();
                             }}
                         />
                     )}

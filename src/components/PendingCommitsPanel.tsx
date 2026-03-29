@@ -3,10 +3,27 @@ import { useTezos } from "../context/TezosContext";
 import { useContractConfig } from "../hooks/useContractConfig";
 import { loadPendingCommits, removePendingCommit, type PendingCommit } from "../lib/commits";
 import { submitRegister, submitReleaseCommitment, labelToHexBytes } from "../lib/contract";
+import { waitForOperation } from "../lib/tzkt";
+import { getSubdomainsByOwner, type SubdomainRecord } from "../lib/domains";
 import config from "../config/tezos";
 
-type ClaimState = "idle" | "claiming" | "success" | "error";
+type ClaimState = "idle" | "claiming" | "confirming" | "fetching" | "success" | "error";
 type ReleaseState = "idle" | "releasing" | "error";
+
+const SUBDOMAIN_FETCH_RETRIES = 8;
+const SUBDOMAIN_FETCH_DELAY_MS = 3000;
+
+async function fetchSubdomainWithRetry(address: string, label: string): Promise<SubdomainRecord> {
+    const expected = `${label}.hack.${config.tld}`;
+    for (let i = 0; i < SUBDOMAIN_FETCH_RETRIES; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, SUBDOMAIN_FETCH_DELAY_MS));
+        const subs = await getSubdomainsByOwner(address);
+        const match = subs.find((s) => s.name === expected);
+        if (match) return match;
+    }
+    // GraphQL indexer still hasn't caught up — return a minimal record from known data
+    return { name: expected, address, owner: address, expiresAt: null };
+}
 
 export default function PendingCommitsPanel({
     commitKey = 0,
@@ -15,7 +32,7 @@ export default function PendingCommitsPanel({
 }: {
     commitKey?: number;
     onRelease?: () => void;
-    onClaim?: (label: string) => void;
+    onClaim?: (subdomain: SubdomainRecord) => void;
 }) {
     const { client, address } = useTezos();
     const contractConfig = useContractConfig();
@@ -50,27 +67,70 @@ export default function PendingCommitsPanel({
 
     const handleClaim = async (commit: PendingCommit) => {
         if (!client || !address) return;
-        setClaimState((s) => ({ ...s, [commit.label]: "claiming" }));
         setClaimError((s) => ({ ...s, [commit.label]: "" }));
+
+        // Phase 1: wallet approval
+        setClaimState((s) => ({ ...s, [commit.label]: "claiming" }));
+        let opHash: string;
         try {
-            await submitRegister(client, {
+            const result = await submitRegister(client, {
                 label: labelToHexBytes(commit.label),
                 targetAddress: address,
                 salt: commit.salt,
             });
-            removePendingCommit(commit.label);
-            setCommits((prev) => prev.filter((c) => c.label !== commit.label));
-            setClaimState((s) => ({ ...s, [commit.label]: "success" }));
-            onClaim?.(commit.label);
-            onRelease?.();
+            opHash = (result as { transactionHash: string }).transactionHash;
         } catch (e) {
-            if (import.meta.env.DEV) console.error("Claim failed:", e);
+            if (import.meta.env.DEV) console.error("Claim wallet error:", e);
             setClaimState((s) => ({ ...s, [commit.label]: "error" }));
             setClaimError((s) => ({
                 ...s,
-                [commit.label]: e instanceof Error ? e.message : "Registration failed",
+                [commit.label]: e instanceof Error ? e.message : "Wallet rejected",
             }));
+            return;
         }
+
+        // Phase 2: wait for on-chain confirmation
+        setClaimState((s) => ({ ...s, [commit.label]: "confirming" }));
+        let opResult: Awaited<ReturnType<typeof waitForOperation>>;
+        try {
+            opResult = await waitForOperation(opHash);
+        } catch (e) {
+            setClaimState((s) => ({ ...s, [commit.label]: "error" }));
+            setClaimError((s) => ({
+                ...s,
+                [commit.label]: e instanceof Error ? e.message : "Confirmation timed out",
+            }));
+            return;
+        }
+
+        if (opResult.status !== "applied") {
+            setClaimState((s) => ({ ...s, [commit.label]: "error" }));
+            setClaimError((s) => ({
+                ...s,
+                [commit.label]: opResult.errorMessage ?? "Transaction failed on-chain",
+            }));
+            return;
+        }
+
+        // Phase 3: fetch the real subdomain record from the indexer
+        setClaimState((s) => ({ ...s, [commit.label]: "fetching" }));
+        let subdomain: SubdomainRecord;
+        try {
+            subdomain = await fetchSubdomainWithRetry(address, commit.label);
+        } catch (e) {
+            setClaimState((s) => ({ ...s, [commit.label]: "error" }));
+            setClaimError((s) => ({
+                ...s,
+                [commit.label]: "Registered on-chain but failed to fetch record — please refresh",
+            }));
+            return;
+        }
+
+        removePendingCommit(commit.label);
+        setCommits((prev) => prev.filter((c) => c.label !== commit.label));
+        setClaimState((s) => ({ ...s, [commit.label]: "success" }));
+        onClaim?.(subdomain);
+        onRelease?.();
     };
 
     const handleRelease = async (commit: PendingCommit) => {
@@ -93,8 +153,6 @@ export default function PendingCommitsPanel({
         }
     };
 
-
-
     if (commits.length === 0) return null;
 
     const now = Date.now();
@@ -115,6 +173,7 @@ export default function PendingCommitsPanel({
                 const expiresDisplay = expiresHrs > 0 ? `${expiresHrs}h ${expiresMins}m` : `${expiresMins}m`;
                 const state = claimState[commit.label] ?? "idle";
                 const relState = releaseState[commit.label] ?? "idle";
+                const isBusy = state === "claiming" || state === "confirming" || state === "fetching";
 
                 return (
                     <div key={commit.label} className="pending-commit-card">
@@ -127,7 +186,7 @@ export default function PendingCommitsPanel({
                                 <button
                                     className="btn-inline pending-dismiss pending-release"
                                     aria-label={`Release commitment for ${commit.label}`}
-                                    disabled={relState === "releasing"}
+                                    disabled={relState === "releasing" || isBusy}
                                     onClick={() => handleRelease(commit)}
                                 >
                                     {relState === "releasing" ? "releasing…" : "✕ release"}
@@ -165,7 +224,15 @@ export default function PendingCommitsPanel({
                         )}
 
                         {state === "claiming" && (
-                            <p className="pending-claiming">Claiming… approve in your wallet.</p>
+                            <p className="pending-claiming">Waiting for wallet approval…</p>
+                        )}
+
+                        {state === "confirming" && (
+                            <p className="pending-claiming">Confirming on-chain…</p>
+                        )}
+
+                        {state === "fetching" && (
+                            <p className="pending-claiming">Fetching your record…</p>
                         )}
 
                         {state === "error" && (
