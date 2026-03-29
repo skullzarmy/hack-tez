@@ -136,7 +136,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            const scopes = [sdk.PermissionScope.OPERATION_REQUEST, sdk.PermissionScope.SIGN];
+            const scopes = [sdk.PermissionScope.OPERATION_REQUEST];
             await c.requestPermissions({ scopes });
 
             const account = await c.getActiveAccount();

@@ -46,8 +46,9 @@ function handleProbeDisconnects(): Plugin {
 export default defineConfig({
     plugins: [requireMainnetEnv(), handleProbeDisconnects(), react(), tailwindcss()],
     define: {
-        global: "globalThis",
+        "process.env.NODE_ENV": JSON.stringify("production"),
         "process.env": "{}",
+        global: "globalThis",
     },
     resolve: {
         alias: {

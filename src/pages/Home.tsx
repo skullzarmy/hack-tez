@@ -64,6 +64,12 @@ export default function Home() {
 
     return (
         <>
+            {contractConfig.registryTampered && (
+                <div role="alert" className="registry-tamper-banner">
+                    ⚠ WARNING: The on-chain name registry has been changed to an unexpected address.
+                    Registrations may not create real TED domains. Do not register until this is resolved.
+                </div>
+            )}
             {/* ── HERO ─────────────────────────────────────────────── */}
             <section className="hero scanlines" aria-label={`*.hack.${config.tld} — Tezos Subdomain Registry`}>
                 <div className="video-bg-wrap" aria-hidden="true">

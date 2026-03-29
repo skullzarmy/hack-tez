@@ -18,6 +18,9 @@ interface NetworkConfig {
     tzktApi: string;
     domainsGraphql: string;
     registrarAddress: string;
+    /** Expected TED NameRegistry.SetChildRecord address for this network.
+     *  Used to detect if name_registry storage has been tampered with. */
+    expectedNameRegistry: string;
 }
 
 const configs: Record<TezosNetwork, NetworkConfig> = {
@@ -28,6 +31,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tzktApi: "https://api.ghostnet.tzkt.io",
         domainsGraphql: "https://ghostnet-api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        expectedNameRegistry: "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU",
     },
     shadownet: {
         name: "shadownet",
@@ -36,6 +40,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tzktApi: "https://api.shadownet.tzkt.io",
         domainsGraphql: "",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        expectedNameRegistry: "", // TED not deployed on shadownet
     },
     mainnet: {
         name: "mainnet",
@@ -44,6 +49,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tzktApi: "https://api.tzkt.io",
         domainsGraphql: "https://api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        expectedNameRegistry: "KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd",
     },
 };
 

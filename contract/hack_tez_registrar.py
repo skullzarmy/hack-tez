@@ -15,7 +15,7 @@ This contract's scope is strictly:
 Registration uses a commit-reveal pattern enforced entirely on-chain:
 
   1. commit(hash) — user submits blake2b(pack(label, sender, target, salt))
-  2. Wait ≥ min_commit_age (currently 2 min on ghostnet — TODO: 30s for production)
+  2. Wait ≥ min_commit_age (30 seconds)
   3. register(label, target_address, salt) — contract verifies the hash,
      checks timing, calls set_child_record on TED with owner=sp.sender
 
@@ -110,7 +110,7 @@ def main():
             self.data.max_per_wallet = sp.nat(1)
             self.data.min_label_length = sp.nat(3)
             self.data.max_label_length = sp.nat(64)
-            self.data.min_commit_age = 14400  # 4 hours in seconds — TODO: change to 30 before next deploy
+            self.data.min_commit_age = 30  # 30 seconds
             self.data.max_commit_age = 86400  # 24 hours in seconds
             self.data.paused = False
             sp.cast(self.data, t_storage)
@@ -585,7 +585,7 @@ def test_initial_state():
     scenario.verify(contract.data.max_per_wallet == 1)
     scenario.verify(contract.data.min_label_length == 3)
     scenario.verify(contract.data.max_label_length == 64)
-    scenario.verify(contract.data.min_commit_age == 14400)
+    scenario.verify(contract.data.min_commit_age == 30)
     scenario.verify(contract.data.max_commit_age == 86400)
     scenario.verify(contract.data.admin_address == admin.address)
     scenario.verify(contract.data.metadata.contains(""))
@@ -745,7 +745,7 @@ def test_register_label_too_short():
     contract.register(
         sp.record(label=label, target_address=user.address, salt=salt),
         _sender=user,
-        _now=sp.timestamp(14401),
+        _now=sp.timestamp(31),
         _valid=False,
     )
 
@@ -802,7 +802,7 @@ def test_wrong_sender_cannot_reveal():
     contract.register(
         sp.record(label=label, target_address=user.address, salt=salt),
         _sender=user2,
-        _now=sp.timestamp(14401),
+        _now=sp.timestamp(31),
         _valid=False,
     )
 
@@ -1037,7 +1037,7 @@ def test_label_too_long():
     contract.register(
         sp.record(label=label, target_address=user.address, salt=salt),
         _sender=user,
-        _now=sp.timestamp(14401),
+        _now=sp.timestamp(31),
         _valid=False,
     )
 
@@ -1070,7 +1070,7 @@ def test_label_invalid_chars():
     contract.register(
         sp.record(label=label, target_address=user.address, salt=salt),
         _sender=user,
-        _now=sp.timestamp(14401),
+        _now=sp.timestamp(31),
         _valid=False,
     )
 
@@ -1104,7 +1104,7 @@ def test_label_valid_chars():
     contract.register(
         sp.record(label=label, target_address=user.address, salt=salt),
         _sender=user,
-        _now=sp.timestamp(14401),
+        _now=sp.timestamp(31),
     )
     scenario.verify(contract.data.registrations[user.address] == 1)
 
@@ -1134,7 +1134,7 @@ def test_label_leading_trailing_hyphen():
     contract.commit(h1, _sender=user1, _now=sp.timestamp(0))
     contract.register(
         sp.record(label=label1, target_address=user1.address, salt=salt),
-        _sender=user1, _now=sp.timestamp(14401), _valid=False,
+        _sender=user1, _now=sp.timestamp(31), _valid=False,
     )
 
     # "ab-" = 0x61622d (trailing hyphen)
@@ -1151,7 +1151,7 @@ def test_label_leading_trailing_hyphen():
     contract.commit(h2, _sender=user2, _now=sp.timestamp(0))
     contract.register(
         sp.record(label=label2, target_address=user2.address, salt=salt2),
-        _sender=user2, _now=sp.timestamp(14401), _valid=False,
+        _sender=user2, _now=sp.timestamp(31), _valid=False,
     )
 
     # "---" = 0x2d2d2d (all hyphens — leading AND trailing)
@@ -1168,7 +1168,7 @@ def test_label_leading_trailing_hyphen():
     contract.commit(h3, _sender=user3, _now=sp.timestamp(0))
     contract.register(
         sp.record(label=label3, target_address=user3.address, salt=salt3),
-        _sender=user3, _now=sp.timestamp(14401), _valid=False,
+        _sender=user3, _now=sp.timestamp(31), _valid=False,
     )
 
     # "a-b" = 0x612d62 (middle hyphen — should pass)
@@ -1185,7 +1185,7 @@ def test_label_leading_trailing_hyphen():
     contract.commit(h4, _sender=user4, _now=sp.timestamp(0))
     contract.register(
         sp.record(label=label4, target_address=user4.address, salt=salt4),
-        _sender=user4, _now=sp.timestamp(14401),
+        _sender=user4, _now=sp.timestamp(31),
     )
     scenario.verify(contract.data.registrations[user4.address] == 1)
 

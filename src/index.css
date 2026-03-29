@@ -2381,3 +2381,19 @@ a:hover {
 .toast-dismiss:hover {
     color: var(--fg);
 }
+
+/* ── Registry tamper warning banner ────────────────────────────────────── */
+.registry-tamper-banner {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    background: #ff2d2d;
+    color: #fff;
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-align: center;
+    padding: 0.6rem 1rem;
+    line-height: 1.4;
+}

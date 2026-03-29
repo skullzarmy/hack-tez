@@ -26,7 +26,7 @@ import { randomBytes } from "crypto";
 
 // ─── Config ──────────────────────────────────────────────────────────
 const RPC_URL = "https://rpc.ghostnet.teztnets.com";
-const REGISTRAR = "KT1H5j2w7Di646xAVuDoD8A4YBA9XUfe1XkF";
+const REGISTRAR = process.env.REGISTRAR_ADDRESS || "KT1H5j2w7Di646xAVuDoD8A4YBA9XUfe1XkF";
 const SET_CHILD_RECORD_PROXY = "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU";
 const NAME_REGISTRY = "KT1REqKBXwULnmU6RpZxnRBUgcBmESnXhCWs";
 const TZKT_API = "https://api.ghostnet.tzkt.io/v1";
