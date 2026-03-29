@@ -8,7 +8,15 @@ import config from "../config/tezos";
 type ClaimState = "idle" | "claiming" | "success" | "error";
 type ReleaseState = "idle" | "releasing" | "error";
 
-export default function PendingCommitsPanel({ commitKey = 0, onRelease }: { commitKey?: number; onRelease?: () => void }) {
+export default function PendingCommitsPanel({
+    commitKey = 0,
+    onRelease,
+    onClaim,
+}: {
+    commitKey?: number;
+    onRelease?: () => void;
+    onClaim?: (label: string) => void;
+}) {
     const { client, address } = useTezos();
     const contractConfig = useContractConfig();
     const minCommitAgeMs = contractConfig.minCommitAgeSec * 1000;
@@ -53,6 +61,7 @@ export default function PendingCommitsPanel({ commitKey = 0, onRelease }: { comm
             removePendingCommit(commit.label);
             setCommits((prev) => prev.filter((c) => c.label !== commit.label));
             setClaimState((s) => ({ ...s, [commit.label]: "success" }));
+            onClaim?.(commit.label);
             onRelease?.();
         } catch (e) {
             if (import.meta.env.DEV) console.error("Claim failed:", e);

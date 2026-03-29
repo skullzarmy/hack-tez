@@ -20,11 +20,23 @@ export default function Home() {
     const year = new Date().getFullYear();
     const yearDisplay = year > 2026 ? `2026–${year}` : "2026";
     const [commitKey, setCommitKey] = useState(0);
+    const [justClaimedLabel, setJustClaimedLabel] = useState<string | null>(null);
+    const [lastAddress, setLastAddress] = useState(address);
 
-    const { subdomains, loading: subdomainsLoading } = useSubdomains(address);
+    if (address !== lastAddress) {
+        setLastAddress(address);
+        setJustClaimedLabel(null);
+    }
+
+    const { subdomains, loading: subdomainsLoading, refresh: refreshSubdomains } = useSubdomains(address);
     const { count: registrationCount, loading: regLoading } = useRegistrationCount(address);
 
-    const hasSubdomain = subdomains.length > 0;
+    // The subdomain to display — real one from GraphQL, or optimistic from just-claimed label
+    const displaySubdomain = subdomains[0] ?? (justClaimedLabel && address
+        ? { name: `${justClaimedLabel}.hack.${config.tld}`, address, owner: address, expiresAt: null }
+        : null);
+
+    const hasSubdomain = !!displaySubdomain;
     const isStatusLoading = address ? subdomainsLoading || regLoading : false;
     const hasUsedAllClaims =
         !subdomainsLoading && !regLoading && registrationCount >= contractConfig.maxPerWallet && !hasSubdomain;
@@ -86,12 +98,20 @@ export default function Home() {
                         Claim your name — early access open now
                     </p>
 
-                    {address && hasSubdomain && <ClaimedView subdomain={subdomains[0]} />}
+                    {address && hasSubdomain && <ClaimedView subdomain={displaySubdomain!} />}
 
                     {address && hasUsedAllClaims && !hasSubdomain && <ClaimUsedView />}
 
                     {address && !hasSubdomain && !hasUsedAllClaims && (
-                        <PendingCommitsPanel commitKey={commitKey} onRelease={() => setCommitKey((k) => k + 1)} />
+                        <PendingCommitsPanel
+                            commitKey={commitKey}
+                            onRelease={() => setCommitKey((k) => k + 1)}
+                            onClaim={(label) => {
+                                setJustClaimedLabel(label);
+                                setCommitKey((k) => k + 1);
+                                refreshSubdomains();
+                            }}
+                        />
                     )}
 
                     {!hasSubdomain && !hasUsedAllClaims && !hasActivePending && !isStatusLoading && (
