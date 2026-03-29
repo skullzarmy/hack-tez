@@ -12,18 +12,28 @@
   <!-- Border -->
   <rect x="32" y="32" width="1136" height="566" fill="none" stroke="#fff" stroke-width="1" opacity="0.15"/>
 
-  <!-- Top label -->
-  <text x="600" y="110" font-family="'Courier New',monospace" font-size="13" fill="#fff" opacity="0.4" letter-spacing="6" text-anchor="middle">TEZOS SUBDOMAIN REGISTRY</text>
+  <!-- Eyebrow: "Tezos subdomain Registry" -->
+  <text x="600" y="120" font-family="'Courier New',monospace" font-size="15" fill="#888" letter-spacing="4" text-anchor="middle">Tezos subdomain Registry</text>
 
-  <!-- Main title centered -->
-  <text x="600" y="310" font-family="'Courier New',monospace" font-size="200" font-weight="700" fill="#fff" letter-spacing="-6" text-anchor="middle">hack</text>
+  <!-- Hero title: *.HACK.TEZ -->
+  <!-- * -->
+  <text x="242" y="360" font-family="'Courier New',monospace" font-size="100" font-weight="700" fill="#888" text-anchor="middle" dominant-baseline="auto">*</text>
+  <!-- . (small dot before HACK) -->
+  <text x="318" y="365" font-family="'Courier New',monospace" font-size="22" font-weight="700" fill="#888" text-anchor="middle">.</text>
+  <!-- HACK -->
+  <text x="600" y="370" font-family="'Courier New',monospace" font-size="220" font-weight="700" fill="#fff" letter-spacing="-4" text-anchor="middle" dominant-baseline="auto">HACK</text>
+  <!-- .TEZ -->
+  <text x="1050" y="365" font-family="'Courier New',monospace" font-size="22" font-weight="700" fill="#fff" opacity="0.55" letter-spacing="3" text-anchor="middle">.TEZ</text>
 
-  <!-- TLD accent -->
-  <text x="600" y="420" font-family="'Courier New',monospace" font-size="72" font-weight="700" fill="#fff" opacity="0.35" letter-spacing="4" text-anchor="middle">.tez</text>
+  <!-- Divider -->
+  <rect x="540" y="400" width="120" height="2" fill="#fff" opacity="0.4"/>
 
-  <!-- Tagline centered -->
-  <text x="600" y="530" font-family="'Courier New',monospace" font-size="16" fill="#fff" opacity="0.5" letter-spacing="3" text-anchor="middle">YOUR NAME ON-CHAIN — 1 CLAIM PER WALLET — JUST GAS</text>
+  <!-- Manifesto lines -->
+  <text x="600" y="448" font-family="'Courier New',monospace" font-size="15" fill="#999" letter-spacing="3" text-anchor="middle">This is an invitation.</text>
+  <text x="600" y="474" font-family="'Courier New',monospace" font-size="14" fill="#666" letter-spacing="2" text-anchor="middle">For those who build what should exist.</text>
+  <text x="600" y="498" font-family="'Courier New',monospace" font-size="14" fill="#666" letter-spacing="2" text-anchor="middle">For those who break what can be broken.</text>
+  <text x="600" y="522" font-family="'Courier New',monospace" font-size="14" fill="#666" letter-spacing="2" text-anchor="middle">For Tezos.</text>
 
-  <!-- URL -->
-  <text x="600" y="580" font-family="'Courier New',monospace" font-size="13" fill="#fff" opacity="0.25" letter-spacing="2" text-anchor="middle">hack.tez.page</text>
+  <!-- CTA -->
+  <text x="600" y="575" font-family="'Courier New',monospace" font-size="13" fill="#555" letter-spacing="3" text-anchor="middle">Claim your name — early access open now</text>
 </svg>
