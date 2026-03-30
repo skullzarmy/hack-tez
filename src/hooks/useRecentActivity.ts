@@ -17,7 +17,7 @@ function truncateAddress(addr: string): string {
 }
 
 /** TzKT returns Michelson `bytes` fields as lowercase hex strings — decode to UTF-8. */
-function hexToUtf8(hex: string): string {
+export function hexToUtf8(hex: string): string {
     try {
         const bytes = new Uint8Array(
             (hex.match(/.{1,2}/g) ?? []).map((b) => parseInt(b, 16)),

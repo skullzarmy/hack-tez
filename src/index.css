@@ -157,7 +157,6 @@ html {
 }
 
 body {
-    min-height: 100dvh;
     line-height: 1.6;
     overflow-x: hidden;
 }
@@ -1155,8 +1154,14 @@ a:hover {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 0.4rem 0.5rem;
+    padding: 0.55rem 0.65rem;
     line-height: 1;
+    min-width: 24px;
+    min-height: 24px;
+}
+.nav-hamburger:focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: 2px;
 }
 .nav-hamburger-bar {
     display: block;
@@ -1168,15 +1173,26 @@ a:hover {
 .nav-hamburger:hover .nav-hamburger-bar {
     background: var(--fg-2);
 }
+/* nav-menu wraps hamburger + drawer for positioning */
+.nav-menu {
+    position: relative;
+}
 .nav-drawer {
-    border-top: 1px solid var(--border);
+    position: absolute;
+    /* push down by nav's bottom padding to reach the nav's bottom edge */
+    top: calc(100% + 0.875rem);
+    right: 0;
     background: var(--bg);
+    border: 1px solid var(--border-2);
+    border-top: none;
+    min-width: 160px;
+    z-index: 99;
 }
 .nav-drawer-inner {
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding-block: 0.5rem;
+    padding: 0.25rem 0;
 }
 .nav-drawer-link {
     font-family: var(--font);
@@ -1186,14 +1202,17 @@ a:hover {
     text-transform: uppercase;
     color: var(--fg-2);
     text-decoration: none;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border);
-    transition: color 0.15s;
-}
-.nav-drawer-link:last-of-type {
-    border-bottom: none;
+    padding: 0.65rem 1rem;
+    display: block;
+    transition: color 0.15s, background 0.15s;
 }
 .nav-drawer-link:hover {
+    color: var(--fg);
+    background: var(--bg-3);
+}
+.nav-drawer-link:focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: -2px;
     color: var(--fg);
 }
 .nav-drawer-theme {
@@ -1216,7 +1235,8 @@ a:hover {
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    padding: 0.3rem 0.5rem;
+    padding: 0.45rem 0.65rem;
+    min-height: 24px;
     text-transform: uppercase;
     transition:
         color 0.15s,
@@ -1585,6 +1605,18 @@ a:hover {
 }
 .btn-danger:hover:not(:disabled) {
     background: var(--err-bg);
+}
+
+/* --- POLL BAR ---------------------------------------------- */
+@keyframes poll-cursor-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+.poll-syncing {
+    animation: poll-cursor-blink 0.8s step-start infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .poll-syncing { animation: none; }
 }
 
 /* --- WALLET WIDGET ----------------------------------------- */

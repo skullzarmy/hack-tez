@@ -4,6 +4,7 @@ import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
+import Builders from "./pages/Builders";
 import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
@@ -134,31 +135,37 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                 </a>
 
                 <div className="nav-actions">
+                    <ThemeSwitcher theme={theme} setTheme={setTheme} />
                     <ConnectWallet />
-                    <button
-                        className="nav-hamburger"
-                        aria-label={open ? "Close menu" : "Open menu"}
-                        aria-expanded={open}
-                        onClick={() => setOpen(o => !o)}
-                    >
-                        <span className="nav-hamburger-bar" />
-                        <span className="nav-hamburger-bar" />
-                        <span className="nav-hamburger-bar" />
-                    </button>
-                </div>
-            </div>
-
-            {open && (
-                <div className="nav-drawer" role="dialog" aria-label="Navigation menu">
-                    <div className="container nav-drawer-inner">
-                        <a href="/" className="nav-drawer-link" onClick={() => setOpen(false)}>Home</a>
-                        <a href="/manifesto" className="nav-drawer-link" onClick={() => setOpen(false)}>Manifesto</a>
-                        <div className="nav-drawer-theme">
-                            <ThemeSwitcher theme={theme} setTheme={setTheme} />
-                        </div>
+                    <div className="nav-menu">
+                        <button
+                            className="nav-hamburger"
+                            aria-label={open ? "Close menu" : "Open menu"}
+                            aria-expanded={open}
+                            aria-controls="nav-drawer"
+                            onClick={() => setOpen(o => !o)}
+                        >
+                            <span className="nav-hamburger-bar" />
+                            <span className="nav-hamburger-bar" />
+                            <span className="nav-hamburger-bar" />
+                        </button>
+                        {open && (
+                            <div
+                                id="nav-drawer"
+                                className="nav-drawer"
+                                role="menu"
+                                aria-label="Navigation menu"
+                                onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+                            >
+                                <div className="nav-drawer-inner">
+                                    <a href="/manifesto" role="menuitem" className="nav-drawer-link" onClick={() => setOpen(false)}>Manifesto</a>
+                                    <a href="/builders" role="menuitem" className="nav-drawer-link" onClick={() => setOpen(false)}>Builders</a>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            )}
+            </div>
         </nav>
     );
 }
@@ -186,6 +193,7 @@ export default function App() {
         <ErrorBoundary>
         <TezosProvider>
             <BrowserRouter>
+                <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
                 {/* Noise grain overlay — decorative, hidden from AT */}
                 <div className="noise-overlay" aria-hidden="true" />
 
@@ -198,9 +206,10 @@ export default function App() {
                 <Nav theme={theme} setTheme={setTheme} />
 
                 {/* Main content */}
-                <main id="main-content" tabIndex={-1}>
+                <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
                     <Routes>
                         <Route path="/manifesto" element={<Manifesto />} />
+                        <Route path="/builders" element={<Builders />} />
                         <Route path="/" element={<Home />} />
                         <Route path="*" element={<Home />} />
                     </Routes>
@@ -208,6 +217,7 @@ export default function App() {
 
                 <ActivityLayer />
                 <Footer />
+                </div>
             </BrowserRouter>
         </TezosProvider>
         </ErrorBoundary>
