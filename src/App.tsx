@@ -44,9 +44,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                         maxWidth: "600px",
                     }}
                 >
-                    <h1 style={{ fontSize: "1rem", marginBottom: "1rem" }}>
-                        // SYSTEM ERROR
-                    </h1>
+                    <h1 style={{ fontSize: "1rem", marginBottom: "1rem" }}>// SYSTEM ERROR</h1>
                     <p style={{ color: "var(--fg, #fff)", marginBottom: "1.5rem" }}>
                         {this.state.message || "Something went wrong. Please reload."}
                     </p>
@@ -143,7 +141,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                             aria-label={open ? "Close menu" : "Open menu"}
                             aria-expanded={open}
                             aria-controls="nav-drawer"
-                            onClick={() => setOpen(o => !o)}
+                            onClick={() => setOpen((o) => !o)}
                         >
                             <span className="nav-hamburger-bar" />
                             <span className="nav-hamburger-bar" />
@@ -158,8 +156,30 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                 onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
                             >
                                 <div className="nav-drawer-inner">
-                                    <a href="/manifesto" role="menuitem" className="nav-drawer-link" onClick={() => setOpen(false)}>Manifesto</a>
-                                    <a href="/builders" role="menuitem" className="nav-drawer-link" onClick={() => setOpen(false)}>Builders</a>
+                                    <a
+                                        href="/"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Home
+                                    </a>
+                                    <a
+                                        href="/manifesto"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Manifesto
+                                    </a>
+                                    <a
+                                        href="/builders"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Builders
+                                    </a>
                                 </div>
                             </div>
                         )}
@@ -191,35 +211,35 @@ export default function App() {
 
     return (
         <ErrorBoundary>
-        <TezosProvider>
-            <BrowserRouter>
-                <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
-                {/* Noise grain overlay — decorative, hidden from AT */}
-                <div className="noise-overlay" aria-hidden="true" />
+            <TezosProvider>
+                <BrowserRouter>
+                    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
+                        {/* Noise grain overlay — decorative, hidden from AT */}
+                        <div className="noise-overlay" aria-hidden="true" />
 
-                {/* Skip to main content link */}
-                <a href="#main-content" className="skip-link">
-                    Skip to content
-                </a>
+                        {/* Skip to main content link */}
+                        <a href="#main-content" className="skip-link">
+                            Skip to content
+                        </a>
 
-                {/* Navigation */}
-                <Nav theme={theme} setTheme={setTheme} />
+                        {/* Navigation */}
+                        <Nav theme={theme} setTheme={setTheme} />
 
-                {/* Main content */}
-                <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
-                    <Routes>
-                        <Route path="/manifesto" element={<Manifesto />} />
-                        <Route path="/builders" element={<Builders />} />
-                        <Route path="/" element={<Home />} />
-                        <Route path="*" element={<Home />} />
-                    </Routes>
-                </main>
+                        {/* Main content */}
+                        <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
+                            <Routes>
+                                <Route path="/manifesto" element={<Manifesto />} />
+                                <Route path="/builders" element={<Builders />} />
+                                <Route path="/" element={<Home />} />
+                                <Route path="*" element={<Home />} />
+                            </Routes>
+                        </main>
 
-                <ActivityLayer />
-                <Footer />
-                </div>
-            </BrowserRouter>
-        </TezosProvider>
+                        <ActivityLayer />
+                        <Footer />
+                    </div>
+                </BrowserRouter>
+            </TezosProvider>
         </ErrorBoundary>
     );
 }
