@@ -28,7 +28,7 @@
 
   <!-- Main title: * .hack .tez — three tspans for color control -->
   <text x="600" y="310" font-family="'Space Mono','Courier New',monospace" font-size="180" font-weight="700" letter-spacing="-2" text-anchor="middle">
-    <tspan fill="#666">*</tspan><tspan fill="#fff">.hack</tspan><tspan fill="#555">.tez</tspan>
+    <tspan fill="#666">*</tspan><tspan fill="#fff">.HACK</tspan><tspan fill="#555">.TEZ</tspan>
   </text>
 
   <!-- Divider -->
