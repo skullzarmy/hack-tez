@@ -1147,6 +1147,59 @@ a:hover {
     gap: 0.75rem;
 }
 
+/* --- HAMBURGER -------------------------------------------- */
+.nav-hamburger {
+    background: none;
+    border: 1px solid var(--border-2);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0.4rem 0.5rem;
+    line-height: 1;
+}
+.nav-hamburger-bar {
+    display: block;
+    width: 16px;
+    height: 2px;
+    background: var(--fg);
+    transition: background 0.15s;
+}
+.nav-hamburger:hover .nav-hamburger-bar {
+    background: var(--fg-2);
+}
+.nav-drawer {
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+}
+.nav-drawer-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-block: 0.5rem;
+}
+.nav-drawer-link {
+    font-family: var(--font);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-2);
+    text-decoration: none;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.15s;
+}
+.nav-drawer-link:last-of-type {
+    border-bottom: none;
+}
+.nav-drawer-link:hover {
+    color: var(--fg);
+}
+.nav-drawer-theme {
+    padding-top: 0.75rem;
+}
+
 /* --- THEME SWITCHER ---------------------------------------- */
 .theme-switcher {
     display: flex;
@@ -1549,7 +1602,7 @@ a:hover {
     white-space: nowrap;
 }
 .wallet-chip-label {
-    max-width: 14ch;
+    max-width: 24ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

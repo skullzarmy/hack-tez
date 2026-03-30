@@ -123,6 +123,46 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
     );
 }
 
+function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <nav className="nav" aria-label="Site navigation">
+            <div className="container nav-inner">
+                <a href="/" className="nav-logo" aria-label="hack.tez home">
+                    HACK<span className="dot-tez">.TEZ</span>
+                </a>
+
+                <div className="nav-actions">
+                    <ConnectWallet />
+                    <button
+                        className="nav-hamburger"
+                        aria-label={open ? "Close menu" : "Open menu"}
+                        aria-expanded={open}
+                        onClick={() => setOpen(o => !o)}
+                    >
+                        <span className="nav-hamburger-bar" />
+                        <span className="nav-hamburger-bar" />
+                        <span className="nav-hamburger-bar" />
+                    </button>
+                </div>
+            </div>
+
+            {open && (
+                <div className="nav-drawer" role="dialog" aria-label="Navigation menu">
+                    <div className="container nav-drawer-inner">
+                        <a href="/" className="nav-drawer-link" onClick={() => setOpen(false)}>Home</a>
+                        <a href="/manifesto" className="nav-drawer-link" onClick={() => setOpen(false)}>Manifesto</a>
+                        <div className="nav-drawer-theme">
+                            <ThemeSwitcher theme={theme} setTheme={setTheme} />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </nav>
+    );
+}
+
 function ActivityLayer() {
     const { events, newEvents, isLoading } = useRecentActivity();
     return (
@@ -155,18 +195,7 @@ export default function App() {
                 </a>
 
                 {/* Navigation */}
-                <nav className="nav" aria-label="Site navigation">
-                    <div className="container nav-inner">
-                        <a href="/" className="nav-logo" aria-label="hack.tez home">
-                            HACK<span className="dot-tez">.TEZ</span>
-                        </a>
-
-                        <div className="nav-actions">
-                            <ThemeSwitcher theme={theme} setTheme={setTheme} />
-                            <ConnectWallet />
-                        </div>
-                    </div>
-                </nav>
+                <Nav theme={theme} setTheme={setTheme} />
 
                 {/* Main content */}
                 <main id="main-content" tabIndex={-1}>
