@@ -21,6 +21,7 @@ export default function Manifesto() {
                 fontSize: "0.85rem",
                 lineHeight: 2,
                 color: "var(--fg-2)",
+                fontWeight: 700,
                 display: "flex",
                 flexDirection: "column",
                 gap: "1.5rem",
