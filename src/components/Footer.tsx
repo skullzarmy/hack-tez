@@ -4,7 +4,7 @@ export default function Footer() {
             <div className="container footer-inner">
                 <span className="footer-copy">
                     <span>
-                        a{" "}
+                        &lt;&lt; a{" "}
                         <a
                             href="https://fafolab.xyz"
                             target="_blank"
@@ -16,7 +16,9 @@ export default function Footer() {
                         </a>{" "}
                         joint
                     </span>
-                    <span aria-hidden="true" style={{ color: "var(--fg-3)" }}>·</span>
+                    <span aria-hidden="true" style={{ color: "var(--fg-3)" }}>
+                        &gt;&gt;
+                    </span>
                     <a href="/manifesto" className="footer-link">
                         manifesto
                     </a>

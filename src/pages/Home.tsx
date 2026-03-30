@@ -230,6 +230,12 @@ export default function Home() {
                         </span>
                     </p>
 
+                    <p className="section-body" style={{ marginTop: "2rem" }}>
+                        <a href="/manifesto" className="footer-link" style={{ fontSize: "0.8rem", letterSpacing: "0.1em" }}>
+                            read the manifesto →
+                        </a>
+                    </p>
+
                     <style>
                         {`
                           .typing-cursor {
