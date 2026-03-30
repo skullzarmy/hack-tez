@@ -4,6 +4,7 @@ import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
+import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
 const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
@@ -176,6 +177,7 @@ export default function App() {
                 </main>
 
                 <ActivityLayer />
+                <Footer />
             </BrowserRouter>
         </TezosProvider>
         </ErrorBoundary>
