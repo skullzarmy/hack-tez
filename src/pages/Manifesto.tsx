@@ -1,10 +1,16 @@
 export default function Manifesto() {
     return (
         <div className="container" style={{ maxWidth: "680px", paddingBlock: "4rem" }}>
-            <article style={{ fontFamily: "var(--font)", lineHeight: 1.8, color: "var(--fg)" }}>
-                <h1 style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "0.12em", marginBottom: "2.5rem" }}>
-                    HACK.TEZ
-                </h1>
+            <article className="prose prose-invert prose-sm max-w-none"
+                style={{
+                    "--tw-prose-body": "var(--fg-2)",
+                    "--tw-prose-headings": "var(--fg)",
+                    "--tw-prose-hr": "var(--border)",
+                    "--tw-prose-links": "var(--fg)",
+                    fontFamily: "var(--font)",
+                } as React.CSSProperties}
+            >
+                <h1>HACK.TEZ</h1>
 
                 <p>Something new is here.</p>
 
@@ -26,11 +32,9 @@ export default function Manifesto() {
 
                 <p>That's the whole thing. That's always been the whole thing.</p>
 
-                <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "2.5rem 0" }} />
+                <hr />
 
-                <p style={{ color: "var(--fg-3)", fontSize: "0.8rem", letterSpacing: "0.08em", fontStyle: "italic" }}>
-                    Unlicensed. Unowned. Unafraid.
-                </p>
+                <p><em>Unlicensed. Unowned. Unafraid.</em></p>
             </article>
         </div>
     );
