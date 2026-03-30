@@ -2,6 +2,7 @@
     "name": "hack-tez",
     "private": true,
     "version": "0.1.0",
+    "license": "Unlicense",
     "type": "module",
     "scripts": {
         "dev": "vite",

@@ -21,8 +21,6 @@ export default function Home() {
     const contractConfig = useContractConfig();
     const waitDescription = formatDuration(contractConfig.minCommitAgeSec);
     const maxAgeDescription = formatDuration(contractConfig.maxCommitAgeSec);
-    const year = new Date().getFullYear();
-    const yearDisplay = year > 2026 ? `2026–${year}` : "2026";
     const [commitKey, setCommitKey] = useState(0);
     const [claimedSubdomain, setClaimedSubdomain] = useState<SubdomainRecord | null>(null);
     const [lastAddress, setLastAddress] = useState(address);
@@ -254,7 +252,7 @@ export default function Home() {
                 <div className="container footer-inner">
                     <span className="footer-copy">
                         <span>
-                            copyright {yearDisplay} a{" "}
+                            a{" "}
                             <a
                                 href="https://fafolab.xyz"
                                 target="_blank"
@@ -266,6 +264,10 @@ export default function Home() {
                             </a>{" "}
                             joint
                         </span>
+                        <span aria-hidden="true" style={{ color: "var(--fg-3)" }}>·</span>
+                        <a href="/manifesto" className="footer-link">
+                            manifesto
+                        </a>
                     </span>
                 </div>
             </footer>

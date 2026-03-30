@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
+import Manifesto from "./pages/Manifesto";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
 const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
@@ -168,6 +169,7 @@ export default function App() {
                 {/* Main content */}
                 <main id="main-content" tabIndex={-1}>
                     <Routes>
+                        <Route path="/manifesto" element={<Manifesto />} />
                         <Route path="/" element={<Home />} />
                         <Route path="*" element={<Home />} />
                     </Routes>

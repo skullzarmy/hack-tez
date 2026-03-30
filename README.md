@@ -31,6 +31,6 @@ See [PLAN.md](./PLAN.md) for full architecture, contract design, and workplan.
 
 ## License
 
-MIT
+Unlicensed. No rights reserved. Take it.
 
 Free subdomain service for hack.tez — claim yourname.hack.tez with any Tezos wallet
