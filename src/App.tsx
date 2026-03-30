@@ -97,8 +97,9 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
                 aria-pressed={theme === "auto"}
                 onClick={() => setTheme("auto")}
                 title="Auto (system default)"
+                aria-label="Auto"
             >
-                Auto
+                ⊙
             </button>
             <button
                 className="theme-btn"
