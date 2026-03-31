@@ -446,7 +446,7 @@ export default function Developers() {
                     {/* ---- Base URL ---- */}
                     <section style={{ marginBottom: "2.5rem" }}>
                         <SectionHeading id="base-url">Base URL</SectionHeading>
-                        <CodeBlock code="https://hack.tez" lang="url" />
+                        <CodeBlock code="https://hack.fafolab.xyz" lang="url" />
                     </section>
 
                     {/* ---- Conventions ---- */}
@@ -532,7 +532,7 @@ export default function Developers() {
                                 { name: "limit", kind: "query", type: "integer", default: "50", description: "Results per page (max 200)" },
                                 { name: "offset", kind: "query", type: "integer", default: "0", description: "Skip N results for pagination" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.tez/api/domains?limit=3&offset=0" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/domains?limit=3&offset=0" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: [{ name: `alice.hack.${tld}`, label: "alice", owner: "tz1...", registeredAt: "2025-03-27T08:01:29Z", opHash: "oo..." }], count: 1, limit: 3, offset: 0, network }, null, 2)} />
                         </div>
@@ -552,7 +552,7 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "name", kind: "path", type: "string", description: `Label (alice) or full name (alice.hack.${tld})` },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.tez/api/domain/alice" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/domain/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: { name: `alice.hack.${tld}`, label: "alice", address: "tz1...", owner: "tz1...", expiresAt: null }, available: false, network }, null, 2)} />
                         </div>
@@ -572,7 +572,7 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "label", kind: "path", type: "string", description: "Bare label (3–63 chars, lowercase alphanumeric + hyphens)" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.tez/api/availability/alice" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/availability/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ label: "alice", available: false, network }, null, 2)} />
                         </div>
@@ -592,7 +592,7 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "address", kind: "path", type: "tz1… / KT1…", description: "Tezos wallet or contract address" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.tez/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: [{ name: `alice.hack.${tld}`, label: "alice", address: "tz1...", owner: "tz1...", expiresAt: null }], count: 1, network }, null, 2)} />
                         </div>
@@ -612,7 +612,7 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "address", kind: "path", type: "tz1… / KT1…", description: "Tezos wallet or contract address" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.tez/api/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ address: "tz1...", primary: "alice.tez", hackTez: [`alice.hack.${tld}`, `builder.hack.${tld}`], network }, null, 2)} />
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", marginTop: "0.75rem", lineHeight: 1.8 }}>
@@ -633,7 +633,7 @@ export default function Developers() {
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
                                 Current contract configuration. Check before starting a registration flow to get commit timing and verify registration is not paused.
                             </p>
-                            <CodeBlock lang="http" code="GET https://hack.tez/api/config" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/config" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: { minCommitAgeSec: 30, maxCommitAgeSec: 86400, maxPerWallet: 1, paused: false, registrarAddress: "KT1..." }, network }, null, 2)} />
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", marginTop: "0.75rem", lineHeight: 1.8 }}>
@@ -650,23 +650,23 @@ export default function Developers() {
                             <SectionHeading id="quickstart">Quick Start</SectionHeading>
                             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                                 <CodeBlock lang="bash" code={`# Check availability
-curl https://hack.tez/api/availability/yourname
+curl https://hack.fafolab.xyz/api/availability/yourname
 
 # Fetch domain record
-curl https://hack.tez/api/domain/alice
+curl https://hack.fafolab.xyz/api/domain/alice
 
 # Domains owned by a wallet
-curl https://hack.tez/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
+curl https://hack.fafolab.xyz/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
 
 # Reverse-resolve an address
-curl https://hack.tez/api/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`} />
+curl https://hack.fafolab.xyz/api/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`} />
                                 <CodeBlock lang="javascript" code={`// JavaScript / TypeScript
-const { available } = await fetch('https://hack.tez/api/availability/yourname')
+const { available } = await fetch('https://hack.fafolab.xyz/api/availability/yourname')
   .then(r => r.json());
 
 // Resolve address for display
 async function getDisplayName(address) {
-  const { primary, hackTez } = await fetch(\`https://hack.tez/api/resolve/\${address}\`)
+  const { primary, hackTez } = await fetch(\`https://hack.fafolab.xyz/api/resolve/\${address}\`)
     .then(r => r.json());
   return primary ?? hackTez[0] ?? \`\${address.slice(0,6)}…\${address.slice(-4)}\`;
 }`} />
