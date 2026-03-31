@@ -4,6 +4,13 @@ import config from "../config/tezos";
 
 const POLL_MS = 30_000;
 
+const DOMAINS_BASE: Record<string, string> = {
+    mainnet:   "https://app.tezos.domains/domain",
+    ghostnet:  "https://ghostnet.tezos.domains/domain",
+    shadownet: "https://ghostnet.tezos.domains/domain",
+};
+const domainsBase = DOMAINS_BASE[config.name] ?? "https://app.tezos.domains/domain";
+
 function formatDate(d: Date): string {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -197,7 +204,7 @@ export default function Builders() {
                                         </td>
                                         <td style={{ padding: "0.65rem 0.75rem 0.65rem 0" }}>
                                             <a
-                                                href={`https://app.tezos.domains/domain/${b.name}`}
+                                                href={`${domainsBase}/${b.name}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 style={{ color: "var(--fg)", textDecoration: "none", fontWeight: 700 }}
