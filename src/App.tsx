@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
 import Hackers from "./pages/Hackers";
 import Developers from "./pages/Developers";
+import Policies from "./pages/Policies";
 import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
@@ -189,6 +190,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Developers
                                     </a>
+                                    <a
+                                        href="/policies"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Policies
+                                    </a>
                                 </div>
                             </div>
                         )}
@@ -242,6 +251,7 @@ export default function App() {
                                 <Route path="/manifesto" element={<Manifesto />} />
                                 <Route path="/hackers" element={<Hackers />} />
                                 <Route path="/developers" element={<Developers />} />
+                                <Route path="/policies" element={<Policies />} />
                                 <Route path="/" element={<Home />} />
                                 <Route path="*" element={<Home />} />
                             </Routes>
