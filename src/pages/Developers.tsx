@@ -21,13 +21,13 @@ const NAV: NavSection[] = [
         id: "endpoints",
         label: "Endpoints",
         children: [
-            { id: "ep-domains", label: "GET /api/v1/domains" },
-            { id: "ep-domain", label: "GET /api/v1/domain/:name" },
-            { id: "ep-availability", label: "GET /api/v1/availability/:label" },
-            { id: "ep-owner", label: "GET /api/v1/owner/:address" },
-            { id: "ep-resolve", label: "GET /api/v1/resolve/:address" },
-            { id: "ep-config", label: "GET /api/v1/config" },
-            { id: "ep-activity", label: "GET /api/v1/activity" },
+            { id: "ep-domains", label: "List Registrations" },
+            { id: "ep-domain", label: "Get Domain Record" },
+            { id: "ep-availability", label: "Check Availability" },
+            { id: "ep-owner", label: "Domains by Owner" },
+            { id: "ep-resolve", label: "Reverse Resolve" },
+            { id: "ep-config", label: "Contract Config" },
+            { id: "ep-activity", label: "Recent Activity" },
         ],
     },
     { id: "quickstart", label: "Quick Start" },
@@ -631,30 +631,16 @@ export default function Developers() {
                         </h2>
                     </div>
 
-                    {/* ---- GET /api/domains ---- */}
+                    {/* ---- GET /api/v1/domains ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-domains" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                List Registrations
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/domains
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/domains</code>
                             </div>
                             <p
                                 style={{
@@ -720,26 +706,12 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-domain" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                Get Domain Record
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/v1/domain/:name
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/domain/:name</code>
                             </div>
                             <p
                                 style={{
@@ -793,26 +765,12 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-availability" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                Check Availability
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/v1/availability/:label
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/availability/:label</code>
                             </div>
                             <p
                                 style={{
@@ -848,26 +806,12 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-owner" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                Domains by Owner
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/v1/owner/:address
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/owner/:address</code>
                             </div>
                             <p
                                 style={{
@@ -923,26 +867,12 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-resolve" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                Reverse Resolve
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/v1/resolve/:address
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/resolve/:address</code>
                             </div>
                             <p
                                 style={{
@@ -1005,30 +935,16 @@ export default function Developers() {
                         </div>
                     </section>
 
-                    {/* ---- GET /api/config ---- */}
+                    {/* ---- GET /api/v1/config ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-config" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                Contract Config
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/v1/config
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/config</code>
                             </div>
                             <p
                                 style={{
@@ -1086,26 +1002,12 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-activity" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.75rem",
-                                    marginBottom: "0.75rem",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <h3 style={{ fontFamily: "var(--font)", fontSize: "1rem", fontWeight: 700, color: "var(--fg)", margin: "0 0 0.35rem 0", letterSpacing: "0.02em" }}>
+                                Recent Activity
+                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}>
                                 <MethodBadge />
-                                <code
-                                    style={{
-                                        fontFamily: "var(--font)",
-                                        fontSize: "0.85rem",
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                    }}
-                                >
-                                    /api/v1/activity
-                                </code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>/api/v1/activity</code>
                             </div>
                             <p
                                 style={{
