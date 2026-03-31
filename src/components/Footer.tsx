@@ -14,14 +14,8 @@ export default function Footer() {
                         >
                             FAFO<del>lab</del>
                         </a>{" "}
-                        joint
+                        joint &gt;&gt;
                     </span>
-                    <span aria-hidden="true" style={{ color: "var(--fg-3)" }}>
-                        &gt;&gt;
-                    </span>
-                    <a href="/manifesto" className="footer-link">
-                        manifesto
-                    </a>
                 </span>
             </div>
         </footer>

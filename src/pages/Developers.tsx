@@ -21,12 +21,13 @@ const NAV: NavSection[] = [
         id: "endpoints",
         label: "Endpoints",
         children: [
-            { id: "ep-domains", label: "GET /api/domains" },
+            { id: "ep-domains", label: "GET /api/v1/domains" },
             { id: "ep-domain", label: "GET /api/v1/domain/:name" },
             { id: "ep-availability", label: "GET /api/v1/availability/:label" },
             { id: "ep-owner", label: "GET /api/v1/owner/:address" },
             { id: "ep-resolve", label: "GET /api/v1/resolve/:address" },
-            { id: "ep-config", label: "GET /api/config" },
+            { id: "ep-config", label: "GET /api/v1/config" },
+            { id: "ep-activity", label: "GET /api/v1/activity" },
         ],
     },
     { id: "quickstart", label: "Quick Start" },
@@ -184,7 +185,9 @@ function ParamTable({
                             </td>
                             <td style={{ padding: "0.4rem 0.75rem 0.4rem 0", color: "var(--fg-3)" }}>{p.kind}</td>
                             <td style={{ padding: "0.4rem 0.75rem 0.4rem 0", color: "var(--fg-2)" }}>{p.type}</td>
-                            <td style={{ padding: "0.4rem 0.75rem 0.4rem 0", color: "var(--fg-3)" }}>{p.default ?? "—"}</td>
+                            <td style={{ padding: "0.4rem 0.75rem 0.4rem 0", color: "var(--fg-3)" }}>
+                                {p.default ?? "—"}
+                            </td>
                             <td style={{ padding: "0.4rem 0 0.4rem 0", color: "var(--fg-2)" }}>{p.description}</td>
                         </tr>
                     ))}
@@ -202,15 +205,7 @@ function Divider() {
 // Side nav
 // ---------------------------------------------------------------------------
 
-function SideNav({
-    active,
-    mobileOpen,
-    onClose,
-}: {
-    active: string;
-    mobileOpen: boolean;
-    onClose: () => void;
-}) {
+function SideNav({ active, mobileOpen, onClose }: { active: string; mobileOpen: boolean; onClose: () => void }) {
     const isParentActive = (section: NavSection) =>
         section.id === active || (section.children?.some((c) => c.id === active) ?? false);
 
@@ -230,10 +225,7 @@ function SideNav({
                 />
             )}
 
-            <aside
-                aria-label="Page navigation"
-                className={`docs-sidenav${mobileOpen ? " docs-sidenav--open" : ""}`}
-            >
+            <aside aria-label="Page navigation" className={`docs-sidenav${mobileOpen ? " docs-sidenav--open" : ""}`}>
                 <nav>
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                         {NAV.map((section) => {
@@ -392,11 +384,7 @@ export default function Developers() {
             `}</style>
 
             <div className="docs-layout">
-                <SideNav
-                    active={active}
-                    mobileOpen={mobileNavOpen}
-                    onClose={() => setMobileNavOpen(false)}
-                />
+                <SideNav active={active} mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
                 <div className="docs-content">
                     {/* ---- Header ---- */}
@@ -405,7 +393,16 @@ export default function Developers() {
                             API Reference
                         </p>
 
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                justifyContent: "space-between",
+                                gap: "1rem",
+                                flexWrap: "wrap",
+                                marginBottom: "1rem",
+                            }}
+                        >
                             <h1
                                 id="overview"
                                 style={{
@@ -432,13 +429,43 @@ export default function Developers() {
                             </button>
                         </div>
 
-                        <p style={{ fontFamily: "var(--font)", fontSize: "0.82rem", color: "var(--fg-2)", lineHeight: 1.9, marginBottom: "1.5rem", maxWidth: "560px" }}>
-                            Public REST API. No key. No auth. Just HTTP. Query subdomain ownership,
-                            availability, and contract config for hack.{tld} programmatically.
+                        <p
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.82rem",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.9,
+                                marginBottom: "1.5rem",
+                                maxWidth: "560px",
+                            }}
+                        >
+                            Public REST API. No key. No auth. Just HTTP. Query subdomain ownership, availability, and
+                            contract config for hack.{tld} programmatically.
                         </p>
 
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontFamily: "var(--font)", fontSize: "0.62rem", letterSpacing: "0.08em", color: "var(--fg-3)", border: "1px solid var(--border)", padding: "0.3rem 0.65rem" }}>
-                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: network === "mainnet" ? "var(--ok)" : "var(--warn, #f59e0b)", display: "inline-block", flexShrink: 0 }} />
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                                fontFamily: "var(--font)",
+                                fontSize: "0.62rem",
+                                letterSpacing: "0.08em",
+                                color: "var(--fg-3)",
+                                border: "1px solid var(--border)",
+                                padding: "0.3rem 0.65rem",
+                            }}
+                        >
+                            <span
+                                style={{
+                                    width: "6px",
+                                    height: "6px",
+                                    borderRadius: "50%",
+                                    background: network === "mainnet" ? "var(--ok)" : "var(--warn, #f59e0b)",
+                                    display: "inline-block",
+                                    flexShrink: 0,
+                                }}
+                            />
                             NETWORK: {network.toUpperCase()} — .{tld.toUpperCase()} TLD
                         </div>
                     </div>
@@ -452,26 +479,76 @@ export default function Developers() {
                     {/* ---- Conventions ---- */}
                     <section style={{ marginBottom: "2.5rem" }}>
                         <SectionHeading id="conventions">Conventions</SectionHeading>
-                        <div style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.9, display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                            <p>All responses are JSON. Success includes a <code style={{ color: "var(--fg)" }}>data</code> field and a <code style={{ color: "var(--fg)" }}>network</code> string.</p>
-                            <p>Errors return <code style={{ color: "var(--fg)" }}>{"{ \"error\": \"...\", \"code\": \"...\" }"}</code> with a non-200 HTTP status.</p>
-                            <p>Responses are CDN-cached at the edge (<code style={{ color: "var(--fg)" }}>s-maxage=30–60s</code>). Data reflects on-chain state with a short delay.</p>
-                            <p>CORS: <code style={{ color: "var(--fg)" }}>Access-Control-Allow-Origin: *</code> — safe to call from any origin.</p>
+                        <div
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.78rem",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.9,
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.6rem",
+                            }}
+                        >
+                            <p>
+                                All responses are JSON. Success includes a{" "}
+                                <code style={{ color: "var(--fg)" }}>data</code> field and a{" "}
+                                <code style={{ color: "var(--fg)" }}>network</code> string.
+                            </p>
+                            <p>
+                                Errors return{" "}
+                                <code style={{ color: "var(--fg)" }}>{'{ "error": "...", "code": "..." }'}</code> with a
+                                non-200 HTTP status.
+                            </p>
+                            <p>
+                                Responses are CDN-cached at the edge (
+                                <code style={{ color: "var(--fg)" }}>s-maxage=30–60s</code>). Data reflects on-chain
+                                state with a short delay.
+                            </p>
+                            <p>
+                                CORS: <code style={{ color: "var(--fg)" }}>Access-Control-Allow-Origin: *</code> — safe
+                                to call from any origin.
+                            </p>
                         </div>
                     </section>
 
                     {/* ---- Rate Limits ---- */}
                     <section style={{ marginBottom: "2.5rem" }}>
                         <SectionHeading id="rate-limits">Rate Limits</SectionHeading>
-                        <div style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.9, display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                        <div
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.78rem",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.9,
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.6rem",
+                            }}
+                        >
                             <p>
-                                No API key required. Edge CDN caching means most requests are served without hitting a function — please don't poll faster than the cache TTL (30–60 seconds).
+                                No API key required. Edge CDN caching means most requests are served without hitting a
+                                function — please don't poll faster than the cache TTL (30–60 seconds).
                             </p>
                             <p>
                                 For high-volume use, query{" "}
-                                <a href="https://tezos.domains" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg)" }}>Tezos Domains</a>{" "}
+                                <a
+                                    href="https://tezos.domains"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: "var(--fg)" }}
+                                >
+                                    Tezos Domains
+                                </a>{" "}
                                 or{" "}
-                                <a href="https://tzkt.io" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg)" }}>TzKT</a>{" "}
+                                <a
+                                    href="https://tzkt.io"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: "var(--fg)" }}
+                                >
+                                    TzKT
+                                </a>{" "}
                                 directly.
                             </p>
                         </div>
@@ -481,12 +558,31 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <SectionHeading id="error-codes">Error Codes</SectionHeading>
                         <div style={{ overflowX: "auto" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--font)", fontSize: "0.72rem" }}>
+                            <table
+                                style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.72rem",
+                                }}
+                            >
                                 <caption className="sr-only">API error codes</caption>
                                 <thead>
                                     <tr style={{ borderBottom: "1px solid var(--border-2)" }}>
                                         {["code", "http", "description"].map((h) => (
-                                            <th key={h} scope="col" style={{ textAlign: "left", padding: "0.35rem 0.75rem 0.5rem 0", color: "var(--fg-3)", fontWeight: 700, letterSpacing: "0.1em", fontSize: "0.58rem", textTransform: "uppercase" }}>
+                                            <th
+                                                key={h}
+                                                scope="col"
+                                                style={{
+                                                    textAlign: "left",
+                                                    padding: "0.35rem 0.75rem 0.5rem 0",
+                                                    color: "var(--fg-3)",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.1em",
+                                                    fontSize: "0.58rem",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
                                                 {h}
                                             </th>
                                         ))}
@@ -500,9 +596,15 @@ export default function Developers() {
                                         ["UPSTREAM_ERROR", "502 / 503", "TED GraphQL or TzKT unreachable"],
                                     ].map(([code, status, desc]) => (
                                         <tr key={code} style={{ borderBottom: "1px solid var(--border)" }}>
-                                            <td style={{ padding: "0.5rem 0.75rem 0.5rem 0" }}><code style={{ color: "var(--fg)", fontWeight: 700 }}>{code}</code></td>
-                                            <td style={{ padding: "0.5rem 0.75rem 0.5rem 0", color: "var(--fg-3)" }}>{status}</td>
-                                            <td style={{ padding: "0.5rem 0 0.5rem 0", color: "var(--fg-2)" }}>{desc}</td>
+                                            <td style={{ padding: "0.5rem 0.75rem 0.5rem 0" }}>
+                                                <code style={{ color: "var(--fg)", fontWeight: 700 }}>{code}</code>
+                                            </td>
+                                            <td style={{ padding: "0.5rem 0.75rem 0.5rem 0", color: "var(--fg-3)" }}>
+                                                {status}
+                                            </td>
+                                            <td style={{ padding: "0.5rem 0 0.5rem 0", color: "var(--fg-2)" }}>
+                                                {desc}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -512,7 +614,19 @@ export default function Developers() {
 
                     {/* ---- Endpoints heading ---- */}
                     <div style={{ marginBottom: "2rem" }}>
-                        <h2 id="endpoints" style={{ fontFamily: "var(--font)", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--fg-3)", scrollMarginTop: `${NAV_OFFSET + 16}px`, marginBottom: 0 }}>
+                        <h2
+                            id="endpoints"
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--fg-3)",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                                marginBottom: 0,
+                            }}
+                        >
                             Endpoints
                         </h2>
                     </div>
@@ -521,20 +635,84 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-domains" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/domains</code>
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/domains
+                                </code>
                             </div>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                Paginated list of all hack.{tld} registrations, newest first. Backed by on-chain transaction history — includes registration timestamp and op hash.
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Paginated list of all hack.{tld} registrations, newest first. Backed by on-chain
+                                transaction history — includes registration timestamp and op hash.
                             </p>
-                            <ParamTable params={[
-                                { name: "limit", kind: "query", type: "integer", default: "50", description: "Results per page (max 200)" },
-                                { name: "offset", kind: "query", type: "integer", default: "0", description: "Skip N results for pagination" },
-                            ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/domains?limit=3&offset=0" />
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "limit",
+                                        kind: "query",
+                                        type: "integer",
+                                        default: "50",
+                                        description: "Results per page (max 200)",
+                                    },
+                                    {
+                                        name: "offset",
+                                        kind: "query",
+                                        type: "integer",
+                                        default: "0",
+                                        description: "Skip N results for pagination",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock
+                                lang="http"
+                                code="GET https://hack.fafolab.xyz/api/v1/domains?limit=3&offset=0"
+                            />
                             <div style={{ height: "0.5rem" }} />
-                            <CodeBlock code={JSON.stringify({ data: [{ name: `alice.hack.${tld}`, label: "alice", owner: "tz1...", registeredAt: "2025-03-27T08:01:29Z", opHash: "oo..." }], count: 1, limit: 3, offset: 0, network }, null, 2)} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: [
+                                            {
+                                                name: `alice.hack.${tld}`,
+                                                label: "alice",
+                                                owner: "tz1...",
+                                                registeredAt: "2025-03-27T08:01:29Z",
+                                                opHash: "oo...",
+                                            },
+                                        ],
+                                        count: 1,
+                                        limit: 3,
+                                        offset: 0,
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
                         </div>
                     </section>
 
@@ -542,19 +720,72 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-domain" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/domain/:name</code>
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/v1/domain/:name
+                                </code>
                             </div>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                Full TED record for a subdomain. Accepts a bare label (<code style={{ color: "var(--fg)" }}>alice</code>) or the full name (<code style={{ color: "var(--fg)" }}>alice.hack.{tld}</code>). Returns <code style={{ color: "var(--fg)" }}>data: null</code> with <code style={{ color: "var(--fg)" }}>available: true</code> if unclaimed.
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Full TED record for a subdomain. Accepts a bare label (
+                                <code style={{ color: "var(--fg)" }}>alice</code>) or the full name (
+                                <code style={{ color: "var(--fg)" }}>alice.hack.{tld}</code>). Returns{" "}
+                                <code style={{ color: "var(--fg)" }}>data: null</code> with{" "}
+                                <code style={{ color: "var(--fg)" }}>available: true</code> if unclaimed.
                             </p>
-                            <ParamTable params={[
-                                { name: "name", kind: "path", type: "string", description: `Label (alice) or full name (alice.hack.${tld})` },
-                            ]} />
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "name",
+                                        kind: "path",
+                                        type: "string",
+                                        description: `Label (alice) or full name (alice.hack.${tld})`,
+                                    },
+                                ]}
+                            />
                             <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/domain/alice" />
                             <div style={{ height: "0.5rem" }} />
-                            <CodeBlock code={JSON.stringify({ data: { name: `alice.hack.${tld}`, label: "alice", address: "tz1...", owner: "tz1...", expiresAt: null }, available: false, network }, null, 2)} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: {
+                                            name: `alice.hack.${tld}`,
+                                            label: "alice",
+                                            address: "tz1...",
+                                            owner: "tz1...",
+                                            expiresAt: null,
+                                        },
+                                        available: false,
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
                         </div>
                     </section>
 
@@ -562,16 +793,51 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-availability" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/availability/:label</code>
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/v1/availability/:label
+                                </code>
                             </div>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                Lightweight availability check — faster than <code style={{ color: "var(--fg)" }}>/api/domain</code> when you only need the boolean. Returns 400 if the label fails format validation.
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Lightweight availability check — faster than{" "}
+                                <code style={{ color: "var(--fg)" }}>/api/domain</code> when you only need the boolean.
+                                Returns 400 if the label fails format validation.
                             </p>
-                            <ParamTable params={[
-                                { name: "label", kind: "path", type: "string", description: "Bare label (3–63 chars, lowercase alphanumeric + hyphens)" },
-                            ]} />
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "label",
+                                        kind: "path",
+                                        type: "string",
+                                        description: "Bare label (3–63 chars, lowercase alphanumeric + hyphens)",
+                                    },
+                                ]}
+                            />
                             <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/availability/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ label: "alice", available: false, network }, null, 2)} />
@@ -582,19 +848,74 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-owner" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/owner/:address</code>
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/v1/owner/:address
+                                </code>
                             </div>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                All hack.{tld} subdomains owned by a wallet. Returns an empty array (not 404) if the address owns none.
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                All hack.{tld} subdomains owned by a wallet. Returns an empty array (not 404) if the
+                                address owns none.
                             </p>
-                            <ParamTable params={[
-                                { name: "address", kind: "path", type: "tz1… / KT1…", description: "Tezos wallet or contract address" },
-                            ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "address",
+                                        kind: "path",
+                                        type: "tz1… / KT1…",
+                                        description: "Tezos wallet or contract address",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock
+                                lang="http"
+                                code="GET https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+                            />
                             <div style={{ height: "0.5rem" }} />
-                            <CodeBlock code={JSON.stringify({ data: [{ name: `alice.hack.${tld}`, label: "alice", address: "tz1...", owner: "tz1...", expiresAt: null }], count: 1, network }, null, 2)} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: [
+                                            {
+                                                name: `alice.hack.${tld}`,
+                                                label: "alice",
+                                                address: "tz1...",
+                                                owner: "tz1...",
+                                                expiresAt: null,
+                                            },
+                                        ],
+                                        count: 1,
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
                         </div>
                     </section>
 
@@ -602,22 +923,84 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-resolve" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/resolve/:address</code>
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/v1/resolve/:address
+                                </code>
                             </div>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                Reverse-resolve a wallet to its primary domain and all owned hack.{tld} subdomains. <code style={{ color: "var(--fg)" }}>primary</code> is the TED reverse record if set, otherwise the first owned hack.{tld} subdomain, otherwise null. <code style={{ color: "var(--fg)" }}>hackTez</code> is an array of all hack.{tld} subdomains currently owned by the address (they're NFTs and transferable).
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Reverse-resolve a wallet to its primary domain and all owned hack.{tld} subdomains.{" "}
+                                <code style={{ color: "var(--fg)" }}>primary</code> is the TED reverse record if set,
+                                otherwise the first owned hack.{tld} subdomain, otherwise null.{" "}
+                                <code style={{ color: "var(--fg)" }}>hackTez</code> is an array of all hack.{tld}{" "}
+                                subdomains currently owned by the address (they're NFTs and transferable).
                             </p>
-                            <ParamTable params={[
-                                { name: "address", kind: "path", type: "tz1… / KT1…", description: "Tezos wallet or contract address" },
-                            ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "address",
+                                        kind: "path",
+                                        type: "tz1… / KT1…",
+                                        description: "Tezos wallet or contract address",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock
+                                lang="http"
+                                code="GET https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+                            />
                             <div style={{ height: "0.5rem" }} />
-                            <CodeBlock code={JSON.stringify({ address: "tz1...", primary: "alice.tez", hackTez: [`alice.hack.${tld}`, `builder.hack.${tld}`], network }, null, 2)} />
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", marginTop: "0.75rem", lineHeight: 1.8 }}>
-                                <code style={{ color: "var(--fg)" }}>primary</code> — TED reverse record if set, else first owned hack.{tld} subdomain, else null<br />
-                                <code style={{ color: "var(--fg)" }}>hackTez</code> — array of all hack.{tld} subdomains currently owned by this address
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        address: "tz1...",
+                                        primary: "alice.tez",
+                                        hackTez: [`alice.hack.${tld}`, `builder.hack.${tld}`],
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                <code style={{ color: "var(--fg)" }}>primary</code> — TED reverse record if set, else
+                                first owned hack.{tld} subdomain, else null
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>hackTez</code> — array of all hack.{tld} subdomains
+                                currently owned by this address
                             </p>
                         </div>
                     </section>
@@ -626,21 +1009,159 @@ export default function Developers() {
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-config" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/config</code>
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/v1/config
+                                </code>
                             </div>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                Current contract configuration. Check before starting a registration flow to get commit timing and verify registration is not paused.
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Current contract configuration. Check before starting a registration flow to get commit
+                                timing and verify registration is not paused.
                             </p>
                             <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/config" />
                             <div style={{ height: "0.5rem" }} />
-                            <CodeBlock code={JSON.stringify({ data: { minCommitAgeSec: 30, maxCommitAgeSec: 86400, maxPerWallet: 1, paused: false, registrarAddress: "KT1..." }, network }, null, 2)} />
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", marginTop: "0.75rem", lineHeight: 1.8 }}>
-                                <code style={{ color: "var(--fg)" }}>minCommitAgeSec</code> — wait at least this long between commit and register<br />
-                                <code style={{ color: "var(--fg)" }}>maxCommitAgeSec</code> — commit expires after this; must re-commit<br />
-                                <code style={{ color: "var(--fg)" }}>paused</code> — if true, on-chain registration is disabled
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: {
+                                            minCommitAgeSec: 30,
+                                            maxCommitAgeSec: 86400,
+                                            maxPerWallet: 1,
+                                            paused: false,
+                                            registrarAddress: "KT1...",
+                                        },
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                <code style={{ color: "var(--fg)" }}>minCommitAgeSec</code> — wait at least this long
+                                between commit and register
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>maxCommitAgeSec</code> — commit expires after this;
+                                must re-commit
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>paused</code> — if true, on-chain registration is
+                                disabled
                             </p>
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/activity ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-activity" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                    marginBottom: "0.75rem",
+                                    flexWrap: "wrap",
+                                }}
+                            >
+                                <MethodBadge />
+                                <code
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.85rem",
+                                        fontWeight: 700,
+                                        color: "var(--fg)",
+                                    }}
+                                >
+                                    /api/v1/activity
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Recent on-chain activity — both <code style={{ color: "var(--fg)" }}>claimed</code>{" "}
+                                (register) and <code style={{ color: "var(--fg)" }}>committed</code> events, merged and
+                                sorted by time. Commit events have{" "}
+                                <code style={{ color: "var(--fg)" }}>name: null</code> since the commitment hash is not
+                                recoverable off-chain.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "limit",
+                                        kind: "query",
+                                        type: "number",
+                                        description: "Max events to return (default 30, max 100)",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/activity?limit=30" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: [
+                                            {
+                                                type: "claimed",
+                                                address: "tz1...",
+                                                name: `alice.hack.${tld}`,
+                                                timestamp: "2025-01-01T00:00:00Z",
+                                                opHash: "op...",
+                                            },
+                                            {
+                                                type: "committed",
+                                                address: "tz1...",
+                                                name: null,
+                                                timestamp: "2025-01-01T00:00:00Z",
+                                                opHash: "op...",
+                                            },
+                                        ],
+                                        count: 2,
+                                        limit: 30,
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
                         </div>
                     </section>
 
@@ -649,7 +1170,9 @@ export default function Developers() {
                         <div style={{ borderTop: "1px solid var(--border)", paddingTop: "2.5rem" }}>
                             <SectionHeading id="quickstart">Quick Start</SectionHeading>
                             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                                <CodeBlock lang="bash" code={`# Check availability
+                                <CodeBlock
+                                    lang="bash"
+                                    code={`# Check availability
 curl https://hack.fafolab.xyz/api/v1/availability/yourname
 
 # Fetch domain record
@@ -659,8 +1182,11 @@ curl https://hack.fafolab.xyz/api/v1/domain/alice
 curl https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
 
 # Reverse-resolve an address
-curl https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`} />
-                                <CodeBlock lang="javascript" code={`// JavaScript / TypeScript
+curl https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`}
+                                />
+                                <CodeBlock
+                                    lang="javascript"
+                                    code={`// JavaScript / TypeScript
 const { available } = await fetch('https://hack.fafolab.xyz/api/v1/availability/yourname')
   .then(r => r.json());
 
@@ -669,7 +1195,8 @@ async function getDisplayName(address) {
   const { primary, hackTez } = await fetch(\`https://hack.fafolab.xyz/api/v1/resolve/\${address}\`)
     .then(r => r.json());
   return primary ?? hackTez[0] ?? \`\${address.slice(0,6)}…\${address.slice(-4)}\`;
-}`} />
+}`}
+                                />
                             </div>
                         </div>
                     </section>
@@ -678,8 +1205,19 @@ async function getDisplayName(address) {
                     <section style={{ marginTop: "3rem" }}>
                         <div style={{ borderTop: "1px solid var(--border)", paddingTop: "2.5rem" }}>
                             <SectionHeading id="llm-skill">LLM Skill</SectionHeading>
-                            <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.9, marginBottom: "1.25rem", maxWidth: "560px" }}>
-                                Building an AI agent or LLM-powered tool that interacts with hack.tez? Drop the skill reference into your context window — it documents the full API, contract addresses, commit-reveal flow, and TypeScript patterns in a single compact file.
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.9,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Building an AI agent or LLM-powered tool that interacts with hack.tez? Drop the skill
+                                reference into your context window — it documents the full API, contract addresses,
+                                commit-reveal flow, and TypeScript patterns in a single compact file.
                             </p>
                             <a
                                 href="/hack-tez-api.md"
@@ -699,8 +1237,12 @@ async function getDisplayName(address) {
                                     textDecoration: "none",
                                     transition: "border-color 0.15s",
                                 }}
-                                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--fg)")}
-                                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--border)")}
+                                onMouseEnter={(e) =>
+                                    ((e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--fg)")
+                                }
+                                onMouseLeave={(e) =>
+                                    ((e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--border)")
+                                }
                             >
                                 hack-tez-api.md
                             </a>
@@ -708,13 +1250,45 @@ async function getDisplayName(address) {
                     </section>
 
                     {/* Footer */}
-                    <div style={{ marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid var(--border)", fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", lineHeight: 1.8 }}>
+                    <div
+                        style={{
+                            marginTop: "3rem",
+                            paddingTop: "2rem",
+                            borderTop: "1px solid var(--border)",
+                            fontFamily: "var(--font)",
+                            fontSize: "0.7rem",
+                            color: "var(--fg-3)",
+                            lineHeight: 1.8,
+                        }}
+                    >
                         Data proxied from{" "}
-                        <a href="https://tezos.domains" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg)" }}>Tezos Domains</a>{" "}
+                        <a
+                            href="https://tezos.domains"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "var(--fg)" }}
+                        >
+                            Tezos Domains
+                        </a>{" "}
                         and{" "}
-                        <a href="https://tzkt.io" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg)" }}>TzKT</a>.
-                        Source on{" "}
-                        <a href="https://github.com/skullzarmy/hack-tez" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg)" }}>GitHub</a>.
+                        <a
+                            href="https://tzkt.io"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "var(--fg)" }}
+                        >
+                            TzKT
+                        </a>
+                        . Source on{" "}
+                        <a
+                            href="https://github.com/skullzarmy/hack-tez"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "var(--fg)" }}
+                        >
+                            GitHub
+                        </a>
+                        .
                     </div>
                 </div>
             </div>

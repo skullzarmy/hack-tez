@@ -7,6 +7,7 @@
  *   GET /api/v1/owner/:address      — all hack.tez domains owned by a wallet
  *   GET /api/v1/resolve/:address    — reverse-resolve wallet → primary domain
  *   GET /api/v1/config              — contract config (commit age, max, paused)
+ *   GET /api/v1/activity            — recent on-chain claim + commit events
  */
 import type { Config, Context } from "@netlify/functions";
 
@@ -331,6 +332,79 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
     );
 }
 
+/** GET /api/v1/activity?limit=30 — recent claim (register) and commit events */
+async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    if (!net.registrarAddress) {
+        return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
+    }
+
+    const rawLimit = parseInt(url.searchParams.get("limit") ?? "30", 10);
+    if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
+    const limit = Math.min(rawLimit, 100);
+
+    const base =
+        `${net.tzktApi}/v1/operations/transactions` +
+        `?target=${net.registrarAddress}` +
+        `&status=applied` +
+        `&sort.desc=id`;
+
+    const [claimRes, commitRes] = await Promise.all([
+        fetch(`${base}&entrypoint=register&limit=${limit}`),
+        fetch(`${base}&entrypoint=commit&limit=${Math.min(limit, 50)}`),
+    ]);
+
+    if (!claimRes.ok || !commitRes.ok) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
+
+    type TzKTOp = {
+        hash: string;
+        sender: { address: string };
+        timestamp: string;
+        parameter?: { value?: { label?: string } };
+    };
+
+    const [claimOps, commitOps]: [TzKTOp[], TzKTOp[]] = await Promise.all([
+        claimRes.json(),
+        commitRes.json(),
+    ]);
+
+    const claims = claimOps.map((op) => {
+        const rawLabel = op.parameter?.value?.label ?? null;
+        const label = rawLabel ? hexToUtf8(rawLabel) : null;
+        return {
+            type: "claimed" as const,
+            address: op.sender.address,
+            name: label ? `${label}.hack.${net.tld}` : null,
+            timestamp: op.timestamp,
+            opHash: op.hash,
+        };
+    });
+
+    const commits = commitOps.map((op) => ({
+        type: "committed" as const,
+        address: op.sender.address,
+        name: null, // commitment hash is not recoverable
+        timestamp: op.timestamp,
+        opHash: op.hash,
+    }));
+
+    // Merge, sort descending, deduplicate by opHash
+    const seen = new Set<string>();
+    const events = [...claims, ...commits]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .filter((e) => {
+            if (seen.has(e.opHash)) return false;
+            seen.add(e.opHash);
+            return true;
+        })
+        .slice(0, limit);
+
+    return json(
+        { data: events, count: events.length, limit, network: net.name },
+        200,
+        { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=40" },
+    );
+}
+
 /** GET /api/v1/config — contract storage config */
 async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!net.registrarAddress) {
@@ -382,6 +456,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         if (resource === "owner" && param) return await handleOwner(decodeURIComponent(param), net);
         if (resource === "resolve" && param) return await handleResolve(decodeURIComponent(param), net);
         if (resource === "config") return await handleConfig(net);
+        if (resource === "activity") return await handleActivity(new URL(req.url), net);
 
         return json(
             {
@@ -395,6 +470,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                     `/api/v1/owner/:address`,
                     `/api/v1/resolve/:address`,
                     `/api/v1/config`,
+                    `/api/v1/activity?limit=30`,
                 ],
                 docs: "/developers",
             },

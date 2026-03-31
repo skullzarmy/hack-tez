@@ -32,7 +32,7 @@ hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (
 
 ---
 
-### GET /api/domains
+### GET /api/v1/domains
 
 Paginated list of all hack.tez registrations, newest first. Backed by on-chain transaction history (TzKT) so includes registration timestamp and operation hash.
 
@@ -167,7 +167,9 @@ All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (n
 **Usage:**
 
 ```typescript
-const { data } = await fetch("https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb").then((r) => r.json());
+const { data } = await fetch("https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb").then((r) =>
+    r.json(),
+);
 
 const hasHackTez = data.length > 0;
 ```
@@ -197,14 +199,16 @@ Reverse-resolve a Tezos address to its primary domain and all owned hack.tez sub
 **Usage:**
 
 ```typescript
-const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${walletAddress}`).then((r) => r.json());
+const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${walletAddress}`).then((r) =>
+    r.json(),
+);
 
 const displayName = primary ?? hackTez[0] ?? walletAddress.slice(0, 8) + "…";
 ```
 
 ---
 
-### GET /api/config
+### GET /api/v1/config
 
 Current contract configuration. Use this before starting registration to get commit timing requirements and check if registration is paused.
 
@@ -229,6 +233,36 @@ Current contract configuration. Use this before starting registration to get com
 - `maxCommitAgeSec` — commit expires after this many seconds (must re-commit if expired)
 - `maxPerWallet` — max subdomains per wallet (currently 1)
 - `paused` — if `true`, registration is disabled on-chain
+
+---
+
+### GET /api/v1/activity
+
+Recent on-chain claim and commit events, merged and sorted by time. Commit events have `name: null` since the hash is not recoverable off-chain. Used by the activity feed on the site.
+
+**Query params:** `limit` (default 30, max 100)
+
+**Response:**
+
+```json
+{
+    "data": [
+        { "type": "claimed", "address": "tz1...", "name": "alice.hack.gho", "timestamp": "2025-01-01T00:00:00Z", "opHash": "op..." },
+        { "type": "committed", "address": "tz1...", "name": null, "timestamp": "2025-01-01T00:00:00Z", "opHash": "op..." }
+    ],
+    "count": 2,
+    "limit": 30,
+    "network": "ghostnet"
+}
+```
+
+**Fields:**
+
+- `type` — `"claimed"` (register entrypoint applied) or `"committed"` (commit entrypoint applied)
+- `name` — full domain name for claims, `null` for commits
+- `opHash` — deduplication key
+
+**Cache:** `s-maxage=20, stale-while-revalidate=40`
 
 ---
 
@@ -398,7 +432,9 @@ async function checkAndShow(label: string) {
 ```typescript
 async function getDisplayName(address: string): Promise<string> {
     try {
-        const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${address}`).then((r) => r.json());
+        const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${address}`).then((r) =>
+            r.json(),
+        );
         return primary ?? hackTez[0] ?? `${address.slice(0, 6)}…${address.slice(-4)}`;
     } catch {
         return `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -412,9 +448,9 @@ async function getDisplayName(address: string): Promise<string> {
 async function* allDomains(pageSize = 50) {
     let offset = 0;
     while (true) {
-        const { data, count } = await fetch(`https://hack.fafolab.xyz/api/v1/domains?limit=${pageSize}&offset=${offset}`).then(
-            (r) => r.json(),
-        );
+        const { data, count } = await fetch(
+            `https://hack.fafolab.xyz/api/v1/domains?limit=${pageSize}&offset=${offset}`,
+        ).then((r) => r.json());
 
         yield* data;
         offset += data.length;
