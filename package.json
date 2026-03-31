@@ -7,7 +7,7 @@
     "scripts": {
         "dev": "vite",
         "netlify:dev": "cross-env NODE_OPTIONS='--require ./scripts/netlify-dev-patch.cjs' VITE_HMR_CLIENT_PORT=8888 netlify dev",
-        "build": "tsc -b && vite build",
+        "build": "cp skills/hack-tez-api.md public/hack-tez-api.md && tsc -b && vite build",
         "preview": "vite preview"
     },
     "dependencies": {
