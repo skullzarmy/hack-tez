@@ -197,7 +197,7 @@ export default function Builders() {
                                         </td>
                                         <td style={{ padding: "0.65rem 0.75rem 0.65rem 0" }}>
                                             <a
-                                                href={`https://tezos.domains/domain/${b.name}`}
+                                                href={`https://app.tezos.domains/domain/${b.name}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 style={{ color: "var(--fg)", textDecoration: "none", fontWeight: 700 }}
