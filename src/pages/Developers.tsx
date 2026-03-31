@@ -22,10 +22,10 @@ const NAV: NavSection[] = [
         label: "Endpoints",
         children: [
             { id: "ep-domains", label: "GET /api/domains" },
-            { id: "ep-domain", label: "GET /api/domain/:name" },
-            { id: "ep-availability", label: "GET /api/availability/:label" },
-            { id: "ep-owner", label: "GET /api/owner/:address" },
-            { id: "ep-resolve", label: "GET /api/resolve/:address" },
+            { id: "ep-domain", label: "GET /api/v1/domain/:name" },
+            { id: "ep-availability", label: "GET /api/v1/availability/:label" },
+            { id: "ep-owner", label: "GET /api/v1/owner/:address" },
+            { id: "ep-resolve", label: "GET /api/v1/resolve/:address" },
             { id: "ep-config", label: "GET /api/config" },
         ],
     },
@@ -532,19 +532,19 @@ export default function Developers() {
                                 { name: "limit", kind: "query", type: "integer", default: "50", description: "Results per page (max 200)" },
                                 { name: "offset", kind: "query", type: "integer", default: "0", description: "Skip N results for pagination" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/domains?limit=3&offset=0" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/domains?limit=3&offset=0" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: [{ name: `alice.hack.${tld}`, label: "alice", owner: "tz1...", registeredAt: "2025-03-27T08:01:29Z", opHash: "oo..." }], count: 1, limit: 3, offset: 0, network }, null, 2)} />
                         </div>
                     </section>
 
-                    {/* ---- GET /api/domain/:name ---- */}
+                    {/* ---- GET /api/v1/domain/:name ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-domain" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/domain/:name</code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/domain/:name</code>
                             </div>
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
                                 Full TED record for a subdomain. Accepts a bare label (<code style={{ color: "var(--fg)" }}>alice</code>) or the full name (<code style={{ color: "var(--fg)" }}>alice.hack.{tld}</code>). Returns <code style={{ color: "var(--fg)" }}>data: null</code> with <code style={{ color: "var(--fg)" }}>available: true</code> if unclaimed.
@@ -552,19 +552,19 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "name", kind: "path", type: "string", description: `Label (alice) or full name (alice.hack.${tld})` },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/domain/alice" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/domain/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: { name: `alice.hack.${tld}`, label: "alice", address: "tz1...", owner: "tz1...", expiresAt: null }, available: false, network }, null, 2)} />
                         </div>
                     </section>
 
-                    {/* ---- GET /api/availability/:label ---- */}
+                    {/* ---- GET /api/v1/availability/:label ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-availability" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/availability/:label</code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/availability/:label</code>
                             </div>
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
                                 Lightweight availability check — faster than <code style={{ color: "var(--fg)" }}>/api/domain</code> when you only need the boolean. Returns 400 if the label fails format validation.
@@ -572,19 +572,19 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "label", kind: "path", type: "string", description: "Bare label (3–63 chars, lowercase alphanumeric + hyphens)" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/availability/alice" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/availability/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ label: "alice", available: false, network }, null, 2)} />
                         </div>
                     </section>
 
-                    {/* ---- GET /api/owner/:address ---- */}
+                    {/* ---- GET /api/v1/owner/:address ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-owner" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/owner/:address</code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/owner/:address</code>
                             </div>
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
                                 All hack.{tld} subdomains owned by a wallet. Returns an empty array (not 404) if the address owns none.
@@ -592,19 +592,19 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "address", kind: "path", type: "tz1… / KT1…", description: "Tezos wallet or contract address" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: [{ name: `alice.hack.${tld}`, label: "alice", address: "tz1...", owner: "tz1...", expiresAt: null }], count: 1, network }, null, 2)} />
                         </div>
                     </section>
 
-                    {/* ---- GET /api/resolve/:address ---- */}
+                    {/* ---- GET /api/v1/resolve/:address ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-resolve" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
                                 <MethodBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/resolve/:address</code>
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.85rem", fontWeight: 700, color: "var(--fg)" }}>/api/v1/resolve/:address</code>
                             </div>
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
                                 Reverse-resolve a wallet to its primary domain and all owned hack.{tld} subdomains. <code style={{ color: "var(--fg)" }}>primary</code> is the TED reverse record if set, otherwise the first owned hack.{tld} subdomain, otherwise null. <code style={{ color: "var(--fg)" }}>hackTez</code> is an array of all hack.{tld} subdomains currently owned by the address (they're NFTs and transferable).
@@ -612,7 +612,7 @@ export default function Developers() {
                             <ParamTable params={[
                                 { name: "address", kind: "path", type: "tz1… / KT1…", description: "Tezos wallet or contract address" },
                             ]} />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ address: "tz1...", primary: "alice.tez", hackTez: [`alice.hack.${tld}`, `builder.hack.${tld}`], network }, null, 2)} />
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", marginTop: "0.75rem", lineHeight: 1.8 }}>
@@ -633,7 +633,7 @@ export default function Developers() {
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)", lineHeight: 1.8, marginBottom: "1.25rem", maxWidth: "560px" }}>
                                 Current contract configuration. Check before starting a registration flow to get commit timing and verify registration is not paused.
                             </p>
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/config" />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/config" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ data: { minCommitAgeSec: 30, maxCommitAgeSec: 86400, maxPerWallet: 1, paused: false, registrarAddress: "KT1..." }, network }, null, 2)} />
                             <p style={{ fontFamily: "var(--font)", fontSize: "0.7rem", color: "var(--fg-3)", marginTop: "0.75rem", lineHeight: 1.8 }}>
@@ -650,23 +650,23 @@ export default function Developers() {
                             <SectionHeading id="quickstart">Quick Start</SectionHeading>
                             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                                 <CodeBlock lang="bash" code={`# Check availability
-curl https://hack.fafolab.xyz/api/availability/yourname
+curl https://hack.fafolab.xyz/api/v1/availability/yourname
 
 # Fetch domain record
-curl https://hack.fafolab.xyz/api/domain/alice
+curl https://hack.fafolab.xyz/api/v1/domain/alice
 
 # Domains owned by a wallet
-curl https://hack.fafolab.xyz/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
+curl https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
 
 # Reverse-resolve an address
-curl https://hack.fafolab.xyz/api/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`} />
+curl https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`} />
                                 <CodeBlock lang="javascript" code={`// JavaScript / TypeScript
-const { available } = await fetch('https://hack.fafolab.xyz/api/availability/yourname')
+const { available } = await fetch('https://hack.fafolab.xyz/api/v1/availability/yourname')
   .then(r => r.json());
 
 // Resolve address for display
 async function getDisplayName(address) {
-  const { primary, hackTez } = await fetch(\`https://hack.fafolab.xyz/api/resolve/\${address}\`)
+  const { primary, hackTez } = await fetch(\`https://hack.fafolab.xyz/api/v1/resolve/\${address}\`)
     .then(r => r.json());
   return primary ?? hackTez[0] ?? \`\${address.slice(0,6)}…\${address.slice(-4)}\`;
 }`} />

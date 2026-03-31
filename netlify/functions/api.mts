@@ -2,11 +2,11 @@
  * hack.tez Public API — Netlify Function v2
  *
  * Routes:
- *   GET /api/domain/:name        — domain record by full name or label
- *   GET /api/availability/:label — check if a label is free to register
- *   GET /api/owner/:address      — all hack.tez domains owned by a wallet
- *   GET /api/resolve/:address    — reverse-resolve wallet → primary domain
- *   GET /api/config              — contract config (commit age, max, paused)
+ *   GET /api/v1/domain/:name        — domain record by full name or label
+ *   GET /api/v1/availability/:label — check if a label is free to register
+ *   GET /api/v1/owner/:address      — all hack.tez domains owned by a wallet
+ *   GET /api/v1/resolve/:address    — reverse-resolve wallet → primary domain
+ *   GET /api/v1/config              — contract config (commit age, max, paused)
  */
 import type { Config, Context } from "@netlify/functions";
 
@@ -94,7 +94,7 @@ async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<st
 // Handlers
 // ---------------------------------------------------------------------------
 
-/** GET /api/domain/:name — domain record by label or full name */
+/** GET /api/v1/domain/:name — domain record by label or full name */
 async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
     const label = name.endsWith(`.hack.${net.tld}`) ? name.replace(`.hack.${net.tld}`, "") : name;
     const labelErr = validateLabel(label);
@@ -145,7 +145,7 @@ async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): P
     );
 }
 
-/** GET /api/availability/:label */
+/** GET /api/v1/availability/:label */
 async function handleAvailability(label: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
     const labelErr = validateLabel(label);
     if (labelErr) return err(labelErr, "INVALID_INPUT");
@@ -164,7 +164,7 @@ async function handleAvailability(label: string, net: ReturnType<typeof getNetwo
     });
 }
 
-/** GET /api/owner/:address */
+/** GET /api/v1/owner/:address */
 async function handleOwner(address: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!TZ_ADDRESS_RE.test(address)) return err("Invalid Tezos address", "INVALID_INPUT");
 
@@ -200,7 +200,7 @@ async function handleOwner(address: string, net: ReturnType<typeof getNetwork>):
     });
 }
 
-/** GET /api/resolve/:address — reverse-resolve address → primary domain name */
+/** GET /api/v1/resolve/:address — reverse-resolve address → primary domain name */
 async function handleResolve(address: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!TZ_ADDRESS_RE.test(address)) return err("Invalid Tezos address", "INVALID_INPUT");
 
@@ -259,7 +259,7 @@ function hexToUtf8(hex: string): string {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-/** GET /api/domains?limit=50&offset=0 — paginated list of all hack.tez registrations */
+/** GET /api/v1/domains?limit=50&offset=0 — paginated list of all hack.tez registrations */
 async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!net.registrarAddress) {
         return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
@@ -331,7 +331,7 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
     );
 }
 
-/** GET /api/config — contract storage config */
+/** GET /api/v1/config — contract storage config */
 async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!net.registrarAddress) {
         return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
@@ -389,12 +389,12 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                 version: "1",
                 network: net.name,
                 endpoints: [
-                    `/api/domains?limit=50&offset=0`,
-                    `/api/domain/:name`,
-                    `/api/availability/:label`,
-                    `/api/owner/:address`,
-                    `/api/resolve/:address`,
-                    `/api/config`,
+                    `/api/v1/domains?limit=50&offset=0`,
+                    `/api/v1/domain/:name`,
+                    `/api/v1/availability/:label`,
+                    `/api/v1/owner/:address`,
+                    `/api/v1/resolve/:address`,
+                    `/api/v1/config`,
                 ],
                 docs: "/developers",
             },
@@ -407,5 +407,5 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
 }
 
 export const config: Config = {
-    path: "/api/:route*",
+    path: "/api/v1/:route*",
 };

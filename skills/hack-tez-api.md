@@ -67,13 +67,13 @@ Paginated list of all hack.tez registrations, newest first. Backed by on-chain t
 
 ```typescript
 // Fetch page 2 (results 51–100)
-const res = await fetch("https://hack.fafolab.xyz/api/domains?limit=50&offset=50");
+const res = await fetch("https://hack.fafolab.xyz/api/v1/domains?limit=50&offset=50");
 const { data, count } = await res.json();
 ```
 
 ---
 
-### GET /api/domain/:name
+### GET /api/v1/domain/:name
 
 Fetch the TED domain record for a hack.tez subdomain. Accepts either the bare label (`alice`) or the full name (`alice.hack.tez` / `alice.hack.gho`).
 
@@ -104,7 +104,7 @@ Returns `{ data: null, available: true }` if the domain is not registered.
 **Usage:**
 
 ```typescript
-const res = await fetch("https://hack.fafolab.xyz/api/domain/alice");
+const res = await fetch("https://hack.fafolab.xyz/api/v1/domain/alice");
 const { data, available } = await res.json();
 
 if (available) {
@@ -116,7 +116,7 @@ if (available) {
 
 ---
 
-### GET /api/availability/:label
+### GET /api/v1/availability/:label
 
 Lightweight availability check. Returns only the `available` boolean — faster than `/api/domain` when you don't need the full record.
 
@@ -135,12 +135,12 @@ Lightweight availability check. Returns only the `available` boolean — faster 
 **Usage:**
 
 ```typescript
-const { available } = await fetch("https://hack.fafolab.xyz/api/availability/myname").then((r) => r.json());
+const { available } = await fetch("https://hack.fafolab.xyz/api/v1/availability/myname").then((r) => r.json());
 ```
 
 ---
 
-### GET /api/owner/:address
+### GET /api/v1/owner/:address
 
 All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (not 404) if the address owns none.
 
@@ -167,14 +167,14 @@ All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (n
 **Usage:**
 
 ```typescript
-const { data } = await fetch("https://hack.fafolab.xyz/api/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb").then((r) => r.json());
+const { data } = await fetch("https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb").then((r) => r.json());
 
 const hasHackTez = data.length > 0;
 ```
 
 ---
 
-### GET /api/resolve/:address
+### GET /api/v1/resolve/:address
 
 Reverse-resolve a Tezos address to its primary domain and all owned hack.tez subdomains. `primary` is the TED reverse record — what the user explicitly set. `hackTez` is an array of all hack.tez subdomains currently owned (they are NFTs and transferable, so ownership can change).
 
@@ -197,7 +197,7 @@ Reverse-resolve a Tezos address to its primary domain and all owned hack.tez sub
 **Usage:**
 
 ```typescript
-const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/resolve/${walletAddress}`).then((r) => r.json());
+const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${walletAddress}`).then((r) => r.json());
 
 const displayName = primary ?? hackTez[0] ?? walletAddress.slice(0, 8) + "…";
 ```
@@ -292,7 +292,7 @@ localStorage.setItem(
 ### Step 3: Wait for commit age
 
 ```typescript
-const config = await fetch("https://hack.fafolab.xyz/api/config").then((r) => r.json());
+const config = await fetch("https://hack.fafolab.xyz/api/v1/config").then((r) => r.json());
 const waitMs = config.data.minCommitAgeSec * 1000;
 
 // Check /api/config for current values — don't hardcode
@@ -382,8 +382,8 @@ All errors include a human-readable `error` string alongside the `code`.
 ```typescript
 async function checkAndShow(label: string) {
     const [validationResult, configResult] = await Promise.all([
-        fetch(`https://hack.fafolab.xyz/api/availability/${label}`).then((r) => r.json()),
-        fetch("https://hack.fafolab.xyz/api/config").then((r) => r.json()),
+        fetch(`https://hack.fafolab.xyz/api/v1/availability/${label}`).then((r) => r.json()),
+        fetch("https://hack.fafolab.xyz/api/v1/config").then((r) => r.json()),
     ]);
 
     if (configResult.data.paused) return showPausedMessage();
@@ -398,7 +398,7 @@ async function checkAndShow(label: string) {
 ```typescript
 async function getDisplayName(address: string): Promise<string> {
     try {
-        const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/resolve/${address}`).then((r) => r.json());
+        const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${address}`).then((r) => r.json());
         return primary ?? hackTez[0] ?? `${address.slice(0, 6)}…${address.slice(-4)}`;
     } catch {
         return `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -412,7 +412,7 @@ async function getDisplayName(address: string): Promise<string> {
 async function* allDomains(pageSize = 50) {
     let offset = 0;
     while (true) {
-        const { data, count } = await fetch(`https://hack.fafolab.xyz/api/domains?limit=${pageSize}&offset=${offset}`).then(
+        const { data, count } = await fetch(`https://hack.fafolab.xyz/api/v1/domains?limit=${pageSize}&offset=${offset}`).then(
             (r) => r.json(),
         );
 

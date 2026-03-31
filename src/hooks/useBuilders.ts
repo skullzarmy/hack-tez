@@ -16,7 +16,7 @@ const LIMIT = 200;
 async function fetchBuilders(): Promise<BuilderRecord[]> {
     if (!config.registrarAddress) return [];
 
-    const res = await fetch(`/api/domains?limit=${LIMIT}&offset=0`);
+    const res = await fetch(`/api/v1/domains?limit=${LIMIT}&offset=0`);
     if (!res.ok) return [];
 
     const json: {
