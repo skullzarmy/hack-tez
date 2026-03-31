@@ -1,5 +1,5 @@
 import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
@@ -200,7 +200,9 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
 }
 
 function ActivityLayer() {
+    const location = useLocation();
     const { events, newEvents, isLoading } = useRecentActivity();
+    if (location.pathname === "/developers") return null;
     return (
         <>
             {/* Desktop: fixed side panel (lg+ only, hidden via CSS on smaller screens) */}

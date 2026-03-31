@@ -204,42 +204,41 @@ async function handleOwner(address: string, net: ReturnType<typeof getNetwork>):
 async function handleResolve(address: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!TZ_ADDRESS_RE.test(address)) return err("Invalid Tezos address", "INVALID_INPUT");
 
-    // First check for a hack.tez subdomain (preferred)
-    const ownerData = await tedGql<{
-        domains: { items: Array<{ name: string }> };
-    }>(
-        net.domainsGraphql,
-        `query OwnerDomains($owner: Address!, $parent: String!) {
-          domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
-            items { name }
-          }
-        }`,
-        { owner: address, parent: `.hack.${net.tld}` },
-    );
+    // Run both queries in parallel
+    const [ownerData, reverseData] = await Promise.all([
+        tedGql<{
+            domains: { items: Array<{ name: string }> };
+        }>(
+            net.domainsGraphql,
+            `query OwnerDomains($owner: Address!, $parent: String!) {
+              domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
+                items { name }
+              }
+            }`,
+            { owner: address, parent: `.hack.${net.tld}` },
+        ),
+        tedGql<{
+            reverseRecord: { domain: { name: string } } | null;
+        }>(
+            net.domainsGraphql,
+            `query ReverseLookup($address: String!) {
+              reverseRecord(address: $address) {
+                domain { name }
+              }
+            }`,
+            { address },
+        ),
+    ]);
 
-    const hackTezName = ownerData.domains.items[0]?.name ?? null;
-
-    // Then check TED reverse record
-    const reverseData = await tedGql<{
-        reverseRecord: { domain: { name: string } } | null;
-    }>(
-        net.domainsGraphql,
-        `query ReverseLookup($address: String!) {
-          reverseRecord(address: $address) {
-            domain { name }
-          }
-        }`,
-        { address },
-    );
-
-    const tedDomain = reverseData.reverseRecord?.domain?.name ?? null;
+    const hackTezDomains = ownerData.domains.items.map((d) => d.name);
+    // TED reverse record if set, else first owned hack.tez domain, else null
+    const primary = reverseData.reverseRecord?.domain?.name ?? hackTezDomains[0] ?? null;
 
     return json(
         {
             address,
-            primary: hackTezName ?? tedDomain,
-            hackTez: hackTezName,
-            tezos: tedDomain,
+            primary,
+            hackTez: hackTezDomains,
             network: net.name,
         },
         200,
