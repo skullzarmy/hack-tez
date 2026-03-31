@@ -4,7 +4,7 @@ import { TezosProvider } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
-import Builders from "./pages/Builders";
+import Hackers from "./pages/Hackers";
 import Developers from "./pages/Developers";
 import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
@@ -174,12 +174,12 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Manifesto
                                     </a>
                                     <a
-                                        href="/builders"
+                                        href="/hackers"
                                         role="menuitem"
                                         className="nav-drawer-link"
                                         onClick={() => setOpen(false)}
                                     >
-                                        Builders
+                                        Hackers
                                     </a>
                                     <a
                                         href="/developers"
@@ -240,7 +240,7 @@ export default function App() {
                         <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
                             <Routes>
                                 <Route path="/manifesto" element={<Manifesto />} />
-                                <Route path="/builders" element={<Builders />} />
+                                <Route path="/hackers" element={<Hackers />} />
                                 <Route path="/developers" element={<Developers />} />
                                 <Route path="/" element={<Home />} />
                                 <Route path="*" element={<Home />} />

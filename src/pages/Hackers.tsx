@@ -5,8 +5,8 @@ import config from "../config/tezos";
 const POLL_MS = 30_000;
 
 const DOMAINS_BASE: Record<string, string> = {
-    mainnet:   "https://app.tezos.domains/domain",
-    ghostnet:  "https://ghostnet.tezos.domains/domain",
+    mainnet: "https://app.tezos.domains/domain",
+    ghostnet: "https://ghostnet.tezos.domains/domain",
     shadownet: "https://ghostnet.tezos.domains/domain",
 };
 const domainsBase = DOMAINS_BASE[config.name] ?? "https://app.tezos.domains/domain";
@@ -43,7 +43,7 @@ function PollOrb({
         <button
             onClick={onRefresh}
             disabled={isLoading}
-            aria-label="Refresh builders list"
+            aria-label="Refresh hackers list"
             title="click to refresh"
             style={{
                 background: "none",
@@ -72,7 +72,7 @@ const TZKT_BASE: Record<string, string> = {
     "https://api.shadownet.tzkt.io": "https://shadownet.tzkt.io",
 };
 
-export default function Builders() {
+export default function Hackers() {
     const { builders, isLoading, refresh, lastUpdated } = useBuilders();
 
     return (
@@ -89,7 +89,7 @@ export default function Builders() {
             >
                 <div>
                     <p className="section-label" style={{ marginBottom: "0.5rem" }}>
-                        Builders
+                        Hackers
                     </p>
                     <h1 className="section-title" style={{ marginBottom: 0 }}>
                         Who's here.
