@@ -247,6 +247,91 @@ async function handleResolve(address: string, net: ReturnType<typeof getNetwork>
     );
 }
 
+/** Decode a hex string (TzKT Michelson bytes) to UTF-8 */
+function hexToUtf8(hex: string): string {
+    try {
+        const bytes = new Uint8Array((hex.match(/.{1,2}/g) ?? []).map((b) => parseInt(b, 16)));
+        return new TextDecoder().decode(bytes);
+    } catch {
+        return hex;
+    }
+}
+
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+
+/** GET /api/domains?limit=50&offset=0 — paginated list of all hack.tez registrations */
+async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    if (!net.registrarAddress) {
+        return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
+    }
+
+    const rawLimit = parseInt(url.searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
+    const rawOffset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+
+    if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
+    if (isNaN(rawOffset) || rawOffset < 0) return err("offset must be a non-negative integer", "INVALID_INPUT");
+
+    const limit = Math.min(rawLimit, MAX_LIMIT);
+    const offset = rawOffset;
+
+    const tzktUrl =
+        `${net.tzktApi}/v1/operations/transactions` +
+        `?target=${net.registrarAddress}` +
+        `&entrypoint=register` +
+        `&status=applied` +
+        `&limit=${limit}` +
+        `&offset=${offset}` +
+        `&sort.desc=id`;
+
+    const res = await fetch(tzktUrl);
+    if (!res.ok) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
+
+    const ops: Array<{
+        hash: string;
+        sender: { address: string };
+        timestamp: string;
+        parameter?: { value?: { label?: string } };
+    }> = await res.json();
+
+    const seen = new Set<string>();
+    const domains: Array<{
+        name: string;
+        label: string;
+        owner: string;
+        registeredAt: string;
+        opHash: string;
+    }> = [];
+
+    for (const op of ops) {
+        const rawLabel = op.parameter?.value?.label ?? null;
+        if (!rawLabel) continue;
+        const label = hexToUtf8(rawLabel);
+        const name = `${label}.hack.${net.tld}`;
+        if (seen.has(name)) continue;
+        seen.add(name);
+        domains.push({
+            name,
+            label,
+            owner: op.sender.address,
+            registeredAt: op.timestamp,
+            opHash: op.hash,
+        });
+    }
+
+    return json(
+        {
+            data: domains,
+            count: domains.length,
+            limit,
+            offset,
+            network: net.name,
+        },
+        200,
+        { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+    );
+}
+
 /** GET /api/config — contract storage config */
 async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!net.registrarAddress) {
@@ -292,6 +377,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     const [resource, param] = segments;
 
     try {
+        if (resource === "domains") return await handleDomains(new URL(req.url), net);
         if (resource === "domain" && param) return await handleDomain(decodeURIComponent(param), net);
         if (resource === "availability" && param) return await handleAvailability(decodeURIComponent(param), net);
         if (resource === "owner" && param) return await handleOwner(decodeURIComponent(param), net);
@@ -304,6 +390,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                 version: "1",
                 network: net.name,
                 endpoints: [
+                    `/api/domains?limit=50&offset=0`,
                     `/api/domain/:name`,
                     `/api/availability/:label`,
                     `/api/owner/:address`,

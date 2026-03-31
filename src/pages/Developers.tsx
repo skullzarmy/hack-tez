@@ -6,11 +6,43 @@ interface EndpointDoc {
     method: "GET";
     path: string;
     description: string;
-    params: Array<{ name: string; type: string; description: string }>;
+    params: Array<{ name: string; type: string; description: string; kind?: "path" | "query" }>;
     example: { request: string; response: string };
 }
 
 const ENDPOINTS: EndpointDoc[] = [
+    {
+        method: "GET",
+        path: "/api/domains",
+        description:
+            "Paginated list of all hack.tez registrations, ordered by most recent first. Backed by on-chain transaction history so includes registration timestamp and operation hash.",
+        params: [
+            { name: "limit", type: "integer", kind: "query", description: "Number of results to return. Default: 50. Max: 200." },
+            { name: "offset", type: "integer", kind: "query", description: "Number of results to skip for pagination. Default: 0." },
+        ],
+        example: {
+            request: `GET ${BASE_URL}/api/domains?limit=3&offset=0`,
+            response: JSON.stringify(
+                {
+                    data: [
+                        {
+                            name: "skllz.hack.tez",
+                            label: "skllz",
+                            owner: "tz1Qi77tcJn9foeHHP1QHj6UX1m1vLVLMbuY",
+                            registeredAt: "2025-03-27T08:01:29Z",
+                            opHash: "opWhatever...",
+                        },
+                    ],
+                    count: 1,
+                    limit: 3,
+                    offset: 0,
+                    network: "mainnet",
+                },
+                null,
+                2,
+            ),
+        },
+    },
     {
         method: "GET",
         path: "/api/domain/:name",
@@ -221,7 +253,7 @@ function EndpointCard({ ep }: { ep: EndpointDoc }) {
                             marginBottom: "0.5rem",
                         }}
                     >
-                        Path Parameters
+                        {ep.params.every((p) => p.kind === "query") ? "Query Parameters" : ep.params.some((p) => p.kind === "query") ? "Parameters" : "Path Parameters"}
                     </p>
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                         {ep.params.map((p) => (
@@ -236,7 +268,7 @@ function EndpointCard({ ep }: { ep: EndpointDoc }) {
                                     fontSize: "0.72rem",
                                 }}
                             >
-                                <code style={{ color: "var(--fg)", fontWeight: 700 }}>:{p.name}</code>
+                                <code style={{ color: "var(--fg)", fontWeight: 700 }}>{p.kind === "query" ? `?${p.name}` : `:${p.name}`}</code>
                                 <span style={{ color: "var(--fg-3)", fontStyle: "italic" }}>{p.type}</span>
                                 <span style={{ color: "var(--fg-2)" }}>{p.description}</span>
                             </div>

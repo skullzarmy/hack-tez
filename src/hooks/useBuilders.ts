@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import config from "../config/tezos";
-import { hexToUtf8, truncateAddr } from "./useRecentActivity";
+import { truncateAddr } from "./useRecentActivity";
 
 export interface BuilderRecord {
     name: string;
@@ -16,37 +16,20 @@ const LIMIT = 200;
 async function fetchBuilders(): Promise<BuilderRecord[]> {
     if (!config.registrarAddress) return [];
 
-    const url = `${config.tzktApi}/v1/operations/transactions?target=${config.registrarAddress}&entrypoint=register&status=applied&limit=${LIMIT}&sort.desc=id`;
-    const res = await fetch(url);
+    const res = await fetch(`/api/domains?limit=${LIMIT}&offset=0`);
     if (!res.ok) return [];
 
-    const ops: Array<{
-        hash: string;
-        sender: { address: string };
-        timestamp: string;
-        parameter?: { value?: { label?: string } };
-    }> = await res.json();
+    const json: {
+        data: Array<{ name: string; owner: string; registeredAt: string; opHash: string }>;
+    } = await res.json();
 
-    const seen = new Set<string>();
-    const records: BuilderRecord[] = [];
-
-    for (const op of ops) {
-        const rawLabel = op.parameter?.value?.label ?? null;
-        if (!rawLabel) continue;
-        const label = hexToUtf8(rawLabel);
-        const name = `${label}.hack.${config.tld}`;
-        if (seen.has(name)) continue;
-        seen.add(name);
-        records.push({
-            name,
-            owner: op.sender.address,
-            ownerShort: truncateAddr(op.sender.address),
-            timestamp: new Date(op.timestamp),
-            opHash: op.hash,
-        });
-    }
-
-    return records.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return json.data.map((d) => ({
+        name: d.name,
+        owner: d.owner,
+        ownerShort: truncateAddr(d.owner),
+        timestamp: new Date(d.registeredAt),
+        opHash: d.opHash,
+    }));
 }
 
 export interface UseBuildersResult {
