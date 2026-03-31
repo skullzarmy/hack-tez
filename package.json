@@ -23,6 +23,7 @@
         "react-router-dom": "^7.13.2"
     },
     "devDependencies": {
+        "@netlify/functions": "^3.0.0",
         "@tailwindcss/typography": "^0.5.19",
         "@tailwindcss/vite": "^4.2.2",
         "@types/node": "^25.5.0",

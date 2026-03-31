@@ -5,6 +5,7 @@ import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
 import Builders from "./pages/Builders";
+import Developers from "./pages/Developers";
 import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
@@ -180,6 +181,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Builders
                                     </a>
+                                    <a
+                                        href="/developers"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Developers
+                                    </a>
                                 </div>
                             </div>
                         )}
@@ -230,6 +239,7 @@ export default function App() {
                             <Routes>
                                 <Route path="/manifesto" element={<Manifesto />} />
                                 <Route path="/builders" element={<Builders />} />
+                                <Route path="/developers" element={<Developers />} />
                                 <Route path="/" element={<Home />} />
                                 <Route path="*" element={<Home />} />
                             </Routes>

@@ -5,6 +5,17 @@
 [dev]
   command = "npm run dev"
 
+[functions]
+  node_bundler = "esbuild"
+  directory = "netlify/functions"
+
+# API routes — handled by Netlify Function (must come before SPA catch-all)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
 # SPA routing — all paths serve index.html
 [[redirects]]
   from = "/*"
