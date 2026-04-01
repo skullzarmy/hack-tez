@@ -34,13 +34,12 @@ export interface SubdomainRecord {
     name: string;
     address: string | null;
     owner: string;
-    expiresAt: string | null;
 }
 
 /** Get all subdomains of hack.tez owned by a specific address */
 export async function getSubdomainsByOwner(ownerAddress: string): Promise<SubdomainRecord[]> {
     const data = await gql<{
-        domains: { items: Array<{ name: string; address: string | null; owner: string; expiresAtUtc: string | null }> };
+        domains: { items: Array<{ name: string; address: string | null; owner: string }> };
     }>(
         `query OwnerDomains($owner: Address!, $parent: String!) {
       domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
@@ -48,7 +47,6 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
           name
           address
           owner
-          expiresAtUtc
         }
       }
     }`,
@@ -58,7 +56,6 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
         name: d.name,
         address: d.address,
         owner: d.owner,
-        expiresAt: d.expiresAtUtc,
     }));
 }
 

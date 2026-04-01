@@ -108,7 +108,6 @@ async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): P
             name: string;
             address: string | null;
             owner: string;
-            expiresAtUtc: string | null;
         } | null;
     }>(
         net.domainsGraphql,
@@ -117,7 +116,6 @@ async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): P
             name
             address
             owner
-            expiresAtUtc
           }
         }`,
         { name: fullName },
@@ -136,7 +134,6 @@ async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): P
                 label,
                 address: data.domain.address,
                 owner: data.domain.owner,
-                expiresAt: data.domain.expiresAtUtc,
             },
             available: false,
             network: net.name,
@@ -175,14 +172,13 @@ async function handleOwner(address: string, net: ReturnType<typeof getNetwork>):
                 name: string;
                 address: string | null;
                 owner: string;
-                expiresAtUtc: string | null;
             }>;
         };
     }>(
         net.domainsGraphql,
         `query OwnerDomains($owner: Address!, $parent: String!) {
           domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
-            items { name address owner expiresAtUtc }
+            items { name address owner }
           }
         }`,
         { owner: address, parent: `.hack.${net.tld}` },
@@ -193,7 +189,6 @@ async function handleOwner(address: string, net: ReturnType<typeof getNetwork>):
         label: d.name.replace(`.hack.${net.tld}`, ""),
         address: d.address,
         owner: d.owner,
-        expiresAt: d.expiresAtUtc,
     }));
 
     return json({ data: domains, count: domains.length, network: net.name }, 200, {

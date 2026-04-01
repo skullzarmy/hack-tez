@@ -8,16 +8,22 @@ const TED_APP_URL = config.name === "mainnet" ? "https://app.tezos.domains" : "h
 function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
     return (
         <div className="domain-card">
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    flexWrap: "wrap",
+                }}
+            >
                 <div>
                     <div className="domain-name">{domain.name}</div>
                     <div className="domain-meta">
-                        → {domain.address ? `${domain.address.slice(0, 10)}…${domain.address.slice(-6)}` : "no address set"}
-                        {domain.expiresAt && (
-                            <span style={{ marginLeft: "0.75rem" }}>
-                                · Expires {new Date(domain.expiresAt).toLocaleDateString()}
-                            </span>
-                        )}
+                        →{" "}
+                        {domain.address
+                            ? `${domain.address.slice(0, 10)}…${domain.address.slice(-6)}`
+                            : "no address set"}
                     </div>
                 </div>
                 <a
@@ -41,7 +47,13 @@ export default function Dashboard() {
     if (!address) {
         return (
             <div
-                style={{ textAlign: "center", padding: "4rem 1rem", fontFamily: "var(--font)", color: "var(--fg-2)", fontSize: "0.85rem" }}
+                style={{
+                    textAlign: "center",
+                    padding: "4rem 1rem",
+                    fontFamily: "var(--font)",
+                    color: "var(--fg-2)",
+                    fontSize: "0.85rem",
+                }}
                 role="status"
             >
                 Connect your wallet to view your subdomains.
@@ -52,7 +64,13 @@ export default function Dashboard() {
     if (loading) {
         return (
             <div
-                style={{ textAlign: "center", padding: "4rem 1rem", fontFamily: "var(--font)", color: "var(--fg-3)", fontSize: "0.8rem" }}
+                style={{
+                    textAlign: "center",
+                    padding: "4rem 1rem",
+                    fontFamily: "var(--font)",
+                    color: "var(--fg-3)",
+                    fontSize: "0.8rem",
+                }}
                 role="status"
                 aria-live="polite"
             >
@@ -71,15 +89,16 @@ export default function Dashboard() {
 
     return (
         <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
-                <p className="text-subtle" style={{ fontFamily: "var(--font)", fontSize: "0.7rem", letterSpacing: "0.06em" }}>
+            <div
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}
+            >
+                <p
+                    className="text-subtle"
+                    style={{ fontFamily: "var(--font)", fontSize: "0.7rem", letterSpacing: "0.06em" }}
+                >
                     You own your subdomains on Tezos Domains. Manage them directly on TED.
                 </p>
-                <button
-                    onClick={refresh}
-                    className="btn btn-ghost btn-sm"
-                    aria-label="Refresh subdomain list"
-                >
+                <button onClick={refresh} className="btn btn-ghost btn-sm" aria-label="Refresh subdomain list">
                     ↻ Refresh
                 </button>
             </div>
