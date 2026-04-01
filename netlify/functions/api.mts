@@ -357,10 +357,7 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
         parameter?: { value?: { label?: string } };
     };
 
-    const [claimOps, commitOps]: [TzKTOp[], TzKTOp[]] = await Promise.all([
-        claimRes.json(),
-        commitRes.json(),
-    ]);
+    const [claimOps, commitOps]: [TzKTOp[], TzKTOp[]] = await Promise.all([claimRes.json(), commitRes.json()]);
 
     const claims = claimOps.map((op) => {
         const rawLabel = op.parameter?.value?.label ?? null;
@@ -393,11 +390,9 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
         })
         .slice(0, limit);
 
-    return json(
-        { data: events, count: events.length, limit, network: net.name },
-        200,
-        { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=40" },
-    );
+    return json({ data: events, count: events.length, limit, network: net.name }, 200, {
+        "Cache-Control": "public, s-maxage=20, stale-while-revalidate=40",
+    });
 }
 
 /** GET /api/v1/config — contract storage config */

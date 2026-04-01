@@ -41,6 +41,7 @@ function PollOrb({
 
     return (
         <button
+            type="button"
             onClick={onRefresh}
             disabled={isLoading}
             aria-label="Refresh hackers list"

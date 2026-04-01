@@ -247,8 +247,20 @@ Recent on-chain claim and commit events, merged and sorted by time. Commit event
 ```json
 {
     "data": [
-        { "type": "claimed", "address": "tz1...", "name": "alice.hack.gho", "timestamp": "2025-01-01T00:00:00Z", "opHash": "op..." },
-        { "type": "committed", "address": "tz1...", "name": null, "timestamp": "2025-01-01T00:00:00Z", "opHash": "op..." }
+        {
+            "type": "claimed",
+            "address": "tz1...",
+            "name": "alice.hack.gho",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "opHash": "op..."
+        },
+        {
+            "type": "committed",
+            "address": "tz1...",
+            "name": null,
+            "timestamp": "2025-01-01T00:00:00Z",
+            "opHash": "op..."
+        }
     ],
     "count": 2,
     "limit": 30,
