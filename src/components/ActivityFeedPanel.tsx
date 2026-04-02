@@ -46,7 +46,7 @@ function EventRow({ event }: { event: ActivityEvent }) {
 
 export default function ActivityFeedPanel({ events, isLoading }: Props) {
     const [collapsed, setCollapsed] = useState(() => {
-        return localStorage.getItem("hack-tez-feed-collapsed") === "1";
+        return typeof localStorage !== "undefined" && localStorage.getItem("hack-tez-feed-collapsed") === "1";
     });
 
     function toggle() {
@@ -56,7 +56,10 @@ export default function ActivityFeedPanel({ events, isLoading }: Props) {
     }
 
     return (
-        <aside className={`activity-panel${collapsed ? " activity-panel--collapsed" : ""}`} aria-label="Recent activity">
+        <aside
+            className={`activity-panel${collapsed ? " activity-panel--collapsed" : ""}`}
+            aria-label="Recent activity"
+        >
             <div className="activity-panel-header">
                 <span className="activity-panel-title" aria-hidden="true">
                     ⚡ RECENT
@@ -73,12 +76,8 @@ export default function ActivityFeedPanel({ events, isLoading }: Props) {
             </div>
 
             <div id="activity-panel-body" className="activity-panel-body" hidden={collapsed}>
-                {isLoading && (
-                    <p className="activity-empty">loading…</p>
-                )}
-                {!isLoading && events.length === 0 && (
-                    <p className="activity-empty">no activity yet</p>
-                )}
+                {isLoading && <p className="activity-empty">loading…</p>}
+                {!isLoading && events.length === 0 && <p className="activity-empty">no activity yet</p>}
                 {!isLoading && events.length > 0 && (
                     <div role="list" className="activity-list">
                         {events.map((e) => (

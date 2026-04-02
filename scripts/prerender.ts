@@ -23,13 +23,13 @@ const routes = ["/manifesto", "/policies", "/developers", "/skills", ...skillSlu
 
 // Import the server bundle built by: vite build --ssr src/entry-server.tsx --outDir dist-server
 const serverEntry = join(root, "dist-server/entry-server.js");
-const { render } = (await import(serverEntry)) as { render: (url: string) => string };
+const { render } = (await import(serverEntry)) as { render: (url: string) => Promise<string> };
 
 const template = readFileSync(join(root, "dist/index.html"), "utf-8");
 
 let count = 0;
 for (const route of routes) {
-    const html = render(route);
+    const html = await render(route);
     const full = template.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 
     // Write to dist/<route>/index.html so Netlify serves it as static HTML

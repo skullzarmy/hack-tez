@@ -123,6 +123,20 @@ export default defineConfig({
                         ) {
                             return "vendor-polyfill";
                         }
+                        if (
+                            id.includes("/highlight.js/") ||
+                            id.includes("/react-markdown/") ||
+                            id.includes("/remark-") ||
+                            id.includes("/rehype-") ||
+                            id.includes("/mdast-") ||
+                            id.includes("/hast-") ||
+                            id.includes("/micromark") ||
+                            id.includes("/unified/") ||
+                            id.includes("/vfile") ||
+                            id.includes("/unist-")
+                        ) {
+                            return "vendor-markdown";
+                        }
                     }
                 },
             },

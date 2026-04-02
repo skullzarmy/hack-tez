@@ -9,13 +9,13 @@ import Manifesto from "./pages/Manifesto";
 import Hackers from "./pages/Hackers";
 import Developers from "./pages/Developers";
 import Policies from "./pages/Policies";
-import Skills from "./pages/Skills";
-import SkillDetail from "./pages/SkillDetail";
 import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
 const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
 const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"));
+const Skills = lazy(() => import("./pages/Skills"));
+const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -267,8 +267,8 @@ export function AppShell() {
                     <Route path="/hackers" element={<Hackers />} />
                     <Route path="/developers" element={<Developers />} />
                     <Route path="/policies" element={<Policies />} />
-                    <Route path="/skills/:slug" element={<SkillDetail />} />
-                    <Route path="/skills" element={<Skills />} />
+                    <Route path="/skills/:slug" element={<Suspense fallback={null}><SkillDetail /></Suspense>} />
+                    <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>
