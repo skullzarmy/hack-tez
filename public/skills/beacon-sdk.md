@@ -1,3 +1,8 @@
+---
+title: "Beacon SDK (TZIP-10)"
+description: "TZIP-10 compliant octez.connect SDK for Tezos wallet integration. Covers DAppClient, WalletClient, permission flows, message types, and transport layers."
+tags: [tezos, beacon, wallet, tzip-10, octez-connect, dapp]
+---
 # Skill: octez.connect SDK — Tezos Wallet Interaction (tzip-10)
 
 ```yaml

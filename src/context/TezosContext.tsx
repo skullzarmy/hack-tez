@@ -32,10 +32,10 @@ declare global {
     }
 }
 const TezosContext: ReturnType<typeof createContext<TezosState | null>> =
-    (import.meta.env.DEV && window.__TEZOS_CONTEXT__) ||
+    (import.meta.env.DEV && typeof window !== "undefined" && window.__TEZOS_CONTEXT__) ||
     createContext<TezosState | null>(null);
 
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && typeof window !== "undefined") {
     window.__TEZOS_CONTEXT__ = TezosContext;
 }
 
@@ -90,7 +90,9 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
     const hydrateAccount = useCallback(async (addr: string) => {
         setAddress(addr);
-        resolveDisplayName(addr).then(setDomain).catch(() => {});
+        resolveDisplayName(addr)
+            .then(setDomain)
+            .catch(() => {});
     }, []);
 
     // Set up event subscription and return (or create) the client.
@@ -168,7 +170,9 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     const resetConnection = useCallback(async () => {
         try {
             if (dAppClient) await dAppClient.destroy();
-        } catch { /* may already be destroyed */ }
+        } catch {
+            /* may already be destroyed */
+        }
         clearBeaconState();
         dAppClient = null;
         subscribedRef.current = false;

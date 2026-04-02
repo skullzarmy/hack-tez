@@ -1,25 +1,20 @@
+/** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 export default function Policies() {
     return (
-        <div className="container" style={{ maxWidth: "680px", paddingBlock: "4rem 6rem" }}>
-            <p className="section-label" style={{ marginBottom: "2rem" }}>
-                policies
-            </p>
-
-            <h1
-                style={{
-                    fontFamily: "var(--font)",
-                    fontSize: "clamp(2rem, 6vw, 3.5rem)",
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    lineHeight: 1.1,
-                    marginBottom: "3rem",
-                    color: "var(--fg)",
-                }}
-            >
-                Plain english.
-                <br />
-                No bullshit.
-            </h1>
+        <div className="container" style={{ paddingBlock: "4rem 6rem" }}>
+            <header style={{ marginBottom: "3rem" }}>
+                <h1
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "clamp(1.4rem, 4vw, 2rem)",
+                        letterSpacing: "-0.02em",
+                        marginBottom: "0.5rem",
+                    }}
+                >
+                    // POLICIES
+                </h1>
+                <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem" }}>Plain english. No bullshit.</p>
+            </header>
 
             <div
                 style={{
@@ -31,6 +26,7 @@ export default function Policies() {
                     display: "flex",
                     flexDirection: "column",
                     gap: "2rem",
+                    maxWidth: "72ch",
                 }}
             >
                 {/* What this is */}

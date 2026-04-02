@@ -7,7 +7,7 @@
     "scripts": {
         "dev": "vite",
         "netlify:dev": "cross-env NODE_OPTIONS='--require ./scripts/netlify-dev-patch.cjs' VITE_HMR_CLIENT_PORT=8888 netlify dev",
-        "build": "cp skills/hack-tez-api.md public/hack-tez-api.md && tsc -b && vite build",
+        "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
         "preview": "vite preview"
     },
     "dependencies": {
@@ -20,7 +20,10 @@
         "blakejs": "^1.2.1",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
-        "react-router-dom": "^7.13.2"
+        "react-markdown": "^10.1.0",
+        "react-router-dom": "^7.13.2",
+        "rehype-highlight": "^7.0.2",
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@netlify/functions": "^3.0.0",

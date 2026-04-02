@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useState, useEffect } from "react";
 import config from "../config/tezos";
 
@@ -390,46 +391,31 @@ export default function Developers() {
                 <div className="docs-content">
                     {/* ---- Header ---- */}
                     <div style={{ marginBottom: "3rem" }}>
-                        <p className="section-label" style={{ marginBottom: "0.75rem" }}>
-                            API Reference
-                        </p>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "flex-start",
-                                justifyContent: "space-between",
-                                gap: "1rem",
-                                flexWrap: "wrap",
-                                marginBottom: "1rem",
-                            }}
-                        >
+                        <header style={{ marginBottom: "1rem" }}>
                             <h1
                                 id="overview"
                                 style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "clamp(1.8rem, 5vw, 2.75rem)",
-                                    fontWeight: 700,
-                                    letterSpacing: "0.08em",
-                                    lineHeight: 1.1,
-                                    color: "var(--fg)",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "clamp(1.4rem, 4vw, 2rem)",
+                                    letterSpacing: "-0.02em",
+                                    marginBottom: "0.5rem",
                                     scrollMarginTop: `${NAV_OFFSET + 16}px`,
-                                    margin: 0,
                                 }}
                             >
-                                Build on hack.{tld}
+                                // DEVELOPERS
                             </h1>
+                            <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem" }}>Build on hack.{tld}</p>
+                        </header>
 
-                            <button
-                                type="button"
-                                className="docs-toc-btn"
-                                onClick={() => setMobileNavOpen((o) => !o)}
-                                aria-expanded={mobileNavOpen}
-                                aria-label="Toggle table of contents"
-                            >
-                                ≡ CONTENTS
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            className="docs-toc-btn"
+                            onClick={() => setMobileNavOpen((o) => !o)}
+                            aria-expanded={mobileNavOpen}
+                            aria-label="Toggle table of contents"
+                        >
+                            ≡ CONTENTS
+                        </button>
 
                         <p
                             style={{

@@ -1,3 +1,9 @@
+---
+title: "Taquito SDK"
+description: "Quick-start guide for Taquito v24.2.0, the TypeScript SDK for interacting with the Tezos blockchain. Covers Contract API vs Wallet API, signers, transfers, and contract calls."
+tags: [tezos, taquito, typescript, sdk, blockchain]
+---
+
 # Skill: Taquito v24.2.0 Quick Start
 
 ```yaml
@@ -23,21 +29,22 @@ npm install @taquito/taquito
 ### 2. Import and instantiate TezosToolkit
 
 ```typescript
-import { TezosToolkit } from '@taquito/taquito';
+import { TezosToolkit } from "@taquito/taquito";
 
-const Tezos = new TezosToolkit('https://ghostnet.ecadinfra.com');
+const Tezos = new TezosToolkit("https://ghostnet.ecadinfra.com");
 ```
 
 **TezosToolkit constructor** accepts either:
+
 - A plain RPC URL string (most common)
 - An `RpcClient` object (for advanced configuration)
 
 ### 3. RPC URL selection
 
-| Network  | Example RPC URL                        |
-|----------|----------------------------------------|
-| Ghostnet | `https://ghostnet.ecadinfra.com`       |
-| Mainnet  | Use a trusted public or private node   |
+| Network  | Example RPC URL                      |
+| -------- | ------------------------------------ |
+| Ghostnet | `https://ghostnet.ecadinfra.com`     |
+| Mainnet  | Use a trusted public or private node |
 
 A full list of public RPC nodes is maintained in the Taquito documentation.
 
@@ -64,21 +71,15 @@ npm install @taquito/signer
 ```
 
 ```typescript
-import { InMemorySigner, importKey } from '@taquito/signer';
+import { InMemorySigner, importKey } from "@taquito/signer";
 
 // From a raw private key
 Tezos.setProvider({
-  signer: await InMemorySigner.fromSecretKey('edsk...')
+    signer: await InMemorySigner.fromSecretKey("edsk..."),
 });
 
 // Or using the importKey helper (e.g., from a faucet JSON)
-await importKey(
-  Tezos,
-  'email@example.com',
-  'password',
-  'mnemonic words here',
-  'activation-code'
-);
+await importKey(Tezos, "email@example.com", "password", "mnemonic words here", "activation-code");
 ```
 
 > ⚠️ **Security warning:** `InMemorySigner` stores private keys in process memory. It is **explicitly unsuitable for production** use with real-value tokens. Use only on testnets or in sandboxed environments.
@@ -90,16 +91,16 @@ npm install @taquito/remote-signer
 ```
 
 ```typescript
-import { RemoteSigner } from '@taquito/remote-signer';
+import { RemoteSigner } from "@taquito/remote-signer";
 
 const requestHeaders: { [key: string]: string } = {
-  'api-key': 'your-api-key'
+    "api-key": "your-api-key",
 };
 
 Tezos.setProvider({
-  signer: new RemoteSigner(pkh, 'https://your-remote-signer-url/', {
-    headers: requestHeaders
-  })
+    signer: new RemoteSigner(pkh, "https://your-remote-signer-url/", {
+        headers: requestHeaders,
+    }),
 });
 ```
 
@@ -118,8 +119,8 @@ For browser-based dApps, use a `WalletProvider` (e.g., Beacon, Temple, Kukai). T
 No signer required.
 
 ```typescript
-const balance = await Tezos.tz.getBalance('tz1...');
-console.log(balance.toNumber() / 1_000_000, 'tez');
+const balance = await Tezos.tz.getBalance("tz1...");
+console.log(balance.toNumber() / 1_000_000, "tez");
 ```
 
 > **Unit note:** `getBalance` returns the balance in **mutez** (1 tez = 1,000,000 mutez). Always divide by `1_000_000` before displaying to users. See [Unit Conversion Reference](#unit-conversion-reference).
@@ -134,19 +135,18 @@ Use `Tezos.contract` when you control the private key directly (InMemorySigner o
 
 ```typescript
 try {
-  const operation = await Tezos.contract.transfer({
-    to: 'tz1RecipientAddress...',
-    amount: 1   // in whole tez
-  });
+    const operation = await Tezos.contract.transfer({
+        to: "tz1RecipientAddress...",
+        amount: 1, // in whole tez
+    });
 
-  console.log('Operation hash:', operation.hash);
+    console.log("Operation hash:", operation.hash);
 
-  const hash = await operation.confirmation(1);
-  console.log('Confirmed! Block hash:', hash);
-  console.log(`Explorer: https://ghostnet.tzkt.io/${operation.hash}/operations`);
-
+    const hash = await operation.confirmation(1);
+    console.log("Confirmed! Block hash:", hash);
+    console.log(`Explorer: https://ghostnet.tzkt.io/${operation.hash}/operations`);
 } catch (error) {
-  console.error(JSON.stringify(error, null, 2));
+    console.error(JSON.stringify(error, null, 2));
 }
 ```
 
@@ -165,18 +165,15 @@ Use `Tezos.wallet` when signing is delegated to a browser wallet (e.g., Temple, 
 
 ```typescript
 try {
-  const operation = await Tezos.wallet
-    .transfer({ to: 'tz1RecipientAddress...', amount: 1 })
-    .send();
+    const operation = await Tezos.wallet.transfer({ to: "tz1RecipientAddress...", amount: 1 }).send();
 
-  console.log('Operation hash:', operation.opHash);
+    console.log("Operation hash:", operation.opHash);
 
-  const confirmation = await operation.confirmation(1);
-  console.log('Confirmed in block:', confirmation.block.hash);
-  console.log(`Explorer: https://ghostnet.tzkt.io/${operation.opHash}/operations`);
-
+    const confirmation = await operation.confirmation(1);
+    console.log("Confirmed in block:", confirmation.block.hash);
+    console.log(`Explorer: https://ghostnet.tzkt.io/${operation.opHash}/operations`);
 } catch (error) {
-  console.error(JSON.stringify(error, null, 2));
+    console.error(JSON.stringify(error, null, 2));
 }
 ```
 
@@ -201,18 +198,17 @@ try {
 
 ```typescript
 try {
-  const contract = await Tezos.contract.at('KT1BJadpDyLCACMH7Tt9xtpx4dQZVKw9cDF7');
+    const contract = await Tezos.contract.at("KT1BJadpDyLCACMH7Tt9xtpx4dQZVKw9cDF7");
 
-  const operation = await contract.methodsObject.increment(7).send();
+    const operation = await contract.methodsObject.increment(7).send();
 
-  console.log('Operation hash:', operation.hash);
+    console.log("Operation hash:", operation.hash);
 
-  const hash = await operation.confirmation(1);
-  console.log('Confirmed:', hash);
-  console.log(`Explorer: https://ghostnet.tzkt.io/${operation.hash}/operations`);
-
+    const hash = await operation.confirmation(1);
+    console.log("Confirmed:", hash);
+    console.log(`Explorer: https://ghostnet.tzkt.io/${operation.hash}/operations`);
 } catch (error) {
-  console.error(JSON.stringify(error, null, 2));
+    console.error(JSON.stringify(error, null, 2));
 }
 ```
 
@@ -224,18 +220,17 @@ try {
 
 ```typescript
 try {
-  const contract = await Tezos.wallet.at('KT1BJadpDyLCACMH7Tt9xtpx4dQZVKw9cDF7');
+    const contract = await Tezos.wallet.at("KT1BJadpDyLCACMH7Tt9xtpx4dQZVKw9cDF7");
 
-  const operation = await contract.methodsObject.increment(7).send();
+    const operation = await contract.methodsObject.increment(7).send();
 
-  console.log('Operation hash:', operation.opHash);
+    console.log("Operation hash:", operation.opHash);
 
-  const confirmation = await operation.confirmation(1);
-  console.log('Confirmed in block:', confirmation.block.hash);
-  console.log(`Explorer: https://ghostnet.tzkt.io/${operation.opHash}/operations`);
-
+    const confirmation = await operation.confirmation(1);
+    console.log("Confirmed in block:", confirmation.block.hash);
+    console.log(`Explorer: https://ghostnet.tzkt.io/${operation.opHash}/operations`);
 } catch (error) {
-  console.error(JSON.stringify(error, null, 2));
+    console.error(JSON.stringify(error, null, 2));
 }
 ```
 
@@ -245,25 +240,25 @@ try {
 
 ## Contract API vs Wallet API — Comparison Table
 
-| Dimension | Contract API (`Tezos.contract`) | Wallet API (`Tezos.wallet`) |
-|---|---|---|
-| Entry point | `Tezos.contract.transfer(...)` | `Tezos.wallet.transfer(...).send()` |
-| Explicit `.send()` | Not required for transfers | **Required** on all operations |
-| Contract resolution | `Tezos.contract.at(KT1...)` | `Tezos.wallet.at(KT1...)` |
-| Operation hash property | `operation.hash` | `operation.opHash` |
-| `confirmation(n)` return type | Hash string directly | Confirmation object |
-| Block hash from confirmation | N/A (hash is returned directly) | `confirmation.block.hash` |
-| Typical signer | InMemorySigner / RemoteSigner | WalletProvider (browser wallet) |
-| Use case | Server-side, scripts, bots | Browser dApps with user wallets |
+| Dimension                     | Contract API (`Tezos.contract`) | Wallet API (`Tezos.wallet`)         |
+| ----------------------------- | ------------------------------- | ----------------------------------- |
+| Entry point                   | `Tezos.contract.transfer(...)`  | `Tezos.wallet.transfer(...).send()` |
+| Explicit `.send()`            | Not required for transfers      | **Required** on all operations      |
+| Contract resolution           | `Tezos.contract.at(KT1...)`     | `Tezos.wallet.at(KT1...)`           |
+| Operation hash property       | `operation.hash`                | `operation.opHash`                  |
+| `confirmation(n)` return type | Hash string directly            | Confirmation object                 |
+| Block hash from confirmation  | N/A (hash is returned directly) | `confirmation.block.hash`           |
+| Typical signer                | InMemorySigner / RemoteSigner   | WalletProvider (browser wallet)     |
+| Use case                      | Server-side, scripts, bots      | Browser dApps with user wallets     |
 
 ---
 
 ## Unit Conversion Reference
 
-| Unit | Relationship | When used |
-|---|---|---|
-| **mutez** | 1 tez = 1,000,000 mutez | `getBalance` return value |
-| **tez** | Base display unit | `transfer({ amount })` parameter |
+| Unit      | Relationship            | When used                        |
+| --------- | ----------------------- | -------------------------------- |
+| **mutez** | 1 tez = 1,000,000 mutez | `getBalance` return value        |
+| **tez**   | Base display unit       | `transfer({ amount })` parameter |
 
 ```typescript
 // mutez → tez (for display)
@@ -281,15 +276,16 @@ Always wrap operations in `try/catch`. Tezos operation errors are structured obj
 
 ```typescript
 try {
-  const operation = await Tezos.contract.transfer({ to: '...', amount: 1 });
-  await operation.confirmation(1);
+    const operation = await Tezos.contract.transfer({ to: "...", amount: 1 });
+    await operation.confirmation(1);
 } catch (error) {
-  // Structured Tezos errors lose detail with .toString()
-  console.error(JSON.stringify(error, null, 2));
+    // Structured Tezos errors lose detail with .toString()
+    console.error(JSON.stringify(error, null, 2));
 }
 ```
 
 **Common failure points:**
+
 - Insufficient balance for transfer + fees
 - No signer configured before an injecting operation
 - Invalid KT1 or tz1 address format
@@ -300,18 +296,20 @@ try {
 
 ## Testnet Resources
 
-| Resource | URL |
-|---|---|
-| Ghostnet faucet (get test tez) | https://teztnets.com/ |
-| Ghostnet block explorer | https://ghostnet.tzkt.io/ |
-| Example contract (Ghostnet) | `KT1BJadpDyLCACMH7Tt9xtpx4dQZVKw9cDF7` |
+| Resource                       | URL                                    |
+| ------------------------------ | -------------------------------------- |
+| Ghostnet faucet (get test tez) | https://teztnets.com/                  |
+| Ghostnet block explorer        | https://ghostnet.tzkt.io/              |
+| Example contract (Ghostnet)    | `KT1BJadpDyLCACMH7Tt9xtpx4dQZVKw9cDF7` |
 
 **Funding a testnet account:**
+
 1. Visit https://teztnets.com/
 2. Select Ghostnet
 3. Submit your `tz1...` address to receive test tez
 
 **Verifying an operation:**
+
 ```
 https://ghostnet.tzkt.io/<operation-hash>/operations
 ```
@@ -321,16 +319,17 @@ https://ghostnet.tzkt.io/<operation-hash>/operations
 ## Multi-Instance TezosToolkit Patterns
 
 Multiple `TezosToolkit` instances are valid and useful for:
+
 - Targeting different RPC nodes simultaneously (e.g., fallback logic)
 - Using different signers for different accounts in the same application
 - Separating read-only queries from write operations
 
 ```typescript
-const readonlyTezos = new TezosToolkit('https://ghostnet.ecadinfra.com');
-const signingTezos  = new TezosToolkit('https://ghostnet.ecadinfra.com');
+const readonlyTezos = new TezosToolkit("https://ghostnet.ecadinfra.com");
+const signingTezos = new TezosToolkit("https://ghostnet.ecadinfra.com");
 
 signingTezos.setProvider({
-  signer: await InMemorySigner.fromSecretKey('edsk...')
+    signer: await InMemorySigner.fromSecretKey("edsk..."),
 });
 ```
 
@@ -343,9 +342,9 @@ signingTezos.setProvider({
 Taquito ships starter templates for common frontend frameworks:
 
 | Framework | Availability |
-|---|---|
-| React | ✅ Available |
-| Vue | ✅ Available |
+| --------- | ------------ |
+| React     | ✅ Available |
+| Vue       | ✅ Available |
 
 Templates include TezosToolkit instantiation, wallet connection, and example contract calls pre-wired.
 

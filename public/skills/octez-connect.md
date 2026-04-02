@@ -1,3 +1,8 @@
+---
+title: "octez.connect Patterns"
+description: "Battle-tested patterns for Tezos dApp wallet integration using the octez.connect DAppClient. Covers Temple Wallet quirks, network config, fork conflicts, beacon state reset, and a minimal React pattern."
+tags: [tezos, octez-connect, beacon, dapp, react, wallet, patterns]
+---
 # Skill: octez.connect DAppClient — Battle-Tested Patterns
 
 ```yaml

@@ -6,15 +6,28 @@ globalThis.Buffer = globalThis.Buffer ?? Buffer;
 globalThis.process = globalThis.process ?? process;
 
 import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 
-createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-        <App />
-    </StrictMode>,
-);
+const root = document.getElementById("root")!;
+
+// If the root already has SSR-rendered content, hydrate (attach event handlers
+// to existing HTML). Otherwise create a fresh client-side render.
+if (root.hasChildNodes()) {
+    hydrateRoot(
+        root,
+        <StrictMode>
+            <App />
+        </StrictMode>,
+    );
+} else {
+    createRoot(root).render(
+        <StrictMode>
+            <App />
+        </StrictMode>,
+    );
+}
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
     window.addEventListener("load", () => {

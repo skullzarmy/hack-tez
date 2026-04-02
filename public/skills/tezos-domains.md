@@ -1,3 +1,8 @@
+---
+title: "Tezos Domains"
+description: "Developer reference for the Tezos Domains on-chain naming system (TED). Covers GraphQL API, record types, ownership, and integration patterns for resolving and registering .tez names."
+tags: [tezos, domains, ted, naming, graphql, nft]
+---
 # Skill: Tezos Domains Developer Reference
 
 ```yaml

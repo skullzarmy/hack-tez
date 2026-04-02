@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useBuilders } from "../hooks/useBuilders";
 import { useState, useEffect } from "react";
 import config from "../config/tezos";
@@ -88,14 +89,19 @@ export default function Hackers() {
                     marginBottom: "2rem",
                 }}
             >
-                <div>
-                    <p className="section-label" style={{ marginBottom: "0.5rem" }}>
-                        Hackers
-                    </p>
-                    <h1 className="section-title" style={{ marginBottom: 0 }}>
-                        Who's here.
+                <header>
+                    <h1
+                        style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "clamp(1.4rem, 4vw, 2rem)",
+                            letterSpacing: "-0.02em",
+                            marginBottom: "0.5rem",
+                        }}
+                    >
+                        // HACKERS
                     </h1>
-                </div>
+                    <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem" }}>Who's here.</p>
+                </header>
                 <div
                     style={{
                         display: "flex",

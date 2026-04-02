@@ -1,3 +1,8 @@
+---
+title: "SmartPy v0.17+"
+description: "Canonical modern SmartPy syntax reference for writing Tezos smart contracts. Covers module/entrypoint decorators, type system, inter-contract calls, crypto primitives, and testing."
+tags: [tezos, smartpy, smart-contracts, python, blockchain]
+---
 # Skill: SmartPy v0.17+ LLM Reference
 
 Fetched from https://smartpy.tezos.com/llm.txt — canonical modern SmartPy syntax.

@@ -1,4 +1,6 @@
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
+import fs from "node:fs";
+import path from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -6,6 +8,7 @@ function requireMainnetEnv(): Plugin {
     return {
         name: "require-mainnet-env",
         configResolved(config) {
+            if (config.build?.ssr) return; // env not needed for SSR/prerender builds
             if (!config.env.VITE_REGISTRAR_ADDRESS) {
                 throw new Error(
                     "[hack.tez] VITE_REGISTRAR_ADDRESS must be set.\n" +
@@ -21,6 +24,38 @@ function requireMainnetEnv(): Plugin {
  *  finishes reading the request, Node emits ECONNRESET with no handler → crash.
  *  Attach error handlers on every incoming socket and via clientError so Vite
  *  ignores these transient disconnects instead of exiting. */
+/** Copies all src/skills/*.md → public/skills/*.md so they are
+ *  available as static download links at /skills/<filename>.md */
+function copySkillsToPublic(): Plugin {
+    const srcDir = path.resolve(__dirname, "src/skills");
+    const destDir = path.resolve(__dirname, "public/skills");
+
+    function syncSkills() {
+        if (!fs.existsSync(srcDir)) return;
+        fs.mkdirSync(destDir, { recursive: true });
+        for (const file of fs.readdirSync(srcDir)) {
+            if (file.endsWith(".md")) {
+                fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+            }
+        }
+    }
+
+    return {
+        name: "copy-skills-to-public",
+        buildStart() {
+            syncSkills();
+        },
+        configureServer(server: ViteDevServer) {
+            syncSkills();
+            server.watcher.on("all", (_event, filePath) => {
+                if (filePath.startsWith(srcDir) && filePath.endsWith(".md")) {
+                    syncSkills();
+                }
+            });
+        },
+    };
+}
+
 function handleProbeDisconnects(): Plugin {
     return {
         name: "handle-probe-disconnects",
@@ -44,7 +79,7 @@ function handleProbeDisconnects(): Plugin {
 }
 
 export default defineConfig({
-    plugins: [requireMainnetEnv(), handleProbeDisconnects(), react(), tailwindcss()],
+    plugins: [requireMainnetEnv(), copySkillsToPublic(), handleProbeDisconnects(), react(), tailwindcss()],
     define: {
         "process.env.NODE_ENV": JSON.stringify("production"),
         "process.env": "{}",
@@ -66,36 +101,32 @@ export default defineConfig({
         // support <link rel="modulepreload"> natively.
         modulePreload: { polyfill: false },
         rollupOptions: {
-                output: {
-                    // Stable filenames for fonts so index.html can preload them
-                    assetFileNames: (assetInfo) => {
-                        if (assetInfo.name?.endsWith(".woff2")) {
-                            return "assets/fonts/[name][extname]";
+            output: {
+                // Stable filenames for fonts so index.html can preload them
+                assetFileNames: (assetInfo) => {
+                    if (assetInfo.name?.endsWith(".woff2")) {
+                        return "assets/fonts/[name][extname]";
+                    }
+                    return "assets/[name]-[hash][extname]";
+                },
+                manualChunks(id: string) {
+                    if (id.includes("node_modules")) {
+                        if (id.includes("/react/") || id.includes("/react-dom/") || id.includes("/react-router")) {
+                            return "vendor-react";
                         }
-                        return "assets/[name]-[hash][extname]";
-                    },
-                    manualChunks(id: string) {
-                        if (id.includes("node_modules")) {
-                            if (
-                                id.includes("/react/") ||
-                                id.includes("/react-dom/") ||
-                                id.includes("/react-router")
-                            ) {
-                                return "vendor-react";
-                            }
-                            if (
-                                id.includes("/buffer/") ||
-                                id.includes("stream-browserify") ||
-                                id.includes("/util/") ||
-                                id.includes("/process/") ||
-                                id.includes("/events/")
-                            ) {
-                                return "vendor-polyfill";
-                            }
+                        if (
+                            id.includes("/buffer/") ||
+                            id.includes("stream-browserify") ||
+                            id.includes("/util/") ||
+                            id.includes("/process/") ||
+                            id.includes("/events/")
+                        ) {
+                            return "vendor-polyfill";
                         }
-                    },
+                    }
                 },
             },
+        },
     },
     optimizeDeps: {
         // Pre-bundle the ENTIRE dependency chain at startup.
@@ -142,8 +173,6 @@ export default defineConfig({
     server: {
         // When running through `netlify dev` (port 8888), tell the Vite HMR
         // client which port the browser actually sees so WS connects correctly.
-        hmr: process.env.VITE_HMR_CLIENT_PORT
-            ? { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) }
-            : true,
+        hmr: process.env.VITE_HMR_CLIENT_PORT ? { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) } : true,
     },
 });

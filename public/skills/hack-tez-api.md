@@ -1,3 +1,8 @@
+---
+title: "hack.tez API Reference"
+description: "REST API and smart contract reference for the hack.tez free Tezos subdomain registrar. Covers all endpoints, registration flow, label validation, and error handling."
+tags: [tezos, api, hack-tez, rest, registration]
+---
 # Skill: hack.tez API & Contract Reference
 
 ```yaml

@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
+/** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
 import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { TezosProvider } from "./context/TezosContext";
@@ -7,6 +9,8 @@ import Manifesto from "./pages/Manifesto";
 import Hackers from "./pages/Hackers";
 import Developers from "./pages/Developers";
 import Policies from "./pages/Policies";
+import Skills from "./pages/Skills";
+import SkillDetail from "./pages/SkillDetail";
 import Footer from "./components/Footer";
 import { useRecentActivity } from "./hooks/useRecentActivity";
 
@@ -51,6 +55,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                         {this.state.message || "Something went wrong. Please reload."}
                     </p>
                     <button
+                        type="button"
                         onClick={() => this.setState({ hasError: false, message: "" })}
                         style={{
                             background: "var(--fg, #fff)",
@@ -74,6 +79,7 @@ type Theme = "auto" | "dark" | "light";
 
 function useTheme() {
     const [theme, setThemeState] = useState<Theme>(() => {
+        if (typeof localStorage === "undefined") return "auto";
         return (localStorage.getItem("hack-tez-theme") as Theme) ?? "auto";
     });
 
@@ -94,6 +100,7 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
     return (
         <div className="theme-switcher" role="group" aria-label="Color theme">
             <button
+                type="button"
                 className="theme-btn"
                 aria-pressed={theme === "auto"}
                 onClick={() => setTheme("auto")}
@@ -103,6 +110,7 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
                 ⊙
             </button>
             <button
+                type="button"
                 className="theme-btn"
                 aria-pressed={theme === "dark"}
                 onClick={() => setTheme("dark")}
@@ -112,6 +120,7 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
                 ◑
             </button>
             <button
+                type="button"
                 className="theme-btn"
                 aria-pressed={theme === "light"}
                 onClick={() => setTheme("light")}
@@ -139,6 +148,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                     <ConnectWallet />
                     <div className="nav-menu">
                         <button
+                            type="button"
                             className="nav-hamburger"
                             aria-label={open ? "Close menu" : "Open menu"}
                             aria-expanded={open}
@@ -191,6 +201,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Developers
                                     </a>
                                     <a
+                                        href="/skills"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Skills
+                                    </a>
+                                    <a
                                         href="/policies"
                                         role="menuitem"
                                         className="nav-drawer-link"
@@ -226,40 +244,48 @@ function ActivityLayer() {
     );
 }
 
-export default function App() {
+export function AppShell() {
     const { theme, setTheme } = useTheme();
 
+    return (
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
+            {/* Noise grain overlay — decorative, hidden from AT */}
+            <div className="noise-overlay" aria-hidden="true" />
+
+            {/* Skip to main content link */}
+            <a href="#main-content" className="skip-link">
+                Skip to content
+            </a>
+
+            {/* Navigation */}
+            <Nav theme={theme} setTheme={setTheme} />
+
+            {/* Main content */}
+            <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
+                <Routes>
+                    <Route path="/manifesto" element={<Manifesto />} />
+                    <Route path="/hackers" element={<Hackers />} />
+                    <Route path="/developers" element={<Developers />} />
+                    <Route path="/policies" element={<Policies />} />
+                    <Route path="/skills/:slug" element={<SkillDetail />} />
+                    <Route path="/skills" element={<Skills />} />
+                    <Route path="/" element={<Home />} />
+                    <Route path="*" element={<Home />} />
+                </Routes>
+            </main>
+
+            <ActivityLayer />
+            <Footer />
+        </div>
+    );
+}
+
+export default function App() {
     return (
         <ErrorBoundary>
             <TezosProvider>
                 <BrowserRouter>
-                    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
-                        {/* Noise grain overlay — decorative, hidden from AT */}
-                        <div className="noise-overlay" aria-hidden="true" />
-
-                        {/* Skip to main content link */}
-                        <a href="#main-content" className="skip-link">
-                            Skip to content
-                        </a>
-
-                        {/* Navigation */}
-                        <Nav theme={theme} setTheme={setTheme} />
-
-                        {/* Main content */}
-                        <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
-                            <Routes>
-                                <Route path="/manifesto" element={<Manifesto />} />
-                                <Route path="/hackers" element={<Hackers />} />
-                                <Route path="/developers" element={<Developers />} />
-                                <Route path="/policies" element={<Policies />} />
-                                <Route path="/" element={<Home />} />
-                                <Route path="*" element={<Home />} />
-                            </Routes>
-                        </main>
-
-                        <ActivityLayer />
-                        <Footer />
-                    </div>
+                    <AppShell />
                 </BrowserRouter>
             </TezosProvider>
         </ErrorBoundary>
