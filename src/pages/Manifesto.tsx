@@ -73,9 +73,19 @@ export default function Manifesto() {
                 <p>
                     Claim your name. Not as property. <strong style={{ color: "var(--fg)" }}>As a signal.</strong> A
                     badge you choose to wear that says you were here, you built here, you are findable to the people who
-                    are looking for exactly you. We have plans for what this becomes. But they are not the whole
-                    picture. They never could be. This becomes what we make it, all of us, and we are just keeping the
-                    lights on and the door off its hinges.
+                    are looking for exactly you.
+                </p>
+
+                <p style={{ color: "var(--fg)", fontWeight: 700 }}>
+                    But a name on-chain is not a label. It resolves. It routes. Contracts can query it. Other builders
+                    can build on top of it. A stable address that{" "}
+                    <span style={{ color: "var(--ok)" }}>does things</span>, in a space nobody owns.
+                </p>
+
+                <p>
+                    We have plans for what this becomes. But they are not the whole picture. They never could be. This
+                    becomes what we make it, all of us, and we are just keeping the lights on and the door off its
+                    hinges.
                 </p>
 
                 <p>

@@ -14,7 +14,11 @@ We are the alternative.
 
 Everything here is unlicensed. The code, the contracts, the ideas. Take them. The subdomain you claim is a name in a space we tend but do not own in any way that matters. It is a place at the table. A way to be found by the people who are looking for someone like you.
 
-Claim your name. Not as property. As a signal. A badge you choose to wear that says you were here, you built here, you are findable to the people who are looking for exactly you. We have plans for what this becomes. But they are not the whole picture. They never could be. This becomes what we make it, all of us, and we are just keeping the lights on and the door off its hinges.
+Claim your name. Not as property. As a signal. A badge you choose to wear that says you were here, you built here, you are findable to the people who are looking for exactly you.
+
+But a name on-chain is not a label. It resolves. It routes. Contracts can query it. Other builders can build on top of it. A stable address that does things, in a space nobody owns.
+
+We have plans for what this becomes. But they are not the whole picture. They never could be. This becomes what we make it, all of us, and we are just keeping the lights on and the door off its hinges.
 
 Find the people building under the same roof. Make something that doesn't need to extract from the people who use it to justify its existence.
 
@@ -22,4 +26,4 @@ That's the whole thing. That's always been the whole thing.
 
 ---
 
-*Unlicensed. Unowned. Unafraid.*
+_Unlicensed. Unowned. Unafraid._

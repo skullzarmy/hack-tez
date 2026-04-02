@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
+/** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useState, useMemo, lazy, Suspense, useEffect } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
@@ -52,6 +54,7 @@ export default function Home() {
     const hasUsedAllClaims =
         !subdomainsLoading && !regLoading && registrationCount >= contractConfig.maxPerWallet && !hasSubdomain;
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: commitKey is an intentional manual invalidation trigger
     const hasActivePending = useMemo(() => {
         if (!address) return false;
         const now = Date.now();
@@ -64,8 +67,8 @@ export default function Home() {
         <>
             {contractConfig.registryTampered && (
                 <div role="alert" className="registry-tamper-banner">
-                    ⚠ WARNING: The on-chain name registry has been changed to an unexpected address.
-                    Registrations may not create real TED domains. Do not register until this is resolved.
+                    ⚠ WARNING: The on-chain name registry has been changed to an unexpected address. Registrations may
+                    not create real TED domains. Do not register until this is resolved.
                 </div>
             )}
             {/* ── HERO ─────────────────────────────────────────────── */}
@@ -115,9 +118,7 @@ export default function Home() {
                         </p>
                     </div>
 
-                    <p className="hero-cta-label">
-                        Claim your name — early access open now
-                    </p>
+                    <p className="hero-cta-label">Claim your name. Only gas.</p>
 
                     {address && hasSubdomain && <ClaimedView subdomain={displaySubdomain!} />}
 
@@ -150,88 +151,103 @@ export default function Home() {
             </section>
 
             {/* ── HOW IT WORKS ─────────────────────────────────────── */}
-            {!hasSubdomain && !hasUsedAllClaims && <section
-                className="section how-it-works-section"
-                aria-labelledby="how-it-works-title"
-                style={{ background: "var(--bg-2)" }}
-            >
-                <div className="container">
-                    <p className="section-label" aria-hidden="true">
-                        Protocol
-                    </p>
-                    <h2 id="how-it-works-title" className="section-title" style={{ marginBottom: "2rem" }}>
-                        How it works
-                    </h2>
-                    <div className="steps-grid" role="list">
-                        {[
-                            {
-                                step: "Step 01",
-                                title: "Connect",
-                                desc: "Link your Tezos wallet. Your account must be revealed (at least one on-chain transaction) and at least 4 hours old.",
-                            },
-                            {
-                                step: "Step 02",
-                                title: "Search",
-                                desc: "Find an available name. Lowercase letters, numbers, and hyphens only. 3–64 characters. One name per wallet.",
-                            },
-                            {
-                                step: "Step 03",
-                                title: "Publish",
-                                desc: `Commit a hash of your name on-chain. This reserves your spot and prevents frontrunning. Only gas costs (~0.01 ꜩ).`,
-                            },
-                            {
-                                step: "Step 04",
-                                title: "Claim",
-                                desc: `After the ${waitDescription} commitment window, return to finalize registration. Commitment expires after ${maxAgeDescription} — don't wait too long.`,
-                            },
-                        ].map((item) => (
-                            <div key={item.step} className="step-card" role="listitem">
-                                <span className="step-num" aria-hidden="true">
-                                    {item.step}
-                                </span>
-                                <h3 className="step-title">{item.title}</h3>
-                                <p className="step-body">{item.desc}</p>
-                            </div>
-                        ))}
+            {!hasSubdomain && !hasUsedAllClaims && (
+                <section
+                    className="section how-it-works-section"
+                    aria-labelledby="how-it-works-title"
+                    style={{ background: "var(--bg-2)" }}
+                >
+                    <div className="container">
+                        <p className="section-label" aria-hidden="true">
+                            Protocol
+                        </p>
+                        <h2 id="how-it-works-title" className="section-title" style={{ marginBottom: "2rem" }}>
+                            How it works
+                        </h2>
+                        <div className="steps-grid" role="list">
+                            {[
+                                {
+                                    step: "Step 01",
+                                    title: "Connect",
+                                    desc: "Link your Tezos wallet. Your account must be revealed (at least one on-chain transaction) and at least 4 hours old.",
+                                },
+                                {
+                                    step: "Step 02",
+                                    title: "Search",
+                                    desc: "Find an available name. Lowercase letters, numbers, and hyphens only. 3–64 characters. One name per wallet.",
+                                },
+                                {
+                                    step: "Step 03",
+                                    title: "Publish",
+                                    desc: `Commit a hash of your name on-chain. This reserves your spot and prevents frontrunning. Only gas costs (~0.01 ꜩ).`,
+                                },
+                                {
+                                    step: "Step 04",
+                                    title: "Claim",
+                                    desc: `After the ${waitDescription} commitment window, return to finalize registration. Commitment expires after ${maxAgeDescription} — don't wait too long.`,
+                                },
+                            ].map((item) => (
+                                <div key={item.step} className="step-card" role="listitem">
+                                    <span className="step-num" aria-hidden="true">
+                                        {item.step}
+                                    </span>
+                                    <h3 className="step-title">{item.title}</h3>
+                                    <p className="step-body">{item.desc}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            </section>}
+                </section>
+            )}
 
             {/* ── MANIFESTO CLOSE ──────────────────────────────────── */}
             <section className="section" aria-label="About hack.tez">
                 <div className="container" style={{ maxWidth: "680px" }}>
-                    <p className="section-label" aria-hidden="true">
-                        About
-                    </p>
-                    <h2 className="section-title" style={{ marginBottom: "1rem" }}>
-                        Something bigger is coming.
+                    <h2
+                        className="section-title"
+                        style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "clamp(1.4rem, 4vw, 2rem)",
+                            letterSpacing: "-0.02em",
+                            marginBottom: "1rem",
+                        }}
+                    >
+                        // NOT A PLATFORM
                     </h2>
                     <p className="section-body" style={{ marginBottom: "1rem" }}>
                         <strong>
-                            hack.tez is phase one. An invitation. A step towards a future built better, together.
+                            hack.tez is phase one. The name you claim is a real on-chain record. It resolves. It routes.
+                            Contracts can query it.
                         </strong>
                     </p>
                     <p className="section-body" style={{ marginBottom: "1rem" }}>
-                        Your subdomain lives fully on-chain. It can be used as an address, login, profile, and more.
-                        Manage at{" "}
+                        Manage your record at{" "}
                         <a href="https://tezos.domains" target="_blank" rel="noopener noreferrer">
                             Tezos Domains
                         </a>
+                        . Set an address, a redirect, an IPFS hash. It's yours.
                     </p>
                     <p className="section-body">You pay gas (~0.02 ꜩ). That's it. 1 claim per wallet.</p>
-                    <p className="section-body">
+                    <p className="section-body" style={{ marginTop: "2rem" }}>
                         FAFOlab retains ownership of the main hack.tez domain and provides this service with no warranty
-                        or guarantee. The future is not sure, but we're building it anyway. Join us.
+                        or guarantee. The future is not promised. We're building it anyway.
                     </p>
-                    <p className="section-body">
+                    <p
+                        className="section-body"
+                        style={{ marginTop: "3rem", fontSize: "1.4rem", fontWeight: 900, letterSpacing: "-0.01em" }}
+                    >
                         <span className="manifesto-bold">/hack-the-future</span>
                         <span className="typing-cursor" aria-hidden="true">
                             _
                         </span>
                     </p>
 
-                    <p className="section-body" style={{ marginTop: "2rem" }}>
-                        <a href="/manifesto" className="footer-link" style={{ fontSize: "0.8rem", letterSpacing: "0.1em" }}>
+                    <p className="section-body" style={{ marginTop: "3rem" }}>
+                        <a
+                            href="/manifesto"
+                            className="footer-link"
+                            style={{ fontSize: "0.8rem", letterSpacing: "0.1em" }}
+                        >
                             read the manifesto →
                         </a>
                     </p>
@@ -252,7 +268,6 @@ export default function Home() {
                     </style>
                 </div>
             </section>
-
         </>
     );
 }
