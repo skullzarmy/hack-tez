@@ -1,28 +1,16 @@
 # hack.tez
 
-Something new is here.
+HEN mattered because nobody asked permission.
 
-Not a platform. Not a product roadmap. Not a team with a vision statement and a runway and a plan to exit. Something older than that. Something that predates the idea that you need permission or funding or a market to justify making a thing.
+The builders who came to Tezos weren't chasing a floor. They were here because something about this chain felt like theirs. They shipped things with no business model on a Tuesday at 2am because the idea would not leave them alone. When HEN went dark they didn't leave. They forked it and kept going.
 
-This is what happens when builders build for builders because building is the point.
+That wasn't sentiment. That was identity.
 
-You want to know what this looks like? No doors. No walls. No membership fee, no credential check, no inner circle that knows the real plan. Just a roof, floating, held up by nothing except the shared understanding that the work matters and the knowledge belongs to everyone and the chain is a commons not a commodity.
+That person is still here. Still building in the margins, still looking for the others, still convinced the thing they're making needs to exist even if they can't explain why.
 
-Tezos gave us a protocol that doesn't need gatekeepers. We added gatekeepers anyway. Bakers consolidated. Marketplaces centralized. Infrastructure calcified around whoever got there first. The ecosystem didn't die from outside pressure. It narrowed from inside, slowly, because centralization is always easier than the alternative and profit is a cleaner motive than freedom.
+hack.tez is a name for the place where we find each other.
 
-We are the alternative.
-
-Everything here is unlicensed. The code, the contracts, the ideas. Take them. The subdomain you claim is a name in a space we tend but do not own in any way that matters. It is a place at the table. A way to be found by the people who are looking for someone like you.
-
-Claim your name. Not as property. As a signal. A badge you choose to wear that says you were here, you built here, you are findable to the people who are looking for exactly you.
-
-But a name on-chain is not a label. It resolves. It routes. Contracts can query it. Other builders can build on top of it. A stable address that does things, in a space nobody owns.
-
-We have plans for what this becomes. But they are not the whole picture. They never could be. This becomes what we make it, all of us, and we are just keeping the lights on and the door off its hinges.
-
-Find the people building under the same roof. Make something that doesn't need to extract from the people who use it to justify its existence.
-
-That's the whole thing. That's always been the whole thing.
+Claim yours.
 
 ---
 
