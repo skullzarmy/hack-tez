@@ -26,7 +26,7 @@ import { randomBytes } from "crypto";
 
 // ─── Config ──────────────────────────────────────────────────────────
 const RPC_URL = "https://rpc.ghostnet.teztnets.com";
-const REGISTRAR = process.env.REGISTRAR_ADDRESS || "KT1H5j2w7Di646xAVuDoD8A4YBA9XUfe1XkF";
+const REGISTRAR = process.env.REGISTRAR_ADDRESS || "KT1KY1VkJeNYrCpDbP33u6eMEoPuTNrd7XZA";
 const SET_CHILD_RECORD_PROXY = "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU";
 const NAME_REGISTRY = "KT1REqKBXwULnmU6RpZxnRBUgcBmESnXhCWs";
 const TZKT_API = "https://api.ghostnet.tzkt.io/v1";
@@ -62,12 +62,7 @@ function generateSalt(): string {
  * SmartPy alphabetical order → right-combed pair:
  *   (label: bytes, (salt: bytes, (sender: address, target_address: address)))
  */
-function computeCommitmentHash(
-    labelHex: string,
-    sender: string,
-    targetAddress: string,
-    saltHex: string,
-): string {
+function computeCommitmentHash(labelHex: string, sender: string, targetAddress: string, saltHex: string): string {
     const data: any = {
         prim: "Pair",
         args: [
@@ -124,29 +119,25 @@ async function checkPreconditions() {
     let allGood = true;
 
     // 1. Contract exists and is accessible
-    const storage: any = await fetchJson(
-        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
-    );
+    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
     console.log(`  Contract: ${REGISTRAR}`);
     console.log(`  Admin: ${storage.admin_address}`);
     console.log(`  Paused: ${storage.paused}`);
     console.log(`  Name registry: ${storage.name_registry}`);
     console.log(`  Parent name: ${Buffer.from(storage.parent_name, "hex").toString("utf8")} (${storage.parent_name})`);
-    console.log(`  Min commit age: ${storage.min_commit_age}s (${Math.round(parseInt(storage.min_commit_age) / 3600)}h)`);
-    console.log(`  Max commit age: ${storage.max_commit_age}s (${Math.round(parseInt(storage.max_commit_age) / 3600)}h)`);
+    console.log(
+        `  Min commit age: ${storage.min_commit_age}s (${Math.round(parseInt(storage.min_commit_age) / 3600)}h)`,
+    );
+    console.log(
+        `  Max commit age: ${storage.max_commit_age}s (${Math.round(parseInt(storage.max_commit_age) / 3600)}h)`,
+    );
     console.log(`  Max per wallet: ${storage.max_per_wallet}`);
 
     // 2. Name registry should be the SetChildRecord proxy
     if (storage.name_registry !== SET_CHILD_RECORD_PROXY) {
-        console.log(
-            `\n  ❌ name_registry is WRONG: ${storage.name_registry}`,
-        );
-        console.log(
-            `     Should be: ${SET_CHILD_RECORD_PROXY} (SetChildRecord proxy)`,
-        );
-        console.log(
-            `     Admin (${storage.admin_address}) needs to call update_registry`,
-        );
+        console.log(`\n  ❌ name_registry is WRONG: ${storage.name_registry}`);
+        console.log(`     Should be: ${SET_CHILD_RECORD_PROXY} (SetChildRecord proxy)`);
+        console.log(`     Admin (${storage.admin_address}) needs to call update_registry`);
         allGood = false;
     } else {
         console.log(`  ✅ name_registry correctly points to SetChildRecord proxy`);
@@ -167,23 +158,16 @@ async function checkPreconditions() {
     const operatorAdded = ops.some((op: any) => {
         const val = op.parameter?.value;
         if (!Array.isArray(val)) return false;
-        return val.some(
-            (v: any) =>
-                v.add_operator?.operator === REGISTRAR,
-        );
+        return val.some((v: any) => v.add_operator?.operator === REGISTRAR);
     });
     if (operatorAdded) {
         console.log(`  ✅ Contract is set as FA2 operator on hack.gho`);
     } else {
-        console.log(
-            `  ⚠️  Could not verify operator status (may need manual check)`,
-        );
+        console.log(`  ⚠️  Could not verify operator status (may need manual check)`);
     }
 
     // 5. Check SetChildRecord proxy has set_child_record entrypoint
-    const eps: any[] = await fetchJson(
-        `${TZKT_API}/contracts/${SET_CHILD_RECORD_PROXY}/entrypoints`,
-    );
+    const eps: any[] = await fetchJson(`${TZKT_API}/contracts/${SET_CHILD_RECORD_PROXY}/entrypoints`);
     const hasSetChild = eps.some((e: any) => e.name === "set_child_record");
     if (hasSetChild) {
         console.log(`  ✅ SetChildRecord proxy has set_child_record entrypoint`);
@@ -200,9 +184,7 @@ async function checkPreconditions() {
 async function fixRegistry(tezos: TezosToolkit, senderAddress: string) {
     console.log("\n🔧 Fixing name_registry...\n");
 
-    const storage: any = await fetchJson(
-        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
-    );
+    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
 
     if (storage.name_registry === SET_CHILD_RECORD_PROXY) {
         console.log("  ✅ name_registry already correct, nothing to do");
@@ -210,12 +192,8 @@ async function fixRegistry(tezos: TezosToolkit, senderAddress: string) {
     }
 
     if (storage.admin_address !== senderAddress) {
-        console.log(
-            `  ❌ Cannot fix: sender ${senderAddress} is not admin ${storage.admin_address}`,
-        );
-        console.log(
-            `     The admin wallet must call update_registry("${SET_CHILD_RECORD_PROXY}")`,
-        );
+        console.log(`  ❌ Cannot fix: sender ${senderAddress} is not admin ${storage.admin_address}`);
+        console.log(`     The admin wallet must call update_registry("${SET_CHILD_RECORD_PROXY}")`);
         process.exit(1);
     }
 
@@ -242,12 +220,7 @@ async function doCommit(
     targetAddress: string,
     saltHex: string,
 ) {
-    const commitmentHash = computeCommitmentHash(
-        labelHex,
-        senderAddress,
-        targetAddress,
-        saltHex,
-    );
+    const commitmentHash = computeCommitmentHash(labelHex, senderAddress, targetAddress, saltHex);
     console.log(`\n📝 Phase 1: Commit\n`);
     console.log(`  Label: ${Buffer.from(labelHex, "hex").toString("utf8")} (${labelHex})`);
     console.log(`  Sender: ${senderAddress}`);
@@ -256,14 +229,10 @@ async function doCommit(
     console.log(`  Commitment hash: ${commitmentHash}`);
 
     // Check if commitment already exists
-    const storage: any = await fetchJson(
-        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
-    );
+    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
     const commitmentsBigMap = storage.commitments;
     try {
-        const existing = await fetchJson(
-            `${TZKT_API}/bigmaps/${commitmentsBigMap}/keys/${commitmentHash}`,
-        );
+        const existing = await fetchJson(`${TZKT_API}/bigmaps/${commitmentsBigMap}/keys/${commitmentHash}`);
         if (existing && existing.active) {
             const commitTime = new Date(existing.value).getTime();
             const ageS = Math.floor((Date.now() - commitTime) / 1000);
@@ -290,11 +259,11 @@ async function doCommit(
     // Check if label is already taken
     const labelsBigMap = storage.registered_labels;
     try {
-        const existing = await fetchJson(
-            `${TZKT_API}/bigmaps/${labelsBigMap}/keys/${labelHex}`,
-        );
+        const existing = await fetchJson(`${TZKT_API}/bigmaps/${labelsBigMap}/keys/${labelHex}`);
         if (existing && existing.active) {
-            console.log(`\n  ❌ Label "${Buffer.from(labelHex, "hex").toString("utf8")}" is already registered by ${existing.value}`);
+            console.log(
+                `\n  ❌ Label "${Buffer.from(labelHex, "hex").toString("utf8")}" is already registered by ${existing.value}`,
+            );
             process.exit(1);
         }
     } catch {
@@ -314,7 +283,9 @@ async function doCommit(
     console.log(`  Waiting for confirmation...`);
     await op.confirmation(1);
     console.log(`  ✅ Commit confirmed!`);
-    console.log(`  ⏳ Must wait ${parseInt(storage.min_commit_age)}s (${Math.round(parseInt(storage.min_commit_age) / 3600)}h) before register`);
+    console.log(
+        `  ⏳ Must wait ${parseInt(storage.min_commit_age)}s (${Math.round(parseInt(storage.min_commit_age) / 3600)}h) before register`,
+    );
 
     return {
         commitmentHash,
@@ -326,12 +297,7 @@ async function doCommit(
 
 // ─── Register Phase ─────────────────────────────────────────────────
 
-async function doRegister(
-    tezos: TezosToolkit,
-    labelHex: string,
-    targetAddress: string,
-    saltHex: string,
-) {
+async function doRegister(tezos: TezosToolkit, labelHex: string, targetAddress: string, saltHex: string) {
     console.log(`\n📋 Phase 2: Register\n`);
     console.log(`  Label: ${Buffer.from(labelHex, "hex").toString("utf8")} (${labelHex})`);
     console.log(`  Target: ${targetAddress}`);
@@ -350,10 +316,7 @@ async function doRegister(
                     { bytes: labelHex },
                     {
                         prim: "Pair",
-                        args: [
-                            { bytes: saltHex },
-                            { string: targetAddress },
-                        ],
+                        args: [{ bytes: saltHex }, { string: targetAddress }],
                     },
                 ],
             },
@@ -373,13 +336,9 @@ async function verify(labelHex: string) {
     console.log(`\n🔎 Verifying registration of ${label}.hack.gho...\n`);
 
     // Check our contract's registered_labels
-    const storage: any = await fetchJson(
-        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
-    );
+    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
     try {
-        const entry = await fetchJson(
-            `${TZKT_API}/bigmaps/${storage.registered_labels}/keys/${labelHex}`,
-        );
+        const entry = await fetchJson(`${TZKT_API}/bigmaps/${storage.registered_labels}/keys/${labelHex}`);
         if (entry && entry.active) {
             console.log(`  ✅ Label registered in contract — owner: ${entry.value}`);
         } else {
@@ -469,8 +428,7 @@ async function main() {
     const randomSuffix = Math.random().toString(36).substring(2, 6);
     const label = labelIdx >= 0 ? args[labelIdx + 1] : `test${randomSuffix}`;
     const labelHex = labelToHex(label);
-    const targetAddress =
-        targetIdx >= 0 ? args[targetIdx + 1] : senderAddress;
+    const targetAddress = targetIdx >= 0 ? args[targetIdx + 1] : senderAddress;
     const saltHex = saltIdx >= 0 ? args[saltIdx + 1] : generateSalt();
 
     console.log(`\n🧪 Test params:`);
@@ -491,13 +449,7 @@ async function main() {
     }
 
     // ─── Full flow: commit → wait → register ─────────────────────
-    const result = await doCommit(
-        tezos,
-        senderAddress,
-        labelHex,
-        targetAddress,
-        saltHex,
-    );
+    const result = await doCommit(tezos, senderAddress, labelHex, targetAddress, saltHex);
 
     if (result.readyToRegister) {
         await doRegister(tezos, labelHex, targetAddress, saltHex);
@@ -509,7 +461,9 @@ async function main() {
     if (result.waitSeconds && result.waitSeconds > 0) {
         if (waitForCommit) {
             console.log(`\n⏳ Waiting ${Math.ceil(result.waitSeconds / 60)} minutes for commit to mature...`);
-            console.log(`   (Use Ctrl+C to cancel and resume later with --register-only --salt ${saltHex} --label ${label})`);
+            console.log(
+                `   (Use Ctrl+C to cancel and resume later with --register-only --salt ${saltHex} --label ${label})`,
+            );
             await sleep(result.waitSeconds * 1000 + 30000); // +30s buffer
             await doRegister(tezos, labelHex, targetAddress, saltHex);
             await sleep(5000);
@@ -517,7 +471,9 @@ async function main() {
         } else {
             console.log(`\n⏳ Commit submitted. Must wait ${Math.ceil(result.waitSeconds / 60)} minutes.`);
             console.log(`\nResume with:`);
-            console.log(`  npx tsx scripts/test-ghostnet.ts --register-only --label ${label} --target ${targetAddress} --salt ${saltHex}`);
+            console.log(
+                `  npx tsx scripts/test-ghostnet.ts --register-only --label ${label} --target ${targetAddress} --salt ${saltHex}`,
+            );
         }
     }
 }

@@ -57,6 +57,7 @@ def main():
         commitments=sp.big_map[sp.bytes, sp.timestamp],
         pending_commitments=sp.big_map[sp.address, sp.bytes],
         registrations=sp.big_map[sp.address, sp.nat],
+        claimed_labels=sp.big_map[sp.bytes, sp.address],
         whitelist=sp.big_map[sp.address, sp.bool],
         whitelist_enabled=sp.bool,
         name_registry=sp.address,
@@ -100,6 +101,9 @@ def main():
             )
             self.data.registrations = sp.cast(
                 sp.big_map({}), sp.big_map[sp.address, sp.nat]
+            )
+            self.data.claimed_labels = sp.cast(
+                sp.big_map({}), sp.big_map[sp.bytes, sp.address]
             )
             self.data.whitelist = sp.cast(
                 sp.big_map({}), sp.big_map[sp.address, sp.bool]
@@ -227,6 +231,9 @@ def main():
             )
             assert current_count < self.data.max_per_wallet, "MAX_REGISTRATIONS_REACHED"
 
+            # Prevent duplicate label registrations
+            assert not self.data.claimed_labels.contains(label), "LABEL_ALREADY_CLAIMED"
+
             # Call set_child_record on TED — user gets TED ownership
             set_child = sp.contract(
                 t_set_child_record,
@@ -249,6 +256,7 @@ def main():
 
             # Bookkeeping
             self.data.registrations[sp.sender] = current_count + 1
+            self.data.claimed_labels[label] = sp.sender
             del self.data.commitments[commitment_hash]
             if self.data.pending_commitments.contains(sp.sender):
                 del self.data.pending_commitments[sp.sender]
@@ -357,12 +365,12 @@ def main():
 
         @sp.entrypoint
         def set_commit_ages(self, min_age, max_age):
-            """Update commit timing window. min_age must be >= 60 seconds."""
+            """Update commit timing window. min_age must be >= 30 seconds."""
             sp.cast(min_age, sp.int)
             sp.cast(max_age, sp.int)
             assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
             assert sp.sender == self.data.admin_address, "NOT_ADMIN"
-            assert min_age >= 60, "MIN_AGE_TOO_LOW"
+            assert min_age >= 30, "MIN_AGE_TOO_LOW"
             assert max_age > min_age, "INVALID_AGES"
             self.data.min_commit_age = min_age
             self.data.max_commit_age = max_age
@@ -442,7 +450,8 @@ def main():
         @sp.entrypoint
         def clear_commitments(self, hashes):
             """Remove expired/stale commitments from storage (admin only, batch).
-            Also cleans up pending_commitments entries for affected senders."""
+            Note: does not clean up pending_commitments — those self-heal on the
+            next commit attempt by the same sender."""
             sp.cast(hashes, sp.list[sp.bytes])
             assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
             assert sp.sender == self.data.admin_address, "NOT_ADMIN"
@@ -459,7 +468,8 @@ def main():
             """Permissionless cleanup: anyone can remove a commitment that
             has provably expired (age > max_commit_age). Cannot touch
             commitments still within the valid timing window.
-            Also cleans up the sender's pending_commitments entry."""
+            Note: pending_commitments is not cleaned up here — it self-heals
+            on the sender's next commit attempt."""
             sp.cast(commitment_hash, sp.bytes)
             assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
             commit_time = self.data.commitments.get(
@@ -472,6 +482,17 @@ def main():
                 sp.record(hash=commitment_hash),
                 tag="clear_expired_commitment",
             )
+
+        @sp.entrypoint
+        def release_label(self, label):
+            """Remove a label from claimed_labels (admin only).
+            Use for moderation or error recovery. Does not interact with TED."""
+            sp.cast(label, sp.bytes)
+            assert sp.amount == sp.mutez(0), "TEZ_NOT_ACCEPTED"
+            assert sp.sender == self.data.admin_address, "NOT_ADMIN"
+            assert self.data.claimed_labels.contains(label), "LABEL_NOT_CLAIMED"
+            del self.data.claimed_labels[label]
+            sp.emit(sp.record(label=label), tag="release_label")
 
         @sp.entrypoint
         def admin_lambda(self, f):
@@ -708,11 +729,11 @@ def test_register_too_young():
 
     contract.commit(commitment_hash, _sender=user, _now=sp.timestamp(0))
 
-    # 100 seconds — way before 4hr min
+    # 15 seconds — within the 30s min_commit_age window, so register should fail
     contract.register(
         sp.record(label=label, target_address=user.address, salt=salt),
         _sender=user,
-        _now=sp.timestamp(100),
+        _now=sp.timestamp(15),
         _valid=False,
     )
 
