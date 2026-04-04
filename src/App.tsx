@@ -16,6 +16,7 @@ const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
 const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"));
 const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -269,6 +270,7 @@ export function AppShell() {
                     <Route path="/policies" element={<Policies />} />
                     <Route path="/skills/:slug" element={<Suspense fallback={null}><SkillDetail /></Suspense>} />
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
+                    <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>

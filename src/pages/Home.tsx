@@ -186,6 +186,11 @@ export default function Home() {
                                     title: "Claim",
                                     desc: `After the ${waitDescription} commitment window, return to finalize registration. Commitment expires after ${maxAgeDescription} — don't wait too long.`,
                                 },
+                                {
+                                    step: "Step 05",
+                                    title: "Profile",
+                                    desc: "Set up your hacker profile — add your bio, skills, and projects. Share it at hack.tez/u/yourname.",
+                                },
                             ].map((item) => (
                                 <div key={item.step} className="step-card" role="listitem">
                                     <span className="step-num" aria-hidden="true">

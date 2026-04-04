@@ -2,6 +2,8 @@
  * GraphQL queries and helpers for Tezos Domains
  */
 import config from "../config/tezos";
+import type { HackProfile } from "../types/profile";
+import { parseProfileFromData } from "../types/profile";
 
 const GRAPHQL_URL = config.domainsGraphql;
 
@@ -16,6 +18,55 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
     return json.data;
 }
 
+// ── Bulk fetch all hack.tez subdomains with profile data ────────────
+
+export interface SubdomainWithProfile {
+    label: string;
+    name: string;
+    address: string | null;
+    owner: string;
+    data: Array<{ key: string; value: string }>;
+    profile: HackProfile;
+}
+
+/** Fetch every subdomain under hack.{tld} with profile data in a single query */
+export async function getAllSubdomains(): Promise<SubdomainWithProfile[]> {
+    const parent = `hack.${config.tld}`;
+    const data = await gql<{
+        domains: {
+            items: Array<{
+                name: string;
+                address: string | null;
+                owner: string;
+                data: Array<{ key: string; value: string }>;
+            }>;
+        };
+    }>(
+        `query AllSubdomains($parent: String!) {
+      domains(where: { name: { endsWith: $parent } }, first: 500) {
+        items {
+          name
+          address
+          owner
+          data { key value }
+        }
+      }
+    }`,
+        { parent: `.${parent}` },
+    );
+    return data.domains.items.map((d) => {
+        const label = d.name.replace(`.${parent}`, "");
+        return {
+            label,
+            name: d.name,
+            address: d.address,
+            owner: d.owner,
+            data: d.data,
+            profile: parseProfileFromData(d.data),
+        };
+    });
+}
+
 /** Check if a subdomain of hack.tez is available */
 export async function checkAvailability(label: string): Promise<boolean> {
     const name = `${label}.hack.${config.tld}`;
@@ -23,6 +74,7 @@ export async function checkAvailability(label: string): Promise<boolean> {
         `query CheckDomain($name: String!) {
       domain(name: $name) {
         name
+        data { key value }
       }
     }`,
         { name },
@@ -34,12 +86,29 @@ export interface SubdomainRecord {
     name: string;
     address: string | null;
     owner: string;
+    data: Array<{ key: string; value: string }>;
+    profile: HackProfile;
+}
+
+/** Domain record with raw data (for on-chain operations that need unprocessed values) */
+export interface DomainRecord {
+    name: string;
+    address: string | null;
+    owner: string;
+    data: Array<{ key: string; value: string }>;
 }
 
 /** Get all subdomains of hack.tez owned by a specific address */
 export async function getSubdomainsByOwner(ownerAddress: string): Promise<SubdomainRecord[]> {
     const data = await gql<{
-        domains: { items: Array<{ name: string; address: string | null; owner: string }> };
+        domains: {
+            items: Array<{
+                name: string;
+                address: string | null;
+                owner: string;
+                data: Array<{ key: string; value: string }>;
+            }>;
+        };
     }>(
         `query OwnerDomains($owner: Address!, $parent: String!) {
       domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
@@ -47,6 +116,7 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
           name
           address
           owner
+          data { key value }
         }
       }
     }`,
@@ -56,7 +126,89 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
         name: d.name,
         address: d.address,
         owner: d.owner,
+        data: d.data,
+        profile: parseProfileFromData(d.data),
     }));
+}
+
+/** Fetch profile data for a specific domain name */
+export async function getDomainProfile(name: string): Promise<HackProfile | null> {
+    const data = await gql<{
+        domain: { data: Array<{ key: string; value: string }> } | null;
+    }>(
+        `query DomainProfile($name: String!) {
+      domain(name: $name) {
+        data { key value }
+      }
+    }`,
+        { name },
+    );
+    if (data.domain === null) return null;
+    return parseProfileFromData(data.domain.data);
+}
+
+/** Fetch full domain record including address, owner, and raw data map */
+export async function getDomainRecord(name: string): Promise<DomainRecord | null> {
+    const data = await gql<{
+        domain: {
+            name: string;
+            address: string | null;
+            owner: string;
+            data: Array<{ key: string; value: string }>;
+        } | null;
+    }>(
+        `query DomainRecord($name: String!) {
+      domain(name: $name) {
+        name
+        address
+        owner
+        data { key value }
+      }
+    }`,
+        { name },
+    );
+    return data.domain;
+}
+
+/** Full domain record including owner — used by profile pages */
+export interface DomainRecord {
+    name: string;
+    owner: string;
+    address: string | null;
+    profile: HackProfile;
+    /** Raw gravatar hash from TED data (if set) */
+    gravatar: string | null;
+}
+
+/** Fetch a full domain record by name, including owner and profile */
+export async function getDomainRecord(name: string): Promise<DomainRecord | null> {
+    const data = await gql<{
+        domain: {
+            name: string;
+            owner: string;
+            address: string | null;
+            data: Array<{ key: string; value: string }>;
+        } | null;
+    }>(
+        `query DomainRecord($name: String!) {
+      domain(name: $name) {
+        name
+        owner
+        address
+        data { key value }
+      }
+    }`,
+        { name },
+    );
+    if (data.domain === null) return null;
+    const gravatar = data.domain.data.find((d) => d.key === "gravatar:hash")?.value ?? null;
+    return {
+        name: data.domain.name,
+        owner: data.domain.owner,
+        address: data.domain.address,
+        profile: parseProfileFromData(data.domain.data),
+        gravatar,
+    };
 }
 
 /** Validate a subdomain label (lowercase alphanumeric + hyphens, 1-63 chars) */
