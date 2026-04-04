@@ -189,7 +189,7 @@ export default function Home() {
                                 {
                                     step: "Step 05",
                                     title: "Profile",
-                                    desc: "Set up your hacker profile — add your bio, skills, and projects. Share it at hack.tez/u/yourname.",
+                                    desc: "Set up your hacker profile — add your bio, skills, and projects. Share it.",
                                 },
                             ].map((item) => (
                                 <div key={item.step} className="step-card" role="listitem">
