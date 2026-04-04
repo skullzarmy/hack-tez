@@ -245,7 +245,7 @@ export default async function handler(req: Request, _ctx: Context): Promise<Resp
     // --- Replay protection via Upstash Redis ---
     const redis = getRedis();
     if (redis) {
-        const nonceKey = `pin:nonce:${nonce}:${fileIndex}`;
+        const nonceKey = `pin:nonce:${address}:${nonce}:${fileIndex}`;
         // SET NX = only set if not exists; EX = expire after TTL
         const wasSet = await redis.set(nonceKey, "1", { nx: true, ex: NONCE_TTL_SEC });
         if (!wasSet) {

@@ -29,7 +29,7 @@ export interface SubdomainWithProfile {
     profile: HackProfile;
 }
 
-/** Fetch every subdomain under hack.{tld} with profile data in a single query */
+/** Fetch subdomains under hack.{tld} (up to 50) with profile data */
 export async function getAllSubdomains(): Promise<SubdomainWithProfile[]> {
     const parent = `hack.${config.tld}`;
     const data = await gql<{
@@ -54,16 +54,17 @@ export async function getAllSubdomains(): Promise<SubdomainWithProfile[]> {
     }`,
         { parent: `.${parent}` },
     );
-    return data.domains.items.map((d) => {
+    return data.domains.items.flatMap((d) => {
         const label = d.name.replace(`.${parent}`, "");
-        return {
+        if (label.includes(".")) return [];
+        return [{
             label,
             name: d.name,
             address: d.address,
             owner: d.owner,
             data: d.data,
             profile: parseProfileFromData(d.data),
-        };
+        }];
     });
 }
 

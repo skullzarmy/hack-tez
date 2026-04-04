@@ -407,7 +407,7 @@ function hexToUtf8(hex: string): string {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-/** GET /api/v1/domains?limit=50&offset=0 — paginated list of all hack.tez registrations */
+/** GET /api/v1/domains?limit=50 — list all hack.tez registrations */
 async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
     const parent = `hack.${net.tld}`;
 
@@ -439,14 +439,15 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
         { parent: `.${parent}`, first: limit },
     );
 
-    const domains = data.domains.items.map((d) => {
+    const domains = data.domains.items.flatMap((d) => {
         const label = d.name.replace(`.${parent}`, "");
-        return {
+        if (label.includes(".")) return [];
+        return [{
             name: d.name,
             label,
             owner: d.owner,
             address: d.address,
-        };
+        }];
     });
 
     return json(

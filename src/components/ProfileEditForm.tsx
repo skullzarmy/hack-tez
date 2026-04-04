@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTezos } from "../context/TezosContext";
 import { getDomainRecord } from "../lib/domains";
@@ -340,11 +340,16 @@ function ProjectLogoUpload({
     const fileRef = useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const displayUrl = pendingFile
-        ? URL.createObjectURL(pendingFile)
-        : currentUri
+    const pendingUrl = useMemo(
+        () => pendingFile ? URL.createObjectURL(pendingFile) : null,
+        [pendingFile],
+    );
+    useEffect(() => () => { if (pendingUrl) URL.revokeObjectURL(pendingUrl); }, [pendingUrl]);
+
+    const displayUrl = pendingUrl
+        ?? (currentUri
             ? (currentUri.startsWith("ipfs://") ? ipfsUriToGatewayUrl(currentUri) : currentUri)
-            : null;
+            : null);
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         setError(null);

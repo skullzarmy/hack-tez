@@ -52,9 +52,9 @@ Both must exit 0. Never commit with type errors.
 | `src/context/TezosContext.tsx` | Wallet state via `@tezos-x/octez.connect-sdk` (Beacon)                     |
 | `src/types/profile.ts`        | Profile types, parsing, validation                                         |
 | `src/lib/signing.ts`          | Wallet message signing for authenticated requests                          |
-| `src/lib/pin.ts`              | Pinata upload client (not yet created)                                     |
+| `src/lib/pin.ts`              | Pinata upload client                                                       |
 | `netlify/functions/api.mts`    | Public REST API — all `/api/*` routes (Netlify v2 function)                |
-| `netlify/functions/pin.mts`   | Authenticated IPFS pin proxy (not yet created)                             |
+| `netlify/functions/pin.mts`   | Authenticated IPFS pin proxy                                               |
 | `netlify.toml`                 | Build config, SPA redirect, security headers/CSP                           |
 
 ---

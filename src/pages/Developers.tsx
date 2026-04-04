@@ -1725,8 +1725,10 @@ signature:  "<sig of hack.tez:pin:<timestamp>:<nonce>>"`}
                                     <code style={{ color: "var(--fg)" }}>JSON.stringify(value)</code> → bytes.
                                 </p>
                                 <p>
-                                    <strong style={{ color: "var(--fg)" }}>TED native keys</strong> — stored as raw
-                                    bytes by the TED app. Write them as raw UTF-8 string bytes — no JSON wrapping.
+                                    <strong style={{ color: "var(--fg)" }}>TED native keys</strong> — these are
+                                    owned by the TED app. When reading, values come back as plain strings.
+                                    When writing, our editor preserves them as-is from the existing record.
+                                    Do not modify TED native keys unless you know their encoding.
                                 </p>
                             </div>
                             <div
@@ -1761,9 +1763,9 @@ hack:bio       → "building tezos tooling"      (JSON string literal)
 hack:skills    → ["SmartPy","TypeScript"]       (JSON array)
 hack:projects  → [{"name":"...","desc":"..."}]  (JSON array of objects)
 
-# TED native keys — raw bytes (no JSON wrapping)
-github:username → alice                         (raw UTF-8 string)
-twitter:handle  → alice                         (raw UTF-8 string)`}
+# TED native keys — preserved from existing record
+github:username → "alice"                        (JSON-encoded string)
+twitter:handle  → "alice"                        (JSON-encoded string)`}
                             />
                         </div>
                     </section>

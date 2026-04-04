@@ -86,7 +86,7 @@ export function useHackerProfiles(): UseHackerProfilesResult {
                 ownerShort: truncateAddr(sub.owner),
                 address: sub.address,
                 profile: sub.profile,
-                timestamp: builder ? new Date(builder.registeredAt) : null,
+                timestamp: builder?.registeredAt ? new Date(builder.registeredAt) : null,
             };
         });
     }, [subdomains, builders]);
