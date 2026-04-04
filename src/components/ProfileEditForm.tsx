@@ -20,7 +20,6 @@ const INPUT_BASE: React.CSSProperties = {
     color: "var(--fg)",
     fontFamily: "var(--font)",
     fontSize: "0.8rem",
-    outline: "none",
     boxSizing: "border-box",
 };
 
@@ -142,9 +141,14 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
                                 border: "none",
                                 color: "var(--fg-3)",
                                 cursor: "pointer",
-                                padding: 0,
-                                fontSize: "0.75rem",
+                                padding: "0.15rem 0.25rem",
+                                fontSize: "0.85rem",
                                 lineHeight: 1,
+                                minWidth: "1.5rem",
+                                minHeight: "1.5rem",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
                             }}
                             aria-label={`Remove ${skill}`}
                         >
@@ -168,7 +172,6 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
                         style={{
                             background: "none",
                             border: "none",
-                            outline: "none",
                             color: "var(--fg)",
                             fontFamily: "var(--font)",
                             fontSize: "0.8rem",
@@ -299,7 +302,8 @@ function AvatarUpload({
                             color: "var(--fg-2)",
                             cursor: "pointer",
                             fontSize: "0.7rem",
-                            padding: "0.3rem 0.7rem",
+                            padding: "0.4rem 0.8rem",
+                            minHeight: "1.75rem",
                             letterSpacing: "0.06em",
                             textTransform: "uppercase",
                             fontFamily: "var(--font)",
@@ -309,12 +313,12 @@ function AvatarUpload({
                     </button>
                 </div>
                 {pendingFile && (
-                    <span style={{ fontSize: "0.65rem", color: "var(--accent, #22d3ee)" }}>
+                    <span style={{ fontSize: "0.65rem", color: "var(--ok)" }}>
                         ✓ {pendingFile.name} — will be uploaded on save
                     </span>
                 )}
                 {error && (
-                    <span style={{ fontSize: "0.65rem", color: "#f87171" }}>{error}</span>
+                    <span style={{ fontSize: "0.65rem", color: "var(--err)" }}>{error}</span>
                 )}
                 <span style={{ fontSize: "0.6rem", color: "var(--fg-3)", opacity: 0.7 }}>
                     JPEG, PNG, GIF, WebP, or SVG · Max 4 MB
@@ -418,7 +422,8 @@ function ProjectLogoUpload({
                                 color: "var(--fg-2)",
                                 cursor: "pointer",
                                 fontSize: "0.65rem",
-                                padding: "0.25rem 0.6rem",
+                                padding: "0.35rem 0.7rem",
+                                minHeight: "1.5rem",
                                 letterSpacing: "0.06em",
                                 textTransform: "uppercase",
                                 fontFamily: "var(--font)",
@@ -439,12 +444,12 @@ function ProjectLogoUpload({
                         />
                     </div>
                     {pendingFile && (
-                        <span style={{ fontSize: "0.6rem", color: "var(--accent, #22d3ee)" }}>
+                        <span style={{ fontSize: "0.6rem", color: "var(--ok)" }}>
                             ✓ will be uploaded on save
                         </span>
                     )}
                     {error && (
-                        <span style={{ fontSize: "0.6rem", color: "#f87171" }}>{error}</span>
+                        <span style={{ fontSize: "0.6rem", color: "var(--err)" }}>{error}</span>
                     )}
                 </div>
             </div>
@@ -506,7 +511,8 @@ function ProjectEditor({
                         color: "var(--fg-3)",
                         cursor: "pointer",
                         fontSize: "0.65rem",
-                        padding: "0.15rem 0.5rem",
+                        padding: "0.3rem 0.6rem",
+                        minHeight: "1.5rem",
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                     }}
@@ -517,19 +523,22 @@ function ProjectEditor({
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label style={LABEL_STYLE}>Name *</label>
+                    <label htmlFor={`project-${index}-name`} style={LABEL_STYLE}>Name *</label>
                     <input
+                        id={`project-${index}-name`}
                         type="text"
                         value={project.name}
                         onChange={(e) => update("name", e.target.value.slice(0, 60))}
                         style={INPUT_BASE}
                         maxLength={60}
                         placeholder="Project name"
+                        aria-required="true"
                     />
                 </div>
                 <div>
-                    <label style={LABEL_STYLE}>Status</label>
+                    <label htmlFor={`project-${index}-status`} style={LABEL_STYLE}>Status</label>
                     <select
+                        id={`project-${index}-status`}
                         value={project.status ?? ""}
                         onChange={(e) => update("status", e.target.value)}
                         style={SELECT_STYLE}
@@ -544,21 +553,24 @@ function ProjectEditor({
             </div>
 
             <div>
-                <label style={LABEL_STYLE}>Description * ({(project.desc ?? "").length}/120)</label>
+                <label htmlFor={`project-${index}-desc`} style={LABEL_STYLE}>Description * ({(project.desc ?? "").length}/120)</label>
                 <textarea
+                    id={`project-${index}-desc`}
                     value={project.desc}
                     onChange={(e) => update("desc", e.target.value.slice(0, 120))}
                     style={{ ...INPUT_BASE, resize: "vertical", minHeight: "2.5rem" }}
                     maxLength={120}
                     rows={2}
                     placeholder="Short project description"
+                    aria-required="true"
                 />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label style={LABEL_STYLE}>Website URL</label>
+                    <label htmlFor={`project-${index}-url`} style={LABEL_STYLE}>Website URL</label>
                     <input
+                        id={`project-${index}-url`}
                         type="url"
                         value={project.url ?? ""}
                         onChange={(e) => update("url", e.target.value)}
@@ -567,8 +579,9 @@ function ProjectEditor({
                     />
                 </div>
                 <div>
-                    <label style={LABEL_STYLE}>Repo URL</label>
+                    <label htmlFor={`project-${index}-repo`} style={LABEL_STYLE}>Repo URL</label>
                     <input
+                        id={`project-${index}-repo`}
                         type="url"
                         value={project.repo ?? ""}
                         onChange={(e) => update("repo", e.target.value)}
@@ -580,8 +593,9 @@ function ProjectEditor({
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label style={LABEL_STYLE}>Environment</label>
+                    <label htmlFor={`project-${index}-env`} style={LABEL_STYLE}>Environment</label>
                     <select
+                        id={`project-${index}-env`}
                         value={project.environment ?? ""}
                         onChange={(e) => update("environment", e.target.value)}
                         style={SELECT_STYLE}
@@ -594,8 +608,9 @@ function ProjectEditor({
                     </select>
                 </div>
                 <div>
-                    <label style={LABEL_STYLE}>Address</label>
+                    <label htmlFor={`project-${index}-address`} style={LABEL_STYLE}>Address</label>
                     <input
+                        id={`project-${index}-address`}
                         type="text"
                         value={project.address ?? ""}
                         onChange={(e) => update("address", e.target.value)}
@@ -983,8 +998,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             {/* ── Bio ─────────────────────────────────────────── */}
             <div style={SECTION_STYLE}>
                 <div>
-                    <label style={LABEL_STYLE}>Bio ({(form.bio ?? "").length}/160)</label>
+                    <label htmlFor="profile-bio" style={LABEL_STYLE}>Bio ({(form.bio ?? "").length}/160)</label>
                     <textarea
+                        id="profile-bio"
                         value={form.bio ?? ""}
                         onChange={(e) => updateField("bio", e.target.value.slice(0, 160) || undefined)}
                         style={{ ...INPUT_BASE, resize: "vertical", minHeight: "3.5rem" }}
@@ -998,8 +1014,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             {/* ── Location + Status ───────────────────────────── */}
             <div style={{ ...SECTION_STYLE, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label style={LABEL_STYLE}>Location ({(form.location ?? "").length}/60)</label>
+                    <label htmlFor="profile-location" style={LABEL_STYLE}>Location ({(form.location ?? "").length}/60)</label>
                     <input
+                        id="profile-location"
                         type="text"
                         value={form.location ?? ""}
                         onChange={(e) => updateField("location", e.target.value.slice(0, 60) || undefined)}
@@ -1009,8 +1026,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                     />
                 </div>
                 <div>
-                    <label style={LABEL_STYLE}>Status</label>
+                    <label htmlFor="profile-status" style={LABEL_STYLE}>Status</label>
                     <select
+                        id="profile-status"
                         value={form.status ?? ""}
                         onChange={(e) => {
                             const val = e.target.value as BuilderStatus | "";
@@ -1031,8 +1049,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             <div style={SECTION_STYLE}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
-                        <label style={LABEL_STYLE}>GitHub</label>
+                        <label htmlFor="profile-github" style={LABEL_STYLE}>GitHub</label>
                         <input
+                            id="profile-github"
                             type="text"
                             value={form.github ?? ""}
                             onChange={(e) => {
@@ -1044,8 +1063,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                         />
                     </div>
                     <div>
-                        <label style={LABEL_STYLE}>Twitter / X</label>
+                        <label htmlFor="profile-twitter" style={LABEL_STYLE}>Twitter / X</label>
                         <input
+                            id="profile-twitter"
                             type="text"
                             value={form.twitter ?? ""}
                             onChange={(e) => {
@@ -1058,8 +1078,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                     </div>
                 </div>
                 <div>
-                    <label style={LABEL_STYLE}>Website</label>
+                    <label htmlFor="profile-website" style={LABEL_STYLE}>Website</label>
                     <input
+                        id="profile-website"
                         type="url"
                         value={form.website ?? ""}
                         onChange={(e) => updateField("website", e.target.value || undefined)}
@@ -1127,12 +1148,12 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             {staleWarning && (
                 <div
                     style={{
-                        background: "rgba(234,179,8,0.1)",
-                        border: "1px solid rgba(234,179,8,0.3)",
+                        background: "var(--warn-bg)",
+                        border: "1px solid var(--warn)",
                         borderRadius: "6px",
                         padding: "0.75rem 1rem",
                         fontSize: "0.8rem",
-                        color: "#facc15",
+                        color: "var(--warn)",
                         marginBottom: "0.75rem",
                         display: "flex",
                         flexDirection: "column",
@@ -1145,10 +1166,10 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                             type="button"
                             onClick={confirmStaleOverwrite}
                             style={{
-                                background: "rgba(234,179,8,0.2)",
-                                border: "1px solid rgba(234,179,8,0.4)",
+                                background: "var(--warn-bg)",
+                                border: "1px solid var(--warn)",
                                 borderRadius: "4px",
-                                color: "#facc15",
+                                color: "var(--warn)",
                                 cursor: "pointer",
                                 fontSize: "0.7rem",
                                 padding: "0.3rem 0.8rem",
@@ -1180,12 +1201,12 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             {submitError && (
                 <div
                     style={{
-                        background: "rgba(239,68,68,0.1)",
-                        border: "1px solid rgba(239,68,68,0.3)",
+                        background: "var(--err-bg)",
+                        border: "1px solid var(--err)",
                         borderRadius: "6px",
                         padding: "0.6rem 0.8rem",
                         fontSize: "0.8rem",
-                        color: "#f87171",
+                        color: "var(--err)",
                         marginBottom: "0.75rem",
                     }}
                 >

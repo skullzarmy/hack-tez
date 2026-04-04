@@ -5,6 +5,8 @@ import config from "../config/tezos";
 import { useHackerProfiles } from "../hooks/useHackerProfiles";
 import type { HackerEntry } from "../hooks/useHackerProfiles";
 import type { BuilderStatus } from "../types/profile";
+import { Globe } from "lucide-react";
+import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -22,7 +24,7 @@ const STATUS_STYLES: Record<BuilderStatus, { color: string; bg: string; label: s
     building: { color: "var(--info)", bg: "var(--info-bg)", label: "building" },
     "open-to-collab": { color: "var(--ok)", bg: "var(--ok-bg)", label: "open to collab" },
     available: { color: "var(--warn)", bg: "var(--warn-bg)", label: "available" },
-    hiring: { color: "#c084fc", bg: "rgba(192, 132, 252, 0.08)", label: "hiring" },
+    hiring: { color: "var(--purple)", bg: "var(--purple-bg)", label: "hiring" },
 };
 
 const ALL_STATUSES: BuilderStatus[] = ["building", "open-to-collab", "available", "hiring"];
@@ -135,7 +137,8 @@ function SkillTag({
             style={{
                 fontFamily: "var(--font)",
                 fontSize: "0.6rem",
-                padding: "0.1em 0.4em",
+                padding: "0.25rem 0.5rem",
+                minHeight: "1.5rem",
                 border: "1px solid var(--border)",
                 background: "var(--bg)",
                 color: "var(--fg-3)",
@@ -149,19 +152,24 @@ function SkillTag({
     );
 }
 
-function LinkIcon({ href, title, children }: { href: string; title: string; children: string }) {
+function LinkIcon({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {
     return (
         <a
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            title={title}
+            title={label}
+            aria-label={label}
             onClick={(e) => e.stopPropagation()}
             style={{
                 color: "var(--fg-3)",
                 textDecoration: "none",
-                fontFamily: "var(--font)",
-                fontSize: "0.7rem",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: "1.5rem",
+                minHeight: "1.5rem",
+                padding: "0.25rem",
                 transition: "color 0.15s",
                 lineHeight: 1,
             }}
@@ -311,18 +319,18 @@ function HackerCard({
                         }}
                     >
                         {profile.github && (
-                            <LinkIcon href={`https://github.com/${profile.github}`} title={`@${profile.github}`}>
-                                gh
+                            <LinkIcon href={`https://github.com/${profile.github}`} label={`@${profile.github} on GitHub`}>
+                                <SiGithub size={12} />
                             </LinkIcon>
                         )}
                         {profile.twitter && (
-                            <LinkIcon href={`https://x.com/${profile.twitter}`} title={`@${profile.twitter}`}>
-                                x
+                            <LinkIcon href={`https://x.com/${profile.twitter}`} label={`@${profile.twitter} on X`}>
+                                <SiX size={12} />
                             </LinkIcon>
                         )}
                         {safeHref(profile.website) && (
-                            <LinkIcon href={safeHref(profile.website)!} title={profile.website ?? ""}>
-                                web
+                            <LinkIcon href={safeHref(profile.website)!} label={profile.website ?? "Website"}>
+                                <Globe size={12} />
                             </LinkIcon>
                         )}
                     </div>
@@ -419,7 +427,6 @@ function FilterBar({
                     color: "var(--fg)",
                     width: "100%",
                     maxWidth: "24rem",
-                    outline: "none",
                     letterSpacing: "0.04em",
                 }}
             />
@@ -450,7 +457,8 @@ function FilterBar({
                                 fontFamily: "var(--font)",
                                 fontSize: "0.6rem",
                                 letterSpacing: "0.06em",
-                                padding: "0.15em 0.5em",
+                                padding: "0.3rem 0.6rem",
+                                minHeight: "1.5rem",
                                 color: active ? st.color : "var(--fg-3)",
                                 background: active ? st.bg : "transparent",
                                 border: `1px solid ${active ? st.color : "var(--border)"}`,

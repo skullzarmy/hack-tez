@@ -57,11 +57,13 @@
     --ok: #4dff91; /* 16:1  */
     --warn: #ffd166; /* 10:1  */
     --info: #74c0fc; /* 7.5:1 */
+    --purple: #d4a5ff; /* 8.6:1 */
 
     --err-bg: rgba(255, 107, 107, 0.08);
     --ok-bg: rgba(77, 255, 145, 0.08);
     --warn-bg: rgba(255, 209, 102, 0.08);
     --info-bg: rgba(116, 192, 252, 0.08);
+    --purple-bg: rgba(212, 165, 255, 0.08);
 
     color-scheme: dark;
 }
@@ -84,11 +86,13 @@
         --ok: #15803d; /* 5.2:1 */
         --warn: #92400e; /* 5.4:1 */
         --info: #1e40af; /* 7.1:1 */
+        --purple: #6d28d9; /* 7.3:1 */
 
         --err-bg: rgba(185, 28, 28, 0.07);
         --ok-bg: rgba(21, 128, 61, 0.07);
         --warn-bg: rgba(146, 64, 14, 0.07);
         --info-bg: rgba(30, 64, 175, 0.07);
+        --purple-bg: rgba(109, 40, 217, 0.07);
 
         color-scheme: light;
     }

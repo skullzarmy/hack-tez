@@ -61,25 +61,25 @@ function resolveAvatarUrl(profile: HackProfile, gravatar: string | null, label: 
 }
 
 const STATUS_STYLES: Record<BuilderStatus, { bg: string; color: string; label: string }> = {
-    building: { bg: "rgba(59,130,246,0.15)", color: "#60a5fa", label: "Building" },
-    "open-to-collab": { bg: "rgba(34,197,94,0.15)", color: "#4ade80", label: "Open to Collab" },
-    available: { bg: "rgba(234,179,8,0.15)", color: "#facc15", label: "Available" },
-    hiring: { bg: "rgba(168,85,247,0.15)", color: "#c084fc", label: "Hiring" },
+    building: { bg: "var(--info-bg)", color: "var(--info)", label: "Building" },
+    "open-to-collab": { bg: "var(--ok-bg)", color: "var(--ok)", label: "Open to Collab" },
+    available: { bg: "var(--warn-bg)", color: "var(--warn)", label: "Available" },
+    hiring: { bg: "var(--purple-bg)", color: "var(--purple)", label: "Hiring" },
 };
 
 const ENV_STYLES: Record<string, { bg: string; color: string }> = {
-    tezos: { bg: "rgba(59,130,246,0.12)", color: "#60a5fa" },
-    etherlink: { bg: "rgba(168,85,247,0.12)", color: "#c084fc" },
-    tezlink: { bg: "rgba(34,197,94,0.12)", color: "#4ade80" },
-    web: { bg: "rgba(234,179,8,0.12)", color: "#facc15" },
-    other: { bg: "rgba(148,163,184,0.12)", color: "#94a3b8" },
+    tezos: { bg: "var(--info-bg)", color: "var(--info)" },
+    etherlink: { bg: "var(--purple-bg)", color: "var(--purple)" },
+    tezlink: { bg: "var(--ok-bg)", color: "var(--ok)" },
+    web: { bg: "var(--warn-bg)", color: "var(--warn)" },
+    other: { bg: "rgba(148,163,184,0.12)", color: "var(--fg-3)" },
 };
 
 const PROJECT_STATUS_STYLES: Record<string, { bg: string; color: string }> = {
-    live: { bg: "rgba(34,197,94,0.15)", color: "#4ade80" },
-    wip: { bg: "rgba(234,179,8,0.15)", color: "#facc15" },
-    archived: { bg: "rgba(148,163,184,0.15)", color: "#94a3b8" },
-    "open-source": { bg: "rgba(168,85,247,0.15)", color: "#c084fc" },
+    live: { bg: "var(--ok-bg)", color: "var(--ok)" },
+    wip: { bg: "var(--warn-bg)", color: "var(--warn)" },
+    archived: { bg: "rgba(148,163,184,0.15)", color: "var(--fg-3)" },
+    "open-source": { bg: "var(--purple-bg)", color: "var(--purple)" },
 };
 
 // ── Sub-components ───────────────────────────────────────────────────
@@ -302,18 +302,18 @@ function LinkIcon({ href, label, icon }: { href: string; label: string; icon: Re
             style={{
                 color: "var(--fg-2)",
                 textDecoration: "none",
-                fontSize: "0.8rem",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "0.3rem",
-                padding: "0.3rem 0.6rem",
+                justifyContent: "center",
+                minWidth: "2rem",
+                minHeight: "2rem",
+                padding: "0.4rem",
                 border: "1px solid var(--border)",
                 borderRadius: "6px",
                 transition: "border-color 0.15s",
             }}
         >
             {icon}
-            <span>{label}</span>
         </a>
     );
 }
