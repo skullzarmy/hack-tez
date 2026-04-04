@@ -461,9 +461,24 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
     );
 }
 
+/** All registrar addresses: current + any legacy contracts (env: comma-separated) */
+function getRegistrarAddresses(net: ReturnType<typeof getNetwork>): string[] {
+    const addrs: string[] = [];
+    if (net.registrarAddress) addrs.push(net.registrarAddress);
+    const legacy = process.env.LEGACY_REGISTRARS;
+    if (legacy) {
+        for (const a of legacy.split(",")) {
+            const trimmed = a.trim();
+            if (trimmed && !addrs.includes(trimmed)) addrs.push(trimmed);
+        }
+    }
+    return addrs;
+}
+
 /** GET /api/v1/activity?limit=30 — recent claim (register) and commit events */
 async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
-    if (!net.registrarAddress) {
+    const registrars = getRegistrarAddresses(net);
+    if (registrars.length === 0) {
         return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
     }
 
@@ -471,18 +486,20 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
     if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
     const limit = Math.min(rawLimit, 100);
 
-    const base =
-        `${net.tzktApi}/v1/operations/transactions` +
-        `?target=${net.registrarAddress}` +
-        `&status=applied` +
-        `&sort.desc=id`;
+    // Fan out queries to all registrar contracts (current + legacy)
+    const fetches: Promise<Response>[] = [];
+    for (const addr of registrars) {
+        const base =
+            `${net.tzktApi}/v1/operations/transactions` +
+            `?target=${addr}` +
+            `&status=applied` +
+            `&sort.desc=id`;
+        fetches.push(fetch(`${base}&entrypoint=register&limit=${limit}`));
+        fetches.push(fetch(`${base}&entrypoint=commit&limit=${Math.min(limit, 50)}`));
+    }
 
-    const [claimRes, commitRes] = await Promise.all([
-        fetch(`${base}&entrypoint=register&limit=${limit}`),
-        fetch(`${base}&entrypoint=commit&limit=${Math.min(limit, 50)}`),
-    ]);
-
-    if (!claimRes.ok || !commitRes.ok) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
+    const responses = await Promise.all(fetches);
+    if (responses.some((r) => !r.ok)) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
 
     type TzKTOp = {
         hash: string;
@@ -491,9 +508,17 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
         parameter?: { value?: { label?: string } };
     };
 
-    const [claimOps, commitOps]: [TzKTOp[], TzKTOp[]] = await Promise.all([claimRes.json(), commitRes.json()]);
+    // Results arrive in pairs: [claims0, commits0, claims1, commits1, ...]
+    const allClaims: TzKTOp[] = [];
+    const allCommits: TzKTOp[] = [];
+    for (let i = 0; i < responses.length; i += 2) {
+        const claimOps: TzKTOp[] = await responses[i].json();
+        const commitOps: TzKTOp[] = await responses[i + 1].json();
+        allClaims.push(...claimOps);
+        allCommits.push(...commitOps);
+    }
 
-    const claims = claimOps.map((op) => {
+    const claims = allClaims.map((op) => {
         const rawLabel = op.parameter?.value?.label ?? null;
         const label = rawLabel ? hexToUtf8(rawLabel) : null;
         return {
@@ -505,7 +530,7 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
         };
     });
 
-    const commits = commitOps.map((op) => ({
+    const commits = allCommits.map((op) => ({
         type: "committed" as const,
         address: op.sender.address,
         name: null, // commitment hash is not recoverable
