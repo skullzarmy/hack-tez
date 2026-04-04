@@ -90,15 +90,48 @@ export interface SubdomainRecord {
     profile: HackProfile;
 }
 
-/** Domain record with raw data (for on-chain operations that need unprocessed values) */
+/** Domain record with profile data — used by profile pages */
 export interface DomainRecord {
     name: string;
-    address: string | null;
     owner: string;
+    address: string | null;
     data: Array<{ key: string; value: string }>;
+    profile: HackProfile;
+    /** Raw gravatar hash from TED data (if set) */
+    gravatar: string | null;
 }
 
-/** Get all subdomains of hack.tez owned by a specific address */
+/** Fetch a full domain record by name, including owner and profile */
+export async function getDomainRecord(name: string): Promise<DomainRecord | null> {
+    const data = await gql<{
+        domain: {
+            name: string;
+            owner: string;
+            address: string | null;
+            data: Array<{ key: string; value: string }>;
+        } | null;
+    }>(
+        `query DomainRecord($name: String!) {
+      domain(name: $name) {
+        name
+        owner
+        address
+        data { key value }
+      }
+    }`,
+        { name },
+    );
+    if (data.domain === null) return null;
+    const gravatar = data.domain.data.find((d) => d.key === "gravatar:hash")?.value ?? null;
+    return {
+        name: data.domain.name,
+        owner: data.domain.owner,
+        address: data.domain.address,
+        data: data.domain.data,
+        profile: parseProfileFromData(data.domain.data),
+        gravatar,
+    };
+}
 export async function getSubdomainsByOwner(ownerAddress: string): Promise<SubdomainRecord[]> {
     const data = await gql<{
         domains: {
@@ -145,70 +178,6 @@ export async function getDomainProfile(name: string): Promise<HackProfile | null
     );
     if (data.domain === null) return null;
     return parseProfileFromData(data.domain.data);
-}
-
-/** Fetch full domain record including address, owner, and raw data map */
-export async function getDomainRecord(name: string): Promise<DomainRecord | null> {
-    const data = await gql<{
-        domain: {
-            name: string;
-            address: string | null;
-            owner: string;
-            data: Array<{ key: string; value: string }>;
-        } | null;
-    }>(
-        `query DomainRecord($name: String!) {
-      domain(name: $name) {
-        name
-        address
-        owner
-        data { key value }
-      }
-    }`,
-        { name },
-    );
-    return data.domain;
-}
-
-/** Full domain record including owner — used by profile pages */
-export interface DomainRecord {
-    name: string;
-    owner: string;
-    address: string | null;
-    profile: HackProfile;
-    /** Raw gravatar hash from TED data (if set) */
-    gravatar: string | null;
-}
-
-/** Fetch a full domain record by name, including owner and profile */
-export async function getDomainRecord(name: string): Promise<DomainRecord | null> {
-    const data = await gql<{
-        domain: {
-            name: string;
-            owner: string;
-            address: string | null;
-            data: Array<{ key: string; value: string }>;
-        } | null;
-    }>(
-        `query DomainRecord($name: String!) {
-      domain(name: $name) {
-        name
-        owner
-        address
-        data { key value }
-      }
-    }`,
-        { name },
-    );
-    if (data.domain === null) return null;
-    const gravatar = data.domain.data.find((d) => d.key === "gravatar:hash")?.value ?? null;
-    return {
-        name: data.domain.name,
-        owner: data.domain.owner,
-        address: data.domain.address,
-        profile: parseProfileFromData(data.domain.data),
-        gravatar,
-    };
 }
 
 /** Validate a subdomain label (lowercase alphanumeric + hyphens, 1-63 chars) */
@@ -295,6 +264,42 @@ export async function resolveDisplayName(address: string): Promise<string | null
         r.status === "fulfilled" ? r.value : null;
     return best(hackTez) ?? best(domain) ?? best(alias);
 }
+/** Fetch sub-subdomains (children) of a specific parent domain */
+export async function getSubSubdomains(parentName: string): Promise<SubdomainRecord[]> {
+    const data = await gql<{
+        domains: {
+            items: Array<{
+                name: string;
+                address: string | null;
+                owner: string;
+                data: Array<{ key: string; value: string }>;
+            }>;
+        };
+    }>(
+        `query SubSubdomains($parent: String!) {
+      domains(where: { name: { endsWith: $parent } }, first: 200) {
+        items {
+          name
+          address
+          owner
+          data { key value }
+        }
+      }
+    }`,
+        { parent: `.${parentName}` },
+    );
+    // Filter out the parent domain itself (endsWith matches it too)
+    return data.domains.items
+        .filter((d) => d.name !== parentName)
+        .map((d) => ({
+            name: d.name,
+            address: d.address,
+            owner: d.owner,
+            data: d.data,
+            profile: parseProfileFromData(d.data),
+        }));
+}
+
 /** Reverse-resolve a tz address to its .tez domain name (if any) */
 export async function resolveAddressToDomain(address: string): Promise<string | null> {
     const data = await gql<{ reverseRecord: { domain: { name: string } } | null }>(

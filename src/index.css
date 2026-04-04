@@ -2513,3 +2513,9 @@ a:hover {
     padding: 0.6rem 1rem;
     line-height: 1.4;
 }
+
+/* ── Hacker card hover ──────────────────────────────────────────── */
+.hacker-card:hover {
+    border-color: var(--border-2) !important;
+    background: var(--bg-2) !important;
+}

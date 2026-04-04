@@ -1,19 +1,328 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
-import { useBuilders } from "../hooks/useBuilders";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import config from "../config/tezos";
+import { useHackerProfiles } from "../hooks/useHackerProfiles";
+import type { HackerEntry } from "../hooks/useHackerProfiles";
+import type { BuilderStatus } from "../types/profile";
 
-const POLL_MS = 30_000;
+// ── Constants ────────────────────────────────────────────────────────
 
-const DOMAINS_BASE: Record<string, string> = {
-    mainnet: "https://app.tezos.domains/domain",
-    ghostnet: "https://ghostnet.tezos.domains/domain",
-    shadownet: "https://ghostnet.tezos.domains/domain",
+const POLL_MS = 60_000;
+const PAGE_SIZE = 24;
+
+const STATUS_STYLES: Record<BuilderStatus, { color: string; bg: string; label: string }> = {
+    building: { color: "var(--info)", bg: "var(--info-bg)", label: "building" },
+    "open-to-collab": { color: "var(--ok)", bg: "var(--ok-bg)", label: "open to collab" },
+    available: { color: "var(--warn)", bg: "var(--warn-bg)", label: "available" },
+    hiring: { color: "#c084fc", bg: "rgba(192, 132, 252, 0.08)", label: "hiring" },
 };
-const domainsBase = DOMAINS_BASE[config.name] ?? "https://app.tezos.domains/domain";
 
-function formatDate(d: Date): string {
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const ALL_STATUSES: BuilderStatus[] = ["building", "open-to-collab", "available", "hiring"];
+
+// ── Avatar helpers ───────────────────────────────────────────────────
+
+/** Hash a string to a deterministic hue (0–360) for fallback avatars */
+function labelToHue(label: string): number {
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+        hash = label.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return Math.abs(hash) % 360;
+}
+
+function resolveAvatarUrl(picture: string | undefined): string | null {
+    if (!picture) return null;
+    if (picture.startsWith("ipfs://")) {
+        const cid = picture.replace("ipfs://", "");
+        return `https://ipfs.fileship.xyz/ipfs/${cid}`;
+    }
+    if (picture.startsWith("https://")) return picture;
+    return null;
+}
+
+// ── Sub-components ───────────────────────────────────────────────────
+
+function Avatar({ label, picture }: { label: string; picture?: string }) {
+    const [imgFailed, setImgFailed] = useState(false);
+    const url = resolveAvatarUrl(picture);
+
+    if (url && !imgFailed) {
+        return (
+            <img
+                src={url}
+                alt=""
+                onError={() => setImgFailed(true)}
+                style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    flexShrink: 0,
+                    border: "1px solid var(--border)",
+                }}
+            />
+        );
+    }
+
+    const hue = labelToHue(label);
+    return (
+        <div
+            aria-hidden="true"
+            style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: `hsl(${hue}, 50%, 35%)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontFamily: "var(--font)",
+                fontSize: "1rem",
+                fontWeight: 700,
+                color: "#fff",
+                border: "1px solid var(--border)",
+            }}
+        >
+            {label.charAt(0).toUpperCase()}
+        </div>
+    );
+}
+
+function StatusBadge({ status }: { status: BuilderStatus }) {
+    const s = STATUS_STYLES[status];
+    return (
+        <span
+            style={{
+                fontFamily: "var(--font)",
+                fontSize: "0.6rem",
+                letterSpacing: "0.06em",
+                padding: "0.15em 0.5em",
+                color: s.color,
+                background: s.bg,
+                border: `1px solid ${s.color}`,
+                whiteSpace: "nowrap",
+            }}
+        >
+            {s.label}
+        </span>
+    );
+}
+
+function SkillTag({
+    skill,
+    onClick,
+}: {
+    skill: string;
+    onClick: (skill: string) => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClick(skill);
+            }}
+            style={{
+                fontFamily: "var(--font)",
+                fontSize: "0.6rem",
+                padding: "0.1em 0.4em",
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                color: "var(--fg-3)",
+                cursor: "pointer",
+                letterSpacing: "0.04em",
+                transition: "border-color 0.15s",
+            }}
+        >
+            {skill}
+        </button>
+    );
+}
+
+function LinkIcon({ href, title, children }: { href: string; title: string; children: string }) {
+    return (
+        <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={title}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+                color: "var(--fg-3)",
+                textDecoration: "none",
+                fontFamily: "var(--font)",
+                fontSize: "0.7rem",
+                transition: "color 0.15s",
+                lineHeight: 1,
+            }}
+        >
+            {children}
+        </a>
+    );
+}
+
+function HackerCard({
+    hacker,
+    onSkillClick,
+}: {
+    hacker: HackerEntry;
+    onSkillClick: (skill: string) => void;
+}) {
+    const { label, name, owner, ownerShort, profile } = hacker;
+    const hasProfile = !!(profile.bio || profile.status || profile.skills?.length || profile.github || profile.twitter || profile.website);
+
+    const bio = profile.bio
+        ? profile.bio.length > 80
+            ? `${profile.bio.slice(0, 80)}…`
+            : profile.bio
+        : null;
+
+    const skills = profile.skills ?? [];
+    const visibleSkills = skills.slice(0, 4);
+    const moreCount = skills.length - visibleSkills.length;
+
+    const projectCount = profile.projects?.length ?? 0;
+
+    return (
+        <Link
+            to={`/u/${label}`}
+            style={{ textDecoration: "none", color: "inherit", display: "block" }}
+        >
+            <div
+                className="hacker-card"
+                style={{
+                    border: "1px solid var(--border)",
+                    padding: "1.25rem",
+                    background: "var(--bg-card, var(--bg-3))",
+                    transition: "border-color 0.15s, background 0.15s",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                }}
+            >
+                {/* Top row: avatar + name + status */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <Avatar label={label} picture={profile.picture} />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontWeight: 700,
+                                fontSize: "0.85rem",
+                                letterSpacing: "-0.02em",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            {name}
+                        </div>
+                        {!hasProfile && (
+                            <div
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.65rem",
+                                    color: "var(--fg-3)",
+                                    letterSpacing: "0.04em",
+                                    marginTop: "0.15rem",
+                                }}
+                                title={owner}
+                            >
+                                {ownerShort}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Status + project count */}
+                {(profile.status || projectCount > 0) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {profile.status && <StatusBadge status={profile.status} />}
+                        {projectCount > 0 && (
+                            <span
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.6rem",
+                                    color: "var(--fg-3)",
+                                    letterSpacing: "0.06em",
+                                }}
+                            >
+                                {projectCount} project{projectCount !== 1 ? "s" : ""}
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {/* Bio */}
+                {bio && (
+                    <p
+                        style={{
+                            fontFamily: "var(--font)",
+                            fontSize: "0.7rem",
+                            color: "var(--fg-2)",
+                            lineHeight: 1.6,
+                            margin: 0,
+                        }}
+                    >
+                        {bio}
+                    </p>
+                )}
+
+                {/* Skill tags */}
+                {visibleSkills.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                        {visibleSkills.map((s) => (
+                            <SkillTag key={s} skill={s} onClick={onSkillClick} />
+                        ))}
+                        {moreCount > 0 && (
+                            <span
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.6rem",
+                                    color: "var(--fg-3)",
+                                    alignSelf: "center",
+                                }}
+                            >
+                                +{moreCount} more
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {/* Link icons — pushed to bottom */}
+                {(profile.github || profile.twitter || profile.website) && (
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "0.75rem",
+                            marginTop: "auto",
+                            paddingTop: "0.25rem",
+                        }}
+                    >
+                        {profile.github && (
+                            <LinkIcon href={`https://github.com/${profile.github}`} title={`@${profile.github}`}>
+                                gh
+                            </LinkIcon>
+                        )}
+                        {profile.twitter && (
+                            <LinkIcon href={`https://x.com/${profile.twitter}`} title={`@${profile.twitter}`}>
+                                x
+                            </LinkIcon>
+                        )}
+                        {profile.website && (
+                            <LinkIcon href={profile.website} title={profile.website}>
+                                web
+                            </LinkIcon>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Link>
+    );
 }
 
 /** Terminal-style ASCII poll bar */
@@ -68,17 +377,167 @@ function PollOrb({
     );
 }
 
-const TZKT_BASE: Record<string, string> = {
-    "https://api.tzkt.io": "https://tzkt.io",
-    "https://api.ghostnet.tzkt.io": "https://ghostnet.tzkt.io",
-    "https://api.shadownet.tzkt.io": "https://shadownet.tzkt.io",
-};
+// ── Filter bar ───────────────────────────────────────────────────────
+
+function FilterBar({
+    query,
+    onQueryChange,
+    activeStatus,
+    onStatusToggle,
+    activeSkill,
+    onSkillClear,
+}: {
+    query: string;
+    onQueryChange: (q: string) => void;
+    activeStatus: BuilderStatus | null;
+    onStatusToggle: (s: BuilderStatus | null) => void;
+    activeSkill: string | null;
+    onSkillClear: () => void;
+}) {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+            {/* Search input */}
+            <input
+                type="search"
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                placeholder="search by name or bio…"
+                aria-label="Search hackers"
+                style={{
+                    fontFamily: "var(--font)",
+                    fontSize: "0.75rem",
+                    padding: "0.5rem 0.75rem",
+                    background: "var(--bg-2)",
+                    border: "1px solid var(--border)",
+                    color: "var(--fg)",
+                    width: "100%",
+                    maxWidth: "24rem",
+                    outline: "none",
+                    letterSpacing: "0.04em",
+                }}
+            />
+
+            {/* Status filters */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                <span
+                    style={{
+                        fontFamily: "var(--font)",
+                        fontSize: "0.6rem",
+                        color: "var(--fg-3)",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        marginRight: "0.25rem",
+                    }}
+                >
+                    status:
+                </span>
+                {ALL_STATUSES.map((s) => {
+                    const st = STATUS_STYLES[s];
+                    const active = activeStatus === s;
+                    return (
+                        <button
+                            key={s}
+                            type="button"
+                            onClick={() => onStatusToggle(active ? null : s)}
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.6rem",
+                                letterSpacing: "0.06em",
+                                padding: "0.15em 0.5em",
+                                color: active ? st.color : "var(--fg-3)",
+                                background: active ? st.bg : "transparent",
+                                border: `1px solid ${active ? st.color : "var(--border)"}`,
+                                cursor: "pointer",
+                                transition: "all 0.15s",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            {st.label}
+                        </button>
+                    );
+                })}
+
+                {/* Active skill filter chip */}
+                {activeSkill && (
+                    <button
+                        type="button"
+                        onClick={onSkillClear}
+                        style={{
+                            fontFamily: "var(--font)",
+                            fontSize: "0.6rem",
+                            letterSpacing: "0.04em",
+                            padding: "0.15em 0.5em",
+                            color: "var(--ok)",
+                            background: "var(--ok-bg)",
+                            border: "1px solid var(--ok)",
+                            cursor: "pointer",
+                            marginLeft: "0.5rem",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        skill: {activeSkill} ✕
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Main page ────────────────────────────────────────────────────────
 
 export default function Hackers() {
-    const { builders, isLoading, refresh, lastUpdated } = useBuilders();
+    const { hackers, isLoading, refresh, lastUpdated } = useHackerProfiles();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const query = searchParams.get("q") ?? "";
+    const activeStatus = (searchParams.get("status") as BuilderStatus | null) ?? null;
+    const activeSkill = searchParams.get("skill") ?? null;
+    const pageParam = parseInt(searchParams.get("page") ?? "1", 10);
+    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
+    const updateParam = useCallback(
+        (key: string, value: string | null) => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                if (value) {
+                    next.set(key, value);
+                } else {
+                    next.delete(key);
+                }
+                next.delete("page");
+                return next;
+            }, { replace: true });
+        },
+        [setSearchParams],
+    );
+
+    const filtered = useMemo(() => {
+        const q = query.toLowerCase();
+        return hackers.filter((h) => {
+            if (q && !h.name.toLowerCase().includes(q) && !(h.profile.bio?.toLowerCase().includes(q))) {
+                return false;
+            }
+            if (activeStatus && h.profile.status !== activeStatus) return false;
+            if (activeSkill && !(h.profile.skills?.some((s) => s.toLowerCase() === activeSkill.toLowerCase()))) {
+                return false;
+            }
+            return true;
+        });
+    }, [hackers, query, activeStatus, activeSkill]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const pageStart = (safePage - 1) * PAGE_SIZE;
+    const pageSlice = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+    const handleSkillClick = useCallback(
+        (skill: string) => updateParam("skill", skill),
+        [updateParam],
+    );
 
     return (
         <div className="container" style={{ paddingBlock: "3rem 5rem" }}>
+            {/* Header */}
             <div
                 style={{
                     display: "flex",
@@ -118,137 +577,133 @@ export default function Hackers() {
                 </div>
             </div>
 
-            {isLoading && builders.length === 0 ? (
+            {isLoading && hackers.length === 0 ? (
                 <p className="section-body" style={{ color: "var(--fg-3)" }}>
                     Loading…
                 </p>
-            ) : builders.length === 0 ? (
+            ) : hackers.length === 0 ? (
                 <p className="section-body" style={{ color: "var(--fg-3)" }}>
                     No claims found.
                 </p>
             ) : (
                 <>
                     <p className="section-body" style={{ marginBottom: "1.5rem", color: "var(--fg-3)" }}>
-                        {builders.length} subdomain{builders.length !== 1 ? "s" : ""} claimed on hack.{config.tld}
+                        {hackers.length} hacker{hackers.length !== 1 ? "s" : ""} on hack.{config.tld}
                     </p>
 
-                    <div style={{ overflowX: "auto" }}>
-                        <table
+                    {/* Filter bar */}
+                    <FilterBar
+                        query={query}
+                        onQueryChange={(q) => updateParam("q", q || null)}
+                        activeStatus={activeStatus}
+                        onStatusToggle={(s) => updateParam("status", s)}
+                        activeSkill={activeSkill}
+                        onSkillClear={() => updateParam("skill", null)}
+                    />
+
+                    {/* Results count when filtered */}
+                    {(query || activeStatus || activeSkill) && (
+                        <p
                             style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
                                 fontFamily: "var(--font)",
-                                fontSize: "0.75rem",
+                                fontSize: "0.65rem",
+                                color: "var(--fg-3)",
+                                marginBottom: "1rem",
+                                letterSpacing: "0.04em",
                             }}
                         >
-                            <caption className="sr-only">Subdomains registered on hack.{config.tld}</caption>
-                            <thead>
-                                <tr style={{ borderBottom: "1px solid var(--border-2)" }}>
-                                    <th
-                                        scope="col"
-                                        style={{
-                                            textAlign: "left",
-                                            padding: "0.5rem 0.75rem 0.75rem 0",
-                                            color: "var(--fg-3)",
-                                            fontWeight: 700,
-                                            letterSpacing: "0.1em",
-                                            fontSize: "0.65rem",
-                                            textTransform: "uppercase",
-                                        }}
-                                    >
-                                        #
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        style={{
-                                            textAlign: "left",
-                                            padding: "0.5rem 0.75rem 0.75rem 0",
-                                            color: "var(--fg-3)",
-                                            fontWeight: 700,
-                                            letterSpacing: "0.1em",
-                                            fontSize: "0.65rem",
-                                            textTransform: "uppercase",
-                                        }}
-                                    >
-                                        Name
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        style={{
-                                            textAlign: "left",
-                                            padding: "0.5rem 0.75rem 0.75rem 0",
-                                            color: "var(--fg-3)",
-                                            fontWeight: 700,
-                                            letterSpacing: "0.1em",
-                                            fontSize: "0.65rem",
-                                            textTransform: "uppercase",
-                                        }}
-                                    >
-                                        Owner
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        style={{
-                                            textAlign: "left",
-                                            padding: "0.5rem 0 0.75rem 0",
-                                            color: "var(--fg-3)",
-                                            fontWeight: 700,
-                                            letterSpacing: "0.1em",
-                                            fontSize: "0.65rem",
-                                            textTransform: "uppercase",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        Claimed
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {builders.map((b, i) => (
-                                    <tr key={b.opHash} style={{ borderBottom: "1px solid var(--border)" }}>
-                                        <td style={{ padding: "0.65rem 0.75rem 0.65rem 0", color: "var(--fg-3)" }}>
-                                            {builders.length - i}
-                                        </td>
-                                        <td style={{ padding: "0.65rem 0.75rem 0.65rem 0" }}>
-                                            <a
-                                                href={`${domainsBase}/${b.name}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ color: "var(--fg)", textDecoration: "none", fontWeight: 700 }}
-                                            >
-                                                {b.name}
-                                            </a>
-                                        </td>
-                                        <td style={{ padding: "0.65rem 0.75rem 0.65rem 0" }}>
-                                            <a
-                                                href={`${TZKT_BASE[config.tzktApi] ?? "https://tzkt.io"}/${b.owner}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{
-                                                    color: "var(--fg-2)",
-                                                    textDecoration: "none",
-                                                    fontFamily: "var(--font)",
-                                                    letterSpacing: "0.04em",
-                                                }}
-                                                title={b.owner}
-                                            >
-                                                {b.ownerShort}
-                                            </a>
-                                        </td>
-                                        <td
-                                            style={{
-                                                padding: "0.65rem 0 0.65rem 0",
-                                                color: "var(--fg-3)",
-                                                whiteSpace: "nowrap",
-                                            }}
-                                        >
-                                            {formatDate(b.timestamp)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+                        </p>
+                    )}
+
+                    {/* Card grid */}
+                    {pageSlice.length === 0 ? (
+                        <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.75rem" }}>
+                            No matches.
+                        </p>
+                    ) : (
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                                gap: "1rem",
+                            }}
+                        >
+                            {pageSlice.map((h) => (
+                                <HackerCard
+                                    key={h.name}
+                                    hacker={h}
+                                    onSkillClick={handleSkillClick}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: "1rem",
+                                marginTop: "2rem",
+                                fontFamily: "var(--font)",
+                                fontSize: "0.7rem",
+                                color: "var(--fg-3)",
+                            }}
+                        >
+                            <button
+                                type="button"
+                                disabled={safePage <= 1}
+                                onClick={() => {
+                                    setSearchParams((prev) => {
+                                        const next = new URLSearchParams(prev);
+                                        next.set("page", String(safePage - 1));
+                                        return next;
+                                    }, { replace: true });
+                                }}
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    background: "none",
+                                    border: "1px solid var(--border)",
+                                    color: safePage <= 1 ? "var(--fg-3)" : "var(--fg)",
+                                    padding: "0.3rem 0.75rem",
+                                    cursor: safePage <= 1 ? "default" : "pointer",
+                                    opacity: safePage <= 1 ? 0.4 : 1,
+                                }}
+                            >
+                                ← prev
+                            </button>
+                            <span>
+                                {safePage} / {totalPages}
+                            </span>
+                            <button
+                                type="button"
+                                disabled={safePage >= totalPages}
+                                onClick={() => {
+                                    setSearchParams((prev) => {
+                                        const next = new URLSearchParams(prev);
+                                        next.set("page", String(safePage + 1));
+                                        return next;
+                                    }, { replace: true });
+                                }}
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    background: "none",
+                                    border: "1px solid var(--border)",
+                                    color: safePage >= totalPages ? "var(--fg-3)" : "var(--fg)",
+                                    padding: "0.3rem 0.75rem",
+                                    cursor: safePage >= totalPages ? "default" : "pointer",
+                                    opacity: safePage >= totalPages ? 0.4 : 1,
+                                }}
+                            >
+                                next →
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
         </div>
