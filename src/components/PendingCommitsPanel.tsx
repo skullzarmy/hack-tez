@@ -22,7 +22,7 @@ async function fetchSubdomainWithRetry(address: string, label: string): Promise<
         if (match) return match;
     }
     // GraphQL indexer still hasn't caught up — return a minimal record from known data
-    return { name: expected, address, owner: address };
+    return { name: expected, address, owner: address, data: [], profile: {} };
 }
 
 export default function PendingCommitsPanel({
@@ -188,6 +188,7 @@ export default function PendingCommitsPanel({
                             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                                 <span className="pending-expiry">expires in {expiresDisplay}</span>
                                 <button
+                                    type="button"
                                     className="btn-inline pending-dismiss pending-release"
                                     aria-label={`Release commitment for ${commit.label}`}
                                     disabled={relState === "releasing" || isBusy}
@@ -199,6 +200,7 @@ export default function PendingCommitsPanel({
                                     <span className="pending-err" style={{ fontSize: "0.7rem" }}>
                                         {releaseError[commit.label] || "Failed"}{" "}
                                         <button
+                                            type="button"
                                             onClick={() => handleRelease(commit)}
                                             className="btn-inline"
                                             aria-label="Retry release"
@@ -223,6 +225,7 @@ export default function PendingCommitsPanel({
 
                         {ready && state === "idle" && (
                             <button
+                                type="button"
                                 onClick={() => handleClaim(commit)}
                                 className="btn btn-primary btn-full"
                                 style={{ marginTop: "0.75rem" }}
@@ -241,6 +244,7 @@ export default function PendingCommitsPanel({
                             <p className="pending-err">
                                 {claimError[commit.label] || "Failed"} —{" "}
                                 <button
+                                    type="button"
                                     onClick={() => handleClaim(commit)}
                                     className="btn-inline"
                                     aria-label="Retry claim"

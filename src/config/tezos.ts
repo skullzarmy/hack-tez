@@ -21,6 +21,10 @@ interface NetworkConfig {
     /** Expected TED NameRegistry.SetChildRecord address for this network.
      *  Used to detect if name_registry storage has been tampered with. */
     expectedNameRegistry: string;
+    /** TED SetChildRecord proxy — public entrypoint for creating child records. */
+    setChildRecordProxy: string;
+    /** TED UpdateRecord proxy — public entrypoint for updating domain records. */
+    updateRecordProxy: string;
 }
 
 const configs: Record<TezosNetwork, NetworkConfig> = {
@@ -32,6 +36,8 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         domainsGraphql: "https://ghostnet-api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
         expectedNameRegistry: "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU",
+        setChildRecordProxy: "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU",
+        updateRecordProxy: "KT1Ln4t64RdCG1bK8zkH6Xi4nNQVxz7qNgyj",
     },
     shadownet: {
         name: "shadownet",
@@ -41,6 +47,8 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         domainsGraphql: "",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
         expectedNameRegistry: "", // TED not deployed on shadownet
+        setChildRecordProxy: "",
+        updateRecordProxy: "",
     },
     mainnet: {
         name: "mainnet",
@@ -50,6 +58,8 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         domainsGraphql: "https://api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
         expectedNameRegistry: "KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd",
+        setChildRecordProxy: "KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd",
+        updateRecordProxy: "", // TODO: add mainnet UpdateRecord proxy address
     },
 };
 

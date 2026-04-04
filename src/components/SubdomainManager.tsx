@@ -22,7 +22,8 @@ function slugify(name: string): string {
 
 function SubSubdomainCard({ domain }: { domain: SubdomainRecord }) {
     const label = domain.name.split(".")[0];
-    const redirect = domain.data.find((d) => d.key === "web:redirect_url")?.value ?? null;
+    const redirectValue = domain.data.find((d) => d.key === "web:redirect_url")?.value;
+    const redirect = typeof redirectValue === "string" ? redirectValue : null;
 
     return (
         <div

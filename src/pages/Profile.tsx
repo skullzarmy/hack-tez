@@ -6,6 +6,7 @@ import { getDomainRecord } from "../lib/domains";
 import { useProfileEdit, ProfileEditFormBody } from "../components/ProfileEditForm";
 import type { DomainRecord } from "../lib/domains";
 import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile";
+import { ipfsUriToGatewayUrl } from "../lib/pin";
 import config from "../config/tezos";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -185,6 +186,9 @@ function SkillChip({ skill }: { skill: string }) {
 function ProjectCard({ project }: { project: ProjectEntry }) {
     const envStyle = project.environment ? ENV_STYLES[project.environment] ?? ENV_STYLES.other : null;
     const statusStyle = project.status ? PROJECT_STATUS_STYLES[project.status] ?? null : null;
+    const logoUrl = project.logo
+        ? (project.logo.startsWith("ipfs://") ? ipfsUriToGatewayUrl(project.logo) : safeHref(project.logo))
+        : null;
 
     return (
         <div
@@ -194,12 +198,26 @@ function ProjectCard({ project }: { project: ProjectEntry }) {
                 borderRadius: "8px",
                 padding: "1.25rem",
                 display: "flex",
-                flexDirection: "column",
-                gap: "0.6rem",
+                gap: "1rem",
             }}
         >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--fg)" }}>{project.name}</span>
+            {logoUrl && (
+                <img
+                    src={logoUrl}
+                    alt={`${project.name} logo`}
+                    style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "6px",
+                        objectFit: "cover",
+                        border: "1px solid var(--border)",
+                        flexShrink: 0,
+                    }}
+                />
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--fg)" }}>{project.name}</span>
                 {statusStyle && project.status && (
                     <span
                         style={{
@@ -265,6 +283,7 @@ function ProjectCard({ project }: { project: ProjectEntry }) {
                     )}
                 </div>
             )}
+            </div>
         </div>
     );
 }
@@ -424,6 +443,7 @@ export default function Profile() {
     const hasLinks = !!(profile.github || profile.twitter || profile.website);
 
     return (
+        <>
         <div className="container" style={{ paddingBlock: "3rem 5rem", maxWidth: "680px" }}>
             {/* ── Header ──────────────────────────────────────────── */}
             <header style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem", marginBottom: "2rem" }}>
@@ -624,5 +644,55 @@ export default function Profile() {
                 </>
             )}
         </div>
+
+        {/* ── Save Status Toast ─────────────────────────────────── */}
+        {editState.saveStatus && (
+            <div
+                style={{
+                    position: "fixed",
+                    bottom: "1.5rem",
+                    left: 0,
+                    right: 0,
+                    display: "flex",
+                    justifyContent: "center",
+                    zIndex: 100,
+                    pointerEvents: "none",
+                    animation: "toast-in 0.25s ease forwards",
+                }}
+            >
+                <div
+                    style={{
+                        pointerEvents: "auto",
+                        background: "var(--bg-2)",
+                        border: "1px solid var(--ok)",
+                        borderRadius: "8px",
+                        padding: "0.75rem 1.5rem",
+                        fontSize: "0.85rem",
+                        fontFamily: "var(--font)",
+                        fontWeight: 600,
+                        color: "var(--fg)",
+                        backdropFilter: "blur(8px)",
+                        WebkitBackdropFilter: "blur(8px)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.6rem",
+                        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+                    }}
+                >
+                    <span
+                        style={{
+                            display: "inline-block",
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            background: "var(--ok)",
+                            animation: "pulse 1.5s ease-in-out infinite",
+                        }}
+                    />
+                    {editState.saveStatus}
+                </div>
+            </div>
+        )}
+        </>
     );
 }

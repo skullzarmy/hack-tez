@@ -3,6 +3,7 @@
  *
  * Routes:
  *   GET /api/v1/domain/:name        — domain record by full name or label
+ *   GET /api/v1/profile/:name       — domain record + parsed profile data
  *   GET /api/v1/availability/:label — check if a label is free to register
  *   GET /api/v1/owner/:address      — all hack.tez domains owned by a wallet
  *   GET /api/v1/resolve/:address    — reverse-resolve wallet → primary domain
@@ -92,6 +93,106 @@ async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<st
 }
 
 // ---------------------------------------------------------------------------
+// Profile parsing (inlined — Netlify Functions can't import from src/)
+// ---------------------------------------------------------------------------
+
+interface ProfileProject {
+    name: string;
+    desc: string;
+    url?: string;
+    repo?: string;
+    environment?: string;
+    address?: string;
+    subdomain?: string;
+    status?: string;
+    logo?: string;
+}
+
+interface HackProfile {
+    name?: string;
+    nickname?: string;
+    website?: string;
+    picture?: string;
+    github?: string;
+    twitter?: string;
+    repositoryUrl?: string;
+    bio?: string;
+    location?: string;
+    status?: string;
+    skills?: string[];
+    projects?: ProfileProject[];
+}
+
+const PROFILE_KEY_MAP: Record<string, string> = {
+    name: "openid:name",
+    nickname: "openid:nickname",
+    website: "openid:website",
+    picture: "openid:picture",
+    github: "github:username",
+    twitter: "twitter:handle",
+    repositoryUrl: "project:repository_url",
+    bio: "hack:bio",
+    location: "hack:location",
+    status: "hack:status",
+    skills: "hack:skills",
+    projects: "hack:projects",
+};
+
+const REVERSE_PROFILE_KEY_MAP = new Map<string, string>(
+    Object.entries(PROFILE_KEY_MAP).map(([field, tedKey]) => [tedKey, field]),
+);
+
+const VALID_STATUSES = ["building", "open-to-collab", "available", "hiring"];
+
+function parseProfileFromData(data: Array<{ key: string; value: unknown }>): HackProfile {
+    const profile: HackProfile = {};
+
+    for (const { key, value } of data) {
+        if (value === null || value === undefined) continue;
+
+        const field = REVERSE_PROFILE_KEY_MAP.get(key);
+        if (field === undefined) continue;
+
+        if (key.startsWith("hack:")) {
+            // TED already JSON-parsed these — use values directly
+            switch (field) {
+                case "bio":
+                    if (typeof value === "string") profile.bio = value.slice(0, 160);
+                    break;
+                case "location":
+                    if (typeof value === "string") profile.location = value.slice(0, 60);
+                    break;
+                case "status":
+                    if (typeof value === "string" && VALID_STATUSES.includes(value)) profile.status = value;
+                    break;
+                case "skills":
+                    if (Array.isArray(value)) {
+                        const items = value.filter((i): i is string => typeof i === "string").slice(0, 10);
+                        if (items.length > 0) profile.skills = items;
+                    }
+                    break;
+                case "projects":
+                    if (Array.isArray(value)) {
+                        const items = value.filter(
+                            (v): v is ProfileProject =>
+                                typeof v === "object" && v !== null && typeof v.name === "string" && typeof v.desc === "string",
+                        );
+                        if (items.length > 0) profile.projects = items;
+                    }
+                    break;
+            }
+        } else {
+            // TED native keys — values are already decoded strings
+            if (typeof value === "string") {
+                (profile as Record<string, unknown>)[field] = value;
+            }
+        }
+    }
+
+    return profile;
+}
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -136,6 +237,57 @@ async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): P
                 owner: data.domain.owner,
             },
             available: false,
+            network: net.name,
+        },
+        200,
+        { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+    );
+}
+
+/** GET /api/v1/profile/:name — domain record + parsed profile data */
+async function handleProfile(name: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    const label = name.endsWith(`.hack.${net.tld}`) ? name.replace(`.hack.${net.tld}`, "") : name;
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+    const fullName = `${label}.hack.${net.tld}`;
+
+    const result = await tedGql<{
+        domain: {
+            name: string;
+            address: string | null;
+            owner: string;
+            data: Array<{ key: string; value: unknown }>;
+        } | null;
+    }>(
+        net.domainsGraphql,
+        `query GetProfile($name: String!) {
+          domain(name: $name) {
+            name
+            address
+            owner
+            data { key value }
+          }
+        }`,
+        { name: fullName },
+    );
+
+    if (!result.domain) {
+        return json({ error: "not found" }, 404, {
+            "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+        });
+    }
+
+    const profile = parseProfileFromData(result.domain.data ?? []);
+
+    return json(
+        {
+            data: {
+                name: result.domain.name,
+                owner: result.domain.owner,
+                address: result.domain.address,
+                profile,
+            },
             network: net.name,
         },
         200,
@@ -257,69 +409,51 @@ const MAX_LIMIT = 200;
 
 /** GET /api/v1/domains?limit=50&offset=0 — paginated list of all hack.tez registrations */
 async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
-    if (!net.registrarAddress) {
-        return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
-    }
+    const parent = `hack.${net.tld}`;
 
     const rawLimit = parseInt(url.searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
-    const rawOffset = parseInt(url.searchParams.get("offset") ?? "0", 10);
-
     if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
-    if (isNaN(rawOffset) || rawOffset < 0) return err("offset must be a non-negative integer", "INVALID_INPUT");
+    const limit = Math.min(rawLimit, 50); // TED GraphQL caps first at 50
 
-    const limit = Math.min(rawLimit, MAX_LIMIT);
-    const offset = rawOffset;
+    const data = await tedGql<{
+        domains: {
+            items: Array<{
+                name: string;
+                owner: string;
+                address: string | null;
+                data: Array<{ key: string; value: unknown }>;
+            }>;
+        };
+    }>(
+        net.domainsGraphql,
+        `query AllDomains($parent: String!, $first: Int!) {
+          domains(where: { name: { endsWith: $parent } }, first: $first) {
+            items {
+              name
+              owner
+              address
+              data { key value }
+            }
+          }
+        }`,
+        { parent: `.${parent}`, first: limit },
+    );
 
-    const tzktUrl =
-        `${net.tzktApi}/v1/operations/transactions` +
-        `?target=${net.registrarAddress}` +
-        `&entrypoint=register` +
-        `&status=applied` +
-        `&limit=${limit}` +
-        `&offset=${offset}` +
-        `&sort.desc=id`;
-
-    const res = await fetch(tzktUrl);
-    if (!res.ok) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
-
-    const ops: Array<{
-        hash: string;
-        sender: { address: string };
-        timestamp: string;
-        parameter?: { value?: { label?: string } };
-    }> = await res.json();
-
-    const seen = new Set<string>();
-    const domains: Array<{
-        name: string;
-        label: string;
-        owner: string;
-        registeredAt: string;
-        opHash: string;
-    }> = [];
-
-    for (const op of ops) {
-        const rawLabel = op.parameter?.value?.label ?? null;
-        if (!rawLabel) continue;
-        const label = hexToUtf8(rawLabel);
-        const name = `${label}.hack.${net.tld}`;
-        if (seen.has(name)) continue;
-        seen.add(name);
-        domains.push({
-            name,
+    const domains = data.domains.items.map((d) => {
+        const label = d.name.replace(`.${parent}`, "");
+        return {
+            name: d.name,
             label,
-            owner: op.sender.address,
-            registeredAt: op.timestamp,
-            opHash: op.hash,
-        });
-    }
+            owner: d.owner,
+            address: d.address,
+        };
+    });
 
     return json(
         {
             data: domains,
             count: domains.length,
             limit,
-            offset,
             network: net.name,
         },
         200,
@@ -442,6 +576,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     try {
         if (resource === "domains") return await handleDomains(new URL(req.url), net);
         if (resource === "domain" && param) return await handleDomain(decodeURIComponent(param), net);
+        if (resource === "profile" && param) return await handleProfile(decodeURIComponent(param), net);
         if (resource === "availability" && param) return await handleAvailability(decodeURIComponent(param), net);
         if (resource === "owner" && param) return await handleOwner(decodeURIComponent(param), net);
         if (resource === "resolve" && param) return await handleResolve(decodeURIComponent(param), net);
@@ -456,6 +591,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                 endpoints: [
                     `/api/v1/domains?limit=50&offset=0`,
                     `/api/v1/domain/:name`,
+                    `/api/v1/profile/:name`,
                     `/api/v1/availability/:label`,
                     `/api/v1/owner/:address`,
                     `/api/v1/resolve/:address`,

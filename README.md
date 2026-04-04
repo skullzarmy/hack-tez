@@ -2,7 +2,7 @@
 
 Free Tezos subdomains. No permission required.
 
-Connect a wallet. Claim `yourname.hack.tez`. Pay gas. That's it.
+Connect a wallet. Claim `yourname.hack.tez`. Set up your builder profile. That's it.
 
 Your name is a real on-chain  it resolves, routes, and can be queried by contracts. Manage it at [Tezos Domains](https://tezos.domains). Set an address, a redirect, an IPFS hash. It's yours.record 
 
@@ -130,6 +130,8 @@ All `/api/*` routes. No auth. Pure proxy to TED GraphQL + TzKT.
 | `GET /api/resolve/:address` | Reverse-resolve wallet to primary domain |
 | `GET /api/domains?limit=50&offset=0` | Paginated list of all registrations |
 | `GET /api/config` | Contract config (commit ages, max per wallet, paused) |
+| `GET /api/v1/profile/:name` | Parsed builder profile for a domain (coming soon) |
+| `POST /api/v1/pin` | Authenticated IPFS pin proxy — wallet signature required (coming soon) |
 
 Response shape: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ error: "...", code: "..." }` on failure.
 

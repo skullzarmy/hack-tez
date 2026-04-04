@@ -3,7 +3,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTezos } from "../context/TezosContext";
 import { getDomainRecord } from "../lib/domains";
-import { submitProfileUpdate } from "../lib/contract";
+import { submitProfileUpdate, waitForOperation } from "../lib/contract";
+import { ipfsUriToGatewayUrl } from "../lib/pin";
 import type { DomainRecord } from "../lib/domains";
 import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile";
 import { isValidUrl } from "../types/profile";
@@ -183,6 +184,269 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
     );
 }
 
+// ── Avatar Upload ────────────────────────────────────────────────────
+
+const ALLOWED_IMAGE_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+];
+const ACCEPT_STRING = ALLOWED_IMAGE_TYPES.join(",");
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB
+
+function AvatarUpload({
+    currentUri,
+    pendingFile,
+    onFileSelected,
+}: {
+    currentUri: string | undefined;
+    pendingFile: File | null;
+    onFileSelected: (file: File | null) => void;
+}) {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [preview, setPreview] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    // Revoke object URL on cleanup
+    useEffect(() => {
+        return () => {
+            if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+        };
+    }, [preview]);
+
+    // Create blob preview when pending file changes externally (e.g. cleared after save)
+    useEffect(() => {
+        if (!pendingFile) {
+            if (preview && preview.startsWith("blob:")) {
+                URL.revokeObjectURL(preview);
+                setPreview(null);
+            }
+            return;
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingFile]);
+
+    const displayUrl = preview
+        ?? (currentUri ? ipfsUriToGatewayUrl(currentUri) : null);
+
+    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setError(null);
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            setError("Unsupported format. Use JPEG, PNG, GIF, WebP, or SVG.");
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            setError("File too large. Max 4 MB.");
+            return;
+        }
+
+        if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+        setPreview(URL.createObjectURL(file));
+        onFileSelected(file);
+    }, [preview, onFileSelected]);
+
+    return (
+        <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+            {/* Preview */}
+            <div
+                style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    background: "var(--bg-2)",
+                    border: "2px solid var(--border)",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                {displayUrl ? (
+                    <img
+                        src={displayUrl}
+                        alt="Avatar preview"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                ) : (
+                    <span style={{ color: "var(--fg-3)", fontSize: "0.65rem" }}>No image</span>
+                )}
+            </div>
+
+            {/* Controls */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
+                <label style={LABEL_STYLE}>Avatar</label>
+                <input
+                    ref={fileRef}
+                    type="file"
+                    accept={ACCEPT_STRING}
+                    onChange={handleFileSelect}
+                    style={{ display: "none" }}
+                />
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        style={{
+                            background: "none",
+                            border: "1px solid var(--border)",
+                            borderRadius: "4px",
+                            color: "var(--fg-2)",
+                            cursor: "pointer",
+                            fontSize: "0.7rem",
+                            padding: "0.3rem 0.7rem",
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            fontFamily: "var(--font)",
+                        }}
+                    >
+                        {pendingFile ? "Change image" : "Choose image"}
+                    </button>
+                </div>
+                {pendingFile && (
+                    <span style={{ fontSize: "0.65rem", color: "var(--accent, #22d3ee)" }}>
+                        ✓ {pendingFile.name} — will be uploaded on save
+                    </span>
+                )}
+                {error && (
+                    <span style={{ fontSize: "0.65rem", color: "#f87171" }}>{error}</span>
+                )}
+                <span style={{ fontSize: "0.6rem", color: "var(--fg-3)", opacity: 0.7 }}>
+                    JPEG, PNG, GIF, WebP, or SVG · Max 4 MB
+                </span>
+            </div>
+        </div>
+    );
+}
+
+// ── Project Logo Upload ─────────────────────────────────────────────
+
+function ProjectLogoUpload({
+    currentUri,
+    onLogoChange,
+    onFileSelected,
+    pendingFile,
+}: {
+    currentUri: string | undefined;
+    onLogoChange: (value: string) => void;
+    onFileSelected: (file: File) => void;
+    pendingFile: File | undefined;
+}) {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const displayUrl = pendingFile
+        ? URL.createObjectURL(pendingFile)
+        : currentUri
+            ? (currentUri.startsWith("ipfs://") ? ipfsUriToGatewayUrl(currentUri) : currentUri)
+            : null;
+
+    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setError(null);
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            setError("Unsupported format");
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            setError("Max 4 MB");
+            return;
+        }
+
+        onFileSelected(file);
+    }, [onFileSelected]);
+
+    return (
+        <div>
+            <label style={LABEL_STYLE}>Logo</label>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                {/* Preview */}
+                <div
+                    style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "6px",
+                        overflow: "hidden",
+                        background: "var(--bg)",
+                        border: "1px solid var(--border)",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                >
+                    {displayUrl ? (
+                        <img
+                            src={displayUrl}
+                            alt="Logo"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                    ) : (
+                        <span style={{ color: "var(--fg-3)", fontSize: "0.5rem" }}>—</span>
+                    )}
+                </div>
+
+                {/* Upload or URL */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                        <input
+                            ref={fileRef}
+                            type="file"
+                            accept={ACCEPT_STRING}
+                            onChange={handleFileSelect}
+                            style={{ display: "none" }}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fileRef.current?.click()}
+                            style={{
+                                background: "none",
+                                border: "1px solid var(--border)",
+                                borderRadius: "4px",
+                                color: "var(--fg-2)",
+                                cursor: "pointer",
+                                fontSize: "0.65rem",
+                                padding: "0.25rem 0.6rem",
+                                letterSpacing: "0.06em",
+                                textTransform: "uppercase",
+                                fontFamily: "var(--font)",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
+                            }}
+                        >
+                            {pendingFile ? "Change" : "Upload"}
+                        </button>
+                        <span style={{ color: "var(--fg-3)", fontSize: "0.6rem", flexShrink: 0 }}>or</span>
+                        <input
+                            type="text"
+                            value={pendingFile ? `📎 ${pendingFile.name}` : (currentUri ?? "")}
+                            onChange={(e) => onLogoChange(e.target.value)}
+                            style={{ ...INPUT_BASE, flex: 1 }}
+                            placeholder="https://... or ipfs://..."
+                            readOnly={!!pendingFile}
+                        />
+                    </div>
+                    {pendingFile && (
+                        <span style={{ fontSize: "0.6rem", color: "var(--accent, #22d3ee)" }}>
+                            ✓ will be uploaded on save
+                        </span>
+                    )}
+                    {error && (
+                        <span style={{ fontSize: "0.6rem", color: "#f87171" }}>{error}</span>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Project Editor ───────────────────────────────────────────────────
 
 function emptyProject(): ProjectEntry {
@@ -194,11 +458,15 @@ function ProjectEditor({
     index,
     onChange,
     onRemove,
+    pendingLogo,
+    onLogoFileSelected,
 }: {
     project: ProjectEntry;
     index: number;
     onChange: (p: ProjectEntry) => void;
     onRemove: () => void;
+    pendingLogo: File | undefined;
+    onLogoFileSelected: (file: File) => void;
 }) {
     const update = useCallback(
         (field: keyof ProjectEntry, value: string) => {
@@ -332,16 +600,12 @@ function ProjectEditor({
                 </div>
             </div>
 
-            <div>
-                <label style={LABEL_STYLE}>Logo URL</label>
-                <input
-                    type="text"
-                    value={project.logo ?? ""}
-                    onChange={(e) => update("logo", e.target.value)}
-                    style={INPUT_BASE}
-                    placeholder="https://... or ipfs://..."
-                />
-            </div>
+            <ProjectLogoUpload
+                currentUri={project.logo}
+                onLogoChange={(val) => update("logo", val)}
+                onFileSelected={onLogoFileSelected}
+                pendingFile={pendingLogo}
+            />
         </div>
     );
 }
@@ -399,14 +663,19 @@ export interface ProfileEditState {
     submitting: boolean;
     submitError: string | null;
     submitSuccess: boolean;
+    saveStatus: string | null;
     staleWarning: boolean;
     hasChanges: boolean;
+    pendingAvatar: File | null;
+    pendingLogos: Record<number, File>;
     enterEditMode: (profile: HackProfile) => void;
     exitEditMode: () => void;
     updateField: <K extends keyof HackProfile>(key: K, value: HackProfile[K]) => void;
     updateProject: (index: number, project: ProjectEntry) => void;
     removeProject: (index: number) => void;
     addProject: () => void;
+    setPendingAvatar: (file: File | null) => void;
+    setPendingLogo: (index: number, file: File) => void;
     handleSubmit: () => Promise<void>;
     confirmStaleOverwrite: () => void;
 }
@@ -425,10 +694,17 @@ export function useProfileEdit(
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<string | null>(null);
     const [staleWarning, setStaleWarning] = useState(false);
     const staleOverrideRef = useRef(false);
+    const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+    const [pendingLogos, setPendingLogos] = useState<Record<number, File>>({});
 
-    const hasChanges = editing && !profilesEqual(form, snapshot);
+    const hasChanges = editing && (
+        !profilesEqual(form, snapshot) ||
+        pendingAvatar !== null ||
+        Object.keys(pendingLogos).length > 0
+    );
 
     // Enter edit mode from ?edit=true
     useEffect(() => {
@@ -474,6 +750,8 @@ export function useProfileEdit(
         setSubmitSuccess(false);
         setStaleWarning(false);
         staleOverrideRef.current = false;
+        setPendingAvatar(null);
+        setPendingLogos({});
     }
 
     function exitEditMode() {
@@ -483,6 +761,8 @@ export function useProfileEdit(
         setSubmitError(null);
         setStaleWarning(false);
         staleOverrideRef.current = false;
+        setPendingAvatar(null);
+        setPendingLogos({});
     }
 
     function updateField<K extends keyof HackProfile>(key: K, value: HackProfile[K]) {
@@ -503,6 +783,20 @@ export function useProfileEdit(
             projects.splice(index, 1);
             return { ...prev, projects: projects.length > 0 ? projects : undefined };
         });
+        // Clean up pending logo for removed project, shift higher indices down
+        setPendingLogos((prev) => {
+            const next: Record<number, File> = {};
+            for (const [k, v] of Object.entries(prev)) {
+                const idx = Number(k);
+                if (idx < index) next[idx] = v;
+                else if (idx > index) next[idx - 1] = v;
+            }
+            return next;
+        });
+    }
+
+    function setPendingLogo(index: number, file: File) {
+        setPendingLogos((prev) => ({ ...prev, [index]: file }));
     }
 
     function addProject() {
@@ -546,15 +840,83 @@ export function useProfileEdit(
         setSubmitting(true);
         setSubmitError(null);
         setStaleWarning(false);
+        setSaveStatus(null);
 
         try {
-            await submitProfileUpdate(label, form, client);
+            // Pin any pending files first (single wallet signature for all)
+            const filesToPin: File[] = [];
+            const fileMap: { type: "avatar" | "logo"; index?: number }[] = [];
+
+            if (pendingAvatar) {
+                filesToPin.push(pendingAvatar);
+                fileMap.push({ type: "avatar" });
+            }
+            for (const [idx, file] of Object.entries(pendingLogos)) {
+                filesToPin.push(file);
+                fileMap.push({ type: "logo", index: Number(idx) });
+            }
+
+            let finalForm = { ...form };
+
+            if (filesToPin.length > 0) {
+                setSaveStatus("Uploading images to IPFS…");
+                const { pinFiles } = await import("../lib/pin");
+                const results = await pinFiles(filesToPin, client);
+
+                for (let i = 0; i < results.length; i++) {
+                    const ipfsUri = `ipfs://${results[i].cid}`;
+                    const mapping = fileMap[i];
+                    if (mapping.type === "avatar") {
+                        finalForm = { ...finalForm, picture: ipfsUri };
+                    } else if (mapping.type === "logo" && mapping.index !== undefined) {
+                        const projects = [...(finalForm.projects ?? [])];
+                        if (projects[mapping.index]) {
+                            projects[mapping.index] = { ...projects[mapping.index], logo: ipfsUri };
+                            finalForm = { ...finalForm, projects };
+                        }
+                    }
+                }
+            }
+
+            setSaveStatus("Confirm transaction in wallet…");
+            const opHash = await submitProfileUpdate(label, finalForm, client);
             setSubmitSuccess(true);
             exitEditMode();
+
+            setSaveStatus("Transaction submitted — waiting for confirmation…");
+            try {
+                await waitForOperation(opHash);
+                setSaveStatus("Confirmed! Refreshing profile…");
+                await new Promise((r) => setTimeout(r, 5000));
+            } catch {
+                // Timeout is non-fatal — data will appear on next manual refresh
+            }
             onRefresh();
+
+            // Post-save verification: re-read and check our writes landed
+            try {
+                const updated = await getDomainRecord(fullName);
+                if (updated) {
+                    const wrote = finalForm;
+                    const got = updated.profile;
+                    const mismatches: string[] = [];
+                    if (wrote.bio && wrote.bio !== got.bio) mismatches.push("bio");
+                    if (wrote.status && wrote.status !== got.status) mismatches.push("status");
+                    if (wrote.picture && wrote.picture !== got.picture) mismatches.push("avatar");
+                    if (wrote.name && wrote.name !== got.name) mismatches.push("name");
+                    if (mismatches.length > 0) {
+                        setSaveStatus(`⚠ Some changes may not have saved (${mismatches.join(", ")}). Another update may have overwritten yours.`);
+                        await new Promise((r) => setTimeout(r, 6000));
+                    }
+                }
+            } catch {
+                // Verification is best-effort
+            }
+            setSaveStatus(null);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Transaction failed";
             setSubmitError(msg);
+            setSaveStatus(null);
         } finally {
             setSubmitting(false);
         }
@@ -572,14 +934,19 @@ export function useProfileEdit(
         submitting,
         submitError,
         submitSuccess,
+        saveStatus,
         staleWarning,
         hasChanges,
+        pendingAvatar,
+        pendingLogos,
         enterEditMode,
         exitEditMode,
         updateField,
         updateProject,
         removeProject,
         addProject,
+        setPendingAvatar,
+        setPendingLogo,
         handleSubmit,
         confirmStaleOverwrite,
     };
@@ -593,10 +960,14 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
         submitting,
         submitError,
         staleWarning,
+        pendingAvatar,
+        pendingLogos,
         updateField,
         updateProject,
         removeProject,
         addProject,
+        setPendingAvatar,
+        setPendingLogo,
         handleSubmit,
         exitEditMode,
         confirmStaleOverwrite,
@@ -712,6 +1083,8 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                             index={i}
                             onChange={(p) => updateProject(i, p)}
                             onRemove={() => removeProject(i)}
+                            pendingLogo={pendingLogos[i]}
+                            onLogoFileSelected={(file) => setPendingLogo(i, file)}
                         />
                     ))}
                 </div>
@@ -736,19 +1109,13 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                 </button>
             </div>
 
-            {/* ── Avatar notice ───────────────────────────────── */}
-            <div
-                style={{
-                    background: "rgba(148,163,184,0.06)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "6px",
-                    padding: "0.6rem 0.8rem",
-                    fontSize: "0.7rem",
-                    color: "var(--fg-3)",
-                    marginBottom: "0.75rem",
-                }}
-            >
-                Avatar upload coming soon. Your current avatar is shown above.
+            {/* ── Avatar Upload ─────────────────────────────── */}
+            <div style={{ ...SECTION_STYLE, marginBottom: "1rem" }}>
+                <AvatarUpload
+                    currentUri={form.picture}
+                    pendingFile={pendingAvatar}
+                    onFileSelected={setPendingAvatar}
+                />
             </div>
 
             {/* ── Stale data warning ──────────────────────────── */}
@@ -842,7 +1209,7 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                         fontFamily: "var(--font)",
                     }}
                 >
-                    {submitting ? "Saving…" : "Save"}
+                    {submitting ? "Saving…" : (pendingAvatar || Object.keys(pendingLogos).length > 0 ? "Upload & Save" : "Save")}
                 </button>
                 <button
                     type="button"

@@ -29,6 +29,20 @@ const NAV: NavSection[] = [
             { id: "ep-resolve", label: "Reverse Resolve" },
             { id: "ep-config", label: "Contract Config" },
             { id: "ep-activity", label: "Recent Activity" },
+            { id: "ep-profile", label: "Get Profile" },
+            { id: "ep-pin", label: "IPFS Pin" },
+        ],
+    },
+    {
+        id: "profile-spec",
+        label: "Profile Spec",
+        children: [
+            { id: "ps-keys", label: "Key Namespace" },
+            { id: "ps-project", label: "ProjectEntry Schema" },
+            { id: "ps-status", label: "Builder Status" },
+            { id: "ps-encoding", label: "Encoding Rules" },
+            { id: "ps-merge", label: "Safe Merge Rule" },
+            { id: "ps-avatar", label: "Avatar Fallback" },
         ],
     },
     { id: "quickstart", label: "Quick Start" },
@@ -135,6 +149,47 @@ function MethodBadge() {
             }}
         >
             GET
+        </span>
+    );
+}
+
+function PostBadge() {
+    return (
+        <span
+            style={{
+                fontFamily: "var(--font)",
+                fontSize: "0.6rem",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                color: "var(--warn, #f59e0b)",
+                background: "color-mix(in srgb, var(--warn, #f59e0b) 12%, transparent)",
+                padding: "0.2rem 0.45rem",
+                border: "1px solid color-mix(in srgb, var(--warn, #f59e0b) 30%, transparent)",
+                flexShrink: 0,
+            }}
+        >
+            POST
+        </span>
+    );
+}
+
+function ComingSoonBadge() {
+    return (
+        <span
+            style={{
+                fontFamily: "var(--font)",
+                fontSize: "0.55rem",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--fg-3)",
+                background: "color-mix(in srgb, var(--fg-3) 10%, transparent)",
+                padding: "0.15rem 0.4rem",
+                border: "1px solid color-mix(in srgb, var(--fg-3) 25%, transparent)",
+                flexShrink: 0,
+            }}
+        >
+            Coming soon
         </span>
     );
 }
@@ -1141,6 +1196,710 @@ export default function Developers() {
                                     2,
                                 )}
                             />
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/profile/:name (Coming soon) ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-profile" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Get Profile
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/profile/:name
+                                </code>
+                                <ComingSoonBadge />
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Returns the parsed builder profile for a hack.{tld} subdomain. Accepts a bare label (
+                                <code style={{ color: "var(--fg)" }}>alice</code>) or full name (
+                                <code style={{ color: "var(--fg)" }}>alice.hack.{tld}</code>). Returns{" "}
+                                <code style={{ color: "var(--fg)" }}>profile: {"{}"}</code> if the domain exists but has
+                                no hack: data set.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "name",
+                                        kind: "path",
+                                        type: "string",
+                                        description: `Label (alice) or full name (alice.hack.${tld})`,
+                                    },
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/profile/alice" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        name: `alice.hack.${tld}`,
+                                        owner: "tz1...",
+                                        address: "tz1...",
+                                        profile: {
+                                            bio: "building tezos tooling",
+                                            github: "alice",
+                                            x: "alice",
+                                            website: "https://alice.xyz",
+                                            location: "Berlin",
+                                            status: "building",
+                                            skills: ["SmartPy", "TypeScript"],
+                                            projects: [
+                                                {
+                                                    name: "my-dapp",
+                                                    url: "https://my-dapp.xyz",
+                                                    desc: "a decentralized app",
+                                                },
+                                            ],
+                                        },
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                Returns <code style={{ color: "var(--fg)" }}>404</code> if the domain doesn't exist.
+                                Returns <code style={{ color: "var(--fg)" }}>200</code> with{" "}
+                                <code style={{ color: "var(--fg)" }}>profile: {"{}"}</code> if the domain exists but has
+                                no hack: data.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- POST /api/v1/pin (Coming soon) ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-pin" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                IPFS Pin
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <PostBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/pin
+                                </code>
+                                <ComingSoonBadge />
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Authenticated IPFS pin proxy. Upload an image (avatar, project logo) with a wallet
+                                signature — the server validates ownership of a hack.{tld} domain and pins the file via
+                                Pinata. Returns the IPFS CID.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <strong style={{ color: "var(--fg)" }}>Auth:</strong> wallet signature. The request must
+                                include a signed message proving the caller owns a hack.{tld} domain.
+                            </p>
+                            <CodeBlock
+                                lang="http"
+                                code={`POST https://hack.fafolab.xyz/api/v1/pin
+Content-Type: multipart/form-data
+
+file:       <blob>
+address:    "tz1..."
+publicKey:  "edpk..."
+timestamp:  1712345678
+nonce:      "a3f9c2..."
+signature:  "<sig of hack.tez:pin:<timestamp>:<nonce>>"`}
+                            />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify({ cid: "bafybei..." }, null, 2)}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                Max file size: 4 MB. Allowed types:{" "}
+                                <code style={{ color: "var(--fg)" }}>image/jpeg</code>,{" "}
+                                <code style={{ color: "var(--fg)" }}>image/png</code>,{" "}
+                                <code style={{ color: "var(--fg)" }}>image/gif</code>,{" "}
+                                <code style={{ color: "var(--fg)" }}>image/webp</code>,{" "}
+                                <code style={{ color: "var(--fg)" }}>image/svg+xml</code>.
+                                <br />
+                                Timestamp must be within 5 minutes. Signature verified against public key.
+                                <br />
+                                Display via{" "}
+                                <code style={{ color: "var(--fg)" }}>{"https://ipfs.fileship.xyz/ipfs/<CID>"}</code>.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ================================================================ */}
+                    {/* Profile Spec                                                     */}
+                    {/* ================================================================ */}
+
+                    <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+                        <h2
+                            id="profile-spec"
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--fg-3)",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                                marginBottom: 0,
+                            }}
+                        >
+                            Profile Spec
+                        </h2>
+                    </div>
+
+                    {/* ---- Key Namespace ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ps-keys" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Key Namespace
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Every hack.{tld} domain stores profile data in the TED record's on-chain{" "}
+                                <code style={{ color: "var(--fg)" }}>data</code> map. We use TED's canonical keys where
+                                they exist. The <code style={{ color: "var(--fg)" }}>hack:</code> prefix is reserved for
+                                fields TED doesn't define — data set via the official TED app is automatically visible
+                                in hack.{tld} profiles, and vice versa.
+                            </p>
+                            <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+                                <table
+                                    style={{
+                                        width: "100%",
+                                        borderCollapse: "collapse",
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.7rem",
+                                    }}
+                                >
+                                    <caption className="sr-only">Profile key namespace</caption>
+                                    <thead>
+                                        <tr style={{ borderBottom: "1px solid var(--border-2)" }}>
+                                            {["key", "source", "description"].map((h) => (
+                                                <th
+                                                    key={h}
+                                                    scope="col"
+                                                    style={{
+                                                        textAlign: "left",
+                                                        padding: "0.3rem 0.75rem 0.45rem 0",
+                                                        color: "var(--fg-3)",
+                                                        fontWeight: 700,
+                                                        letterSpacing: "0.1em",
+                                                        fontSize: "0.58rem",
+                                                        textTransform: "uppercase",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[
+                                            ["openid:name", "TED native", "Display name"],
+                                            ["openid:nickname", "TED native", "Short handle / alias"],
+                                            ["openid:website", "TED native", "Personal or studio site"],
+                                            [
+                                                "openid:picture",
+                                                "TED native",
+                                                "Avatar image URL — ipfs:// URI preferred. Fallback chain: openid:picture → gravatar:hash → generated",
+                                            ],
+                                            ["github:username", "TED native", "GitHub username"],
+                                            ["twitter:handle", "TED native", "Twitter/X handle"],
+                                            ["project:repository_url", "TED native", "Primary repo URL"],
+                                            ["hack:bio", "hack.tez", "Short bio / tagline (160 chars)"],
+                                            ["hack:location", "hack.tez", "City, country, or \"anon\" (60 chars)"],
+                                            ["hack:status", "hack.tez", "Builder status (see below)"],
+                                            ["hack:skills", "hack.tez", "JSON string[], max 10 tags"],
+                                            ["hack:projects", "hack.tez", "JSON ProjectEntry[], see below"],
+                                        ].map(([key, source, desc]) => (
+                                            <tr key={key} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                <td style={{ padding: "0.4rem 0.75rem 0.4rem 0" }}>
+                                                    <code style={{ color: "var(--fg)", fontWeight: 700 }}>{key}</code>
+                                                </td>
+                                                <td
+                                                    style={{
+                                                        padding: "0.4rem 0.75rem 0.4rem 0",
+                                                        color: "var(--fg-3)",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {source}
+                                                </td>
+                                                <td style={{ padding: "0.4rem 0 0.4rem 0", color: "var(--fg-2)" }}>
+                                                    {desc}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* ---- ProjectEntry Schema ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ps-project" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                ProjectEntry Schema
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Projects are first-class. The <code style={{ color: "var(--fg)" }}>hack:projects</code>{" "}
+                                key stores a JSON array of <code style={{ color: "var(--fg)" }}>ProjectEntry</code>{" "}
+                                objects. Only <code style={{ color: "var(--fg)" }}>name</code> and{" "}
+                                <code style={{ color: "var(--fg)" }}>desc</code> are required — everything else is
+                                optional to keep the barrier low.
+                            </p>
+                            <CodeBlock
+                                lang="typescript"
+                                code={`interface ProjectEntry {
+  // Required
+  name: string;          // project name, max 60 chars
+  desc: string;          // one-line description, max 120 chars
+
+  // At least one recommended
+  url?: string;          // live site / app URL
+  repo?: string;         // source repo URL
+
+  // Where it lives
+  environment?: "web" | "tezos" | "etherlink" | "tezlink" | "other";
+  address?: string;      // contract or account address
+
+  // Sub-subdomain reference
+  subdomain?: string;    // label only, no dots (e.g. "myproject")
+
+  // Project state
+  status?: "live" | "wip" | "archived" | "open-source";
+
+  // Media
+  logo?: string;         // image URL or ipfs:// URI (square icon)
+}`}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                <code style={{ color: "var(--fg)" }}>address</code> — interpreted by{" "}
+                                <code style={{ color: "var(--fg)" }}>environment</code>: KT1… for tezos, 0x… for
+                                etherlink/tezlink
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>environment</code> — defaults to{" "}
+                                <code style={{ color: "var(--fg)" }}>"web"</code> if omitted
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>status</code> — defaults to{" "}
+                                <code style={{ color: "var(--fg)" }}>"live"</code> if omitted
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>subdomain</code> — references a sub-subdomain under
+                                your domain (e.g. <code style={{ color: "var(--fg)" }}>myproject</code> →{" "}
+                                <code style={{ color: "var(--fg)" }}>myproject.name.hack.{tld}</code>)
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- Builder Status ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ps-status" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Builder Status
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                The <code style={{ color: "var(--fg)" }}>hack:status</code> key accepts one of these
+                                self-reported values:
+                            </p>
+                            <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+                                <table
+                                    style={{
+                                        width: "100%",
+                                        borderCollapse: "collapse",
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.7rem",
+                                    }}
+                                >
+                                    <caption className="sr-only">Builder status values</caption>
+                                    <thead>
+                                        <tr style={{ borderBottom: "1px solid var(--border-2)" }}>
+                                            {["value", "description"].map((h) => (
+                                                <th
+                                                    key={h}
+                                                    scope="col"
+                                                    style={{
+                                                        textAlign: "left",
+                                                        padding: "0.3rem 0.75rem 0.45rem 0",
+                                                        color: "var(--fg-3)",
+                                                        fontWeight: 700,
+                                                        letterSpacing: "0.1em",
+                                                        fontSize: "0.58rem",
+                                                        textTransform: "uppercase",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[
+                                            ["building", "Actively working on something"],
+                                            ["open-to-collab", "Looking for collaborators"],
+                                            ["available", "Open for work or projects"],
+                                            ["hiring", "Looking to hire builders"],
+                                        ].map(([value, desc]) => (
+                                            <tr key={value} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                <td style={{ padding: "0.4rem 0.75rem 0.4rem 0" }}>
+                                                    <code style={{ color: "var(--fg)", fontWeight: 700 }}>
+                                                        "{value}"
+                                                    </code>
+                                                </td>
+                                                <td style={{ padding: "0.4rem 0 0.4rem 0", color: "var(--fg-2)" }}>
+                                                    {desc}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* ---- Encoding Rules ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ps-encoding" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Encoding Rules
+                            </h3>
+                            <div
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.9,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "0.6rem",
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <p>
+                                    <strong style={{ color: "var(--fg)" }}>hack:* keys</strong> — stored as JSON-encoded
+                                    strings. Scalars are plain JSON string values; arrays (
+                                    <code style={{ color: "var(--fg)" }}>hack:skills</code>,{" "}
+                                    <code style={{ color: "var(--fg)" }}>hack:projects</code>) are{" "}
+                                    <code style={{ color: "var(--fg)" }}>JSON.stringify()</code> of the array. When
+                                    reading: parse as JSON. When writing:{" "}
+                                    <code style={{ color: "var(--fg)" }}>JSON.stringify(value)</code> → bytes.
+                                </p>
+                                <p>
+                                    <strong style={{ color: "var(--fg)" }}>TED native keys</strong> — stored as raw
+                                    bytes by the TED app. Write them as raw UTF-8 string bytes — no JSON wrapping.
+                                </p>
+                            </div>
+                            <div
+                                style={{
+                                    background: "color-mix(in srgb, var(--warn, #f59e0b) 8%, transparent)",
+                                    border: "1px solid color-mix(in srgb, var(--warn, #f59e0b) 30%, transparent)",
+                                    padding: "0.75rem 1rem",
+                                    marginBottom: "1rem",
+                                }}
+                            >
+                                <p
+                                    style={{
+                                        fontFamily: "var(--font)",
+                                        fontSize: "0.72rem",
+                                        color: "var(--fg-2)",
+                                        lineHeight: 1.8,
+                                        margin: 0,
+                                    }}
+                                >
+                                    <strong style={{ color: "var(--warn, #f59e0b)" }}>⚠ Critical:</strong> Never
+                                    re-encode TED native values through{" "}
+                                    <code style={{ color: "var(--fg)" }}>JSON.stringify()</code>. TED native keys may be
+                                    stored as raw bytes or in a different encoding. If you read a TED native value and
+                                    write it back through JSON.stringify(), you corrupt it. Only write keys your editor
+                                    owns.
+                                </p>
+                            </div>
+                            <CodeBlock
+                                lang="text"
+                                code={`# hack:* keys — JSON-encoded
+hack:bio       → "building tezos tooling"      (JSON string literal)
+hack:skills    → ["SmartPy","TypeScript"]       (JSON array)
+hack:projects  → [{"name":"...","desc":"..."}]  (JSON array of objects)
+
+# TED native keys — raw bytes (no JSON wrapping)
+github:username → alice                         (raw UTF-8 string)
+twitter:handle  → alice                         (raw UTF-8 string)`}
+                            />
+                        </div>
+                    </section>
+
+                    {/* ---- Safe Merge Rule ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ps-merge" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Safe Merge Rule
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                When updating a profile, always follow this merge strategy to avoid corrupting data
+                                written by other apps:
+                            </p>
+                            <div
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.76rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 2,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <ol
+                                    style={{
+                                        margin: 0,
+                                        paddingLeft: "1.25rem",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "0.15rem",
+                                    }}
+                                >
+                                    <li>
+                                        <strong style={{ color: "var(--fg)" }}>Read</strong> the current{" "}
+                                        <code style={{ color: "var(--fg)" }}>data</code> map from the domain record
+                                    </li>
+                                    <li>
+                                        <strong style={{ color: "var(--fg)" }}>Update</strong> only the keys your UI
+                                        touched
+                                    </li>
+                                    <li>
+                                        <strong style={{ color: "var(--fg)" }}>Preserve</strong> all other keys
+                                        byte-for-byte — pass through as-is, without re-encoding
+                                    </li>
+                                    <li>
+                                        <strong style={{ color: "var(--fg)" }}>Delete</strong> keys whose new value is
+                                        empty string or null
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* ---- Avatar Fallback ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ps-avatar" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Avatar Fallback Chain
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Avatars resolve through a three-step fallback chain. Every profile always has a visual
+                                identity, even if the user never uploads an image.
+                            </p>
+                            <div
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.76rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 2,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <ol
+                                    style={{
+                                        margin: 0,
+                                        paddingLeft: "1.25rem",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "0.15rem",
+                                    }}
+                                >
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>openid:picture</code> — if set, display
+                                        this URL (resolve <code style={{ color: "var(--fg)" }}>ipfs://</code> URIs via
+                                        gateway)
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>gravatar:hash</code> — if set, construct
+                                        Gravatar URL from the hash
+                                    </li>
+                                    <li>
+                                        <strong style={{ color: "var(--fg)" }}>Deterministic generated avatar</strong>{" "}
+                                        — generated from the domain label, always unique
+                                    </li>
+                                </ol>
+                            </div>
                         </div>
                     </section>
 

@@ -17,6 +17,7 @@ const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"))
 const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
+const Dashboard = lazy(() => import("./components/Dashboard"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -194,6 +195,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Hackers
                                     </a>
                                     <a
+                                        href="/manage"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Manage
+                                    </a>
+                                    <a
                                         href="/developers"
                                         role="menuitem"
                                         className="nav-drawer-link"
@@ -271,6 +280,7 @@ export function AppShell() {
                     <Route path="/skills/:slug" element={<Suspense fallback={null}><SkillDetail /></Suspense>} />
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
                     <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
+                    <Route path="/manage" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>

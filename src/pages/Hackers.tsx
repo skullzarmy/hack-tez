@@ -8,6 +8,13 @@ import type { BuilderStatus } from "../types/profile";
 
 // ── Constants ────────────────────────────────────────────────────────
 
+/** Only allow https:// and ipfs:// in rendered links */
+function safeHref(url: string | undefined): string | null {
+    if (!url) return null;
+    if (url.startsWith("https://") || url.startsWith("ipfs://")) return url;
+    return null;
+}
+
 const POLL_MS = 60_000;
 const PAGE_SIZE = 24;
 
@@ -313,8 +320,8 @@ function HackerCard({
                                 x
                             </LinkIcon>
                         )}
-                        {profile.website && (
-                            <LinkIcon href={profile.website} title={profile.website}>
+                        {safeHref(profile.website) && (
+                            <LinkIcon href={safeHref(profile.website)!} title={profile.website ?? ""}>
                                 web
                             </LinkIcon>
                         )}

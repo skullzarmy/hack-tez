@@ -26,7 +26,7 @@ const POLL_INTERVAL_MS = 60_000;
 
 async function fetchBuildersApi(): Promise<BuilderApiRecord[]> {
     try {
-        const res = await fetch("/api/v1/domains?limit=500&offset=0");
+        const res = await fetch("/api/v1/domains?limit=50&offset=0");
         if (!res.ok) return [];
         const json: { data: BuilderApiRecord[] } = await res.json();
         return json.data;

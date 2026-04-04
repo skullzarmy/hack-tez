@@ -217,7 +217,7 @@ export default function Home() {
                             marginBottom: "1rem",
                         }}
                     >
-                        // NOT A PLATFORM
+                        // MORE THAN A NAME
                     </h2>
                     <p className="section-body" style={{ marginBottom: "1rem" }}>
                         <strong>

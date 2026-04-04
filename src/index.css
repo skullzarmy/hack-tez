@@ -1711,7 +1711,7 @@ a:hover {
 /* --- STEP CARDS (How it works) ----------------------------- */
 .steps-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 0;
 }
 .step-card {
@@ -1724,6 +1724,11 @@ a:hover {
 }
 .step-card:first-child {
     border-left: 1px solid var(--border-2);
+}
+@media (max-width: 900px) {
+    .steps-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
 }
 @media (max-width: 640px) {
     .steps-grid {
@@ -2435,6 +2440,11 @@ a:hover {
         opacity: 0;
         transform: translateY(0.5rem);
     }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
 .toast-body {

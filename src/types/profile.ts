@@ -84,14 +84,6 @@ export function isValidLabel(label: string): boolean {
 
 // ── Parsing ──────────────────────────────────────────────────────────
 
-function tryParseJson(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
-  }
-}
-
 function isBuilderStatus(v: unknown): v is BuilderStatus {
   return typeof v === "string" && VALID_STATUSES.includes(v);
 }
@@ -116,40 +108,42 @@ function parseProjects(v: unknown): ProjectEntry[] | undefined {
 
 /**
  * Parse a TED GraphQL `data` array into a HackProfile.
- * Malformed JSON in hack:* values is silently skipped.
+ * TED GraphQL returns values already JSON-parsed (strings, arrays, etc.).
+ * Null values (failed decode) are skipped.
  */
 export function parseProfileFromData(
-  data: Array<{ key: string; value: string }>,
+  data: Array<{ key: string; value: unknown }>,
 ): HackProfile {
   const profile: HackProfile = {};
 
   for (const { key, value } of data) {
+    if (value === null || value === undefined) continue;
+
     const field = REVERSE_KEY_MAP.get(key);
     if (field === undefined) continue;
 
     if (isHackKey(key)) {
-      const parsed = tryParseJson(value);
-      if (parsed === undefined) continue;
-
+      // TED already JSON-parsed these — use values directly
       switch (field) {
         case "bio":
-          if (typeof parsed === "string") profile.bio = parsed.slice(0, 160);
+          if (typeof value === "string") profile.bio = value.slice(0, 160);
           break;
         case "location":
-          if (typeof parsed === "string") profile.location = parsed.slice(0, 60);
+          if (typeof value === "string") profile.location = value.slice(0, 60);
           break;
         case "status":
-          if (isBuilderStatus(parsed)) profile.status = parsed;
+          if (isBuilderStatus(value)) profile.status = value;
           break;
         case "skills":
-          profile.skills = parseStringArray(parsed, 10);
+          profile.skills = parseStringArray(value, 10);
           break;
         case "projects":
-          profile.projects = parseProjects(parsed);
+          profile.projects = parseProjects(value);
           break;
       }
     } else {
-      // TED native keys — raw string values
+      // TED native keys — values are already decoded strings
+      if (typeof value !== "string") continue;
       switch (field) {
         case "name":
           profile.name = value;
@@ -183,7 +177,7 @@ export function parseProfileFromData(
 
 /**
  * Convert a partial profile update to TED data entries.
- * hack:* values are JSON-encoded; TED native keys are raw strings.
+ * ALL values are JSON-encoded — TED's GraphQL JSON-parses data map bytes.
  * A null value signals deletion of that key.
  */
 export function profileToDataEntries(
@@ -203,11 +197,8 @@ export function profileToDataEntries(
       continue;
     }
 
-    if (isHackKey(tedKey)) {
-      entries.push({ key: tedKey, value: JSON.stringify(raw) });
-    } else {
-      entries.push({ key: tedKey, value: String(raw) });
-    }
+    // JSON.stringify all values — TED expects JSON-encoded bytes
+    entries.push({ key: tedKey, value: JSON.stringify(raw) });
   }
 
   return entries;

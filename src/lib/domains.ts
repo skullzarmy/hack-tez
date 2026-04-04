@@ -25,7 +25,7 @@ export interface SubdomainWithProfile {
     name: string;
     address: string | null;
     owner: string;
-    data: Array<{ key: string; value: string }>;
+    data: Array<{ key: string; value: unknown }>;
     profile: HackProfile;
 }
 
@@ -38,12 +38,12 @@ export async function getAllSubdomains(): Promise<SubdomainWithProfile[]> {
                 name: string;
                 address: string | null;
                 owner: string;
-                data: Array<{ key: string; value: string }>;
+                data: Array<{ key: string; value: unknown }>;
             }>;
         };
     }>(
         `query AllSubdomains($parent: String!) {
-      domains(where: { name: { endsWith: $parent } }, first: 500) {
+      domains(where: { name: { endsWith: $parent } }, first: 50) {
         items {
           name
           address
@@ -86,7 +86,7 @@ export interface SubdomainRecord {
     name: string;
     address: string | null;
     owner: string;
-    data: Array<{ key: string; value: string }>;
+    data: Array<{ key: string; value: unknown }>;
     profile: HackProfile;
 }
 
@@ -95,7 +95,7 @@ export interface DomainRecord {
     name: string;
     owner: string;
     address: string | null;
-    data: Array<{ key: string; value: string }>;
+    data: Array<{ key: string; value: unknown }>;
     profile: HackProfile;
     /** Raw gravatar hash from TED data (if set) */
     gravatar: string | null;
@@ -108,7 +108,7 @@ export async function getDomainRecord(name: string): Promise<DomainRecord | null
             name: string;
             owner: string;
             address: string | null;
-            data: Array<{ key: string; value: string }>;
+            data: Array<{ key: string; value: unknown }>;
         } | null;
     }>(
         `query DomainRecord($name: String!) {
@@ -122,14 +122,14 @@ export async function getDomainRecord(name: string): Promise<DomainRecord | null
         { name },
     );
     if (data.domain === null) return null;
-    const gravatar = data.domain.data.find((d) => d.key === "gravatar:hash")?.value ?? null;
+    const gravatar = data.domain.data.find((d) => d.key === "gravatar:hash")?.value;
     return {
         name: data.domain.name,
         owner: data.domain.owner,
         address: data.domain.address,
         data: data.domain.data,
         profile: parseProfileFromData(data.domain.data),
-        gravatar,
+        gravatar: typeof gravatar === "string" ? gravatar : null,
     };
 }
 export async function getSubdomainsByOwner(ownerAddress: string): Promise<SubdomainRecord[]> {
@@ -139,7 +139,7 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
                 name: string;
                 address: string | null;
                 owner: string;
-                data: Array<{ key: string; value: string }>;
+                data: Array<{ key: string; value: unknown }>;
             }>;
         };
     }>(
@@ -167,7 +167,7 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
 /** Fetch profile data for a specific domain name */
 export async function getDomainProfile(name: string): Promise<HackProfile | null> {
     const data = await gql<{
-        domain: { data: Array<{ key: string; value: string }> } | null;
+        domain: { data: Array<{ key: string; value: unknown }> } | null;
     }>(
         `query DomainProfile($name: String!) {
       domain(name: $name) {
@@ -272,12 +272,12 @@ export async function getSubSubdomains(parentName: string): Promise<SubdomainRec
                 name: string;
                 address: string | null;
                 owner: string;
-                data: Array<{ key: string; value: string }>;
+                data: Array<{ key: string; value: unknown }>;
             }>;
         };
     }>(
         `query SubSubdomains($parent: String!) {
-      domains(where: { name: { endsWith: $parent } }, first: 200) {
+      domains(where: { name: { endsWith: $parent } }, first: 50) {
         items {
           name
           address
