@@ -9,6 +9,8 @@ import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile"
 import { ipfsUriToGatewayUrl } from "../lib/pin";
 import config from "../config/tezos";
 import { useTedContracts } from "../hooks/useTedContracts";
+import { Globe } from "lucide-react";
+import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -289,7 +291,7 @@ function ProjectCard({ project }: { project: ProjectEntry }) {
     );
 }
 
-function LinkIcon({ href, label, icon }: { href: string; label: string; icon: string }) {
+function LinkIcon({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
     return (
         <a
             href={href}
@@ -310,7 +312,7 @@ function LinkIcon({ href, label, icon }: { href: string; label: string; icon: st
                 transition: "border-color 0.15s",
             }}
         >
-            <span style={{ fontSize: "0.9rem" }}>{icon}</span>
+            {icon}
             <span>{label}</span>
         </a>
     );
@@ -587,13 +589,13 @@ export default function Profile() {
                     {hasLinks && (
                         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
                             {profile.github && (
-                                <LinkIcon href={`https://github.com/${profile.github}`} label="GitHub" icon="⌥" />
+                                <LinkIcon href={`https://github.com/${profile.github}`} label="GitHub" icon={<SiGithub size={14} />} />
                             )}
                             {profile.twitter && (
-                                <LinkIcon href={`https://x.com/${profile.twitter}`} label="X / Twitter" icon="𝕏" />
+                                <LinkIcon href={`https://x.com/${profile.twitter}`} label="X / Twitter" icon={<SiX size={14} />} />
                             )}
                             {safeHref(profile.website) && (
-                                <LinkIcon href={safeHref(profile.website)!} label="Website" icon="↗" />
+                                <LinkIcon href={safeHref(profile.website)!} label="Website" icon={<Globe size={14} />} />
                             )}
                         </div>
                     )}
