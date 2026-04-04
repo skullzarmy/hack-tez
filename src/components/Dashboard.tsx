@@ -2,6 +2,7 @@ import { useTezos } from "../context/TezosContext";
 import { useSubdomains } from "../hooks/useSubdomains";
 import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
+import SubdomainManager from "./SubdomainManager";
 
 const TED_APP_URL = config.name === "mainnet" ? "https://app.tezos.domains" : "https://ghostnet.app.tezos.domains";
 
@@ -36,6 +37,7 @@ function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
                     Manage ↗
                 </a>
             </div>
+            <SubdomainManager domain={domain} />
         </div>
     );
 }
