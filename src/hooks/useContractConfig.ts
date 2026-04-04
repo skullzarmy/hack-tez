@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import config from "../config/tezos";
+import config, { getTedContracts } from "../config/tezos";
 
 interface ContractConfig {
     loading: boolean;
@@ -36,15 +36,23 @@ export function useContractConfig(): ContractConfig {
 
         fetch(`${config.tzktApi}/v1/contracts/${cacheKey}/storage`)
             .then((r) => r.json())
-            .then((storage) => {
-                const expected = config.expectedNameRegistry;
+            .then(async (storage) => {
+                // Our registrar stores the SetChildRecord proxy as name_registry.
+                // Verify it matches TED's actual proxy (discovered at runtime).
+                let tampered = false;
+                try {
+                    const ted = await getTedContracts();
+                    tampered = !!ted.setChildRecord && storage.name_registry !== ted.setChildRecord;
+                } catch {
+                    // Discovery failed — skip tamper check rather than false-positive
+                }
                 const result: ContractConfig = {
                     loading: false,
                     minCommitAgeSec: parseInt(storage.min_commit_age, 10) || DEFAULTS.minCommitAgeSec,
                     maxCommitAgeSec: parseInt(storage.max_commit_age, 10) || DEFAULTS.maxCommitAgeSec,
                     maxPerWallet: parseInt(storage.max_per_wallet, 10) || DEFAULTS.maxPerWallet,
                     paused: storage.paused === true,
-                    registryTampered: !!expected && storage.name_registry !== expected,
+                    registryTampered: tampered,
                 };
                 cache.set(cacheKey, { config: result, time: Date.now() });
                 setState(result);

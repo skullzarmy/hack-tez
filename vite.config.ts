@@ -72,7 +72,11 @@ function handleProbeDisconnects(): Plugin {
                     socket.destroy();
                     return;
                 }
-                socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+                if (!socket.destroyed && socket.writable) {
+                    socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+                } else {
+                    socket.destroy();
+                }
             });
         },
     };

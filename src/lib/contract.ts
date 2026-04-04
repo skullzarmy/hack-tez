@@ -12,8 +12,7 @@
 import type { DAppClient, TezosOperationType } from "@tezos-x/octez.connect-sdk";
 import type { HackProfile } from "../types/profile";
 import { profileToDataEntries } from "../types/profile";
-import { getDomainRecord } from "./domains";
-import config from "../config/tezos";
+import config, { getTedContracts } from "../config/tezos";
 
 /**
  * Poll TzKT until an operation is confirmed on-chain.
@@ -146,10 +145,38 @@ function stringToHex(str: string): string {
 }
 
 /**
+ * Fetch the raw data map for a domain record from TzKT bigmap.
+ * Returns a Map<string, string> of key → hex bytes, preserving
+ * every entry byte-for-byte (no JSON roundtrip through TED GraphQL).
+ */
+async function fetchRawDataMap(
+    nameRegistry: string,
+    fullName: string,
+): Promise<{ data: Map<string, string>; owner: string; address: string | null }> {
+    const nameHex = labelToHexBytes(fullName);
+    const url = `${config.tzktApi}/v1/contracts/${nameRegistry}/bigmaps/store.records/keys/${nameHex}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch raw record for ${fullName}`);
+    const item: {
+        value: {
+            owner: string;
+            address: string | null;
+            data: Record<string, string>;
+        };
+    } = await res.json();
+    const data = new Map<string, string>();
+    for (const [key, hexVal] of Object.entries(item.value.data)) {
+        data.set(key, hexVal);
+    }
+    return { data, owner: item.value.owner, address: item.value.address };
+}
+
+/**
  * Update a domain's profile data via the TED UpdateRecord proxy.
  *
- * Safe merge: reads the current on-chain data map, applies only the keys
- * the profile update touches, and preserves all other keys byte-for-byte.
+ * Safe merge: reads the raw on-chain data map from TzKT (hex bytes),
+ * applies only the keys the profile update touches, and preserves
+ * all other keys byte-for-byte — no lossy JSON roundtrip.
  *
  * Null values in the profile signal deletion of the corresponding data key.
  */
@@ -158,49 +185,41 @@ export async function submitProfileUpdate(
     profile: Partial<HackProfile>,
     client: DAppClient,
 ): Promise<string> {
-    const proxyAddress = config.updateRecordProxy;
+    const ted = await getTedContracts();
+    const proxyAddress = ted.updateRecord;
     if (!proxyAddress) {
-        throw new Error(`No UpdateRecord proxy configured for ${config.name}`);
+        throw new Error(`UpdateRecord proxy not found for ${config.name}`);
     }
 
     const fullName = `${label}.hack.${config.tld}`;
 
-    // 1. Fetch current domain record (data map, address, owner)
-    const record = await getDomainRecord(fullName);
-    if (!record) {
-        throw new Error(`Domain ${fullName} not found`);
-    }
+    // 1. Fetch raw data map from TzKT bigmap (hex bytes — no JSON roundtrip)
+    const raw = await fetchRawDataMap(ted.nameRegistry, fullName);
 
-    // 2. Build existing data map from GraphQL
-    //    TED returns JSON-parsed values — re-stringify for byte encoding
-    const mergedData = new Map<string, string>();
-    for (const { key, value } of record.data) {
-        if (value != null) {
-            mergedData.set(key, JSON.stringify(value));
-        }
-    }
+    // 2. Clone the raw hex map as our baseline (preserves foreign keys byte-for-byte)
+    const mergedHex = new Map(raw.data);
 
     // 3. Safe merge: apply only the keys the profile editor touched
     const entries = profileToDataEntries(profile);
     for (const { key, value } of entries) {
         if (value === null) {
-            mergedData.delete(key);
+            mergedHex.delete(key);
         } else {
-            mergedData.set(key, value);
+            mergedHex.set(key, stringToHex(value));
         }
     }
 
     // 4. Encode merged data as Michelson map (sorted by key for deterministic ordering)
-    const dataMap = Array.from(mergedData.entries())
+    const dataMap = Array.from(mergedHex.entries())
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, value]) => ({
+        .map(([key, hexValue]) => ({
             prim: "Elt" as const,
-            args: [{ string: key }, { bytes: stringToHex(value) }],
+            args: [{ string: key }, { bytes: hexValue }],
         }));
 
     // 5. Build address option (preserve the current resolution address)
-    const addressArg = record.address
-        ? { prim: "Some" as const, args: [{ string: record.address }] }
+    const addressArg = raw.address
+        ? { prim: "Some" as const, args: [{ string: raw.address }] }
         : { prim: "None" as const };
 
     // 6. Submit update_record to the TED UpdateRecord proxy
@@ -224,7 +243,7 @@ export async function submitProfileUpdate(
                                     {
                                         prim: "Pair",
                                         args: [
-                                            { string: record.owner },
+                                            { string: raw.owner },
                                             dataMap,
                                         ],
                                     },
@@ -252,6 +271,11 @@ export async function submitCreateSubdomain(
     client: DAppClient,
     redirectUrl?: string,
 ): Promise<string> {
+    const ted = await getTedContracts();
+    if (!ted.setChildRecord) {
+        throw new Error(`SetChildRecord proxy not found for ${config.name}`);
+    }
+
     const account = await client.getActiveAccount();
     if (!account?.address) {
         throw new Error("No active wallet account");
@@ -275,7 +299,7 @@ export async function submitCreateSubdomain(
         operationDetails: [
             {
                 kind: "transaction" as TezosOperationType.TRANSACTION,
-                destination: config.setChildRecordProxy,
+                destination: ted.setChildRecord,
                 amount: "0",
                 parameters: {
                     entrypoint: "set_child_record",

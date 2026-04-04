@@ -8,6 +8,7 @@ import type { DomainRecord } from "../lib/domains";
 import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile";
 import { ipfsUriToGatewayUrl } from "../lib/pin";
 import config from "../config/tezos";
+import { useTedContracts } from "../hooks/useTedContracts";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -345,6 +346,7 @@ function ProfileSkeleton() {
 export default function Profile() {
     const { subdomain } = useParams<{ subdomain: string }>();
     const { address: walletAddress } = useTezos();
+    const tedContracts = useTedContracts();
     const [record, setRecord] = useState<DomainRecord | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
@@ -494,7 +496,7 @@ export default function Profile() {
                     </div>
                 )}
 
-                {isOwner && !editState.editing && (
+                {isOwner && !editState.editing && tedContracts?.updateRecord && (
                     <button
                         type="button"
                         onClick={() => editState.enterEditMode(profile)}
