@@ -2,7 +2,7 @@
 /** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
 import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { TezosProvider } from "./context/TezosContext";
+import { TezosProvider, useTezos } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
@@ -137,6 +137,7 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
 
 function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
     const [open, setOpen] = useState(false);
+    const { domain } = useTezos();
 
     return (
         <nav className="nav" aria-label="Site navigation">
@@ -194,6 +195,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Hackers
                                     </a>
+                                    {domain && (
                                     <a
                                         href="/manage"
                                         role="menuitem"
@@ -202,6 +204,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Manage
                                     </a>
+                                    )}
                                     <a
                                         href="/developers"
                                         role="menuitem"
