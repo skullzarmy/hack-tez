@@ -3,11 +3,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useTezos } from "../context/TezosContext";
 import { getDomainRecord } from "../lib/domains";
+import { useProfileEdit, ProfileEditFormBody } from "../components/ProfileEditForm";
 import type { DomainRecord } from "../lib/domains";
 import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile";
 import config from "../config/tezos";
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+/** Only allow https:// and ipfs:// URLs in rendered links — blocks javascript:, data:, etc. */
+function safeHref(url: string | undefined): string | null {
+    if (!url) return null;
+    if (url.startsWith("https://") || url.startsWith("ipfs://")) return url;
+    return null;
+}
 
 function hashCode(str: string): number {
     let hash = 0;
@@ -227,9 +235,9 @@ function ProjectCard({ project }: { project: ProjectEntry }) {
             <p style={{ color: "var(--fg-2)", fontSize: "0.8rem", lineHeight: 1.5, margin: 0 }}>{project.desc}</p>
             {(project.url || project.repo || project.address) && (
                 <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", fontSize: "0.7rem" }}>
-                    {project.url && (
+                    {safeHref(project.url) && (
                         <a
-                            href={project.url}
+                            href={safeHref(project.url)!}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ color: "var(--ok)", textDecoration: "none" }}
@@ -237,9 +245,9 @@ function ProjectCard({ project }: { project: ProjectEntry }) {
                             ↗ Website
                         </a>
                     )}
-                    {project.repo && (
+                    {safeHref(project.repo) && (
                         <a
-                            href={project.repo}
+                            href={safeHref(project.repo)!}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ color: "var(--fg-2)", textDecoration: "none" }}
@@ -321,9 +329,16 @@ export default function Profile() {
     const [record, setRecord] = useState<DomainRecord | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const label = subdomain ?? "";
     const fullName = `${label}.hack.${config.tld}`;
+
+    const handleRefresh = useCallback(() => {
+        setRefreshKey((k) => k + 1);
+    }, []);
+
+    const editState = useProfileEdit(label, fullName, record, handleRefresh);
 
     useEffect(() => {
         if (!label) {
@@ -351,7 +366,7 @@ export default function Profile() {
         });
 
         return () => { cancelled = true; };
-    }, [label, fullName]);
+    }, [label, fullName, refreshKey]);
 
     // ── Loading State ────────────────────────────────────────────────
     if (loading) return <ProfileSkeleton />;
@@ -459,9 +474,10 @@ export default function Profile() {
                     </div>
                 )}
 
-                {isOwner && (
-                    <a
-                        href="#edit"
+                {isOwner && !editState.editing && (
+                    <button
+                        type="button"
+                        onClick={() => editState.enterEditMode(profile)}
                         style={{
                             marginTop: "0.25rem",
                             fontSize: "0.7rem",
@@ -472,96 +488,140 @@ export default function Profile() {
                             padding: "0.25rem 0.75rem",
                             letterSpacing: "0.06em",
                             textTransform: "uppercase",
+                            background: "none",
+                            cursor: "pointer",
+                            fontFamily: "var(--font)",
                         }}
                     >
                         Edit profile
-                    </a>
+                    </button>
+                )}
+
+                {editState.editing && (
+                    <span
+                        style={{
+                            marginTop: "0.25rem",
+                            fontSize: "0.65rem",
+                            color: "var(--ok)",
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            fontWeight: 700,
+                        }}
+                    >
+                        ● Editing
+                    </span>
+                )}
+
+                {editState.submitSuccess && (
+                    <div
+                        style={{
+                            marginTop: "0.25rem",
+                            background: "rgba(34,197,94,0.1)",
+                            border: "1px solid rgba(34,197,94,0.25)",
+                            borderRadius: "6px",
+                            padding: "0.4rem 0.8rem",
+                            fontSize: "0.75rem",
+                            color: "var(--ok)",
+                        }}
+                    >
+                        Profile saved successfully!
+                    </div>
                 )}
             </header>
 
-            {/* ── Empty Profile ────────────────────────────────────── */}
-            {!hasProfileData && (
-                <div style={{ textAlign: "center", padding: "2rem 0" }}>
-                    <p style={{ color: "var(--fg-3)", fontSize: "0.85rem" }}>
-                        This hacker hasn't set up their profile yet.
-                    </p>
-                </div>
+            {/* ── Edit Mode ───────────────────────────────────────── */}
+            {editState.editing && (
+                <ProfileEditFormBody state={editState} />
             )}
 
-            {/* ── Bio ─────────────────────────────────────────────── */}
-            {profile.bio && (
-                <section style={{ marginBottom: "1.5rem" }}>
-                    <p style={{ color: "var(--fg)", fontSize: "0.9rem", lineHeight: 1.6 }}>{profile.bio}</p>
-                </section>
-            )}
-
-            {/* ── Location ────────────────────────────────────────── */}
-            {profile.location && (
-                <div style={{ marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                    <span style={{ fontSize: "0.85rem" }} aria-hidden="true">◉</span>
-                    <span style={{ color: "var(--fg-2)", fontSize: "0.8rem" }}>{profile.location}</span>
-                </div>
-            )}
-
-            {/* ── Links ───────────────────────────────────────────── */}
-            {hasLinks && (
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-                    {profile.github && (
-                        <LinkIcon href={`https://github.com/${profile.github}`} label="GitHub" icon="⌥" />
+            {/* ── View Mode ───────────────────────────────────────── */}
+            {!editState.editing && (
+                <>
+                    {/* ── Empty Profile ──────────────────────────────── */}
+                    {!hasProfileData && (
+                        <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                            <p style={{ color: "var(--fg-3)", fontSize: "0.85rem" }}>
+                                This hacker hasn't set up their profile yet.
+                            </p>
+                        </div>
                     )}
-                    {profile.twitter && (
-                        <LinkIcon href={`https://x.com/${profile.twitter}`} label="X / Twitter" icon="𝕏" />
-                    )}
-                    {profile.website && (
-                        <LinkIcon href={profile.website} label="Website" icon="↗" />
-                    )}
-                </div>
-            )}
 
-            {/* ── Skills ──────────────────────────────────────────── */}
-            {profile.skills && profile.skills.length > 0 && (
-                <section style={{ marginBottom: "1.5rem" }}>
-                    <h2
-                        style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.75rem",
-                            color: "var(--fg-3)",
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            marginBottom: "0.6rem",
-                        }}
-                    >
-                        Skills
-                    </h2>
-                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                        {profile.skills.map((skill) => (
-                            <SkillChip key={skill} skill={skill} />
-                        ))}
-                    </div>
-                </section>
-            )}
+                    {/* ── Bio ────────────────────────────────────────── */}
+                    {profile.bio && (
+                        <section style={{ marginBottom: "1.5rem" }}>
+                            <p style={{ color: "var(--fg)", fontSize: "0.9rem", lineHeight: 1.6 }}>{profile.bio}</p>
+                        </section>
+                    )}
 
-            {/* ── Projects ────────────────────────────────────────── */}
-            {profile.projects && profile.projects.length > 0 && (
-                <section>
-                    <h2
-                        style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.75rem",
-                            color: "var(--fg-3)",
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            marginBottom: "0.6rem",
-                        }}
-                    >
-                        Projects
-                    </h2>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        {profile.projects.map((project) => (
-                            <ProjectCard key={project.name} project={project} />
-                        ))}
-                    </div>
-                </section>
+                    {/* ── Location ───────────────────────────────────── */}
+                    {profile.location && (
+                        <div style={{ marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            <span style={{ fontSize: "0.85rem" }} aria-hidden="true">◉</span>
+                            <span style={{ color: "var(--fg-2)", fontSize: "0.8rem" }}>{profile.location}</span>
+                        </div>
+                    )}
+
+                    {/* ── Links ──────────────────────────────────────── */}
+                    {hasLinks && (
+                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
+                            {profile.github && (
+                                <LinkIcon href={`https://github.com/${profile.github}`} label="GitHub" icon="⌥" />
+                            )}
+                            {profile.twitter && (
+                                <LinkIcon href={`https://x.com/${profile.twitter}`} label="X / Twitter" icon="𝕏" />
+                            )}
+                            {safeHref(profile.website) && (
+                                <LinkIcon href={safeHref(profile.website)!} label="Website" icon="↗" />
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Skills ─────────────────────────────────────── */}
+                    {profile.skills && profile.skills.length > 0 && (
+                        <section style={{ marginBottom: "1.5rem" }}>
+                            <h2
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.75rem",
+                                    color: "var(--fg-3)",
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    marginBottom: "0.6rem",
+                                }}
+                            >
+                                Skills
+                            </h2>
+                            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                                {profile.skills.map((skill) => (
+                                    <SkillChip key={skill} skill={skill} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* ── Projects ───────────────────────────────────── */}
+                    {profile.projects && profile.projects.length > 0 && (
+                        <section>
+                            <h2
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.75rem",
+                                    color: "var(--fg-3)",
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    marginBottom: "0.6rem",
+                                }}
+                            >
+                                Projects
+                            </h2>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                {profile.projects.map((project) => (
+                                    <ProjectCard key={project.name} project={project} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+                </>
             )}
         </div>
     );
