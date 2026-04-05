@@ -1,0 +1,17 @@
+{
+  "$schema": "https://www.partykit.io/schema.json",
+  "name": "hackchat",
+  "main": "src/party/global.ts",
+  "parties": {
+    "dm": "src/party/dm.ts"
+  },
+  "compatibilityDate": "2026-04-05",
+  "bindings": {
+    "d1_databases": {
+      "DB": {
+        "database_name": "hackchat",
+        "database_id": "5d4ab6a5-ca41-4dd5-ab24-7a5efe175ed1"
+      }
+    }
+  }
+}

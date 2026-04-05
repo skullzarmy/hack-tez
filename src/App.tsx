@@ -18,6 +18,7 @@ const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
+const Chat = lazy(() => import("./components/chat/ChatPage"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -205,6 +206,16 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Manage
                                     </a>
                                     )}
+                                    {domain && (
+                                    <a
+                                        href="/chat"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Chat
+                                    </a>
+                                    )}
                                     <a
                                         href="/developers"
                                         role="menuitem"
@@ -284,6 +295,7 @@ export function AppShell() {
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
                     <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
                     <Route path="/manage" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+                    <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>

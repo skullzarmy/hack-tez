@@ -1,0 +1,27 @@
+{
+  "name": "hackchat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:party": "partykit dev",
+    "deploy": "wrangler deploy",
+    "deploy:party": "partykit deploy",
+    "db:migrate:local": "wrangler d1 execute hackchat --local --file=./migrations/0001_initial.sql",
+    "db:migrate:remote": "wrangler d1 execute hackchat --remote --file=./migrations/0001_initial.sql",
+    "db:query": "wrangler d1 execute hackchat --remote",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.0.0",
+    "@taquito/utils": "^24.2.0"
+  },
+  "devDependencies": {
+    "partykit": "^0.0.111",
+    "wrangler": "^4.0.0",
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "~5.9.3"
+  }
+}

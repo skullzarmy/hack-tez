@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hackchat",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-04-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hackchat",
+      "database_id": "5d4ab6a5-ca41-4dd5-ab24-7a5efe175ed1"
+    }
+  ]
+  // TODO: Add custom domain route when fafolab.xyz is in Cloudflare
+  // "routes": [
+  //   { "pattern": "hackchat.fafolab.xyz/*", "zone_name": "fafolab.xyz" }
+  // ]
+}

@@ -13,6 +13,7 @@ interface ChatMessage {
 interface UseChatConfig {
     token: string;
     activeDomain: string;
+    onIdentitySwitched?: (domain: string) => void;
 }
 
 interface UseChatReturn {
@@ -25,6 +26,8 @@ interface UseChatReturn {
     onlineUsers: string[];
     typingUsers: string[];
     sendTyping: (active: boolean) => void;
+    activeDomain: string;
+    switchIdentity: (domain: string) => void;
 }
 
 export function useChat(config: UseChatConfig): UseChatReturn {
@@ -35,8 +38,11 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     const [hasMore, setHasMore] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
+    const [currentDomain, setCurrentDomain] = useState(activeDomain);
     const wsRef = useRef<PartySocket | null>(null);
     const historyLoadedRef = useRef(false);
+    const onSwitchRef = useRef(config.onIdentitySwitched);
+    onSwitchRef.current = config.onIdentitySwitched;
 
     useEffect(() => {
         const ws = new PartySocket({
@@ -110,9 +116,23 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                     });
                     break;
                 }
-                case "system":
+                case "system": {
+                    const sysMsg: ChatMessage = {
+                        id: `sys-${Date.now()}`,
+                        sender: "__system__",
+                        content: data.content as string,
+                        timestamp: data.timestamp as string ?? new Date().toISOString(),
+                    };
+                    setMessages((prev) => [...prev, sysMsg]);
+                    break;
+                }
+                case "identity-switched": {
+                    const newDomain = data.domain as string;
+                    setCurrentDomain(newDomain);
+                    onSwitchRef.current?.(newDomain);
+                    break;
+                }
                 case "error":
-                    // Could handle these, but not required for core chat
                     break;
             }
         });
@@ -152,10 +172,17 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     useEffect(() => {
         if (isConnected) {
             setOnlineUsers((prev) =>
-                prev.includes(activeDomain) ? prev : [...prev, activeDomain],
+                prev.includes(currentDomain) ? prev : [...prev, currentDomain],
             );
         }
-    }, [isConnected, activeDomain]);
+    }, [isConnected, currentDomain]);
+
+    const switchIdentity = useCallback(
+        (domain: string) => {
+            wsRef.current?.send(JSON.stringify({ type: "switch-identity", domain }));
+        },
+        [],
+    );
 
     return {
         messages,
@@ -167,5 +194,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         onlineUsers,
         typingUsers,
         sendTyping,
+        activeDomain: currentDomain,
+        switchIdentity,
     };
 }
