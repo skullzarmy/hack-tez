@@ -135,8 +135,10 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
   let valid: boolean;
   try {
     valid = await verifyTezosSignature({ address, publicKey, signature, timestamp, nonce });
-  } catch {
-    return errorResponse(request, "Signature verification failed", "SIG_VERIFY_ERROR", 400);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("Signature verification threw:", detail);
+    return errorResponse(request, `Signature verification failed: ${detail}`, "SIG_VERIFY_ERROR", 400);
   }
 
   if (!valid) {
