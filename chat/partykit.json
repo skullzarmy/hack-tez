@@ -10,7 +10,7 @@
     "d1_databases": {
       "DB": {
         "database_name": "hackchat",
-        "database_id": "5d4ab6a5-ca41-4dd5-ab24-7a5efe175ed1"
+        "database_id": "YOUR_D1_DATABASE_ID"
       }
     }
   }

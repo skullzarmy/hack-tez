@@ -1,0 +1,4 @@
+# Generate a random 64-char secret: openssl rand -hex 32
+CHAT_JWT_SECRET=
+# ghostnet (default) or mainnet
+TEZOS_NETWORK=ghostnet
