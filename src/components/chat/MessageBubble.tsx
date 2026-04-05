@@ -49,11 +49,12 @@ function formatContent(raw: string): ReactNode[] {
             parts.push(
                 <code
                     key={key++}
-                    className="px-1.5 py-0.5 text-xs"
+                    className="text-xs"
                     style={{
                         background: "rgba(255,255,255,0.12)",
                         border: "1px solid var(--border, rgba(255,255,255,0.1))",
                         fontFamily: "var(--font-mono)",
+                        padding: "2px 6px",
                     }}
                 >
                     {seg.slice(1, -1)}
@@ -88,7 +89,7 @@ function formatContent(raw: string): ReactNode[] {
 function SystemMessage({ content, timestamp }: { content: string; timestamp: string }) {
     const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
     return (
-        <div className="flex items-center gap-3 py-2" role="article" aria-label={`System: ${content}`}>
+        <div className="flex items-center" style={{ padding: "8px 0", gap: "12px" }} role="article" aria-label={`System: ${content}`}>
             <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
             <span
                 className="text-[11px] uppercase tracking-widest shrink-0"
@@ -99,7 +100,7 @@ function SystemMessage({ content, timestamp }: { content: string; timestamp: str
                 }}
             >
                 {content}
-                <span className="ml-2 opacity-60">{relativeTime}</span>
+                <span className="opacity-60" style={{ marginLeft: "8px" }}>{relativeTime}</span>
             </span>
             <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
         </div>
@@ -118,22 +119,24 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
         <div
             role="article"
             aria-label={`Message from ${sender}`}
-            className={`flex flex-col gap-1 max-w-[95%] md:max-w-[80%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}
+            className={`flex flex-col max-w-[95%] md:max-w-[80%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}
+            style={{ gap: "4px" }}
         >
             <span
-                className="text-xs font-bold uppercase tracking-widest px-1"
+                className="text-xs font-bold uppercase tracking-widest"
                 style={{
                     color: isOwn ? "var(--accent, #00ffc8)" : "var(--fg-2, rgba(255,255,255,0.6))",
                     fontFamily: "var(--font-mono)",
                     fontSize: "10px",
                     letterSpacing: "0.12em",
+                    padding: "0 4px",
                 }}
             >
                 {sender}
             </span>
 
             <div
-                className="px-4 py-2.5 text-sm break-words"
+                className="text-sm break-words"
                 style={{
                     background: isOwn
                         ? "rgba(0, 255, 200, 0.08)"
@@ -143,17 +146,19 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
                         : "2px solid var(--border-2, #333)",
                     fontFamily: "var(--font)",
                     lineHeight: "1.6",
+                    padding: "10px 16px",
                 }}
             >
                 {formattedContent}
             </div>
 
             <span
-                className="text-xs px-1 uppercase tracking-wide"
+                className="text-xs uppercase tracking-wide"
                 style={{
                     color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "10px",
+                    padding: "0 4px",
                 }}
             >
                 {relativeTime}

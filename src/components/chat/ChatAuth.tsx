@@ -59,11 +59,12 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
 
     return (
         <div
-            className="flex flex-col items-center justify-center gap-6"
+            className="flex flex-col items-center justify-center"
             style={{
                 flex: "1 1 0",
                 fontFamily: "var(--font)",
                 padding: "clamp(1.5rem, 4vw, 3rem)",
+                gap: "24px",
             }}
         >
             <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
@@ -71,7 +72,7 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
                 className="text-sm font-bold uppercase tracking-widest text-center"
                 style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
             >
-                Sign to verify your hack.tez identity
+                Sign to verify your hackchat identity
             </h2>
             <p
                 className="text-xs text-center max-w-md"
@@ -83,13 +84,15 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
 
             {error && (
                 <div
-                    className="flex items-center gap-2 px-4 py-2 text-xs"
+                    className="flex items-center text-xs"
                     role="alert"
                     style={{
                         background: "rgba(255,107,107,0.08)",
                         border: "1px solid var(--err, #ff6b6b)",
                         color: "var(--err, #ff6b6b)",
                         fontFamily: "var(--font-mono)",
+                        padding: "8px 16px",
+                        gap: "8px",
                     }}
                 >
                     <AlertTriangle size={14} aria-hidden="true" />

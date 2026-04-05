@@ -142,11 +142,12 @@ export default function ChatPage() {
     if (!address || !client) {
         return (
             <div
-                className="flex flex-col items-center justify-center gap-6"
+                className="flex flex-col items-center justify-center"
                 style={{
                     flex: "1 1 0",
                     fontFamily: "var(--font)",
                     padding: "clamp(1.5rem, 4vw, 3rem)",
+                    gap: "24px",
                 }}
             >
                 <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />
@@ -154,7 +155,7 @@ export default function ChatPage() {
                     className="text-sm font-bold uppercase tracking-widest text-center"
                     style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
                 >
-                    Connect your wallet to enter hack.tez chat
+                    Connect your wallet to enter hackchat
                 </h2>
                 <button
                     type="button"

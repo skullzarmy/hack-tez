@@ -161,13 +161,14 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 <div className="flex flex-col flex-1 min-w-0">
                     {/* Header */}
                     <header
-                        className="flex items-center justify-between px-5 md:px-6 shrink-0"
+                        className="flex items-center justify-between shrink-0"
                         style={{
                             borderBottom: "1px solid var(--border-2, #333)",
                             minHeight: "56px",
+                            padding: "0 24px",
                         }}
                     >
-                        <div className="flex items-center gap-2 md:gap-3">
+                        <div className="flex items-center" style={{ gap: "12px" }}>
                             {/* Mobile hamburger */}
                             <button
                                 type="button"
@@ -190,11 +191,11 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 className="text-sm font-bold uppercase tracking-widest"
                                 style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}
                             >
-                                hack.tez chat
+                                hackchat
                             </span>
                             <span
-                                className="flex items-center gap-1 text-xs uppercase tracking-wide"
-                                style={{ color: "var(--fg-3, #888)", letterSpacing: "0.08em" }}
+                            className="flex items-center text-xs uppercase tracking-wide"
+                                style={{ color: "var(--fg-3, #888)", letterSpacing: "0.08em", gap: "4px" }}
                                 aria-label={`${onlineUsers.length} users online`}
                             >
                                 <Users size={12} aria-hidden="true" />
@@ -212,13 +213,15 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     {!isConnected && (
                         <div
                             role="alert"
-                            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest shrink-0"
+                            className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0"
                             style={{
                                 background: "var(--warn-bg, rgba(255,209,102,0.08))",
                                 borderBottom: "1px solid var(--warn, #ffd166)",
                                 color: "var(--warn, #ffd166)",
                                 fontFamily: "var(--font-mono)",
                                 letterSpacing: "0.1em",
+                                padding: "8px 16px",
+                                gap: "8px",
                             }}
                         >
                             <AlertTriangle size={14} aria-hidden="true" />
@@ -233,11 +236,12 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                         role="log"
                         aria-label="Chat messages"
                         aria-live="polite"
-                        className="flex-1 overflow-y-auto px-5 md:px-6 py-5 flex flex-col gap-4"
+                        className="flex-1 overflow-y-auto flex flex-col"
+                        style={{ padding: "20px 24px", gap: "16px" }}
                     >
                         {/* Load more indicator */}
                         {isLoading && (
-                            <div className="flex justify-center py-2" aria-label="Loading older messages">
+                            <div className="flex justify-center" style={{ padding: "8px 0" }} aria-label="Loading older messages">
                                 <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-3, #888)" }} />
                             </div>
                         )}
@@ -265,9 +269,9 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
 
                         {/* Empty state */}
                         {messages.length === 0 && !isLoading && (
-                            <div className="flex-1 flex items-center justify-center px-4">
+                            <div className="flex-1 flex items-center justify-center" style={{ padding: "0 16px" }}>
                                 <div className="text-center" style={{ color: "var(--fg-3, #888)" }}>
-                                    <MessageCircle size={48} className="mx-auto mb-4 opacity-20" aria-hidden="true" />
+                                    <MessageCircle size={48} className="opacity-20" style={{ margin: "0 auto 16px" }} aria-hidden="true" />
                                     <p
                                         className="text-xs uppercase tracking-widest font-bold"
                                         style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
@@ -275,8 +279,8 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                         No messages yet
                                     </p>
                                     <p
-                                        className="text-xs mt-2"
-                                        style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)" }}
+                                        className="text-xs"
+                                        style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)", marginTop: "8px" }}
                                     >
                                         be the first to say something
                                     </p>
@@ -301,13 +305,14 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     {/* Typing indicator */}
                     {filteredTyping.length > 0 && (
                         <div
-                            className="px-6 py-1.5 text-xs uppercase tracking-wide"
+                            className="text-xs uppercase tracking-wide"
                             aria-live="polite"
                             style={{
                                 color: "var(--fg-3, #888)",
                                 fontFamily: "var(--font-mono)",
                                 fontSize: "10px",
                                 letterSpacing: "0.08em",
+                                padding: "6px 28px",
                             }}
                         >
                             {filteredTyping.length === 1
