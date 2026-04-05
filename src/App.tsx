@@ -144,7 +144,10 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
         <nav className="nav" aria-label="Site navigation">
             <div className="container nav-inner">
                 <a href="/" className="nav-logo" aria-label="hack.tez home">
-                    HACK<span className="dot-tez">.TEZ</span>
+                    <picture>
+                        <source srcSet="/hacktez-anim.gif" type="image/gif" />
+                        <img src="/hacktez-static.jpg" alt="hack.tez" style={{ height: "2rem" }} />
+                    </picture>
                 </a>
 
                 <div className="nav-actions">
@@ -179,14 +182,6 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         onClick={() => setOpen(false)}
                                     >
                                         Home
-                                    </a>
-                                    <a
-                                        href="/manifesto"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Manifesto
                                     </a>
                                     <a
                                         href="/hackers"
@@ -239,6 +234,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         onClick={() => setOpen(false)}
                                     >
                                         Policies
+                                    </a>
+                                    <a
+                                        href="/manifesto"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Manifesto
                                     </a>
                                 </div>
                             </div>
