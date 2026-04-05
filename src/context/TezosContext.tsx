@@ -134,11 +134,16 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             // BCD pattern: check for existing active account first
             const existing = await c.getActiveAccount();
             if (existing) {
-                await hydrateAccount(existing.address);
-                return;
+                // Re-request permissions if existing session lacks SIGN scope
+                // (needed for chat auth on mobile wallets)
+                const hasSign = existing.scopes?.includes(sdk.PermissionScope.SIGN);
+                if (hasSign) {
+                    await hydrateAccount(existing.address);
+                    return;
+                }
             }
 
-            const scopes = [sdk.PermissionScope.OPERATION_REQUEST];
+            const scopes = [sdk.PermissionScope.OPERATION_REQUEST, sdk.PermissionScope.SIGN];
             await c.requestPermissions({ scopes });
 
             const account = await c.getActiveAccount();

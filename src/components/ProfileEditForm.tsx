@@ -725,10 +725,13 @@ export function useProfileEdit(
         }
     }, [searchParams, record, walletAddress, editing, setSearchParams]);
 
-    // Unsaved changes warning
+    // Unsaved changes warning — suppressed during wallet operations (mobile deep-links
+    // to the wallet app, which triggers beforeunload)
+    const walletActiveRef = useRef(false);
     useEffect(() => {
         if (!hasChanges) return;
         const handler = (e: BeforeUnloadEvent) => {
+            if (walletActiveRef.current) return;
             e.preventDefault();
         };
         window.addEventListener("beforeunload", handler);
@@ -861,8 +864,10 @@ export function useProfileEdit(
 
             if (filesToPin.length > 0) {
                 setSaveStatus("Uploading images to IPFS…");
+                walletActiveRef.current = true;
                 const { pinFiles } = await import("../lib/pin");
                 const results = await pinFiles(filesToPin, client);
+                walletActiveRef.current = false;
 
                 for (let i = 0; i < results.length; i++) {
                     const ipfsUri = `ipfs://${results[i].cid}`;
@@ -880,7 +885,9 @@ export function useProfileEdit(
             }
 
             setSaveStatus("Confirm transaction in wallet…");
+            walletActiveRef.current = true;
             const opHash = await submitProfileUpdate(label, finalForm, client);
+            walletActiveRef.current = false;
             setSubmitSuccess(true);
             exitEditMode();
 
@@ -919,6 +926,7 @@ export function useProfileEdit(
             setSubmitError(msg);
             setSaveStatus(null);
         } finally {
+            walletActiveRef.current = false;
             setSubmitting(false);
         }
     }
