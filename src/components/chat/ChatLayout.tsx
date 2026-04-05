@@ -122,8 +122,11 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         <div
             className="flex"
             style={{
-                height: "calc(100dvh - 60px)",
+                flex: "1 1 auto",
                 fontFamily: "var(--font)",
+                margin: "clamp(0px, 1vw, 8px)",
+                border: "1px solid var(--border-2, #333)",
+                overflow: "hidden",
             }}
         >
             <ChatSidebar

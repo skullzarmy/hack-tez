@@ -253,7 +253,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
 function ActivityLayer() {
     const location = useLocation();
     const { events, newEvents, isLoading } = useRecentActivity();
-    if (location.pathname === "/developers") return null;
+    if (location.pathname === "/developers" || location.pathname === "/chat") return null;
     return (
         <>
             {/* Desktop: fixed side panel (lg+ only, hidden via CSS on smaller screens) */}
@@ -270,6 +270,8 @@ function ActivityLayer() {
 
 export function AppShell() {
     const { theme, setTheme } = useTheme();
+    const location = useLocation();
+    const isChat = location.pathname === "/chat";
 
     return (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
@@ -285,7 +287,16 @@ export function AppShell() {
             <Nav theme={theme} setTheme={setTheme} />
 
             {/* Main content */}
-            <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
+            <main
+                id="main-content"
+                tabIndex={-1}
+                style={{
+                    flex: "1 1 auto",
+                    display: isChat ? "flex" : undefined,
+                    flexDirection: isChat ? "column" : undefined,
+                    overflow: isChat ? "hidden" : undefined,
+                }}
+            >
                 <Routes>
                     <Route path="/manifesto" element={<Manifesto />} />
                     <Route path="/hackers" element={<Hackers />} />
@@ -302,7 +313,7 @@ export function AppShell() {
             </main>
 
             <ActivityLayer />
-            <Footer />
+            {!isChat && <Footer />}
         </div>
     );
 }
