@@ -186,6 +186,11 @@ export default function Home() {
                                     title: "Claim",
                                     desc: `After the ${waitDescription} commitment window, return to finalize registration. Commitment expires after ${maxAgeDescription} — don't wait too long.`,
                                 },
+                                {
+                                    step: "Step 05",
+                                    title: "Profile",
+                                    desc: "Set up your hacker profile — add your bio, skills, and projects. Share it.",
+                                },
                             ].map((item) => (
                                 <div key={item.step} className="step-card" role="listitem">
                                     <span className="step-num" aria-hidden="true">
@@ -212,7 +217,7 @@ export default function Home() {
                             marginBottom: "1rem",
                         }}
                     >
-                        // NOT A PLATFORM
+                        // MORE THAN A NAME
                     </h2>
                     <p className="section-body" style={{ marginBottom: "1rem" }}>
                         <strong>

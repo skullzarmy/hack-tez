@@ -162,6 +162,40 @@ export default function Policies() {
 
                 <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
 
+                {/* Profile content */}
+                <section>
+                    <h2
+                        style={{
+                            fontFamily: "var(--font)",
+                            fontSize: "0.62rem",
+                            fontWeight: 700,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                            color: "var(--fg-3)",
+                            marginBottom: "0.75rem",
+                        }}
+                    >
+                        Profile content
+                    </h2>
+                    <p>
+                        Profile data — bios, links, skills, project descriptions, avatars — falls under the same
+                        moderation policy as subdomain names. We'll remove content that exists to harm, harass, or
+                        deceive. Same threshold, same approach.
+                    </p>
+                    <p>
+                        A few things to know: IPFS-pinned images are permanent. If we remove a profile's reference to
+                        an IPFS avatar or logo, the underlying content still exists on the network. We can't delete
+                        it — nobody can. We can only remove the TED record pointing to it.
+                    </p>
+                    <p>
+                        Status, skills, and linked accounts (GitHub, X) are self-reported and unverified. We don't
+                        check that a GitHub username actually belongs to the wallet owner, or that someone claiming
+                        "available" is actually available. Treat profile data as claims, not facts.
+                    </p>
+                </section>
+
+                <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+
                 {/* No warranties */}
                 <section>
                     <h2

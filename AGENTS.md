@@ -50,7 +50,11 @@ Both must exit 0. Never commit with type errors.
 | `src/lib/contract.ts`          | `submitCommit()` and `submitRegister()` — raw Michelson ops via DAppClient |
 | `src/lib/commitment.ts`        | blake2b commitment hash (must match on-chain computation)                  |
 | `src/context/TezosContext.tsx` | Wallet state via `@tezos-x/octez.connect-sdk` (Beacon)                     |
+| `src/types/profile.ts`        | Profile types, parsing, validation                                         |
+| `src/lib/signing.ts`          | Wallet message signing for authenticated requests                          |
+| `src/lib/pin.ts`              | Pinata upload client                                                       |
 | `netlify/functions/api.mts`    | Public REST API — all `/api/*` routes (Netlify v2 function)                |
+| `netlify/functions/pin.mts`   | Authenticated IPFS pin proxy                                               |
 | `netlify.toml`                 | Build config, SPA redirect, security headers/CSP                           |
 
 ---
@@ -126,6 +130,7 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 | `VITE_TEZOS_NETWORK`     | Frontend + API function | `ghostnet` (default) or `mainnet`                 |
 | `VITE_REGISTRAR_ADDRESS` | Frontend + API function | Contract address override                         |
 | `TEZOS_WALLET_PUB_KEY`   | Deploy scripts only     | Actually the `edsk...` secret key (legacy naming) |
+| `PINATA_JWT`             | Netlify server-only     | Pinata API JWT token for IPFS pinning             |
 
 ---
 

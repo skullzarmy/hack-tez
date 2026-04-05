@@ -2,7 +2,7 @@
 /** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
 import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { TezosProvider } from "./context/TezosContext";
+import { TezosProvider, useTezos } from "./context/TezosContext";
 import ConnectWallet from "./components/ConnectWallet";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
@@ -16,6 +16,8 @@ const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
 const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"));
 const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Dashboard = lazy(() => import("./components/Dashboard"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -135,6 +137,7 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
 
 function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
     const [open, setOpen] = useState(false);
+    const { domain } = useTezos();
 
     return (
         <nav className="nav" aria-label="Site navigation">
@@ -192,6 +195,16 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Hackers
                                     </a>
+                                    {domain && (
+                                    <a
+                                        href="/manage"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Manage
+                                    </a>
+                                    )}
                                     <a
                                         href="/developers"
                                         role="menuitem"
@@ -269,6 +282,8 @@ export function AppShell() {
                     <Route path="/policies" element={<Policies />} />
                     <Route path="/skills/:slug" element={<Suspense fallback={null}><SkillDetail /></Suspense>} />
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
+                    <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
+                    <Route path="/manage" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>

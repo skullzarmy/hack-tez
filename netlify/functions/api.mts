@@ -3,6 +3,7 @@
  *
  * Routes:
  *   GET /api/v1/domain/:name        — domain record by full name or label
+ *   GET /api/v1/profile/:name       — domain record + parsed profile data
  *   GET /api/v1/availability/:label — check if a label is free to register
  *   GET /api/v1/owner/:address      — all hack.tez domains owned by a wallet
  *   GET /api/v1/resolve/:address    — reverse-resolve wallet → primary domain
@@ -92,6 +93,106 @@ async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<st
 }
 
 // ---------------------------------------------------------------------------
+// Profile parsing (inlined — Netlify Functions can't import from src/)
+// ---------------------------------------------------------------------------
+
+interface ProfileProject {
+    name: string;
+    desc: string;
+    url?: string;
+    repo?: string;
+    environment?: string;
+    address?: string;
+    subdomain?: string;
+    status?: string;
+    logo?: string;
+}
+
+interface HackProfile {
+    name?: string;
+    nickname?: string;
+    website?: string;
+    picture?: string;
+    github?: string;
+    twitter?: string;
+    repositoryUrl?: string;
+    bio?: string;
+    location?: string;
+    status?: string;
+    skills?: string[];
+    projects?: ProfileProject[];
+}
+
+const PROFILE_KEY_MAP: Record<string, string> = {
+    name: "openid:name",
+    nickname: "openid:nickname",
+    website: "openid:website",
+    picture: "openid:picture",
+    github: "github:username",
+    twitter: "twitter:handle",
+    repositoryUrl: "project:repository_url",
+    bio: "hack:bio",
+    location: "hack:location",
+    status: "hack:status",
+    skills: "hack:skills",
+    projects: "hack:projects",
+};
+
+const REVERSE_PROFILE_KEY_MAP = new Map<string, string>(
+    Object.entries(PROFILE_KEY_MAP).map(([field, tedKey]) => [tedKey, field]),
+);
+
+const VALID_STATUSES = ["building", "open-to-collab", "available", "hiring"];
+
+function parseProfileFromData(data: Array<{ key: string; value: unknown }>): HackProfile {
+    const profile: HackProfile = {};
+
+    for (const { key, value } of data) {
+        if (value === null || value === undefined) continue;
+
+        const field = REVERSE_PROFILE_KEY_MAP.get(key);
+        if (field === undefined) continue;
+
+        if (key.startsWith("hack:")) {
+            // TED already JSON-parsed these — use values directly
+            switch (field) {
+                case "bio":
+                    if (typeof value === "string") profile.bio = value.slice(0, 160);
+                    break;
+                case "location":
+                    if (typeof value === "string") profile.location = value.slice(0, 60);
+                    break;
+                case "status":
+                    if (typeof value === "string" && VALID_STATUSES.includes(value)) profile.status = value;
+                    break;
+                case "skills":
+                    if (Array.isArray(value)) {
+                        const items = value.filter((i): i is string => typeof i === "string").slice(0, 10);
+                        if (items.length > 0) profile.skills = items;
+                    }
+                    break;
+                case "projects":
+                    if (Array.isArray(value)) {
+                        const items = value.filter(
+                            (v): v is ProfileProject =>
+                                typeof v === "object" && v !== null && typeof v.name === "string" && typeof v.desc === "string",
+                        );
+                        if (items.length > 0) profile.projects = items;
+                    }
+                    break;
+            }
+        } else {
+            // TED native keys — values are already decoded strings
+            if (typeof value === "string") {
+                (profile as Record<string, unknown>)[field] = value;
+            }
+        }
+    }
+
+    return profile;
+}
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -136,6 +237,57 @@ async function handleDomain(name: string, net: ReturnType<typeof getNetwork>): P
                 owner: data.domain.owner,
             },
             available: false,
+            network: net.name,
+        },
+        200,
+        { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+    );
+}
+
+/** GET /api/v1/profile/:name — domain record + parsed profile data */
+async function handleProfile(name: string, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    const label = name.endsWith(`.hack.${net.tld}`) ? name.replace(`.hack.${net.tld}`, "") : name;
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+    const fullName = `${label}.hack.${net.tld}`;
+
+    const result = await tedGql<{
+        domain: {
+            name: string;
+            address: string | null;
+            owner: string;
+            data: Array<{ key: string; value: unknown }>;
+        } | null;
+    }>(
+        net.domainsGraphql,
+        `query GetProfile($name: String!) {
+          domain(name: $name) {
+            name
+            address
+            owner
+            data { key value }
+          }
+        }`,
+        { name: fullName },
+    );
+
+    if (!result.domain) {
+        return json({ error: "not found" }, 404, {
+            "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+        });
+    }
+
+    const profile = parseProfileFromData(result.domain.data ?? []);
+
+    return json(
+        {
+            data: {
+                name: result.domain.name,
+                owner: result.domain.owner,
+                address: result.domain.address,
+                profile,
+            },
             network: net.name,
         },
         200,
@@ -255,71 +407,54 @@ function hexToUtf8(hex: string): string {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-/** GET /api/v1/domains?limit=50&offset=0 — paginated list of all hack.tez registrations */
+/** GET /api/v1/domains?limit=50 — list all hack.tez registrations */
 async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
-    if (!net.registrarAddress) {
-        return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
-    }
+    const parent = `hack.${net.tld}`;
 
     const rawLimit = parseInt(url.searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
-    const rawOffset = parseInt(url.searchParams.get("offset") ?? "0", 10);
-
     if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
-    if (isNaN(rawOffset) || rawOffset < 0) return err("offset must be a non-negative integer", "INVALID_INPUT");
+    const limit = Math.min(rawLimit, 50); // TED GraphQL caps first at 50
 
-    const limit = Math.min(rawLimit, MAX_LIMIT);
-    const offset = rawOffset;
+    const data = await tedGql<{
+        domains: {
+            items: Array<{
+                name: string;
+                owner: string;
+                address: string | null;
+                data: Array<{ key: string; value: unknown }>;
+            }>;
+        };
+    }>(
+        net.domainsGraphql,
+        `query AllDomains($parent: String!, $first: Int!) {
+          domains(where: { name: { endsWith: $parent } }, first: $first) {
+            items {
+              name
+              owner
+              address
+              data { key value }
+            }
+          }
+        }`,
+        { parent: `.${parent}`, first: limit },
+    );
 
-    const tzktUrl =
-        `${net.tzktApi}/v1/operations/transactions` +
-        `?target=${net.registrarAddress}` +
-        `&entrypoint=register` +
-        `&status=applied` +
-        `&limit=${limit}` +
-        `&offset=${offset}` +
-        `&sort.desc=id`;
-
-    const res = await fetch(tzktUrl);
-    if (!res.ok) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
-
-    const ops: Array<{
-        hash: string;
-        sender: { address: string };
-        timestamp: string;
-        parameter?: { value?: { label?: string } };
-    }> = await res.json();
-
-    const seen = new Set<string>();
-    const domains: Array<{
-        name: string;
-        label: string;
-        owner: string;
-        registeredAt: string;
-        opHash: string;
-    }> = [];
-
-    for (const op of ops) {
-        const rawLabel = op.parameter?.value?.label ?? null;
-        if (!rawLabel) continue;
-        const label = hexToUtf8(rawLabel);
-        const name = `${label}.hack.${net.tld}`;
-        if (seen.has(name)) continue;
-        seen.add(name);
-        domains.push({
-            name,
+    const domains = data.domains.items.flatMap((d) => {
+        const label = d.name.replace(`.${parent}`, "");
+        if (label.includes(".")) return [];
+        return [{
+            name: d.name,
             label,
-            owner: op.sender.address,
-            registeredAt: op.timestamp,
-            opHash: op.hash,
-        });
-    }
+            owner: d.owner,
+            address: d.address,
+        }];
+    });
 
     return json(
         {
             data: domains,
             count: domains.length,
             limit,
-            offset,
             network: net.name,
         },
         200,
@@ -327,9 +462,24 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
     );
 }
 
+/** All registrar addresses: current + any legacy contracts (env: comma-separated) */
+function getRegistrarAddresses(net: ReturnType<typeof getNetwork>): string[] {
+    const addrs: string[] = [];
+    if (net.registrarAddress) addrs.push(net.registrarAddress);
+    const legacy = process.env.LEGACY_REGISTRARS;
+    if (legacy) {
+        for (const a of legacy.split(",")) {
+            const trimmed = a.trim();
+            if (trimmed && !addrs.includes(trimmed)) addrs.push(trimmed);
+        }
+    }
+    return addrs;
+}
+
 /** GET /api/v1/activity?limit=30 — recent claim (register) and commit events */
 async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
-    if (!net.registrarAddress) {
+    const registrars = getRegistrarAddresses(net);
+    if (registrars.length === 0) {
         return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
     }
 
@@ -337,19 +487,9 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
     if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
     const limit = Math.min(rawLimit, 100);
 
-    const base =
-        `${net.tzktApi}/v1/operations/transactions` +
-        `?target=${net.registrarAddress}` +
-        `&status=applied` +
-        `&sort.desc=id`;
-
-    const [claimRes, commitRes] = await Promise.all([
-        fetch(`${base}&entrypoint=register&limit=${limit}`),
-        fetch(`${base}&entrypoint=commit&limit=${Math.min(limit, 50)}`),
-    ]);
-
-    if (!claimRes.ok || !commitRes.ok) return err("Failed to fetch from TzKT", "UPSTREAM_ERROR", 502);
-
+    // Fan out queries to all registrar contracts (current + legacy).
+    // Individual fetch failures are treated as empty results — a contract
+    // that doesn't exist on this network shouldn't take down the whole endpoint.
     type TzKTOp = {
         hash: string;
         sender: { address: string };
@@ -357,9 +497,30 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
         parameter?: { value?: { label?: string } };
     };
 
-    const [claimOps, commitOps]: [TzKTOp[], TzKTOp[]] = await Promise.all([claimRes.json(), commitRes.json()]);
+    const allClaims: TzKTOp[] = [];
+    const allCommits: TzKTOp[] = [];
 
-    const claims = claimOps.map((op) => {
+    await Promise.all(
+        registrars.map(async (addr) => {
+            const base =
+                `${net.tzktApi}/v1/operations/transactions` +
+                `?target=${addr}` +
+                `&status=applied` +
+                `&sort.desc=id`;
+            try {
+                const [claimRes, commitRes] = await Promise.all([
+                    fetch(`${base}&entrypoint=register&limit=${limit}`),
+                    fetch(`${base}&entrypoint=commit&limit=${Math.min(limit, 50)}`),
+                ]);
+                if (claimRes.ok) allClaims.push(...(await claimRes.json()));
+                if (commitRes.ok) allCommits.push(...(await commitRes.json()));
+            } catch {
+                // Contract may not exist on this network — skip silently
+            }
+        }),
+    );
+
+    const claims = allClaims.map((op) => {
         const rawLabel = op.parameter?.value?.label ?? null;
         const label = rawLabel ? hexToUtf8(rawLabel) : null;
         return {
@@ -371,7 +532,7 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
         };
     });
 
-    const commits = commitOps.map((op) => ({
+    const commits = allCommits.map((op) => ({
         type: "committed" as const,
         address: op.sender.address,
         name: null, // commitment hash is not recoverable
@@ -398,12 +559,20 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
 /** GET /api/v1/config — contract storage config */
 async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!net.registrarAddress) {
-        return err("Registrar address not configured for this network", "UPSTREAM_ERROR", 503);
+        return json(
+            { data: { minCommitAgeSec: 0, maxCommitAgeSec: 0, maxPerWallet: 1, paused: true, registrarAddress: "" }, network: net.name },
+            200,
+            { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+        );
     }
 
-    const res = await fetch(`${net.tzktApi}/v1/contracts/${net.registrarAddress}/storage`);
-    if (!res.ok) return err("Failed to fetch contract storage", "UPSTREAM_ERROR", 502);
-    const storage = await res.json();
+    let storage: Record<string, unknown> = {};
+    try {
+        const res = await fetch(`${net.tzktApi}/v1/contracts/${net.registrarAddress}/storage`);
+        if (res.ok) storage = await res.json();
+    } catch {
+        // Contract may not exist on this network
+    }
 
     return json(
         {
@@ -442,6 +611,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     try {
         if (resource === "domains") return await handleDomains(new URL(req.url), net);
         if (resource === "domain" && param) return await handleDomain(decodeURIComponent(param), net);
+        if (resource === "profile" && param) return await handleProfile(decodeURIComponent(param), net);
         if (resource === "availability" && param) return await handleAvailability(decodeURIComponent(param), net);
         if (resource === "owner" && param) return await handleOwner(decodeURIComponent(param), net);
         if (resource === "resolve" && param) return await handleResolve(decodeURIComponent(param), net);
@@ -456,6 +626,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                 endpoints: [
                     `/api/v1/domains?limit=50&offset=0`,
                     `/api/v1/domain/:name`,
+                    `/api/v1/profile/:name`,
                     `/api/v1/availability/:label`,
                     `/api/v1/owner/:address`,
                     `/api/v1/resolve/:address`,

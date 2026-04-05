@@ -41,6 +41,7 @@
 /* --- TOKENS: DARK (default) --------------------------------- */
 :root {
     --font: "Space Mono", "Courier New", monospace;
+    --font-mono: var(--font);
 
     --bg: #000000;
     --bg-2: #0d0d0d;
@@ -48,6 +49,7 @@
     --fg: #ffffff;
     --fg-2: rgba(255, 255, 255, 0.6);
     --fg-3: #888888; /* 4.88:1 on #1a1a1a, 5.9:1 on #000 — AA ✓ */
+    --fg-muted: var(--fg-3);
     --border: rgba(255, 255, 255, 0.1);
     --border-2: rgba(255, 255, 255, 0.32);
     --border-3: rgba(255, 255, 255, 0.7);
@@ -57,11 +59,13 @@
     --ok: #4dff91; /* 16:1  */
     --warn: #ffd166; /* 10:1  */
     --info: #74c0fc; /* 7.5:1 */
+    --purple: #d4a5ff; /* 8.6:1 */
 
     --err-bg: rgba(255, 107, 107, 0.08);
     --ok-bg: rgba(77, 255, 145, 0.08);
     --warn-bg: rgba(255, 209, 102, 0.08);
     --info-bg: rgba(116, 192, 252, 0.08);
+    --purple-bg: rgba(212, 165, 255, 0.08);
 
     color-scheme: dark;
 }
@@ -84,11 +88,13 @@
         --ok: #15803d; /* 5.2:1 */
         --warn: #92400e; /* 5.4:1 */
         --info: #1e40af; /* 7.1:1 */
+        --purple: #6d28d9; /* 7.3:1 */
 
         --err-bg: rgba(185, 28, 28, 0.07);
         --ok-bg: rgba(21, 128, 61, 0.07);
         --warn-bg: rgba(146, 64, 14, 0.07);
         --info-bg: rgba(30, 64, 175, 0.07);
+        --purple-bg: rgba(109, 40, 217, 0.07);
 
         color-scheme: light;
     }
@@ -1668,7 +1674,12 @@ a:hover {
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
-    padding: 0;
+    padding: 0.2rem 0.3rem;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: color 0.15s;
 }
 .wallet-chip-disconnect:hover {
@@ -1711,7 +1722,7 @@ a:hover {
 /* --- STEP CARDS (How it works) ----------------------------- */
 .steps-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 0;
 }
 .step-card {
@@ -1724,6 +1735,11 @@ a:hover {
 }
 .step-card:first-child {
     border-left: 1px solid var(--border-2);
+}
+@media (max-width: 900px) {
+    .steps-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
 }
 @media (max-width: 640px) {
     .steps-grid {
@@ -1911,12 +1927,16 @@ a:hover {
     text-transform: uppercase;
     color: var(--fg-3);
     transition: color 0.15s;
+    padding: 0.3rem 0.4rem;
+    min-height: 24px;
 }
 .pending-dismiss:hover {
     color: var(--err);
 }
 .pending-release {
     color: var(--err);
+    padding: 0.3rem 0.4rem;
+    min-height: 24px;
 }
 .pending-release:hover {
     color: var(--err);
@@ -2295,7 +2315,12 @@ a:hover {
     font-family: var(--font);
     font-size: 0.65rem;
     line-height: 1;
-    padding: 0.1rem 0.2rem;
+    padding: 0.35rem 0.4rem;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: color 0.15s;
     flex-shrink: 0;
 }
@@ -2437,6 +2462,11 @@ a:hover {
     }
 }
 
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
 .toast-body {
     display: flex;
     align-items: flex-start;
@@ -2489,7 +2519,12 @@ a:hover {
     font-family: var(--font);
     font-size: 0.6rem;
     line-height: 1;
-    padding: 0.1rem;
+    padding: 0.3rem 0.4rem;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     transition: color 0.15s;
 }
@@ -2512,4 +2547,10 @@ a:hover {
     text-align: center;
     padding: 0.6rem 1rem;
     line-height: 1.4;
+}
+
+/* ── Hacker card hover ──────────────────────────────────────────── */
+.hacker-card:hover {
+    border-color: var(--border-2) !important;
+    background: var(--bg-2) !important;
 }

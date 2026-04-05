@@ -237,6 +237,8 @@ On the project edit card, a "Pin to subdomain" button:
 
 Sub-subdomains are created by calling the **TED NameRegistry directly** — not a proxy. Users own their domain and the NameRegistry allows the domain owner to call `set_child_record` with their domain as parent.
 
+> **⚠️ Verify before implementing:** Confirm on BetterCallDev that domain owners can call `set_child_record` on the NameRegistry directly, or whether they must go through the SetChildRecord proxy (`KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU`). If the NameRegistry restricts callers to the proxy, the implementation must route through the proxy instead.
+
 - TED NameRegistry (ghostnet): `KT1REqKBXwULnmU6RpZxnRBUgcBmESnXhCWs`
 - The `parent` arg is the user's full domain name as hex bytes (e.g. `"joe.hack.gho"` → bytes)
 - The `owner` is set to the caller's wallet address
@@ -301,8 +303,8 @@ Verify the signature using `@taquito/utils` — already in the dependency tree v
 ```ts
 import { verifySignature, hex2buf } from "@taquito/utils";
 
-function verifyPinRequest(address: string, timestamp: number, signature: string, publicKey: string): boolean {
-  const message = `hack.tez:pin:${timestamp}`;
+function verifyPinRequest(address: string, timestamp: number, nonce: string, signature: string, publicKey: string): boolean {
+  const message = `hack.tez:pin:${timestamp}:${nonce}`;
   const bytes = stringToHex(message);
   const payloadBytes = TEZOS_SIGN_PREFIX + bytes;
   return verifySignature(payloadBytes, publicKey, signature);
@@ -321,74 +323,80 @@ The signing library is small and self-contained. Once it exists it can be reused
 
 ---
 
-## IPFS Service (`ipfs/`)
+## IPFS Pinning via Pinata
 
-Images (avatars, project logos) are stored on IPFS. We run our own Kubo node with a thin API layer for authenticated pinning. This lives as a separate service in the monorepo under `ipfs/`.
+Images (avatars, project logos) are stored on IPFS via **Pinata** — a managed pinning service. No self-hosted infrastructure needed.
 
 ### Architecture
 
 ```
-frontend  ──POST /api/pin (blob, no key)──▶  Netlify Function  ──POST /pin (+ secret key)──▶  Kubo RPC
-                                                    │                                               │
-                                             validates file                                    pins blob
-                                             holds IPFS_API_KEY                               returns CID
-                                             never exposed                                         │
-                                                    ◀──────────────────────────────────── { cid }
-                                                    │
+frontend  ──POST /api/v1/pin (blob + sig)──▶  Netlify Function  ──POST pinFileToIPFS──▶  Pinata API
+                                                     │                                        │
+                                              validates signature                        pins blob
+                                              holds PINATA_JWT                          returns CID
+                                              never exposed                                  │
+                                                     ◀──────────────────────────── { IpfsHash }
+                                                     │
 frontend  ◀───────────────────── { cid: "bafybei..." }
     │
     └── displays via https://ipfs.fileship.xyz/ipfs/<CID>
 ```
 
-### Kubo Node
-
-- Runs as a standard Kubo daemon (`ipfs daemon`)
-- RPC API bound to `localhost:5001` only — never exposed publicly
-- Pins are permanent (no GC by default); future: add pin management endpoint
-
 ### Netlify Function (`netlify/functions/pin.mts`)
 
-Proxies blob uploads to Kubo. The `IPFS_API_KEY` and `IPFS_PIN_URL` env vars live only in Netlify — never shipped to the browser.
+Proxies blob uploads to Pinata. The `PINATA_JWT` env var lives only in Netlify — never shipped to the browser.
 
 | Endpoint | Auth | Description |
 |----------|------|-------------|
-| `POST /api/pin` | none (caller is browser) | Accepts multipart blob, forwards to Kubo via API key, returns `{ cid }` |
+| `POST /api/v1/pin` | wallet signature | Accepts multipart blob + signature, forwards to Pinata, returns `{ cid }` |
 
 **Constraints enforced by the function:**
 - Max file size: 4MB (enforced before forwarding)
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`
-- `IPFS_API_KEY` and `IPFS_PIN_URL` are server-only Netlify env vars (no `VITE_` prefix)
+- `PINATA_JWT` is a server-only Netlify env var (no `VITE_` prefix)
 
 **Auth — wallet signature verification:**
 
 The function requires proof that the caller owns a hack.tez domain. No database or session needed — fully stateless.
 
-Request shape:
-```json
-{
-  "file": "<blob>",
-  "address": "tz1...",
-  "publicKey": "edpk...",
-  "timestamp": 1712345678,
-  "nonce": "a3f9c2...",
-  "signature": "<sig of `hack.tez:pin:<timestamp>:<nonce>` signed by address>"
-}
+Request shape (multipart form data):
+```
+file:       <blob>
+address:    "tz1..."
+publicKey:  "edpk..."
+timestamp:  1712345678
+nonce:      "a3f9c2..."
+signature:  "<sig of `hack.tez:pin:<timestamp>:<nonce>` signed by address>"
 ```
 
 Function validation steps:
 1. Reject if `timestamp` is older than 5 minutes (replay protection)
 2. Confirm `publicKey` hashes to `address` (prevents pubkey substitution attacks)
-3. Verify `signature` is valid for `publicKey` over the expected message
-4. Reject if `nonce` has been seen before within the 5-minute window (in-memory set, prevents replay within window)
-5. Call TED GraphQL to confirm `address` owns at least one `*.hack.tez` domain
-6. If all pass → forward to Kubo, return CID
-7. Any failure → `401 Unauthorized`
+3. Verify `signature` is valid for `publicKey` over the expected message `hack.tez:pin:<timestamp>:<nonce>`
+4. Call TED GraphQL to confirm `address` owns at least one `*.hack.tez` domain
+5. If all pass → forward file to Pinata `pinFileToIPFS`, return CID
+6. Any failure → `401 Unauthorized`
+
+**Note on replay protection:** Nonce dedup is intentionally omitted. Netlify Functions are stateless — no shared memory between invocations makes server-side nonce tracking impractical without an external store. The 5-minute timestamp window provides sufficient protection since a replayed pin request is idempotent (re-pinning the same file is harmless). The nonce remains in the signed message to ensure each signature is unique, but we don't track seen nonces server-side.
 
 The `publicKey` is available from the wallet after connection — Beacon exposes it as part of the active account. No TzKT lookup needed.
 
 **Response:**
 ```json
 { "cid": "bafybei..." }
+```
+
+**Pinata API call:**
+```ts
+const form = new FormData();
+form.append("file", fileBlob, filename);
+
+const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${process.env.PINATA_JWT}` },
+  body: form,
+});
+const { IpfsHash } = await res.json(); // → "bafybei..."
 ```
 
 ### Gateway
@@ -399,34 +407,34 @@ All IPFS content is served via the public gateway:
 https://ipfs.fileship.xyz/ipfs/<CID>
 ```
 
-The frontend constructs this URL from the CID returned by `/api/pin`. No gateway auth needed — content is public by CID.
+The frontend constructs this URL from the CID returned by `/api/v1/pin`. No gateway auth needed — content is public by CID. Pinata handles pinning and IPFS network propagation; the display gateway is a separate concern.
 
 ### Frontend Integration
 
 When a user uploads a profile image or project logo:
-1. Frontend sends the file to `POST /api/pin` — no credentials, just the blob + wallet signature
-2. Netlify function validates, forwards to Kubo with the secret key
+1. Frontend sends the file to `POST /api/v1/pin` with wallet signature fields
+2. Netlify function validates signature + ownership, forwards to Pinata with JWT
 3. Returns CID; frontend constructs the display URL as `https://ipfs.fileship.xyz/ipfs/<CID>` for immediate display
 4. **Stores `ipfs://<CID>` in TED record** — not the gateway URL. Gateway is a frontend concern. The frontend always constructs the display URL from the raw `ipfs://` URI.
 
 ### Monorepo Structure
 
 ```
-├── ipfs/
-│   ├── kubo.md            # Setup instructions for the Kubo node (systemd, config)
-│   └── README.md          # Architecture overview
 ├── netlify/
 │   └── functions/
 │       ├── api.mts        # Existing REST API
-│       └── pin.mts        # New: IPFS pin proxy
+│       └── pin.mts        # New: IPFS pin proxy (Pinata)
 ```
 
-### Deployment Notes
+No separate `ipfs/` directory needed — Pinata is a managed service.
 
-- Kubo node runs on a VPS, RPC only on `localhost:5001`
-- API layer (`ipfs/server.ts`) is not needed — Netlify function handles the proxy
-- `IPFS_API_KEY` and `IPFS_PIN_URL` set in Netlify environment (server-only, no `VITE_` prefix)
-- CORS on the Kubo VPS locked to the Netlify function's outbound IP range
+### Environment Variables
+
+| Variable | Scope | Description |
+|----------|-------|-------------|
+| `PINATA_JWT` | Netlify server-only | Pinata API JWT token for `pinFileToIPFS` calls |
+
+Set in Netlify environment settings. No `VITE_` prefix — never exposed to the browser.
 
 ---
 
@@ -445,3 +453,56 @@ When a user uploads a profile image or project logo:
 - **Profile pages are indexable** — no auth required to view.
 - **All profile writes are user-signed on-chain transactions.** No server involvement.
 - **`/developers` page** should be updated to serve as the canonical public reference for the profile spec — key namespace, ProjectEntry schema, encoding rules, API endpoint shape, and safe merge rule. Third-party apps and bots should be able to build on hack.tez profile data from that page alone.
+
+---
+
+## Documentation Updates
+
+Each phase that ships user-facing changes must include corresponding docs updates. These are not afterthoughts — they ship with the feature.
+
+### Home Page (`src/pages/Home.tsx`)
+
+The "How it works" section currently ends at claiming a name. After the profile system lands:
+- Add a 5th step: **"Set up your profile"** — bio, skills, projects, links. Link to `/u/:label` as a preview.
+- The post-claim success state should prompt the user to set up their profile with a direct link to their profile page in edit mode (`/u/:label?edit=true` or similar).
+- Mention that profiles are publicly readable — "Anyone can view your builder profile at `yourname.hack.tez`."
+
+### Developers Page (`src/pages/Developers.tsx`)
+
+This is the API reference. It must be updated in lockstep with new endpoints:
+
+- **`GET /api/v1/profile/:name`** — add to the Endpoints section with the same expandable card pattern used by existing endpoints. Include request/response shape, error codes, and example.
+- **`POST /api/v1/pin`** — document the authenticated pin endpoint: request shape (multipart + signature fields), constraints (4MB, allowed MIME types), response (`{ cid }`), auth flow summary.
+- **Profile spec reference** — add a new top-level section (after Endpoints) documenting the `hack:*` key namespace, `ProjectEntry` schema, encoding rules, safe merge rule, and avatar fallback chain. This section is the canonical spec for third-party integrations — bots, aggregators, and other apps should be able to build on hack.tez profiles from this page alone.
+
+### Policies Page (`src/pages/Policies.tsx`)
+
+The existing "What we will remove" section covers hate speech, impersonation, and fraud at the domain level. Profiles expand the attack surface:
+
+- **Profile content policy** — add a section clarifying that the same removal policy applies to profile data (bio, project descriptions, avatar images). Admin can clear profile fields via UpdateRecord if content violates policy.
+- **Image hosting** — note that pinned images are permanent on IPFS. Admin can remove the `openid:picture` reference from the TED record but cannot delete the underlying IPFS content. Clarify this limitation.
+- **No verification** — make explicit that `hack:status`, `hack:skills`, GitHub/Twitter handles, etc. are self-reported and unverified. hack.tez does not validate that a user actually controls the linked accounts.
+
+### Hackers Page (`src/pages/Hackers.tsx`)
+
+Currently a table of registered domains. Once profiles exist:
+- Each row/card should show profile data when available (avatar, bio snippet, link icons).
+- Link each entry to `/u/:label` instead of (or in addition to) the TED management page.
+- Empty profiles show a minimal card with just the domain name and owner address.
+
+### README.md
+
+Minimal update — add one line after the existing tagline to mention profiles:
+> Connect wallet → Claim `yourname.hack.tez` → Set up your builder profile → That's it.
+
+Add `/api/v1/profile/:name` and `POST /api/v1/pin` to the API endpoints list if one exists in the README.
+
+### AGENTS.md
+
+Add the profile-related files to the "Key Files" table:
+- `src/types/profile.ts` — Profile types and parsing
+- `src/lib/signing.ts` — Wallet message signing
+- `src/lib/pin.ts` — Pinata upload client
+- `netlify/functions/pin.mts` — Authenticated IPFS pin proxy
+
+Add `PINATA_JWT` to the Environment Variables section.

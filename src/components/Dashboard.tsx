@@ -2,6 +2,7 @@ import { useTezos } from "../context/TezosContext";
 import { useSubdomains } from "../hooks/useSubdomains";
 import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
+import SubdomainManager from "./SubdomainManager";
 
 const TED_APP_URL = config.name === "mainnet" ? "https://app.tezos.domains" : "https://ghostnet.app.tezos.domains";
 
@@ -36,6 +37,23 @@ function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
                     Manage ↗
                 </a>
             </div>
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <a
+                    href={`/u/${domain.name.replace(`.hack.${config.tld}`, "")}`}
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: "0.7rem" }}
+                >
+                    View profile
+                </a>
+                <a
+                    href={`/u/${domain.name.replace(`.hack.${config.tld}`, "")}?edit=true`}
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: "0.7rem" }}
+                >
+                    Edit profile
+                </a>
+            </div>
+            <SubdomainManager domain={domain} />
         </div>
     );
 }
@@ -88,7 +106,22 @@ export default function Dashboard() {
     }
 
     return (
-        <div>
+        <div className="container" style={{ paddingBlock: "3rem 5rem" }}>
+            <header style={{ marginBottom: "2rem" }}>
+                <h1
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "clamp(1.4rem, 4vw, 2rem)",
+                        letterSpacing: "-0.02em",
+                        marginBottom: "0.5rem",
+                    }}
+                >
+                    // MANAGE
+                </h1>
+                <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem" }}>
+                    Your domains, profiles, and subdomains.
+                </p>
+            </header>
             <div
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}
             >
