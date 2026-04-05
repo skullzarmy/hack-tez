@@ -1,6 +1,6 @@
 import type { Party, Server, Connection } from "partykit/server";
 import { jwtVerify } from "jose";
-import { getOwnedDomains } from "../auth/verify.js";
+import { getOwnedDomains } from "../auth/domains.js";
 
 interface TokenPayload {
   address: string;
