@@ -180,24 +180,6 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Home
                                     </a>
-                                    <a
-                                        href="/hackers"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Hackers
-                                    </a>
-                                    {domain && (
-                                    <a
-                                        href="/manage"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Manage
-                                    </a>
-                                    )}
                                     {domain && (
                                     <a
                                         href="/chat"
@@ -208,6 +190,24 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Chat
                                     </a>
                                     )}
+                                    {domain && (
+                                    <a
+                                        href="/manage"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Manage
+                                    </a>
+                                    )}
+                                    <a
+                                        href="/hackers"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Hackers
+                                    </a>
                                     <a
                                         href="/developers"
                                         role="menuitem"
