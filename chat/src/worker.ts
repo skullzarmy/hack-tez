@@ -6,6 +6,7 @@ interface Env {
   DB: D1Database;
   CHAT_JWT_SECRET: string;
   TEZOS_NETWORK?: string;
+  INTERNAL_SECRET?: string;
 }
 
 interface JwtPayload {
@@ -405,6 +406,166 @@ async function handleDmHistory(request: Request, env: Env, roomId: string): Prom
   }
 }
 
+// --- Internal API (PartyKit → Worker, secured by shared secret) ---
+
+function verifyInternalSecret(request: Request, env: Env): boolean {
+  const secret = env.INTERNAL_SECRET;
+  if (!secret) return false;
+  return request.headers.get("X-Internal-Secret") === secret;
+}
+
+async function handleInternalStoreMessage(request: Request, env: Env): Promise<Response> {
+  if (!verifyInternalSecret(request, env)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  const b = body as Record<string, unknown>;
+  const id = b.id as string;
+  const roomId = b.roomId as string;
+  const senderDomain = b.senderDomain as string;
+  const content = b.content as string;
+
+  if (!id || !roomId || !senderDomain || !content) {
+    return new Response("Missing fields", { status: 400 });
+  }
+
+  try {
+    await env.DB
+      .prepare("INSERT INTO chat_messages (id, room_id, sender_domain, content) VALUES (?, ?, ?, ?)")
+      .bind(id, roomId, senderDomain, content)
+      .run();
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  } catch (err) {
+    console.error("Internal store error:", err);
+    return new Response(JSON.stringify({ error: "Store failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+}
+
+async function handleInternalHistory(request: Request, env: Env): Promise<Response> {
+  if (!verifyInternalSecret(request, env)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  const url = new URL(request.url);
+  const roomId = url.searchParams.get("roomId") ?? "global";
+  const before = url.searchParams.get("before") ?? undefined;
+  const limitParam = url.searchParams.get("limit");
+  const limit = Math.min(Math.max(Number(limitParam) || 50, 1), 100);
+
+  try {
+    let result: { results: Array<Record<string, unknown>> };
+    if (before) {
+      result = await env.DB
+        .prepare(
+          "SELECT id, sender_domain, content, created_at FROM chat_messages WHERE room_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?",
+        )
+        .bind(roomId, before, limit + 1)
+        .all();
+    } else {
+      result = await env.DB
+        .prepare(
+          "SELECT id, sender_domain, content, created_at FROM chat_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?",
+        )
+        .bind(roomId, limit + 1)
+        .all();
+    }
+
+    const rows = result.results;
+    const hasMore = rows.length > limit;
+    const messages = rows.slice(0, limit).map((r) => ({
+      id: r.id as string,
+      sender: r.sender_domain as string,
+      content: r.content as string,
+      timestamp: r.created_at as string,
+    }));
+
+    return new Response(JSON.stringify({ messages, hasMore }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Internal history error:", err);
+    return new Response(JSON.stringify({ error: "History failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+}
+
+async function handleInternalUnread(request: Request, env: Env): Promise<Response> {
+  if (!verifyInternalSecret(request, env)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  const url = new URL(request.url);
+  const roomId = url.searchParams.get("roomId");
+  const domain = url.searchParams.get("domain");
+  if (!roomId || !domain) {
+    return new Response("Missing roomId or domain", { status: 400 });
+  }
+
+  try {
+    const memberResult = await env.DB
+      .prepare("SELECT last_read FROM chat_room_members WHERE room_id = ? AND domain = ?")
+      .bind(roomId, domain)
+      .all();
+    const lastRead = memberResult.results[0]?.last_read as string | null;
+
+    let unreadResult: { results: Array<Record<string, unknown>> };
+    if (lastRead) {
+      unreadResult = await env.DB
+        .prepare("SELECT COUNT(*) as cnt FROM chat_messages WHERE room_id = ? AND created_at > ? AND sender_domain != ?")
+        .bind(roomId, lastRead, domain)
+        .all();
+    } else {
+      unreadResult = await env.DB
+        .prepare("SELECT COUNT(*) as cnt FROM chat_messages WHERE room_id = ? AND sender_domain != ?")
+        .bind(roomId, domain)
+        .all();
+    }
+    const count = (unreadResult.results[0]?.cnt as number) ?? 0;
+    return new Response(JSON.stringify({ count }), { headers: { "Content-Type": "application/json" } });
+  } catch (err) {
+    console.error("Internal unread error:", err);
+    return new Response(JSON.stringify({ error: "Unread check failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+}
+
+async function handleInternalMarkRead(request: Request, env: Env): Promise<Response> {
+  if (!verifyInternalSecret(request, env)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  const b = body as Record<string, unknown>;
+  const roomId = b.roomId as string;
+  const domain = b.domain as string;
+  if (!roomId || !domain) {
+    return new Response("Missing fields", { status: 400 });
+  }
+
+  const now = new Date().toISOString();
+  try {
+    await env.DB
+      .prepare("UPDATE chat_room_members SET last_read = ? WHERE room_id = ? AND domain = ?")
+      .bind(now, roomId, domain)
+      .run();
+    return new Response(JSON.stringify({ ok: true, timestamp: now }), { headers: { "Content-Type": "application/json" } });
+  } catch (err) {
+    console.error("Internal mark-read error:", err);
+    return new Response(JSON.stringify({ error: "Mark read failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") {
@@ -416,6 +577,23 @@ export default {
 
     if (path === "/health") {
       return corsResponse(request, JSON.stringify({ status: "ok", service: "hackchat" }));
+    }
+
+    // --- Internal API (PartyKit → Worker) ---
+    if (path.startsWith("/internal/")) {
+      if (path === "/internal/store-message" && request.method === "POST") {
+        return handleInternalStoreMessage(request, env);
+      }
+      if (path === "/internal/history" && request.method === "GET") {
+        return handleInternalHistory(request, env);
+      }
+      if (path === "/internal/unread" && request.method === "GET") {
+        return handleInternalUnread(request, env);
+      }
+      if (path === "/internal/mark-read" && request.method === "POST") {
+        return handleInternalMarkRead(request, env);
+      }
+      return new Response("Not found", { status: 404 });
     }
 
     if (path === "/auth" && request.method === "POST") {

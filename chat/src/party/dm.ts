@@ -11,18 +11,9 @@ interface TokenPayload {
   activeDomain: string;
 }
 
-interface D1Result {
-  results: Array<Record<string, unknown>>;
-}
-
-interface D1Database {
-  prepare(query: string): D1PreparedStatement;
-}
-
-interface D1PreparedStatement {
-  bind(...values: unknown[]): D1PreparedStatement;
-  all(): Promise<D1Result>;
-  run(): Promise<unknown>;
+interface HistoryResponse {
+  messages: Array<{ id: string; sender: string; content: string; timestamp: string }>;
+  hasMore: boolean;
 }
 
 function generateId(): string {
@@ -51,12 +42,16 @@ export default class DMRoom implements Server {
     this.room = room;
   }
 
-  private getDb(): D1Database {
-    return (this.room.env as Record<string, unknown>).DB as D1Database;
+  private getWorkerUrl(): string {
+    return (this.room.env.WORKER_URL as string) ?? "https://hackchat.rejkt.workers.dev";
+  }
+
+  private getInternalSecret(): string {
+    return (this.room.env.INTERNAL_SECRET as string) ?? "";
   }
 
   private getSecret(): Uint8Array {
-    const secret = (this.room.env as Record<string, unknown>).CHAT_JWT_SECRET as string;
+    const secret = this.room.env.CHAT_JWT_SECRET as string;
     return new TextEncoder().encode(secret);
   }
 
@@ -76,6 +71,17 @@ export default class DMRoom implements Server {
     if (entry.timestamps.length >= MSG_RATE_MAX) return false;
     entry.timestamps.push(now);
     return true;
+  }
+
+  /** Call the Worker's internal API */
+  private async workerFetch(path: string, options: RequestInit = {}): Promise<Response> {
+    const url = `${this.getWorkerUrl()}${path}`;
+    const headers = new Headers(options.headers);
+    headers.set("X-Internal-Secret", this.getInternalSecret());
+    if (options.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    return fetch(url, { ...options, headers });
   }
 
   async onConnect(conn: Connection) {
@@ -127,32 +133,17 @@ export default class DMRoom implements Server {
       [conn.id],
     );
 
-    // Send unread count
+    // Send unread count via Worker API
     try {
-      const db = this.getDb();
-      const roomId = this.room.id;
-      const memberResult = await db
-        .prepare("SELECT last_read FROM chat_room_members WHERE room_id = ? AND domain = ?")
-        .bind(roomId, payload.activeDomain)
-        .all();
-
-      const lastRead = memberResult.results[0]?.last_read as string | null;
-      let unreadResult: D1Result;
-      if (lastRead) {
-        unreadResult = await db
-          .prepare("SELECT COUNT(*) as cnt FROM chat_messages WHERE room_id = ? AND created_at > ? AND sender_domain != ?")
-          .bind(roomId, lastRead, payload.activeDomain)
-          .all();
-      } else {
-        unreadResult = await db
-          .prepare("SELECT COUNT(*) as cnt FROM chat_messages WHERE room_id = ? AND sender_domain != ?")
-          .bind(roomId, payload.activeDomain)
-          .all();
+      const resp = await this.workerFetch(
+        `/internal/unread?roomId=${encodeURIComponent(this.room.id)}&domain=${encodeURIComponent(payload.activeDomain)}`,
+      );
+      if (resp.ok) {
+        const data = (await resp.json()) as { count: number };
+        sendJson(conn, { type: "unread", count: data.count });
       }
-      const unreadCount = (unreadResult.results[0]?.cnt as number) ?? 0;
-      sendJson(conn, { type: "unread", count: unreadCount });
     } catch (err) {
-      console.error("D1 unread count error:", err);
+      console.error("Worker unread count error:", err);
     }
   }
 
@@ -215,16 +206,11 @@ export default class DMRoom implements Server {
       JSON.stringify({ type: "message", id, sender: domain, content: trimmed, timestamp }),
     );
 
-    // Persist to D1
-    try {
-      const db = this.getDb();
-      await db
-        .prepare("INSERT INTO chat_messages (id, room_id, sender_domain, content) VALUES (?, ?, ?, ?)")
-        .bind(id, roomId, domain, trimmed)
-        .run();
-    } catch (err) {
-      console.error("D1 persist error:", err);
-    }
+    // Persist via Worker API (fire-and-forget)
+    this.workerFetch("/internal/store-message", {
+      method: "POST",
+      body: JSON.stringify({ id, roomId, senderDomain: domain, content: trimmed }),
+    }).catch((err) => console.error("Worker persist error:", err));
   }
 
   private handleTyping(sender: Connection, domain: string, active: boolean) {
@@ -235,60 +221,40 @@ export default class DMRoom implements Server {
   }
 
   private async handleHistory(sender: Connection, before?: string) {
-    const PAGE_SIZE = 50;
     const roomId = this.room.id;
     try {
-      const db = this.getDb();
-      let result: D1Result;
-      if (before) {
-        result = await db
-          .prepare(
-            "SELECT id, sender_domain, content, created_at FROM chat_messages WHERE room_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?",
-          )
-          .bind(roomId, before, PAGE_SIZE + 1)
-          .all();
-      } else {
-        result = await db
-          .prepare(
-            "SELECT id, sender_domain, content, created_at FROM chat_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT ?",
-          )
-          .bind(roomId, PAGE_SIZE + 1)
-          .all();
-      }
+      const params = new URLSearchParams({ roomId, limit: "50" });
+      if (before) params.set("before", before);
 
-      const rows = result.results;
-      const hasMore = rows.length > PAGE_SIZE;
-      const messages = rows.slice(0, PAGE_SIZE).map((r) => ({
-        id: r.id as string,
-        sender: r.sender_domain as string,
-        content: r.content as string,
-        timestamp: r.created_at as string,
-      }));
+      const resp = await this.workerFetch(`/internal/history?${params.toString()}`);
+      if (!resp.ok) throw new Error(`Worker returned ${resp.status}`);
 
-      sendJson(sender, { type: "history", messages, hasMore });
+      const data = (await resp.json()) as HistoryResponse;
+      sendJson(sender, { type: "history", messages: data.messages, hasMore: data.hasMore });
     } catch (err) {
-      console.error("D1 history error:", err);
+      console.error("Worker history error:", err);
       sendJson(sender, { type: "error", code: "HISTORY_FAILED", message: "Failed to load history" });
     }
   }
 
   private async handleRead(sender: Connection, domain: string) {
     const roomId = this.room.id;
-    const now = new Date().toISOString();
     try {
-      const db = this.getDb();
-      await db
-        .prepare("UPDATE chat_room_members SET last_read = ? WHERE room_id = ? AND domain = ?")
-        .bind(now, roomId, domain)
-        .run();
+      const resp = await this.workerFetch("/internal/mark-read", {
+        method: "POST",
+        body: JSON.stringify({ roomId, domain }),
+      });
 
-      // Notify the other participant that messages were read
-      this.room.broadcast(
-        JSON.stringify({ type: "read", domain, timestamp: now }),
-        [sender.id],
-      );
+      if (resp.ok) {
+        const data = (await resp.json()) as { timestamp: string };
+        // Notify the other participant that messages were read
+        this.room.broadcast(
+          JSON.stringify({ type: "read", domain, timestamp: data.timestamp }),
+          [sender.id],
+        );
+      }
     } catch (err) {
-      console.error("D1 read update error:", err);
+      console.error("Worker read update error:", err);
     }
   }
 
@@ -296,7 +262,6 @@ export default class DMRoom implements Server {
     const domain = this.getDomain(conn);
     if (!domain) return;
 
-    // Check if this domain still has other connections in this room
     let stillOnline = false;
     for (const other of this.room.getConnections()) {
       if (other.id !== conn.id && this.getDomain(other) === domain) {

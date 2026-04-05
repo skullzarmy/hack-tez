@@ -19,18 +19,9 @@ interface RateEntry {
 // Ownership re-verification interval (15 minutes)
 const REVERIFY_INTERVAL_MS = 15 * 60 * 1000;
 
-interface D1Result {
-  results: Array<Record<string, unknown>>;
-}
-
-interface D1Database {
-  prepare(query: string): D1PreparedStatement;
-}
-
-interface D1PreparedStatement {
-  bind(...values: unknown[]): D1PreparedStatement;
-  all(): Promise<D1Result>;
-  run(): Promise<unknown>;
+interface HistoryResponse {
+  messages: Array<{ id: string; sender: string; content: string; timestamp: string }>;
+  hasMore: boolean;
 }
 
 function generateId(): string {
@@ -52,17 +43,21 @@ export default class GlobalRoom implements Server {
     this.room = room;
   }
 
-  private getDb(): D1Database {
-    return (this.room.env as Record<string, unknown>).DB as D1Database;
+  private getWorkerUrl(): string {
+    return (this.room.env.WORKER_URL as string) ?? "https://hackchat.rejkt.workers.dev";
+  }
+
+  private getInternalSecret(): string {
+    return (this.room.env.INTERNAL_SECRET as string) ?? "";
   }
 
   private getSecret(): Uint8Array {
-    const secret = (this.room.env as Record<string, unknown>).CHAT_JWT_SECRET as string;
+    const secret = this.room.env.CHAT_JWT_SECRET as string;
     return new TextEncoder().encode(secret);
   }
 
   private getNetwork(): "ghostnet" | "mainnet" {
-    const net = (this.room.env as Record<string, unknown>).TEZOS_NETWORK as string | undefined;
+    const net = this.room.env.TEZOS_NETWORK as string | undefined;
     return net === "mainnet" ? "mainnet" : "ghostnet";
   }
 
@@ -97,7 +92,6 @@ export default class GlobalRoom implements Server {
       entry = { timestamps: [] };
       this.msgRateMap.set(connId, entry);
     }
-    // Remove timestamps outside the window
     entry.timestamps = entry.timestamps.filter((t) => now - t < MSG_RATE_WINDOW_MS);
     if (entry.timestamps.length >= MSG_RATE_MAX) return false;
     entry.timestamps.push(now);
@@ -113,7 +107,6 @@ export default class GlobalRoom implements Server {
 
   private async reverifyOwnership(): Promise<void> {
     const network = this.getNetwork();
-    // Collect unique (address, domain) pairs
     const pairs = new Map<string, Set<string>>();
     for (const conn of this.room.getConnections()) {
       const addr = this.getAddress(conn);
@@ -123,19 +116,17 @@ export default class GlobalRoom implements Server {
       pairs.get(addr)!.add(domain);
     }
 
-    // Check each address
     for (const [address, domains] of pairs) {
       let ownedDomains: string[];
       try {
         ownedDomains = await getOwnedDomains(address, network);
       } catch (err) {
         console.error(`Reverify lookup failed for ${address}:`, err);
-        continue; // Don't disconnect on transient errors
+        continue;
       }
 
       for (const domain of domains) {
         if (ownedDomains.includes(domain)) continue;
-        // Ownership changed — disconnect all connections using this domain
         for (const conn of this.room.getConnections()) {
           if (this.getDomain(conn) === domain && this.getAddress(conn) === address) {
             sendJson(conn, {
@@ -148,6 +139,17 @@ export default class GlobalRoom implements Server {
         }
       }
     }
+  }
+
+  /** Call the Worker's internal API */
+  private async workerFetch(path: string, options: RequestInit = {}): Promise<Response> {
+    const url = `${this.getWorkerUrl()}${path}`;
+    const headers = new Headers(options.headers);
+    headers.set("X-Internal-Secret", this.getInternalSecret());
+    if (options.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    return fetch(url, { ...options, headers });
   }
 
   async onConnect(conn: Connection) {
@@ -174,20 +176,17 @@ export default class GlobalRoom implements Server {
       return;
     }
 
-    // Store identity on connection (include full domains list for switch-identity)
     conn.setState({
       domain: payload.activeDomain,
       address: payload.address,
       domains: payload.domains,
     });
 
-    // Send current online users to the new connection
     const onlineDomains = this.getOnlineDomains();
     for (const domain of onlineDomains) {
       sendJson(conn, { type: "presence", domain, status: "online" });
     }
 
-    // Broadcast presence of new user to all others
     this.room.broadcast(
       JSON.stringify({ type: "presence", domain: payload.activeDomain, status: "online" }),
       [conn.id],
@@ -228,7 +227,6 @@ export default class GlobalRoom implements Server {
         await this.handleHistory(sender, parsed.before as string | undefined);
         break;
       case "read":
-        // Acknowledge — no action needed for global room
         break;
       default:
         sendJson(sender, { type: "error", code: "UNKNOWN_TYPE", message: "Unknown message type" });
@@ -255,16 +253,11 @@ export default class GlobalRoom implements Server {
       JSON.stringify({ type: "message", id, sender: domain, content: trimmed, timestamp }),
     );
 
-    // Persist to D1
-    try {
-      const db = this.getDb();
-      await db
-        .prepare("INSERT INTO chat_messages (id, room_id, sender_domain, content) VALUES (?, 'global', ?, ?)")
-        .bind(id, domain, trimmed)
-        .run();
-    } catch (err) {
-      console.error("D1 persist error:", err);
-    }
+    // Persist via Worker API (fire-and-forget)
+    this.workerFetch("/internal/store-message", {
+      method: "POST",
+      body: JSON.stringify({ id, roomId: "global", senderDomain: domain, content: trimmed }),
+    }).catch((err) => console.error("Worker persist error:", err));
   }
 
   private handleTyping(sender: Connection, domain: string, active: boolean) {
@@ -286,11 +279,9 @@ export default class GlobalRoom implements Server {
       return;
     }
 
-    // Update connection state
     const state = sender.state as Record<string, unknown>;
     sender.setState({ ...state, domain: newDomain });
 
-    // Check if old domain still has other connections
     let oldStillOnline = false;
     for (const conn of this.room.getConnections()) {
       if (conn.id !== sender.id && this.getDomain(conn) === oldDomain) {
@@ -299,19 +290,16 @@ export default class GlobalRoom implements Server {
       }
     }
 
-    // Broadcast presence offline for old domain if no other connections use it
     if (!oldStillOnline) {
       this.room.broadcast(
         JSON.stringify({ type: "presence", domain: oldDomain, status: "offline" }),
       );
     }
 
-    // Broadcast presence online for new domain
     this.room.broadcast(
       JSON.stringify({ type: "presence", domain: newDomain, status: "online" }),
     );
 
-    // Broadcast system message
     this.room.broadcast(
       JSON.stringify({
         type: "system",
@@ -320,43 +308,21 @@ export default class GlobalRoom implements Server {
       }),
     );
 
-    // Confirm to sender
     sendJson(sender, { type: "identity-switched", domain: newDomain });
   }
 
   private async handleHistory(sender: Connection, before?: string) {
-    const PAGE_SIZE = 50;
     try {
-      const db = this.getDb();
-      let result: D1Result;
-      if (before) {
-        result = await db
-          .prepare(
-            "SELECT id, sender_domain, content, created_at FROM chat_messages WHERE room_id = 'global' AND created_at < ? ORDER BY created_at DESC LIMIT ?",
-          )
-          .bind(before, PAGE_SIZE + 1)
-          .all();
-      } else {
-        result = await db
-          .prepare(
-            "SELECT id, sender_domain, content, created_at FROM chat_messages WHERE room_id = 'global' ORDER BY created_at DESC LIMIT ?",
-          )
-          .bind(PAGE_SIZE + 1)
-          .all();
-      }
+      const params = new URLSearchParams({ roomId: "global", limit: "50" });
+      if (before) params.set("before", before);
 
-      const rows = result.results;
-      const hasMore = rows.length > PAGE_SIZE;
-      const messages = rows.slice(0, PAGE_SIZE).map((r) => ({
-        id: r.id as string,
-        sender: r.sender_domain as string,
-        content: r.content as string,
-        timestamp: r.created_at as string,
-      }));
+      const resp = await this.workerFetch(`/internal/history?${params.toString()}`);
+      if (!resp.ok) throw new Error(`Worker returned ${resp.status}`);
 
-      sendJson(sender, { type: "history", messages, hasMore });
+      const data = (await resp.json()) as HistoryResponse;
+      sendJson(sender, { type: "history", messages: data.messages, hasMore: data.hasMore });
     } catch (err) {
-      console.error("D1 history error:", err);
+      console.error("Worker history error:", err);
       sendJson(sender, { type: "error", code: "HISTORY_FAILED", message: "Failed to load history" });
     }
   }
