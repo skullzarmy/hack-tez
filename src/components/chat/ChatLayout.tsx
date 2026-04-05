@@ -48,6 +48,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const shouldAutoScrollRef = useRef(true);
+    const isInitialLoadRef = useRef(true);
 
     // Track if user is near bottom
     const handleScroll = useCallback(() => {
@@ -65,7 +66,9 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     // Auto-scroll on new messages (only if near bottom)
     useEffect(() => {
         if (shouldAutoScrollRef.current) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            const behavior = isInitialLoadRef.current ? "instant" as const : "smooth" as const;
+            messagesEndRef.current?.scrollIntoView({ behavior });
+            isInitialLoadRef.current = false;
         }
     }, [messages.length]);
 
@@ -122,8 +125,12 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         <div
             className="flex"
             style={{
-                height: "100%",
+                flex: "1 1 0",
+                minHeight: 0,
                 fontFamily: "var(--font)",
+                margin: "clamp(0.5rem, 1.5vw, 1rem)",
+                marginTop: "clamp(0.5rem, 1.5vw, 1rem)",
+                marginBottom: 0,
                 border: "1px solid var(--border-2, #333)",
                 overflow: "hidden",
             }}

@@ -59,8 +59,12 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
 
     return (
         <div
-            className="flex flex-col items-center justify-center gap-6 px-4"
-            style={{ minHeight: "60vh", fontFamily: "var(--font)" }}
+            className="flex flex-col items-center justify-center gap-6"
+            style={{
+                flex: "1 1 0",
+                fontFamily: "var(--font)",
+                padding: "clamp(1.5rem, 4vw, 3rem)",
+            }}
         >
             <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
             <h2

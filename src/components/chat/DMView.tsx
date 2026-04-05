@@ -29,6 +29,7 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const shouldAutoScrollRef = useRef(true);
+    const isInitialLoadRef = useRef(true);
 
     const handleScroll = useCallback(() => {
         const el = messagesContainerRef.current;
@@ -44,7 +45,9 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
     // Auto-scroll on new messages
     useEffect(() => {
         if (shouldAutoScrollRef.current) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            const behavior = isInitialLoadRef.current ? "instant" as const : "smooth" as const;
+            messagesEndRef.current?.scrollIntoView({ behavior });
+            isInitialLoadRef.current = false;
         }
     }, [messages.length]);
 
