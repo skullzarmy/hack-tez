@@ -1,0 +1,171 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import PartySocket from "partysocket";
+
+const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST ?? "localhost:1999";
+
+interface ChatMessage {
+    id: string;
+    sender: string;
+    content: string;
+    timestamp: string;
+}
+
+interface UseChatConfig {
+    token: string;
+    activeDomain: string;
+}
+
+interface UseChatReturn {
+    messages: ChatMessage[];
+    isConnected: boolean;
+    sendMessage: (content: string) => void;
+    isLoading: boolean;
+    loadMore: () => void;
+    hasMore: boolean;
+    onlineUsers: string[];
+    typingUsers: string[];
+    sendTyping: (active: boolean) => void;
+}
+
+export function useChat(config: UseChatConfig): UseChatReturn {
+    const { token, activeDomain } = config;
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [isConnected, setIsConnected] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+    const [typingUsers, setTypingUsers] = useState<string[]>([]);
+    const wsRef = useRef<PartySocket | null>(null);
+    const historyLoadedRef = useRef(false);
+
+    useEffect(() => {
+        const ws = new PartySocket({
+            host: PARTYKIT_HOST,
+            room: "global",
+            query: { token },
+        });
+        wsRef.current = ws;
+
+        ws.addEventListener("open", () => {
+            setIsConnected(true);
+            if (!historyLoadedRef.current) {
+                ws.send(JSON.stringify({ type: "history" }));
+                historyLoadedRef.current = true;
+            }
+        });
+
+        ws.addEventListener("close", () => {
+            setIsConnected(false);
+        });
+
+        ws.addEventListener("message", (event) => {
+            let data: Record<string, unknown>;
+            try {
+                data = JSON.parse(event.data as string) as Record<string, unknown>;
+            } catch {
+                return;
+            }
+
+            switch (data.type) {
+                case "message": {
+                    const msg: ChatMessage = {
+                        id: data.id as string,
+                        sender: data.sender as string,
+                        content: data.content as string,
+                        timestamp: data.timestamp as string,
+                    };
+                    setMessages((prev) => [...prev, msg]);
+                    break;
+                }
+                case "history": {
+                    const histMsgs = (data.messages as ChatMessage[]).reverse();
+                    setMessages((prev) => [...histMsgs, ...prev]);
+                    setHasMore(data.hasMore as boolean);
+                    setIsLoading(false);
+                    break;
+                }
+                case "presence": {
+                    const domain = data.domain as string;
+                    const status = data.status as string;
+                    setOnlineUsers((prev) => {
+                        if (status === "online") {
+                            return prev.includes(domain) ? prev : [...prev, domain];
+                        }
+                        return prev.filter((d) => d !== domain);
+                    });
+                    // Clear typing when user goes offline
+                    if (status === "offline") {
+                        setTypingUsers((prev) => prev.filter((d) => d !== domain));
+                    }
+                    break;
+                }
+                case "typing": {
+                    const domain = data.domain as string;
+                    const active = data.active as boolean;
+                    setTypingUsers((prev) => {
+                        if (active) {
+                            return prev.includes(domain) ? prev : [...prev, domain];
+                        }
+                        return prev.filter((d) => d !== domain);
+                    });
+                    break;
+                }
+                case "system":
+                case "error":
+                    // Could handle these, but not required for core chat
+                    break;
+            }
+        });
+
+        return () => {
+            ws.close();
+            wsRef.current = null;
+            setIsConnected(false);
+            historyLoadedRef.current = false;
+        };
+    }, [token]);
+
+    const sendMessage = useCallback(
+        (content: string) => {
+            const trimmed = content.trim();
+            if (!trimmed || !wsRef.current) return;
+            wsRef.current.send(JSON.stringify({ type: "message", content: trimmed }));
+        },
+        [],
+    );
+
+    const sendTyping = useCallback(
+        (active: boolean) => {
+            wsRef.current?.send(JSON.stringify({ type: "typing", active }));
+        },
+        [],
+    );
+
+    const loadMore = useCallback(() => {
+        if (isLoading || !hasMore || !wsRef.current || messages.length === 0) return;
+        setIsLoading(true);
+        const oldest = messages[0];
+        wsRef.current.send(JSON.stringify({ type: "history", before: oldest.timestamp }));
+    }, [isLoading, hasMore, messages]);
+
+    // Include own domain in online users for display
+    useEffect(() => {
+        if (isConnected) {
+            setOnlineUsers((prev) =>
+                prev.includes(activeDomain) ? prev : [...prev, activeDomain],
+            );
+        }
+    }, [isConnected, activeDomain]);
+
+    return {
+        messages,
+        isConnected,
+        sendMessage,
+        isLoading,
+        loadMore,
+        hasMore,
+        onlineUsers,
+        typingUsers,
+        sendTyping,
+    };
+}
