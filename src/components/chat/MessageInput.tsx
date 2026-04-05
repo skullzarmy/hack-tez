@@ -83,7 +83,7 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
 
     return (
         <div
-            className="shrink-0 px-4 md:px-5 py-3"
+            className="shrink-0 px-5 md:px-6 py-3"
             style={{
                 borderTop: "1px solid var(--border-2, #333)",
                 paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",

@@ -141,14 +141,22 @@ export default function ChatPage() {
 
     // Gate 3: authenticated — show chat
     return (
-        <ChatLayout
-            token={session.token}
-            domains={session.domains}
-            activeDomain={session.activeDomain}
-            onSwitchDomain={(domain) => {
-                localStorage.setItem(IDENTITY_STORAGE_KEY, domain);
-                setSession((s) => (s ? { ...s, activeDomain: domain } : s));
+        <div
+            style={{
+                height: "calc(100dvh - 60px)",
+                padding: "clamp(0.5rem, 1.5vw, 1.25rem)",
+                boxSizing: "border-box",
             }}
-        />
+        >
+            <ChatLayout
+                token={session.token}
+                domains={session.domains}
+                activeDomain={session.activeDomain}
+                onSwitchDomain={(domain) => {
+                    localStorage.setItem(IDENTITY_STORAGE_KEY, domain);
+                    setSession((s) => (s ? { ...s, activeDomain: domain } : s));
+                }}
+            />
+        </div>
     );
 }

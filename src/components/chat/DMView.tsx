@@ -59,7 +59,7 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
         <div className="flex flex-col flex-1 min-w-0">
             {/* Header */}
             <header
-                className="flex items-center gap-2 md:gap-3 px-4 md:px-5 shrink-0"
+                className="flex items-center gap-2 md:gap-3 px-5 md:px-6 shrink-0"
                 style={{
                     borderBottom: "1px solid var(--border-2, #333)",
                     minHeight: "56px",
@@ -131,7 +131,7 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                 role="log"
                 aria-label={`DM with ${peerDomain}`}
                 aria-live="polite"
-                className="flex-1 overflow-y-auto px-4 md:px-5 py-5 flex flex-col gap-4"
+                className="flex-1 overflow-y-auto px-5 md:px-6 py-5 flex flex-col gap-4"
             >
                 {isLoading && (
                     <div className="flex justify-center py-2" aria-label="Loading older messages">
@@ -196,7 +196,7 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
             {/* Typing indicator */}
             {peerTyping && (
                 <div
-                    className="px-5 py-1.5 text-xs uppercase tracking-wide"
+                    className="px-6 py-1.5 text-xs uppercase tracking-wide"
                     aria-live="polite"
                     style={{
                         color: "var(--fg-3, #888)",

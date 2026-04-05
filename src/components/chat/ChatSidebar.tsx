@@ -67,7 +67,7 @@ export default function ChatSidebar({
     const sidebarContent = (
         <>
             {/* Mobile close button */}
-            <div className="flex md:hidden items-center justify-between px-4 shrink-0"
+            <div className="flex md:hidden items-center justify-between px-5 shrink-0"
                 style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px" }}
             >
                 <span
@@ -98,12 +98,12 @@ export default function ChatSidebar({
 
             {/* Rooms section */}
             <div
-                className="px-4 py-3 text-[10px] font-bold tracking-widest uppercase"
+                className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase"
                 style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
             >
                 Rooms
             </div>
-            <div className="px-2">
+            <div className="px-3">
                 <button
                     type="button"
                     onClick={onSelectGlobal}
@@ -129,7 +129,7 @@ export default function ChatSidebar({
 
             {/* DMs section */}
             <div
-                className="flex items-center justify-between px-4 py-3 text-[10px] font-bold tracking-widest uppercase"
+                className="flex items-center justify-between px-5 py-3 text-[10px] font-bold tracking-widest uppercase"
                 style={{
                     color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
@@ -174,10 +174,10 @@ export default function ChatSidebar({
                 </button>
             </div>
 
-            <div className="flex flex-col overflow-y-auto flex-1 min-h-0 px-2">
+            <div className="flex flex-col overflow-y-auto flex-1 min-h-0 px-3">
                 {conversations.length === 0 && (
                     <div
-                        className="px-3 py-4 text-xs uppercase tracking-widest"
+                        className="px-4 py-4 text-xs uppercase tracking-widest"
                         style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
                     >
                         No conversations yet
@@ -190,7 +190,7 @@ export default function ChatSidebar({
                             key={conv.roomId}
                             type="button"
                             onClick={() => onSelectDM(conv.roomId, conv.peerDomain)}
-                            className="flex flex-col gap-0.5 px-3 text-left w-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                            className="flex flex-col gap-0.5 px-4 text-left w-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                             style={{
                                 background: isActive ? "rgba(0, 255, 200, 0.06)" : "transparent",
                                 borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
@@ -257,7 +257,7 @@ export default function ChatSidebar({
 
             {/* Online users section */}
             <div
-                className="px-4 py-3 text-[10px] font-bold tracking-widest uppercase"
+                className="px-5 py-3 text-[10px] font-bold tracking-widest uppercase"
                 style={{
                     color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
@@ -270,7 +270,7 @@ export default function ChatSidebar({
                     Online — {onlineUsers.length}
                 </span>
             </div>
-            <div className="px-4 pb-4 flex flex-col gap-1.5 overflow-y-auto max-h-40">
+            <div className="px-5 pb-4 flex flex-col gap-1.5 overflow-y-auto max-h-40">
                 {onlineUsers.map((d) => (
                     <div
                         key={d}

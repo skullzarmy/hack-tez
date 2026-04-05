@@ -122,9 +122,8 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         <div
             className="flex"
             style={{
-                flex: "1 1 auto",
+                height: "100%",
                 fontFamily: "var(--font)",
-                margin: "clamp(0px, 1vw, 8px)",
                 border: "1px solid var(--border-2, #333)",
                 overflow: "hidden",
             }}
@@ -155,7 +154,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 <div className="flex flex-col flex-1 min-w-0">
                     {/* Header */}
                     <header
-                        className="flex items-center justify-between px-4 md:px-5 shrink-0"
+                        className="flex items-center justify-between px-5 md:px-6 shrink-0"
                         style={{
                             borderBottom: "1px solid var(--border-2, #333)",
                             minHeight: "56px",
@@ -227,7 +226,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                         role="log"
                         aria-label="Chat messages"
                         aria-live="polite"
-                        className="flex-1 overflow-y-auto px-4 md:px-5 py-5 flex flex-col gap-4"
+                        className="flex-1 overflow-y-auto px-5 md:px-6 py-5 flex flex-col gap-4"
                     >
                         {/* Load more indicator */}
                         {isLoading && (
@@ -295,7 +294,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     {/* Typing indicator */}
                     {filteredTyping.length > 0 && (
                         <div
-                            className="px-5 py-1.5 text-xs uppercase tracking-wide"
+                            className="px-6 py-1.5 text-xs uppercase tracking-wide"
                             aria-live="polite"
                             style={{
                                 color: "var(--fg-3, #888)",

@@ -96,7 +96,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
             >
                 {/* Header */}
                 <div
-                    className="flex items-center justify-between px-4"
+                    className="flex items-center justify-between px-5"
                     style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px" }}
                 >
                     <span
@@ -127,7 +127,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 </div>
 
                 {/* Search input */}
-                <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-2, #222)" }}>
+                <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--border-2, #222)" }}>
                     <div
                         className="flex items-center gap-2 px-3"
                         style={{
@@ -167,7 +167,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                             type="button"
                             onClick={() => onStartDM(domain)}
                             role="listitem"
-                            className="flex items-center gap-3 px-4 w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                            className="flex items-center gap-3 px-5 w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                             style={{
                                 cursor: "pointer",
                                 border: "none",
@@ -200,7 +200,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                             type="button"
                             onClick={handleManualSend}
                             role="listitem"
-                            className="flex items-center gap-3 px-4 w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                            className="flex items-center gap-3 px-5 w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                             style={{
                                 cursor: "pointer",
                                 border: "none",
@@ -222,7 +222,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
 
                     {filteredUsers.length === 0 && !canSendManual && (
                         <div
-                            className="px-4 py-6 text-center text-xs uppercase tracking-widest"
+                            className="px-5 py-6 text-center text-xs uppercase tracking-widest"
                             style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
                         >
                             {search ? "No matching users online" : "No other users online"}
