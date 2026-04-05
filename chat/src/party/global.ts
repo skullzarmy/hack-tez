@@ -149,7 +149,12 @@ export default class GlobalRoom implements Server {
     if (options.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
-    return fetch(url, { ...options, headers });
+    const resp = await fetch(url, { ...options, headers });
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.error(`[workerFetch] ${url} → ${resp.status}: ${body}`);
+    }
+    return resp;
   }
 
   async onConnect(conn: Connection) {
