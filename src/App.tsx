@@ -143,12 +143,8 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
     return (
         <nav className="nav" aria-label="Site navigation">
             <div className="container nav-inner">
-                <a href="/" className="nav-logo" aria-label="hack.tez home" style={{ display: "flex", alignItems: "center", gap: "0" }}>
-                    HACK.
-                    <picture>
-                        <source srcSet="/hacktez-anim.gif" type="image/gif" />
-                        <img src="/hacktez-static.jpg" alt="tez" style={{ height: "2rem" }} />
-                    </picture>
+                <a href="/" className="nav-logo" aria-label="hack.tez home">
+                    HACK<span className="dot-tez">TEZ</span>
                 </a>
 
                 <div className="nav-actions">
