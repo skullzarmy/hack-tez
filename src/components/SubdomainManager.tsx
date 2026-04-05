@@ -6,6 +6,7 @@ import { waitForOperation } from "../lib/tzkt";
 import { parseProfileFromData } from "../types/profile";
 import type { ProjectEntry } from "../types/profile";
 import config from "../config/tezos";
+import Select from "./ui/Select";
 
 const TED_APP_URL = config.tedAppUrl;
 
@@ -206,31 +207,20 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                         >
                             Pick from projects
                         </label>
-                        <select
+                        <Select
                             id={`project-${parentLabel}`}
-                            onChange={handleProjectSelect}
-                            defaultValue=""
-                            style={{
-                                width: "100%",
-                                fontFamily: "var(--font)",
-                                fontSize: "0.7rem",
-                                padding: "0.5rem 0.75rem",
-                                background: "var(--bg-2)",
-                                color: "var(--fg)",
-                                border: "1px solid var(--border-2)",
-                                cursor: "pointer",
+                            options={projects.map((p, i) => ({
+                                value: String(i),
+                                label: p.name + (p.url ? ` (${p.url})` : ""),
+                            }))}
+                            value=""
+                            onChange={(val) => {
+                                const synth = { target: { value: val } } as React.ChangeEvent<HTMLSelectElement>;
+                                handleProjectSelect(synth);
                             }}
-                        >
-                            <option value="" disabled>
-                                — Select a project —
-                            </option>
-                            {projects.map((p, i) => (
-                                <option key={i} value={i}>
-                                    {p.name}
-                                    {p.url ? ` (${p.url})` : ""}
-                                </option>
-                            ))}
-                        </select>
+                            placeholder="— Select a project —"
+                            fullWidth
+                        />
                     </div>
                 )}
 
