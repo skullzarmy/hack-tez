@@ -1,7 +1,7 @@
 import config from "../config/tezos";
 
 export default function ClaimUsedView() {
-    const domainsUrl = `https://app.tezos.domains`;
+    const domainsUrl = config.tedAppUrl;
 
     return (
         <div className="claim-used-view" role="region" aria-label="Claim already used">

@@ -45,6 +45,15 @@ const NAV: NavSection[] = [
             { id: "ps-avatar", label: "Avatar Fallback" },
         ],
     },
+    {
+        id: "chat",
+        label: "Chat",
+        children: [
+            { id: "chat-overview", label: "Overview" },
+            { id: "chat-auth", label: "Authentication" },
+            { id: "chat-ws", label: "WebSocket Protocol" },
+        ],
+    },
     { id: "quickstart", label: "Quick Start" },
     { id: "llm-skill", label: "LLM Skill" },
 ];
@@ -1902,6 +1911,361 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                                     </li>
                                 </ol>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* ================================================================ */}
+                    {/* Chat                                                              */}
+                    {/* ================================================================ */}
+
+                    <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+                        <h2
+                            id="chat"
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--fg-3)",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                                marginBottom: 0,
+                            }}
+                        >
+                            Chat
+                        </h2>
+                    </div>
+
+                    {/* ---- Overview ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="chat-overview" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Overview
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                hack.tez chat is a real-time messaging system exclusively for domain holders. Access it at{" "}
+                                <code style={{ color: "var(--fg)" }}>/chat</code> on the site. No hack.tez domain = no
+                                entry.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Your domain name is your chat identity — not your wallet address. Transfer the domain and
+                                the new owner inherits the chat identity. Wallets with multiple domains get an identity
+                                selector.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Rooms: global chat room + direct messages. All messages persist. Domain ownership is
+                                re-verified every 15 minutes — lose the domain, lose access.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Backend: Cloudflare Worker (auth API) + PartyKit (WebSocket rooms) + D1 (SQLite
+                                persistence). The chat backend is self-contained in the{" "}
+                                <code style={{ color: "var(--fg)" }}>chat/</code> directory.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- Authentication ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="chat-auth" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Authentication
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Auth endpoint:{" "}
+                                <code style={{ color: "var(--fg)" }}>POST /auth</code> on the chat worker. The client
+                                signs a challenge message with the connected wallet (no on-chain transaction). The worker
+                                verifies the signature and queries TED for domain ownership. No domains = 403 rejected.
+                                Domains found = JWT issued.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Challenge format:{" "}
+                                <code style={{ color: "var(--fg)" }}>
+                                    {"hack.tez-chat:{unix_timestamp}:{16_byte_hex_nonce}"}
+                                </code>
+                                . The signature is Micheline-encoded (<code style={{ color: "var(--fg)" }}>0501</code> +
+                                length prefix + UTF-8 bytes). JWT is valid for 1 hour and contains the wallet address +
+                                owned domains array.
+                            </p>
+                            <CodeBlock
+                                lang="json"
+                                code={`// POST /auth — request body
+{
+  "address": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
+  "publicKey": "edpkvGfY...",
+  "signature": "edsigt...",
+  "timestamp": 1719500000,
+  "nonce": "a1b2c3d4e5f67890a1b2c3d4e5f67890"
+}
+
+// 200 OK — response
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "domains": ["alice.hack.gho", "bob.hack.gho"],
+  "activeDomain": "alice.hack.gho"
+}`}
+                            />
+                        </div>
+                    </section>
+
+                    {/* ---- WebSocket Protocol ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="chat-ws" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                WebSocket Protocol
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Connect to PartyKit with the JWT as a query parameter. Global room:{" "}
+                                <code style={{ color: "var(--fg)" }}>
+                                    {"wss://{PARTYKIT_HOST}/party/main?room=global&token=..."}
+                                </code>
+                                . DM room:{" "}
+                                <code style={{ color: "var(--fg)" }}>
+                                    {"wss://{PARTYKIT_HOST}/party/dm?room=dm:alice.hack.gho+bob.hack.gho&token=..."}
+                                </code>
+                                . PartyKit verifies the JWT before accepting the connection.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "0.5rem",
+                                    maxWidth: "560px",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                Client → Server messages:
+                            </p>
+                            <div
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.76rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 2,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <ul
+                                    style={{
+                                        margin: 0,
+                                        paddingLeft: "1.25rem",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "0.15rem",
+                                    }}
+                                >
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "message", content: "..." }'}
+                                        </code>{" "}
+                                        — send a message
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "typing", active: true/false }'}
+                                        </code>{" "}
+                                        — typing indicator
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "history", before?: "ISO8601" }'}
+                                        </code>{" "}
+                                        — load older messages
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "switch-identity", domain: "..." }'}
+                                        </code>{" "}
+                                        — switch active domain
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>{'{ type: "read" }'}</code> — mark messages
+                                        as read (DM only)
+                                    </li>
+                                </ul>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "0.5rem",
+                                    maxWidth: "560px",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                Server → Client events:
+                            </p>
+                            <div
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.76rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 2,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <ul
+                                    style={{
+                                        margin: 0,
+                                        paddingLeft: "1.25rem",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "0.15rem",
+                                    }}
+                                >
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "message", id, sender, content, timestamp }'}
+                                        </code>{" "}
+                                        — new message
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "presence", domain, status: "online"|"offline" }'}
+                                        </code>{" "}
+                                        — user status
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "typing", domain, active }'}
+                                        </code>{" "}
+                                        — someone typing
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "history", messages: [...], hasMore }'}
+                                        </code>{" "}
+                                        — history page
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "system", content, timestamp }'}
+                                        </code>{" "}
+                                        — system notice
+                                    </li>
+                                    <li>
+                                        <code style={{ color: "var(--fg)" }}>
+                                            {'{ type: "error", code, message }'}
+                                        </code>{" "}
+                                        — error
+                                    </li>
+                                </ul>
+                            </div>
+                            <CodeBlock
+                                lang="json"
+                                code={`// Example: connect and send a message
+ws = new WebSocket("wss://<PARTYKIT_HOST>/party/main?room=global&token=eyJ...")
+
+// Send
+ws.send(JSON.stringify({ type: "message", content: "gm hackers" }))
+
+// Receive
+{
+  "type": "message",
+  "id": "msg_01J...",
+  "sender": "alice.hack.gho",
+  "content": "gm hackers",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}`}
+                            />
                         </div>
                     </section>
 

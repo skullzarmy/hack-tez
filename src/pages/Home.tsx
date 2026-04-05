@@ -230,12 +230,16 @@ export default function Home() {
                         <a href="https://tezos.domains" target="_blank" rel="noopener noreferrer">
                             Tezos Domains
                         </a>
-                        . Set an address, a redirect, an IPFS hash. It's yours.
+                        . Set an address, configure your record. It's yours.
                     </p>
                     <p className="section-body">You pay gas (~0.02 ꜩ). That's it. 1 claim per wallet.</p>
                     <p className="section-body" style={{ marginTop: "2rem" }}>
                         FAFOlab retains ownership of the main hack.tez domain and provides this service with no warranty
-                        or guarantee. The future is not promised. We're building it anyway.
+                        or guarantee.{" "}
+                    </p>
+                    <p className="section-body" style={{ marginTop: "2rem" }}>
+                        {" "}
+                        The future is not promised. We're building it anyway.
                     </p>
                     <p
                         className="section-body"

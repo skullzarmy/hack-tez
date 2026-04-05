@@ -6,7 +6,7 @@
 
 hack.tez is a free Tezos subdomain registrar. Users connect a Tezos wallet and claim `name.hack.tez` via a SmartPy smart contract on ghostnet (or mainnet). Subdomains are real Tezos Domains (TED) records — users get full on-chain ownership.
 
-**Stack:** TypeScript · React 19 · Vite 8 · Tailwind CSS 4 · Taquito v24 · Netlify (SPA + Functions v2)
+**Stack:** TypeScript · React 19 · Vite 8 · Tailwind CSS 4 · Taquito v24 · Netlify (SPA + Functions v2) · Cloudflare Workers + PartyKit + D1 (chat)
 
 ---
 
@@ -39,6 +39,11 @@ Both must exit 0. Never commit with type errors.
 - `"jsx": "react-jsx"` — no need to `import React` in `.tsx` files
 - Tailwind via `@tailwindcss/vite` — no separate config file, just `@import "tailwindcss"` in `src/index.css`
 
+## React / Data-Fetching Rules
+
+- **Never wipe the DOM on background refresh.** When a hook or component re-fetches data (polling, post-mutation refresh, `refreshKey` increment), do NOT set `loading=true` if data already exists. Only show a loading spinner/skeleton on the very first fetch. Use a `hasFetched` ref to track this. Subsequent fetches silently update state in place.
+- **Network-dependent URLs must come from `config` (`src/config/tezos.ts`).** Never construct TED, TzKT, or GraphQL URLs ad-hoc in components. Use `config.tedAppUrl`, `config.tzktApi`, `config.domainsGraphql`, etc.
+
 ---
 
 ## Key Files
@@ -56,6 +61,14 @@ Both must exit 0. Never commit with type errors.
 | `netlify/functions/api.mts`    | Public REST API — all `/api/*` routes (Netlify v2 function)                |
 | `netlify/functions/pin.mts`   | Authenticated IPFS pin proxy                                               |
 | `netlify.toml`                 | Build config, SPA redirect, security headers/CSP                           |
+| `chat/src/worker.ts`           | Chat auth endpoint + DM REST API (CF Worker)                               |
+| `chat/src/auth/verify.ts`      | Tezos signature verification + TED domain ownership check                  |
+| `chat/src/party/global.ts`     | Global chat room (PartyKit — JWT auth, messages, presence, typing)         |
+| `chat/src/party/dm.ts`         | DM room server (PartyKit — 1-on-1 messaging, read receipts)               |
+| `src/hooks/useChat.ts`         | Global chat WebSocket hook (PartyKit connection, messages, presence)       |
+| `src/hooks/useDM.ts`           | DM WebSocket hook                                                          |
+| `src/hooks/useDMList.ts`       | DM conversation list (polling)                                             |
+| `src/components/chat/ChatPage.tsx` | Chat auth gate (wallet → sign → enter)                                 |
 
 ---
 
@@ -118,8 +131,10 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **Owner = sender.** Users own TED records directly. The contract sets `owner=sp.sender` in TED calls.
 - **1 claim per wallet (permanent).** `registrations` big_map tracks claims. Even if TED record is removed, the claim slot is spent.
 - **Wallet SDK is `@tezos-x/octez.connect-sdk`** (Beacon). Use `DAppClient.requestOperation()` with raw Michelson — NOT Taquito's `ContractAbstraction`.
-- **No Netlify Functions for redirect/resolution.** The API in `netlify/functions/api.mts` is a pure proxy to TED GraphQL + TzKT.
+- **No Netlify Functions for resolution.** The API in `netlify/functions/api.mts` is a pure proxy to TED GraphQL + TzKT.
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects.
+- **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
+- **JWT is the trust boundary.** CF Worker issues JWT after verifying wallet signature + TED domain ownership. PartyKit only accepts connections with valid JWT. Both share `CHAT_JWT_SECRET`.
 
 ---
 
@@ -131,6 +146,9 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 | `VITE_REGISTRAR_ADDRESS` | Frontend + API function | Contract address override                         |
 | `TEZOS_WALLET_PUB_KEY`   | Deploy scripts only     | Actually the `edsk...` secret key (legacy naming) |
 | `PINATA_JWT`             | Netlify server-only     | Pinata API JWT token for IPFS pinning             |
+| `VITE_HACKCHAT_URL`     | Frontend                | Chat worker URL (default `http://localhost:8787`) |
+| `VITE_PARTYKIT_HOST`    | Frontend                | PartyKit host (default `localhost:1999`)          |
+| `CHAT_JWT_SECRET`        | CF Worker + PartyKit    | Shared JWT signing secret (set via wrangler/partykit) |
 
 ---
 
@@ -142,3 +160,4 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 | TED GraphQL (mainnet)  | `https://api.tezos.domains/graphql`          | Same, mainnet                                |
 | TzKT (ghostnet)        | `https://api.ghostnet.tzkt.io`               | Contract storage, transaction history        |
 | TzKT (mainnet)         | `https://api.tzkt.io`                        | Same, mainnet                                |
+| PartyKit               | `https://hackchat.skullzarmy.partykit.dev`   | WebSocket rooms (global + DM)                |

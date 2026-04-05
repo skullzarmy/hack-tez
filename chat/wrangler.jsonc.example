@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hackchat",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hackchat",
+      // Replace with your own D1 database ID from `wrangler d1 create hackchat`
+      "database_id": "YOUR_D1_DATABASE_ID"
+    }
+  ]
+  // Uncomment and set your custom domain when DNS is on Cloudflare:
+  // "routes": [
+  //   { "pattern": "chat.yourdomain.xyz/*", "zone_name": "yourdomain.xyz" }
+  // ]
+}

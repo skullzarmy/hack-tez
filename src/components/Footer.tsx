@@ -1,6 +1,6 @@
-export default function Footer() {
+export default function Footer({ compact }: { compact?: boolean }) {
     return (
-        <footer className="footer">
+        <footer className="footer" style={compact ? { marginTop: 0, paddingBlock: "0.75rem" } : undefined}>
             <div className="container footer-inner">
                 <span className="footer-copy">
                     <span>

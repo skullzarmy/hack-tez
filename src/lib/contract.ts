@@ -269,7 +269,7 @@ export async function submitCreateSubdomain(
     parentLabel: string,
     childLabel: string,
     client: DAppClient,
-    redirectUrl?: string,
+    targetAddress?: string,
 ): Promise<string> {
     const ted = await getTedContracts();
     if (!ted.setChildRecord) {
@@ -281,19 +281,11 @@ export async function submitCreateSubdomain(
         throw new Error("No active wallet account");
     }
     const owner = account.address;
+    const resolveAddress = targetAddress || owner;
 
     const parentDomain = `${parentLabel}.hack.${config.tld}`;
     const labelHex = labelToHexBytes(childLabel);
     const parentHex = labelToHexBytes(parentDomain);
-
-    // Build data map entries (Michelson map = sorted list of Elt pairs)
-    const dataEntries: { prim: "Elt"; args: [{ string: string }, { bytes: string }] }[] = [];
-    if (redirectUrl) {
-        dataEntries.push({
-            prim: "Elt",
-            args: [{ string: "web:redirect_url" }, { bytes: labelToHexBytes(redirectUrl) }],
-        });
-    }
 
     const result = await client.requestOperation({
         operationDetails: [
@@ -314,7 +306,7 @@ export async function submitCreateSubdomain(
                                     {
                                         prim: "Pair",
                                         args: [
-                                            { prim: "Some", args: [{ string: owner }] },
+                                            { prim: "Some", args: [{ string: resolveAddress }] },
                                             {
                                                 prim: "Pair",
                                                 args: [
@@ -322,7 +314,7 @@ export async function submitCreateSubdomain(
                                                     {
                                                         prim: "Pair",
                                                         args: [
-                                                            dataEntries,
+                                                            [],
                                                             { prim: "None" },
                                                         ],
                                                     },

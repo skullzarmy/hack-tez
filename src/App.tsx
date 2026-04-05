@@ -18,6 +18,7 @@ const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
+const Chat = lazy(() => import("./components/chat/ChatPage"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -143,7 +144,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
         <nav className="nav" aria-label="Site navigation">
             <div className="container nav-inner">
                 <a href="/" className="nav-logo" aria-label="hack.tez home">
-                    HACK<span className="dot-tez">.TEZ</span>
+                    HACK<span className="dot-tez">TEZ</span>
                 </a>
 
                 <div className="nav-actions">
@@ -179,22 +180,16 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Home
                                     </a>
+                                    {domain && (
                                     <a
-                                        href="/manifesto"
+                                        href="/chat"
                                         role="menuitem"
                                         className="nav-drawer-link"
                                         onClick={() => setOpen(false)}
                                     >
-                                        Manifesto
+                                        Chat
                                     </a>
-                                    <a
-                                        href="/hackers"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Hackers
-                                    </a>
+                                    )}
                                     {domain && (
                                     <a
                                         href="/manage"
@@ -205,6 +200,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Manage
                                     </a>
                                     )}
+                                    <a
+                                        href="/hackers"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Hackers
+                                    </a>
                                     <a
                                         href="/developers"
                                         role="menuitem"
@@ -229,6 +232,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     >
                                         Policies
                                     </a>
+                                    <a
+                                        href="/manifesto"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Manifesto
+                                    </a>
                                 </div>
                             </div>
                         )}
@@ -242,7 +253,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
 function ActivityLayer() {
     const location = useLocation();
     const { events, newEvents, isLoading } = useRecentActivity();
-    if (location.pathname === "/developers") return null;
+    if (location.pathname === "/developers" || location.pathname === "/chat") return null;
     return (
         <>
             {/* Desktop: fixed side panel (lg+ only, hidden via CSS on smaller screens) */}
@@ -259,6 +270,8 @@ function ActivityLayer() {
 
 export function AppShell() {
     const { theme, setTheme } = useTheme();
+    const location = useLocation();
+    const isChat = location.pathname === "/chat";
 
     return (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
@@ -274,7 +287,14 @@ export function AppShell() {
             <Nav theme={theme} setTheme={setTheme} />
 
             {/* Main content */}
-            <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
+            <main
+                id="main-content"
+                tabIndex={-1}
+                style={isChat
+                    ? { flex: "1 1 0", minHeight: 0, display: "flex", flexDirection: "column" as const, overflow: "hidden" }
+                    : { flex: "1 0 auto" }
+                }
+            >
                 <Routes>
                     <Route path="/manifesto" element={<Manifesto />} />
                     <Route path="/hackers" element={<Hackers />} />
@@ -284,13 +304,14 @@ export function AppShell() {
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
                     <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
                     <Route path="/manage" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+                    <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>
             </main>
 
             <ActivityLayer />
-            <Footer />
+            <Footer compact={isChat} />
         </div>
     );
 }

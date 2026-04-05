@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTezos } from "../context/TezosContext";
 import { getSubSubdomains, validateLabel, type SubdomainRecord } from "../lib/domains";
 import { submitCreateSubdomain } from "../lib/contract";
+import { waitForOperation } from "../lib/tzkt";
 import { parseProfileFromData } from "../types/profile";
 import type { ProjectEntry } from "../types/profile";
 import config from "../config/tezos";
+import Select from "./ui/Select";
 
-const TED_APP_URL =
-    config.name === "mainnet" ? "https://app.tezos.domains" : "https://ghostnet.app.tezos.domains";
+const TED_APP_URL = config.tedAppUrl;
 
-type CreateStatus = "idle" | "submitting" | "confirming" | "success" | "error";
+type CreateStatus = "idle" | "submitting" | "confirming" | "refreshing" | "success" | "error";
 
 /** Slugify a project name for use as a subdomain label */
 function slugify(name: string): string {
@@ -22,8 +23,6 @@ function slugify(name: string): string {
 
 function SubSubdomainCard({ domain }: { domain: SubdomainRecord }) {
     const label = domain.name.split(".")[0];
-    const redirectValue = domain.data.find((d) => d.key === "web:redirect_url")?.value;
-    const redirect = typeof redirectValue === "string" ? redirectValue : null;
 
     return (
         <div
@@ -52,10 +51,10 @@ function SubSubdomainCard({ domain }: { domain: SubdomainRecord }) {
                         .{domain.name.split(".").slice(1).join(".")}
                     </span>
                 </div>
-                {redirect && (
+                {domain.address && (
                     <div
                         style={{
-                            fontFamily: "var(--font)",
+                            fontFamily: "var(--font-mono)",
                             fontSize: "0.6rem",
                             color: "var(--fg-3)",
                             letterSpacing: "0.02em",
@@ -65,7 +64,7 @@ function SubSubdomainCard({ domain }: { domain: SubdomainRecord }) {
                             whiteSpace: "nowrap",
                         }}
                     >
-                        → {redirect}
+                        → {domain.address.slice(0, 10)}…{domain.address.slice(-6)}
                     </div>
                 )}
             </div>
@@ -93,18 +92,20 @@ interface CreateSubdomainFormProps {
 function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: CreateSubdomainFormProps) {
     const { client } = useTezos();
     const [childLabel, setChildLabel] = useState("");
-    const [redirectUrl, setRedirectUrl] = useState("");
+    const [targetAddress, setTargetAddress] = useState("");
     const [status, setStatus] = useState<CreateStatus>("idle");
     const [error, setError] = useState<string | null>(null);
     const [txHash, setTxHash] = useState<string | null>(null);
 
     const validation = childLabel ? validateLabel(childLabel) : null;
     const isIdle = status === "idle";
+    const isValidAddress = !targetAddress || /^(tz|KT)[1-9A-HJ-NP-Za-km-z]{33}$/.test(targetAddress);
     const canSubmit =
         isIdle &&
         client &&
         childLabel.length >= 3 &&
-        validation?.valid === true;
+        validation?.valid === true &&
+        isValidAddress;
 
     function handleProjectSelect(e: React.ChangeEvent<HTMLSelectElement>) {
         const idx = parseInt(e.target.value, 10);
@@ -113,7 +114,6 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
         if (!project) return;
         const slug = slugify(project.name);
         if (slug.length >= 3) setChildLabel(slug);
-        if (project.url) setRedirectUrl(project.url);
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -129,12 +129,25 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                 parentLabel,
                 childLabel,
                 client,
-                redirectUrl || undefined,
+                targetAddress || undefined,
             );
             setTxHash(hash);
+
+            setStatus("confirming");
+            const result = await waitForOperation(hash);
+            if (result.status !== "applied") {
+                setStatus("error");
+                setError(result.errorMessage ?? "Transaction failed on-chain");
+                return;
+            }
+
+            setStatus("refreshing");
+            // Give TED GraphQL a moment to index the new record
+            await new Promise((r) => setTimeout(r, 5000));
+
             setStatus("success");
             setChildLabel("");
-            setRedirectUrl("");
+            setTargetAddress("");
             onCreated();
         } catch (err) {
             setStatus("error");
@@ -194,31 +207,20 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                         >
                             Pick from projects
                         </label>
-                        <select
+                        <Select
                             id={`project-${parentLabel}`}
-                            onChange={handleProjectSelect}
-                            defaultValue=""
-                            style={{
-                                width: "100%",
-                                fontFamily: "var(--font)",
-                                fontSize: "0.7rem",
-                                padding: "0.5rem 0.75rem",
-                                background: "var(--bg-2)",
-                                color: "var(--fg)",
-                                border: "1px solid var(--border-2)",
-                                cursor: "pointer",
+                            options={projects.map((p, i) => ({
+                                value: String(i),
+                                label: p.name + (p.url ? ` (${p.url})` : ""),
+                            }))}
+                            value=""
+                            onChange={(val) => {
+                                const synth = { target: { value: val } } as React.ChangeEvent<HTMLSelectElement>;
+                                handleProjectSelect(synth);
                             }}
-                        >
-                            <option value="" disabled>
-                                — Select a project —
-                            </option>
-                            {projects.map((p, i) => (
-                                <option key={i} value={i}>
-                                    {p.name}
-                                    {p.url ? ` (${p.url})` : ""}
-                                </option>
-                            ))}
-                        </select>
+                            placeholder="— Select a project —"
+                            fullWidth
+                        />
                     </div>
                 )}
 
@@ -289,10 +291,10 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                     )}
                 </div>
 
-                {/* Redirect URL input */}
+                {/* Resolve address (optional — defaults to your wallet) */}
                 <div>
                     <label
-                        htmlFor={`redirect-${parentLabel}`}
+                        htmlFor={`address-${parentLabel}`}
                         style={{
                             fontFamily: "var(--font)",
                             fontSize: "0.6rem",
@@ -303,26 +305,40 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                             marginBottom: "0.35rem",
                         }}
                     >
-                        Redirect URL{" "}
-                        <span style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span>
+                        Resolve to wallet{" "}
+                        <span style={{ textTransform: "none", fontWeight: 400 }}>(optional — defaults to yours)</span>
                     </label>
                     <input
-                        id={`redirect-${parentLabel}`}
-                        type="url"
-                        value={redirectUrl}
-                        onChange={(e) => setRedirectUrl(e.target.value)}
-                        placeholder="https://myproject.com"
+                        id={`address-${parentLabel}`}
+                        type="text"
+                        value={targetAddress}
+                        onChange={(e) => setTargetAddress(e.target.value.trim())}
+                        placeholder="tz1… or KT1…"
+                        maxLength={36}
                         autoComplete="off"
+                        spellCheck={false}
                         style={{
                             width: "100%",
-                            fontFamily: "var(--font)",
+                            fontFamily: "var(--font-mono)",
                             fontSize: "0.7rem",
                             padding: "0.5rem 0.75rem",
                             background: "var(--bg-2)",
                             color: "var(--fg)",
-                            border: "1px solid var(--border-2)",
+                            border: `1px solid ${targetAddress && !isValidAddress ? "var(--err)" : "var(--border-2)"}`,
                         }}
                     />
+                    {targetAddress && !isValidAddress && (
+                        <div
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.6rem",
+                                color: "var(--err)",
+                                marginTop: "0.3rem",
+                            }}
+                        >
+                            Invalid Tezos address
+                        </div>
+                    )}
                 </div>
 
                 {/* Error state */}
@@ -339,7 +355,13 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                     className="btn btn-primary btn-sm"
                     style={{ alignSelf: "flex-start" }}
                 >
-                    {status === "submitting" ? "Submitting…" : "Create subdomain"}
+                    {status === "submitting"
+                        ? "Confirm in wallet…"
+                        : status === "confirming"
+                          ? "Confirming on-chain…"
+                          : status === "refreshing"
+                            ? "Refreshing…"
+                            : "Create subdomain"}
                 </button>
             </div>
         </form>
@@ -348,20 +370,23 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
 
 interface SubdomainManagerProps {
     domain: SubdomainRecord;
+    onMutate?: () => void;
 }
 
-export default function SubdomainManager({ domain }: SubdomainManagerProps) {
+export default function SubdomainManager({ domain, onMutate }: SubdomainManagerProps) {
     const [children, setChildren] = useState<SubdomainRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
+    const hasFetched = useRef(false);
 
     const parentLabel = domain.name.split(".")[0];
 
     const fetchChildren = useCallback(async () => {
-        setLoading(true);
+        if (!hasFetched.current) setLoading(true);
         try {
             const results = await getSubSubdomains(domain.name);
             setChildren(results);
+            hasFetched.current = true;
         } catch {
             // Silently handle — sub-subdomains are supplemental
         } finally {
@@ -473,6 +498,7 @@ export default function SubdomainManager({ domain }: SubdomainManagerProps) {
                         projects={projectEntries}
                         onCreated={() => {
                             fetchChildren();
+                            onMutate?.();
                         }}
                     />
                 </div>
@@ -489,14 +515,14 @@ export function PinToSubdomainButton({
 }: {
     project: ProjectEntry;
     parentName: string;
-    onPin: (childLabel: string, redirectUrl?: string) => void;
+    onPin: (childLabel: string) => void;
 }) {
     const slug = slugify(project.name);
     if (slug.length < 3) return null;
 
     return (
         <button
-            onClick={() => onPin(slug, project.url)}
+            onClick={() => onPin(slug)}
             className="btn btn-ghost btn-sm"
             title={`Create ${slug}.${parentName}`}
             aria-label={`Pin ${project.name} as ${slug}.${parentName}`}

@@ -8,6 +8,7 @@ import { ipfsUriToGatewayUrl } from "../lib/pin";
 import type { DomainRecord } from "../lib/domains";
 import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile";
 import { isValidUrl } from "../types/profile";
+import Select from "./ui/Select";
 
 // ── Shared Input Styles ──────────────────────────────────────────────
 
@@ -31,16 +32,6 @@ const LABEL_STYLE: React.CSSProperties = {
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     marginBottom: "0.35rem",
-};
-
-const SELECT_STYLE: React.CSSProperties = {
-    ...INPUT_BASE,
-    appearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E")`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 0.6rem center",
-    paddingRight: "1.8rem",
-    cursor: "pointer",
 };
 
 const SECTION_STYLE: React.CSSProperties = {
@@ -537,18 +528,13 @@ function ProjectEditor({
                 </div>
                 <div>
                     <label htmlFor={`project-${index}-status`} style={LABEL_STYLE}>Status</label>
-                    <select
+                    <Select
                         id={`project-${index}-status`}
+                        options={PROJECT_STATUS_OPTIONS}
                         value={project.status ?? ""}
-                        onChange={(e) => update("status", e.target.value)}
-                        style={SELECT_STYLE}
-                    >
-                        {PROJECT_STATUS_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                                {o.label}
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(val) => update("status", val)}
+                        fullWidth
+                    />
                 </div>
             </div>
 
@@ -594,18 +580,13 @@ function ProjectEditor({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
                     <label htmlFor={`project-${index}-env`} style={LABEL_STYLE}>Environment</label>
-                    <select
+                    <Select
                         id={`project-${index}-env`}
+                        options={ENVIRONMENT_OPTIONS}
                         value={project.environment ?? ""}
-                        onChange={(e) => update("environment", e.target.value)}
-                        style={SELECT_STYLE}
-                    >
-                        {ENVIRONMENT_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                                {o.label}
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(val) => update("environment", val)}
+                        fullWidth
+                    />
                 </div>
                 <div>
                     <label htmlFor={`project-${index}-address`} style={LABEL_STYLE}>Address</label>
@@ -744,10 +725,13 @@ export function useProfileEdit(
         }
     }, [searchParams, record, walletAddress, editing, setSearchParams]);
 
-    // Unsaved changes warning
+    // Unsaved changes warning — suppressed during wallet operations (mobile deep-links
+    // to the wallet app, which triggers beforeunload)
+    const walletActiveRef = useRef(false);
     useEffect(() => {
         if (!hasChanges) return;
         const handler = (e: BeforeUnloadEvent) => {
+            if (walletActiveRef.current) return;
             e.preventDefault();
         };
         window.addEventListener("beforeunload", handler);
@@ -880,8 +864,10 @@ export function useProfileEdit(
 
             if (filesToPin.length > 0) {
                 setSaveStatus("Uploading images to IPFS…");
+                walletActiveRef.current = true;
                 const { pinFiles } = await import("../lib/pin");
                 const results = await pinFiles(filesToPin, client);
+                walletActiveRef.current = false;
 
                 for (let i = 0; i < results.length; i++) {
                     const ipfsUri = `ipfs://${results[i].cid}`;
@@ -899,7 +885,9 @@ export function useProfileEdit(
             }
 
             setSaveStatus("Confirm transaction in wallet…");
+            walletActiveRef.current = true;
             const opHash = await submitProfileUpdate(label, finalForm, client);
+            walletActiveRef.current = false;
             setSubmitSuccess(true);
             exitEditMode();
 
@@ -938,6 +926,7 @@ export function useProfileEdit(
             setSubmitError(msg);
             setSaveStatus(null);
         } finally {
+            walletActiveRef.current = false;
             setSubmitting(false);
         }
     }
@@ -1027,21 +1016,15 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                 </div>
                 <div>
                     <label htmlFor="profile-status" style={LABEL_STYLE}>Status</label>
-                    <select
+                    <Select
                         id="profile-status"
+                        options={STATUS_OPTIONS}
                         value={form.status ?? ""}
-                        onChange={(e) => {
-                            const val = e.target.value as BuilderStatus | "";
-                            updateField("status", val || undefined);
+                        onChange={(val) => {
+                            updateField("status", (val as BuilderStatus) || undefined);
                         }}
-                        style={SELECT_STYLE}
-                    >
-                        {STATUS_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                                {o.label}
-                            </option>
-                        ))}
-                    </select>
+                        fullWidth
+                    />
                 </div>
             </div>
 

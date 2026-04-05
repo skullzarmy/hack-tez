@@ -1,30 +1,46 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getSubdomainsByOwner, type SubdomainRecord } from "../lib/domains";
+
+const POLL_INTERVAL_MS = 30_000; // 30s auto-refresh
 
 export function useSubdomains(address: string | null) {
     const [subdomains, setSubdomains] = useState<SubdomainRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const isMounted = useRef(true);
+    const hasFetched = useRef(false);
 
     const refresh = useCallback(async () => {
         if (!address) {
             setSubdomains([]);
             return;
         }
-        setLoading(true);
-        setError(null);
+        if (!hasFetched.current) setLoading(true);
         try {
             const results = await getSubdomainsByOwner(address);
-            setSubdomains(results);
+            if (isMounted.current) {
+                setSubdomains(results);
+                setError(null);
+                hasFetched.current = true;
+            }
         } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to load subdomains");
+            if (isMounted.current && !hasFetched.current) {
+                setError(e instanceof Error ? e.message : "Failed to load subdomains");
+            }
         } finally {
-            setLoading(false);
+            if (isMounted.current) setLoading(false);
         }
     }, [address]);
 
     useEffect(() => {
+        isMounted.current = true;
+        hasFetched.current = false;
         refresh();
+        const id = setInterval(refresh, POLL_INTERVAL_MS);
+        return () => {
+            isMounted.current = false;
+            clearInterval(id);
+        };
     }, [refresh]);
 
     return { subdomains, loading, error, refresh };

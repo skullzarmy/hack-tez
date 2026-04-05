@@ -4,7 +4,7 @@ Free Tezos subdomains. No permission required.
 
 Connect a wallet. Claim `yourname.hack.tez`. Set up your builder profile. That's it.
 
-Your name is a real on-chain  it resolves, routes, and can be queried by contracts. Manage it at [Tezos Domains](https://tezos.domains). Set an address, a redirect, an IPFS hash. It's yours.record 
+Your name is a real on-chain record — it resolves, routes, and can be queried by contracts. Manage it at [Tezos Domains](https://tezos.domains). Set an address, configure your record. It's yours.
 
 One claim per wallet. Permanent.
 
@@ -17,6 +17,7 @@ One claim per wallet. Permanent.
 | `src/` | React  the frontend |SPA 
 | `contract/` | SmartPy registrar contract |
 | `bot/` | Telegram event bot |
+| `chat/` | Owner-gated web chat (CF Worker + PartyKit + D1) |
 | `netlify/functions/` | Public REST API |
 | `scripts/` | Deploy + e2e test scripts |
 
@@ -118,6 +119,38 @@ bun run src/index.ts
 
 ---
 
+## Chat (`chat/`)
+
+Real-time web chat gated to hack.tez domain holders. Your domain name is your identity — not your wallet.
+
+**Access:** `/chat` on the site. Connect wallet → sign message → enter. No hack.tez domain = no entry.
+
+**Identity:** Messages are tied to your domain name. Transfer the domain, the new owner inherits the chat identity. Wallets with multiple domains get a selector.
+
+**Rooms:** Global room + direct messages. Messages persist. Ownership re-verified every 15 minutes.
+
+**Stack:** Cloudflare Worker (auth) + PartyKit (WebSocket) + D1 (SQLite). Self-contained in `chat/`.
+
+**Local dev:**
+
+```bash
+cd chat
+npm install
+cp .dev.vars.example .dev.vars  # set CHAT_JWT_SECRET
+npx wrangler dev                # Worker on localhost:8787
+npx partykit dev                # WebSocket on localhost:1999
+```
+
+**Deploy:**
+
+```bash
+cd chat
+npx wrangler deploy             # CF Worker
+npx partykit deploy             # PartyKit rooms
+```
+
+---
+
 ## Public REST API (`netlify/functions/api.mts`)
 
 All `/api/*` routes. No auth. Pure proxy to TED GraphQL + TzKT.
@@ -143,6 +176,8 @@ Response shape: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ 
 |---|---|
 | `VITE_TEZOS_NETWORK` | `ghostnet` (default) or `mainnet` |
 | `VITE_REGISTRAR_ADDRESS` | Contract address override |
+| `VITE_HACKCHAT_URL` | Chat worker URL (default: `http://localhost:8787`) |
+| `VITE_PARTYKIT_HOST` | PartyKit host (default: `localhost:1999`) |
 
 ---
 

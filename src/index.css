@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@source "./components/chat";
 
 /* Self-hosted Space Mono with font-display:optional to prevent LCP re-trigger.
    The 400-normal and 700-normal variants are preloaded in index.html so they
@@ -47,8 +48,8 @@
     --bg-2: #0d0d0d;
     --bg-3: #1a1a1a;
     --fg: #ffffff;
-    --fg-2: rgba(255, 255, 255, 0.6);
-    --fg-3: #888888; /* 4.88:1 on #1a1a1a, 5.9:1 on #000 — AA ✓ */
+    --fg-2: rgba(255, 255, 255, 0.8);
+    --fg-3: #aaaaaa; /* 8.4:1 on #000 — AAA ✓ */
     --fg-muted: var(--fg-3);
     --border: rgba(255, 255, 255, 0.1);
     --border-2: rgba(255, 255, 255, 0.32);
@@ -106,8 +107,8 @@
     --bg-2: #0d0d0d;
     --bg-3: #1a1a1a;
     --fg: #ffffff;
-    --fg-2: rgba(255, 255, 255, 0.6);
-    --fg-3: #888888;
+    --fg-2: rgba(255, 255, 255, 0.8);
+    --fg-3: #aaaaaa;
     --border: rgba(255, 255, 255, 0.1);
     --border-2: rgba(255, 255, 255, 0.32);
     --border-3: rgba(255, 255, 255, 0.7);
@@ -145,12 +146,14 @@
 }
 
 /* --- BASE --------------------------------------------------- */
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+@layer base {
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 }
 
 html {

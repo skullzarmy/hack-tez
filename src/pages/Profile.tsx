@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useTezos } from "../context/TezosContext";
 import { getDomainRecord } from "../lib/domains";
@@ -353,6 +353,7 @@ export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const hasLoaded = useRef(false);
 
     const label = subdomain ?? "";
     const fullName = `${label}.hack.${config.tld}`;
@@ -370,7 +371,7 @@ export default function Profile() {
             return;
         }
         let cancelled = false;
-        setLoading(true);
+        if (!hasLoaded.current) setLoading(true);
         setNotFound(false);
 
         getDomainRecord(fullName).then((result) => {
@@ -379,6 +380,7 @@ export default function Profile() {
                 setNotFound(true);
             } else {
                 setRecord(result);
+                hasLoaded.current = true;
             }
             setLoading(false);
         }).catch(() => {

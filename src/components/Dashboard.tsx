@@ -4,9 +4,9 @@ import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 import SubdomainManager from "./SubdomainManager";
 
-const TED_APP_URL = config.name === "mainnet" ? "https://app.tezos.domains" : "https://ghostnet.app.tezos.domains";
+const TED_APP_URL = config.tedAppUrl;
 
-function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
+function SubdomainCard({ domain, onMutate }: { domain: SubdomainRecord; onMutate: () => void }) {
     return (
         <div className="domain-card">
             <div
@@ -53,7 +53,7 @@ function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
                     Edit profile
                 </a>
             </div>
-            <SubdomainManager domain={domain} />
+            <SubdomainManager domain={domain} onMutate={onMutate} />
         </div>
     );
 }
@@ -61,6 +61,9 @@ function SubdomainCard({ domain }: { domain: SubdomainRecord }) {
 export default function Dashboard() {
     const { address } = useTezos();
     const { subdomains, loading, error, refresh } = useSubdomains(address);
+
+    // Only show direct hack.tez subdomains (level 3), not sub-subdomains
+    const topLevel = subdomains.filter((d) => d.name.split(".").length === 3);
 
     if (!address) {
         return (
@@ -136,7 +139,7 @@ export default function Dashboard() {
                 </button>
             </div>
 
-            {subdomains.length === 0 ? (
+            {topLevel.length === 0 ? (
                 <div
                     style={{
                         textAlign: "center",
@@ -155,9 +158,9 @@ export default function Dashboard() {
                 </div>
             ) : (
                 <div role="list" aria-label="Your subdomains">
-                    {subdomains.map((d) => (
+                    {topLevel.map((d) => (
                         <div key={d.name} role="listitem">
-                            <SubdomainCard domain={d} />
+                            <SubdomainCard domain={d} onMutate={refresh} />
                         </div>
                     ))}
                 </div>

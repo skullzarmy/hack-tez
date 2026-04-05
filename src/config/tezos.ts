@@ -22,6 +22,8 @@ interface NetworkConfig {
     tzktApi: string;
     domainsGraphql: string;
     registrarAddress: string;
+    /** TED dApp URL for this network */
+    tedAppUrl: string;
     /** TED NameRegistry.CheckAddress — the single hardcoded TED anchor per network.
      *  All other TED addresses are resolved from this at runtime. */
     tedCheckAddress: string;
@@ -35,6 +37,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tzktApi: "https://api.ghostnet.tzkt.io",
         domainsGraphql: "https://ghostnet-api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        tedAppUrl: "https://ghostnet.tezos.domains",
         tedCheckAddress: "KT1B3j3At2XMF5P8bVoPD2WeJbZ9eaPiu3pD",
     },
     shadownet: {
@@ -44,6 +47,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tzktApi: "https://api.shadownet.tzkt.io",
         domainsGraphql: "",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        tedAppUrl: "https://shadownet.tezos.domains",
         tedCheckAddress: "",
     },
     mainnet: {
@@ -53,6 +57,7 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tzktApi: "https://api.tzkt.io",
         domainsGraphql: "https://api.tezos.domains/graphql",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        tedAppUrl: "https://app.tezos.domains",
         tedCheckAddress: "KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ",
     },
 };

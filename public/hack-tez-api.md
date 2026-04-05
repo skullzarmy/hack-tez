@@ -10,7 +10,7 @@ network_default: ghostnet
 
 ## Overview
 
-hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (mainnet) or `name.hack.gho` (ghostnet) at no cost. Claimed subdomains are real Tezos Domains (TED) on-chain records — the owner has full TED ownership and can set addresses, redirects, and IPFS records.
+hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (mainnet) or `name.hack.gho` (ghostnet) at no cost. Claimed subdomains are real Tezos Domains (TED) on-chain records — the owner has full TED ownership and can set addresses and manage their record.
 
 **Key properties:**
 

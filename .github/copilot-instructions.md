@@ -40,6 +40,11 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 - `"jsx": "react-jsx"` — no need to import React in `.tsx` files.
 - Tailwind CSS 4 is used via `@tailwindcss/vite` plugin — styles use utility classes, no separate CSS files beyond `src/index.css` which contains only `@import "tailwindcss"`.
 
+## React / Data-Fetching Rules
+
+- **Never wipe the DOM on background refresh.** When a hook or component re-fetches data (polling, post-mutation refresh, `refreshKey` increment), do NOT set `loading=true` if data already exists. Only show a loading spinner/skeleton on the very first fetch. Use a `hasFetched` ref to track this. Subsequent fetches silently update state in place.
+- **Network-dependent URLs must come from `config` (`src/config/tezos.ts`).** Never construct TED, TzKT, or GraphQL URLs ad-hoc in components. Use `config.tedAppUrl`, `config.tzktApi`, `config.domainsGraphql`, etc.
+
 ## Project Layout
 
 ```
@@ -131,10 +136,9 @@ Server/scripts: `TEZOS_WALLET_PUB_KEY` (actually the edsk secret key — legacy 
 ## Architecture Decisions
 
 - **No server-side code.** All Netlify Functions and edge functions were removed. The contract + TED handle everything.
-- **Owner = sender.** Users own their TED records directly and manage them on Tezos Domains (addresses, redirects, IPFS).
+- **Owner = sender.** Users own their TED records directly and manage them on Tezos Domains.
 - **1 claim per wallet (permanent).** The `registrations` big_map tracks claims, not ownership. Even if admin unregisters at TED level, the wallet's claim is spent. Admin can use `set_registration_count` to grant exceptions.
 - **Commit-reveal flow.** Two transactions: commit (hash), wait ≥ min_commit_age, then register (reveal). Pending commits are stored in `localStorage` under key `hack-tez-pending-commits`.
-- **No off-chain redirect system.** TED records natively support HTTP redirects and IPFS in the `data` map.
 - **Wallet SDK is `@tezos-x/octez.connect-sdk`** (Beacon-compatible). Raw Michelson operations via `DAppClient.requestOperation()` — NOT Taquito's `ContractAbstraction`.
 
 ## Trust These Instructions

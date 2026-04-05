@@ -3,7 +3,7 @@ import type { SubdomainRecord } from "../lib/domains";
 
 export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord }) {
     const label = subdomain.name.replace(`.hack.${config.tld}`, "");
-    const domainsBase = config.name === "mainnet" ? "https://app.tezos.domains" : `https://${config.name}.tezos.domains`;
+    const domainsBase = config.tedAppUrl;
     const domainsUrl = `${domainsBase}/domain/${subdomain.name}`;
 
     return (
