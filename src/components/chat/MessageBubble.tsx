@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
+import DOMPurify from "dompurify";
 
 interface MessageBubbleProps {
     id: string;
@@ -23,13 +24,13 @@ function formatRelativeTime(iso: string): string {
 
 const URL_REGEX = /https?:\/\/[^\s<>)"']+/g;
 
+/** Strip ALL HTML tags, then apply our safe markdown-like formatting. */
 function formatContent(raw: string): ReactNode[] {
+    const clean = DOMPurify.sanitize(raw, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
     const parts: ReactNode[] = [];
     let key = 0;
 
-    // Split into segments by inline patterns
-    // Process: **bold**, *italic*, `code`, and URLs
-    const segments = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+    const segments = clean.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
 
     for (const seg of segments) {
         if (seg.startsWith("**") && seg.endsWith("**")) {
@@ -58,7 +59,6 @@ function formatContent(raw: string): ReactNode[] {
                 </code>,
             );
         } else {
-            // Auto-link URLs within plain text
             const urlParts = seg.split(URL_REGEX);
             const urls = seg.match(URL_REGEX) ?? [];
             for (let i = 0; i < urlParts.length; i++) {
@@ -84,13 +84,35 @@ function formatContent(raw: string): ReactNode[] {
     return parts;
 }
 
+function SystemMessage({ content, timestamp }: { content: string; timestamp: string }) {
+    const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
+    return (
+        <div className="flex justify-center py-1">
+            <span
+                className="text-xs italic px-3 py-1 rounded-full"
+                style={{
+                    color: "var(--fg-muted, #666)",
+                    background: "rgba(255,255,255,0.03)",
+                    fontFamily: "var(--font-mono)",
+                }}
+            >
+                {content}
+                <span className="ml-2 text-[10px] opacity-60">{relativeTime}</span>
+            </span>
+        </div>
+    );
+}
+
 export default function MessageBubble({ sender, content, timestamp, isOwn }: MessageBubbleProps) {
+    if (sender === "__system__") {
+        return <SystemMessage content={content} timestamp={timestamp} />;
+    }
+
     const formattedContent = useMemo(() => formatContent(content), [content]);
     const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
 
     return (
         <div className={`flex flex-col gap-0.5 max-w-[85%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}>
-            {/* Sender label */}
             <span
                 className="text-[10px] font-bold tracking-wide px-1"
                 style={{
@@ -101,7 +123,6 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
                 {sender}
             </span>
 
-            {/* Message bubble */}
             <div
                 className="rounded-lg px-3 py-2 text-sm leading-relaxed break-words"
                 style={{
@@ -117,7 +138,6 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
                 {formattedContent}
             </div>
 
-            {/* Timestamp */}
             <span
                 className="text-[10px] px-1"
                 style={{

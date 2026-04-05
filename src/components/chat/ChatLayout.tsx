@@ -23,7 +23,9 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         onlineUsers,
         typingUsers,
         sendTyping,
-    } = useChat({ token, activeDomain });
+        activeDomain: currentDomain,
+        switchIdentity,
+    } = useChat({ token, activeDomain, onIdentitySwitched: onSwitchDomain });
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -49,7 +51,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         }
     }, [messages.length]);
 
-    const filteredTyping = typingUsers.filter((d) => d !== activeDomain);
+    const filteredTyping = typingUsers.filter((d) => d !== currentDomain);
 
     return (
         <div
@@ -152,16 +154,33 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                     fontFamily: "var(--font-mono)",
                                 }}
                             >
-                                reconnecting…
+                                offline
                             </span>
                         )}
                     </div>
                     <IdentitySelector
                         domains={domains}
-                        activeDomain={activeDomain}
-                        onSwitch={onSwitchDomain}
+                        activeDomain={currentDomain}
+                        onSwitch={switchIdentity}
                     />
                 </header>
+
+                {/* Reconnection banner */}
+                {!isConnected && (
+                    <div
+                        className="flex items-center justify-center gap-2 px-4 py-2 shrink-0"
+                        style={{
+                            background: "rgba(255,107,107,0.1)",
+                            borderBottom: "1px solid rgba(255,107,107,0.2)",
+                            color: "var(--err, #ff6b6b)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "0.75rem",
+                        }}
+                    >
+                        <Loader2 size={12} className="animate-spin" />
+                        Connection lost — reconnecting automatically…
+                    </div>
+                )}
 
                 {/* Message list */}
                 <div
@@ -211,7 +230,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                             sender={msg.sender}
                             content={msg.content}
                             timestamp={msg.timestamp}
-                            isOwn={msg.sender === activeDomain}
+                            isOwn={msg.sender === currentDomain}
                         />
                     ))}
                     <div ref={messagesEndRef} />

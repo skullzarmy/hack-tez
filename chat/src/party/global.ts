@@ -1,11 +1,23 @@
 import type { Party, Server, Connection } from "partykit/server";
 import { jwtVerify } from "jose";
+import { getOwnedDomains } from "../auth/verify.js";
 
 interface TokenPayload {
   address: string;
   domains: string[];
   activeDomain: string;
 }
+
+// Message rate limiting: max 10 messages per 30 seconds per connection
+const MSG_RATE_WINDOW_MS = 30_000;
+const MSG_RATE_MAX = 10;
+
+interface RateEntry {
+  timestamps: number[];
+}
+
+// Ownership re-verification interval (15 minutes)
+const REVERIFY_INTERVAL_MS = 15 * 60 * 1000;
 
 interface D1Result {
   results: Array<Record<string, unknown>>;
@@ -33,6 +45,8 @@ function sendJson(conn: Connection, data: unknown): void {
 
 export default class GlobalRoom implements Server {
   readonly room: Party;
+  private msgRateMap = new Map<string, RateEntry>();
+  private reverifyTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(room: Party) {
     this.room = room;
@@ -47,9 +61,24 @@ export default class GlobalRoom implements Server {
     return new TextEncoder().encode(secret);
   }
 
+  private getNetwork(): "ghostnet" | "mainnet" {
+    const net = (this.room.env as Record<string, unknown>).TEZOS_NETWORK as string | undefined;
+    return net === "mainnet" ? "mainnet" : "ghostnet";
+  }
+
   private getDomain(conn: Connection): string | null {
     const state = conn.state as Record<string, unknown> | null;
     return (state?.domain as string) ?? null;
+  }
+
+  private getAddress(conn: Connection): string | null {
+    const state = conn.state as Record<string, unknown> | null;
+    return (state?.address as string) ?? null;
+  }
+
+  private getDomains(conn: Connection): string[] {
+    const state = conn.state as Record<string, unknown> | null;
+    return (state?.domains as string[]) ?? [];
   }
 
   private getOnlineDomains(): string[] {
@@ -61,8 +90,69 @@ export default class GlobalRoom implements Server {
     return [...domains];
   }
 
+  private checkMessageRate(connId: string): boolean {
+    const now = Date.now();
+    let entry = this.msgRateMap.get(connId);
+    if (!entry) {
+      entry = { timestamps: [] };
+      this.msgRateMap.set(connId, entry);
+    }
+    // Remove timestamps outside the window
+    entry.timestamps = entry.timestamps.filter((t) => now - t < MSG_RATE_WINDOW_MS);
+    if (entry.timestamps.length >= MSG_RATE_MAX) return false;
+    entry.timestamps.push(now);
+    return true;
+  }
+
+  private ensureReverifyTimer(): void {
+    if (this.reverifyTimer) return;
+    this.reverifyTimer = setInterval(() => {
+      this.reverifyOwnership().catch((err) => console.error("Reverify error:", err));
+    }, REVERIFY_INTERVAL_MS);
+  }
+
+  private async reverifyOwnership(): Promise<void> {
+    const network = this.getNetwork();
+    // Collect unique (address, domain) pairs
+    const pairs = new Map<string, Set<string>>();
+    for (const conn of this.room.getConnections()) {
+      const addr = this.getAddress(conn);
+      const domain = this.getDomain(conn);
+      if (!addr || !domain) continue;
+      if (!pairs.has(addr)) pairs.set(addr, new Set());
+      pairs.get(addr)!.add(domain);
+    }
+
+    // Check each address
+    for (const [address, domains] of pairs) {
+      let ownedDomains: string[];
+      try {
+        ownedDomains = await getOwnedDomains(address, network);
+      } catch (err) {
+        console.error(`Reverify lookup failed for ${address}:`, err);
+        continue; // Don't disconnect on transient errors
+      }
+
+      for (const domain of domains) {
+        if (ownedDomains.includes(domain)) continue;
+        // Ownership changed — disconnect all connections using this domain
+        for (const conn of this.room.getConnections()) {
+          if (this.getDomain(conn) === domain && this.getAddress(conn) === address) {
+            sendJson(conn, {
+              type: "error",
+              code: "OWNERSHIP_CHANGED",
+              message: "Domain ownership changed — please re-authenticate",
+            });
+            conn.close(4003, "Domain ownership changed");
+          }
+        }
+      }
+    }
+  }
+
   async onConnect(conn: Connection) {
-    // Extract and verify JWT from query string
+    this.ensureReverifyTimer();
+
     const url = new URL(conn.uri, "http://dummy");
     const token = url.searchParams.get("token");
     if (!token) {
@@ -84,8 +174,12 @@ export default class GlobalRoom implements Server {
       return;
     }
 
-    // Store identity on connection
-    conn.setState({ domain: payload.activeDomain, address: payload.address });
+    // Store identity on connection (include full domains list for switch-identity)
+    conn.setState({
+      domain: payload.activeDomain,
+      address: payload.address,
+      domains: payload.domains,
+    });
 
     // Send system welcome
     sendJson(conn, {
@@ -121,10 +215,21 @@ export default class GlobalRoom implements Server {
 
     switch (parsed.type) {
       case "message":
+        if (!this.checkMessageRate(sender.id)) {
+          sendJson(sender, {
+            type: "error",
+            code: "RATE_LIMITED",
+            message: "Slow down! Max 10 messages per 30 seconds.",
+          });
+          return;
+        }
         await this.handleChatMessage(sender, domain, parsed.content as string);
         break;
       case "typing":
         this.handleTyping(sender, domain, parsed.active as boolean);
+        break;
+      case "switch-identity":
+        this.handleSwitchIdentity(sender, domain, parsed.domain as string);
         break;
       case "history":
         await this.handleHistory(sender, parsed.before as string | undefined);
@@ -176,6 +281,57 @@ export default class GlobalRoom implements Server {
     );
   }
 
+  private handleSwitchIdentity(sender: Connection, oldDomain: string, newDomain: string) {
+    if (!newDomain || typeof newDomain !== "string") {
+      sendJson(sender, { type: "error", code: "INVALID_DOMAIN", message: "Domain not in your ownership list" });
+      return;
+    }
+
+    const allowedDomains = this.getDomains(sender);
+    if (!allowedDomains.includes(newDomain)) {
+      sendJson(sender, { type: "error", code: "INVALID_DOMAIN", message: "Domain not in your ownership list" });
+      return;
+    }
+
+    // Update connection state
+    const state = sender.state as Record<string, unknown>;
+    sender.setState({ ...state, domain: newDomain });
+
+    // Check if old domain still has other connections
+    let oldStillOnline = false;
+    for (const conn of this.room.getConnections()) {
+      if (conn.id !== sender.id && this.getDomain(conn) === oldDomain) {
+        oldStillOnline = true;
+        break;
+      }
+    }
+
+    // Broadcast presence offline for old domain if no other connections use it
+    if (!oldStillOnline) {
+      this.room.broadcast(
+        JSON.stringify({ type: "presence", domain: oldDomain, status: "offline" }),
+        [sender.id],
+      );
+    }
+
+    // Broadcast presence online for new domain
+    this.room.broadcast(
+      JSON.stringify({ type: "presence", domain: newDomain, status: "online" }),
+    );
+
+    // Broadcast system message
+    this.room.broadcast(
+      JSON.stringify({
+        type: "system",
+        content: `${oldDomain} is now chatting as ${newDomain}`,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+
+    // Confirm to sender
+    sendJson(sender, { type: "identity-switched", domain: newDomain });
+  }
+
   private async handleHistory(sender: Connection, before?: string) {
     const PAGE_SIZE = 50;
     try {
@@ -215,9 +371,10 @@ export default class GlobalRoom implements Server {
 
   onClose(conn: Connection) {
     const domain = this.getDomain(conn);
+    this.msgRateMap.delete(conn.id);
+
     if (!domain) return;
 
-    // Check if this domain still has other connections
     let stillOnline = false;
     for (const other of this.room.getConnections()) {
       if (other.id !== conn.id && this.getDomain(other) === domain) {
