@@ -1,6 +1,10 @@
 import type { Party, Server, Connection } from "partykit/server";
 import { jwtVerify } from "jose";
 
+// Message rate limiting: max 10 messages per 30 seconds per connection
+const MSG_RATE_WINDOW_MS = 30_000;
+const MSG_RATE_MAX = 10;
+
 interface TokenPayload {
   address: string;
   domains: string[];
@@ -41,6 +45,7 @@ function parseRoomParticipants(roomId: string): [string, string] | null {
 
 export default class DMRoom implements Server {
   readonly room: Party;
+  private msgRateMap = new Map<string, { timestamps: number[] }>();
 
   constructor(room: Party) {
     this.room = room;
@@ -58,6 +63,19 @@ export default class DMRoom implements Server {
   private getDomain(conn: Connection): string | null {
     const state = conn.state as Record<string, unknown> | null;
     return (state?.domain as string) ?? null;
+  }
+
+  private checkMessageRate(connId: string): boolean {
+    const now = Date.now();
+    let entry = this.msgRateMap.get(connId);
+    if (!entry) {
+      entry = { timestamps: [] };
+      this.msgRateMap.set(connId, entry);
+    }
+    entry.timestamps = entry.timestamps.filter((t) => now - t < MSG_RATE_WINDOW_MS);
+    if (entry.timestamps.length >= MSG_RATE_MAX) return false;
+    entry.timestamps.push(now);
+    return true;
   }
 
   async onConnect(conn: Connection) {
@@ -159,6 +177,14 @@ export default class DMRoom implements Server {
 
     switch (parsed.type) {
       case "message":
+        if (!this.checkMessageRate(sender.id)) {
+          sendJson(sender, {
+            type: "error",
+            code: "RATE_LIMITED",
+            message: "Slow down! Max 10 messages per 30 seconds.",
+          });
+          return;
+        }
         await this.handleChatMessage(sender, domain, parsed.content as string);
         break;
       case "typing":

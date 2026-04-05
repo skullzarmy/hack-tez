@@ -31,7 +31,10 @@ export function useDMList(config: UseDMListConfig): UseDMListReturn {
     const fetchConversations = useCallback(async () => {
         try {
             const res = await fetch(`${HACKCHAT_URL}/dm/list`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "X-Active-Domain": activeDomain,
+                },
             });
             if (!res.ok) return;
             const data = (await res.json()) as { conversations: DMConversation[] };
@@ -39,7 +42,7 @@ export function useDMList(config: UseDMListConfig): UseDMListReturn {
         } catch {
             // Silently fail on poll errors
         }
-    }, [token]);
+    }, [token, activeDomain]);
 
     const refresh = useCallback(() => {
         setIsLoading(true);
@@ -60,9 +63,6 @@ export function useDMList(config: UseDMListConfig): UseDMListReturn {
     }, [fetchConversations]);
 
     const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
-
-    // activeDomain is part of identity context; conversations are scoped by JWT
-    void activeDomain;
 
     return {
         conversations,

@@ -86,6 +86,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
+                    "X-Active-Domain": currentDomain,
                 },
                 body: JSON.stringify({ targetDomain }),
             });

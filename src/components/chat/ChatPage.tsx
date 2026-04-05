@@ -16,7 +16,11 @@ interface ChatSession {
 
 function getJwtExpiry(token: string): number | null {
     try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
+        const seg = token.split(".")[1];
+        // JWT uses base64url — convert to standard base64 before decoding
+        const base64 = seg.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        const payload = JSON.parse(atob(padded));
         return payload.exp ? payload.exp * 1000 : null;
     } catch {
         return null;

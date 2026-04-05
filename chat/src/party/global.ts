@@ -310,7 +310,6 @@ export default class GlobalRoom implements Server {
     if (!oldStillOnline) {
       this.room.broadcast(
         JSON.stringify({ type: "presence", domain: oldDomain, status: "offline" }),
-        [sender.id],
       );
     }
 

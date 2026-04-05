@@ -48,7 +48,7 @@ function getCorsHeaders(request: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Active-Domain",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -71,7 +71,15 @@ async function verifyJwt(request: Request, env: Env): Promise<JwtPayload | null>
   try {
     const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
     const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
-    return payload as unknown as JwtPayload;
+    const claims = payload as unknown as JwtPayload;
+
+    // Allow identity override via X-Active-Domain header (must be in JWT's domains)
+    const domainOverride = request.headers.get("X-Active-Domain");
+    if (domainOverride && claims.domains.includes(domainOverride)) {
+      claims.activeDomain = domainOverride;
+    }
+
+    return claims;
   } catch {
     return null;
   }
@@ -248,74 +256,54 @@ async function handleDmList(request: Request, env: Env): Promise<Response> {
   if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
 
   try {
-    // Get all DM rooms for this user
-    const roomsResult = await env.DB
+    // Single CTE query replaces N+1 per-room queries
+    const result = await env.DB
       .prepare(
-        `SELECT r.id as room_id, r.created_at as room_created_at, m.last_read
-         FROM chat_room_members m
-         JOIN chat_rooms r ON r.id = m.room_id
-         WHERE m.domain = ? AND r.type = 'dm'
-         ORDER BY r.created_at DESC`,
+        `WITH user_rooms AS (
+           SELECT r.id AS room_id, r.created_at AS room_created_at, m.last_read, m.domain AS user_domain
+           FROM chat_room_members m
+           JOIN chat_rooms r ON r.id = m.room_id
+           WHERE m.domain = ? AND r.type = 'dm'
+         ),
+         latest_msgs AS (
+           SELECT room_id, content, created_at, sender_domain,
+                  ROW_NUMBER() OVER (PARTITION BY room_id ORDER BY created_at DESC) AS rn
+           FROM chat_messages
+           WHERE room_id IN (SELECT room_id FROM user_rooms)
+         ),
+         unread_counts AS (
+           SELECT cm.room_id,
+                  COUNT(*) AS cnt
+           FROM chat_messages cm
+           JOIN user_rooms ur ON ur.room_id = cm.room_id
+           WHERE cm.sender_domain != ur.user_domain
+             AND (ur.last_read IS NULL OR cm.created_at > ur.last_read)
+           GROUP BY cm.room_id
+         )
+         SELECT ur.room_id,
+                ur.room_created_at,
+                lm.content AS last_message,
+                lm.created_at AS last_message_at,
+                COALESCE(uc.cnt, 0) AS unread_count
+         FROM user_rooms ur
+         LEFT JOIN latest_msgs lm ON lm.room_id = ur.room_id AND lm.rn = 1
+         LEFT JOIN unread_counts uc ON uc.room_id = ur.room_id
+         ORDER BY COALESCE(lm.created_at, ur.room_created_at) DESC`,
       )
       .bind(user.activeDomain)
       .all();
 
-    const conversations: Array<{
-      roomId: string;
-      peerDomain: string;
-      lastMessage: string | null;
-      lastMessageAt: string | null;
-      unreadCount: number;
-    }> = [];
-
-    for (const row of roomsResult.results) {
+    const conversations = result.results.map((row) => {
       const roomId = row.room_id as string;
-      const lastRead = row.last_read as string | null;
-
-      // Extract peer domain from room ID
       const parts = roomId.slice(3).split("+");
       const peerDomain = parts[0] === user.activeDomain ? parts[1] : parts[0];
-
-      // Get latest message
-      const lastMsgResult = await env.DB
-        .prepare(
-          "SELECT content, created_at FROM chat_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1",
-        )
-        .bind(roomId)
-        .all();
-
-      const lastMsg = lastMsgResult.results[0];
-      const lastMessage = lastMsg ? (lastMsg.content as string) : null;
-      const lastMessageAt = lastMsg ? (lastMsg.created_at as string) : null;
-
-      // Get unread count
-      let unreadCount = 0;
-      if (lastRead) {
-        const unreadResult = await env.DB
-          .prepare(
-            "SELECT COUNT(*) as cnt FROM chat_messages WHERE room_id = ? AND created_at > ? AND sender_domain != ?",
-          )
-          .bind(roomId, lastRead, user.activeDomain)
-          .all();
-        unreadCount = (unreadResult.results[0]?.cnt as number) ?? 0;
-      } else if (lastMsg) {
-        const unreadResult = await env.DB
-          .prepare(
-            "SELECT COUNT(*) as cnt FROM chat_messages WHERE room_id = ? AND sender_domain != ?",
-          )
-          .bind(roomId, user.activeDomain)
-          .all();
-        unreadCount = (unreadResult.results[0]?.cnt as number) ?? 0;
-      }
-
-      conversations.push({ roomId, peerDomain, lastMessage, lastMessageAt, unreadCount });
-    }
-
-    // Sort by lastMessageAt DESC (rooms with messages first, then by room creation)
-    conversations.sort((a, b) => {
-      const aTime = a.lastMessageAt ?? "";
-      const bTime = b.lastMessageAt ?? "";
-      return bTime.localeCompare(aTime);
+      return {
+        roomId,
+        peerDomain,
+        lastMessage: (row.last_message as string | null) ?? null,
+        lastMessageAt: (row.last_message_at as string | null) ?? null,
+        unreadCount: (row.unread_count as number) ?? 0,
+      };
     });
 
     return corsResponse(request, JSON.stringify({ conversations }));

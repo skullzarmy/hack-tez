@@ -42,11 +42,16 @@ export async function verifyTezosSignature(params: {
   const derivedAddress = getPkhfromPk(publicKey);
   if (derivedAddress !== address) return false;
 
-  // Validate timestamp is within window
-  const now = Date.now();
-  if (Math.abs(now - timestamp) > TIMESTAMP_WINDOW_MS) return false;
+  // Validate nonce format
+  if (!/^[A-Fa-f0-9]{8,128}$/.test(nonce)) return false;
 
-  // Reconstruct and verify the signed message
+  // Validate timestamp — frontend sends seconds, normalize to ms
+  if (!Number.isFinite(timestamp) || !Number.isInteger(timestamp) || timestamp <= 0) return false;
+  const timestampMs = timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
+  const now = Date.now();
+  if (Math.abs(now - timestampMs) > TIMESTAMP_WINDOW_MS) return false;
+
+  // Reconstruct the signed message using the original timestamp value
   const message = `hack.tez-chat:${timestamp}:${nonce}`;
   const payloadHex = packMichelineString(message);
 
