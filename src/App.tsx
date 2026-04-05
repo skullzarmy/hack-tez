@@ -270,8 +270,6 @@ function ActivityLayer() {
 
 export function AppShell() {
     const { theme, setTheme } = useTheme();
-    const location = useLocation();
-    const isChat = location.pathname === "/chat";
 
     return (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
@@ -287,16 +285,7 @@ export function AppShell() {
             <Nav theme={theme} setTheme={setTheme} />
 
             {/* Main content */}
-            <main
-                id="main-content"
-                tabIndex={-1}
-                style={{
-                    flex: "1 1 auto",
-                    display: isChat ? "flex" : undefined,
-                    flexDirection: isChat ? "column" : undefined,
-                    overflow: isChat ? "hidden" : undefined,
-                }}
-            >
+            <main id="main-content" tabIndex={-1} style={{ flex: "1 0 auto" }}>
                 <Routes>
                     <Route path="/manifesto" element={<Manifesto />} />
                     <Route path="/hackers" element={<Hackers />} />
@@ -313,7 +302,7 @@ export function AppShell() {
             </main>
 
             <ActivityLayer />
-            {!isChat && <Footer />}
+            <Footer />
         </div>
     );
 }
