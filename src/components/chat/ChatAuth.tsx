@@ -62,14 +62,14 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
             className="flex flex-col items-center justify-center gap-6 px-4"
             style={{ minHeight: "60vh", fontFamily: "var(--font)" }}
         >
-            <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.8 }} />
+            <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.8 }} aria-hidden="true" />
             <h2
                 className="text-lg font-bold tracking-wide text-center"
                 style={{ fontFamily: "var(--font-mono)" }}
             >
                 Sign to verify your hack.tez identity
             </h2>
-            <p className="text-sm text-center max-w-md" style={{ color: "var(--fg-muted, #888)" }}>
+            <p className="text-sm text-center max-w-md" style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}>
                 Your wallet will ask you to sign a message. This proves you own your address
                 without sending a transaction.
             </p>
@@ -85,7 +85,7 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
                         fontFamily: "var(--font-mono)",
                     }}
                 >
-                    <AlertTriangle size={14} />
+                    <AlertTriangle size={14} aria-hidden="true" />
                     {error}
                 </div>
             )}
@@ -94,10 +94,18 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
                 type="button"
                 onClick={handleAuth}
                 disabled={isBusy}
-                className="btn btn-primary"
-                style={{ minWidth: "200px", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+                className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                    minWidth: "200px",
+                    minHeight: "44px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    outlineColor: "var(--accent, #00ffc8)",
+                }}
             >
-                {isBusy && <Loader2 size={16} className="animate-spin" />}
+                {isBusy && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                 {signing ? "Signing…" : submitting ? "Verifying…" : error ? "Retry" : "Sign & Enter Chat"}
             </button>
         </div>

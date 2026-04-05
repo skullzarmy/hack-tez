@@ -10,12 +10,14 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
     if (domains.length <= 1) {
         return (
             <span
-                className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold tracking-wide"
+                className="inline-flex items-center gap-1 rounded px-2 text-xs font-bold tracking-wide"
                 style={{
                     background: "var(--accent, #00ffc8)",
                     color: "var(--bg, #000)",
                     fontFamily: "var(--font-mono)",
+                    minHeight: "28px",
                 }}
+                aria-label={`Active identity: ${activeDomain}`}
             >
                 {activeDomain}
             </span>
@@ -24,16 +26,21 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
 
     return (
         <div className="relative inline-flex items-center">
+            <label className="sr-only" htmlFor="identity-selector">
+                Active identity
+            </label>
             <select
+                id="identity-selector"
                 value={activeDomain}
                 onChange={(e) => onSwitch(e.target.value)}
-                className="appearance-none rounded border-0 pr-6 pl-2 py-0.5 text-xs font-bold tracking-wide cursor-pointer"
+                className="appearance-none rounded border-0 pr-6 pl-2 text-xs font-bold tracking-wide cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
                     background: "var(--accent, #00ffc8)",
                     color: "var(--bg, #000)",
                     fontFamily: "var(--font-mono)",
+                    minHeight: "44px",
+                    outlineColor: "var(--bg, #000)",
                 }}
-                aria-label="Select active domain"
             >
                 {domains.map((d) => (
                     <option key={d} value={d}>
@@ -45,6 +52,7 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
                 size={12}
                 className="pointer-events-none absolute right-1"
                 style={{ color: "var(--bg, #000)" }}
+                aria-hidden="true"
             />
         </div>
     );

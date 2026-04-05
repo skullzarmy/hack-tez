@@ -100,7 +100,7 @@ export default function ChatPage() {
                 className="flex flex-col items-center justify-center gap-6 px-4"
                 style={{ minHeight: "60vh", fontFamily: "var(--font)" }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} />
+                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
                 <h2
                     className="text-lg font-bold tracking-wide text-center"
                     style={{ fontFamily: "var(--font-mono)" }}
@@ -111,7 +111,11 @@ export default function ChatPage() {
                     type="button"
                     onClick={connect}
                     disabled={connecting}
-                    className="btn btn-primary"
+                    className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{
+                        minHeight: "44px",
+                        outlineColor: "var(--accent, #00ffc8)",
+                    }}
                 >
                     {connecting ? "Connecting…" : "Connect Wallet"}
                 </button>

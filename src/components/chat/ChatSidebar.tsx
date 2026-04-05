@@ -1,4 +1,5 @@
-import { Hash, MessageSquare, Plus, Users } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Hash, MessageSquare, Plus, Users, X } from "lucide-react";
 
 interface DMConversation {
     roomId: string;
@@ -22,6 +23,8 @@ interface ChatSidebarProps {
     onSelectDM: (roomId: string, peerDomain: string) => void;
     onNewDM: () => void;
     totalUnread: number;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 function formatRelativeShort(iso: string): string {
@@ -49,51 +52,90 @@ export default function ChatSidebar({
     onSelectDM,
     onNewDM,
     totalUnread,
+    isOpen,
+    onClose,
 }: ChatSidebarProps) {
-    return (
-        <aside
-            className="hidden md:flex flex-col shrink-0"
-            style={{
-                width: "220px",
-                borderRight: "1px solid var(--border-2, #333)",
-                background: "var(--bg-2, #0a0a0a)",
-            }}
-        >
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+    // Focus close button when mobile drawer opens
+    useEffect(() => {
+        if (isOpen) {
+            closeButtonRef.current?.focus();
+        }
+    }, [isOpen]);
+
+    const sidebarContent = (
+        <>
+            {/* Mobile close button */}
+            <div className="flex md:hidden items-center justify-between px-3 shrink-0"
+                style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "52px" }}
+            >
+                <span
+                    className="text-sm font-bold tracking-wide"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                >
+                    Navigation
+                </span>
+                <button
+                    ref={closeButtonRef}
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{
+                        width: "44px",
+                        height: "44px",
+                        color: "var(--fg-2, rgba(255,255,255,0.6))",
+                        cursor: "pointer",
+                        border: "none",
+                        background: "transparent",
+                        outlineColor: "var(--accent, #00ffc8)",
+                    }}
+                    aria-label="Close navigation"
+                >
+                    <X size={20} />
+                </button>
+            </div>
+
             {/* Rooms section */}
             <div
                 className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
-                style={{ color: "var(--fg-muted, #888)", fontFamily: "var(--font-mono)" }}
+                style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
             >
                 Rooms
             </div>
-            <button
-                type="button"
-                onClick={onSelectGlobal}
-                className="flex items-center gap-2 px-4 py-2 text-sm w-full text-left"
-                style={{
-                    background: activeView.type === "global" ? "var(--accent, #00ffc8)" : "transparent",
-                    color: activeView.type === "global" ? "var(--bg, #000)" : "var(--fg, #eee)",
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: activeView.type === "global" ? 700 : 400,
-                    cursor: "pointer",
-                    border: "none",
-                }}
-            >
-                <Hash size={14} />
-                global
-            </button>
+            <div className="px-2">
+                <button
+                    type="button"
+                    onClick={onSelectGlobal}
+                    className="flex items-center gap-2 px-3 text-sm w-full text-left rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{
+                        background: activeView.type === "global" ? "var(--accent, #00ffc8)" : "transparent",
+                        color: activeView.type === "global" ? "var(--bg, #000)" : "var(--fg, #eee)",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: activeView.type === "global" ? 700 : 400,
+                        cursor: "pointer",
+                        border: "none",
+                        minHeight: "44px",
+                        outlineColor: "var(--accent, #00ffc8)",
+                    }}
+                    aria-current={activeView.type === "global" ? "page" : undefined}
+                >
+                    <Hash size={14} aria-hidden="true" />
+                    global
+                </button>
+            </div>
 
             {/* DMs section */}
             <div
                 className="flex items-center justify-between px-4 py-3 text-xs font-bold tracking-widest uppercase"
                 style={{
-                    color: "var(--fg-muted, #888)",
+                    color: "var(--fg-2, rgba(255,255,255,0.6))",
                     fontFamily: "var(--font-mono)",
                     borderTop: "1px solid var(--border-2, #333)",
                 }}
             >
                 <span className="flex items-center gap-1.5">
-                    <MessageSquare size={12} />
+                    <MessageSquare size={12} aria-hidden="true" />
                     DMs
                     {totalUnread > 0 && (
                         <span
@@ -105,31 +147,35 @@ export default function ChatSidebar({
                             }}
                         >
                             {totalUnread}
+                            <span className="sr-only"> unread messages</span>
                         </span>
                     )}
                 </span>
                 <button
                     type="button"
                     onClick={onNewDM}
-                    className="p-0.5 rounded"
+                    className="inline-flex items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
-                        color: "var(--fg-muted, #888)",
+                        width: "44px",
+                        height: "44px",
+                        color: "var(--fg-2, rgba(255,255,255,0.6))",
                         cursor: "pointer",
                         border: "none",
                         background: "transparent",
+                        outlineColor: "var(--accent, #00ffc8)",
                     }}
                     aria-label="New DM"
                     title="New DM"
                 >
-                    <Plus size={14} />
+                    <Plus size={16} />
                 </button>
             </div>
 
-            <div className="flex flex-col overflow-y-auto flex-1 min-h-0">
+            <div className="flex flex-col overflow-y-auto flex-1 min-h-0 px-2">
                 {conversations.length === 0 && (
                     <div
-                        className="px-4 py-2 text-xs"
-                        style={{ color: "var(--fg-muted, #666)", fontFamily: "var(--font-mono)" }}
+                        className="px-3 py-3 text-xs"
+                        style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
                     >
                         No conversations yet
                     </div>
@@ -141,14 +187,18 @@ export default function ChatSidebar({
                             key={conv.roomId}
                             type="button"
                             onClick={() => onSelectDM(conv.roomId, conv.peerDomain)}
-                            className="flex flex-col gap-0.5 px-4 py-2 text-left w-full"
+                            className="flex flex-col gap-0.5 px-3 text-left w-full rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                             style={{
                                 background: isActive ? "rgba(0, 255, 200, 0.1)" : "transparent",
                                 borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
                                 cursor: "pointer",
                                 border: "none",
-                                borderBottom: "1px solid var(--border-2, #222)",
+                                minHeight: "44px",
+                                paddingTop: "8px",
+                                paddingBottom: "8px",
+                                outlineColor: "var(--accent, #00ffc8)",
                             }}
+                            aria-current={isActive ? "page" : undefined}
                         >
                             <div className="flex items-center justify-between w-full">
                                 <span
@@ -164,8 +214,8 @@ export default function ChatSidebar({
                                 <span className="flex items-center gap-1.5">
                                     {conv.lastMessageAt && (
                                         <span
-                                            className="text-[10px]"
-                                            style={{ color: "var(--fg-muted, #666)", fontFamily: "var(--font-mono)" }}
+                                            className="text-[11px]"
+                                            style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
                                         >
                                             {formatRelativeShort(conv.lastMessageAt)}
                                         </span>
@@ -180,6 +230,9 @@ export default function ChatSidebar({
                                             }}
                                         >
                                             {conv.unreadCount}
+                                            <span className="sr-only">
+                                                {` unread message${conv.unreadCount === 1 ? "" : "s"}`}
+                                            </span>
                                         </span>
                                     )}
                                 </span>
@@ -187,7 +240,7 @@ export default function ChatSidebar({
                             {conv.lastMessage && (
                                 <span
                                     className="text-[11px] truncate w-full block"
-                                    style={{ color: "var(--fg-muted, #888)" }}
+                                    style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}
                                 >
                                     {truncate(conv.lastMessage, 30)}
                                 </span>
@@ -201,13 +254,13 @@ export default function ChatSidebar({
             <div
                 className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
                 style={{
-                    color: "var(--fg-muted, #888)",
+                    color: "var(--fg-2, rgba(255,255,255,0.6))",
                     fontFamily: "var(--font-mono)",
                     borderTop: "1px solid var(--border-2, #333)",
                 }}
             >
                 <span className="flex items-center gap-1.5">
-                    <Users size={12} />
+                    <Users size={12} aria-hidden="true" />
                     Online — {onlineUsers.length}
                 </span>
             </div>
@@ -216,18 +269,70 @@ export default function ChatSidebar({
                     <div
                         key={d}
                         className="flex items-center gap-2 text-xs"
-                        style={{ fontFamily: "var(--font-mono)" }}
+                        style={{ fontFamily: "var(--font-mono)", minHeight: "28px" }}
                     >
                         <span
                             className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
                             style={{ background: "var(--accent, #00ffc8)" }}
+                            aria-hidden="true"
                         />
                         <span className="truncate" style={{ color: "var(--fg, #eee)" }}>
                             {d}
                         </span>
+                        <span className="sr-only">(online)</span>
                     </div>
                 ))}
             </div>
-        </aside>
+        </>
+    );
+
+    return (
+        <>
+            {/* Desktop sidebar */}
+            <aside
+                className="hidden md:flex flex-col shrink-0"
+                role="navigation"
+                aria-label="Chat navigation"
+                style={{
+                    width: "220px",
+                    borderRight: "1px solid var(--border-2, #333)",
+                    background: "var(--bg-2, #0a0a0a)",
+                }}
+            >
+                {sidebarContent}
+            </aside>
+
+            {/* Mobile drawer backdrop */}
+            {/* Always render for CSS transition; visibility controlled by opacity + pointer-events */}
+            <div
+                className="fixed inset-0 z-40 md:hidden"
+                style={{
+                    background: "rgba(0, 0, 0, 0.6)",
+                    opacity: isOpen ? 1 : 0,
+                    pointerEvents: isOpen ? "auto" : "none",
+                    transition: "opacity 200ms ease",
+                }}
+                aria-hidden="true"
+                onClick={onClose}
+            />
+
+            {/* Mobile drawer */}
+            <aside
+                className="fixed inset-y-0 left-0 z-50 flex flex-col md:hidden"
+                role="navigation"
+                aria-label="Chat navigation"
+                style={{
+                    width: "280px",
+                    maxWidth: "85vw",
+                    background: "var(--bg-2, #0a0a0a)",
+                    borderRight: "1px solid var(--border-2, #333)",
+                    transform: isOpen ? "translateX(0)" : "translateX(-100%)",
+                    transition: "transform 250ms ease",
+                    willChange: "transform",
+                }}
+            >
+                {sidebarContent}
+            </aside>
+        </>
     );
 }

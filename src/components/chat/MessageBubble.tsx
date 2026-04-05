@@ -70,8 +70,8 @@ function formatContent(raw: string): ReactNode[] {
                             href={urls[i]}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="underline"
-                            style={{ color: "var(--accent, #00ffc8)" }}
+                            className="underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                            style={{ color: "var(--accent, #00ffc8)", outlineColor: "var(--accent, #00ffc8)" }}
                         >
                             {urls[i]}
                         </a>,
@@ -87,17 +87,17 @@ function formatContent(raw: string): ReactNode[] {
 function SystemMessage({ content, timestamp }: { content: string; timestamp: string }) {
     const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
     return (
-        <div className="flex justify-center py-1">
+        <div className="flex justify-center py-1" role="article" aria-label={`System: ${content}`}>
             <span
                 className="text-xs italic px-3 py-1 rounded-full"
                 style={{
-                    color: "var(--fg-muted, #666)",
+                    color: "var(--fg-2, rgba(255,255,255,0.6))",
                     background: "rgba(255,255,255,0.03)",
                     fontFamily: "var(--font-mono)",
                 }}
             >
                 {content}
-                <span className="ml-2 text-[10px] opacity-60">{relativeTime}</span>
+                <span className="ml-2 text-[10px]" style={{ color: "var(--fg-3, #888)" }}>{relativeTime}</span>
             </span>
         </div>
     );
@@ -112,11 +112,15 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
     const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
 
     return (
-        <div className={`flex flex-col gap-0.5 max-w-[85%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}>
+        <div
+            role="article"
+            aria-label={`Message from ${sender}`}
+            className={`flex flex-col gap-0.5 max-w-[95%] md:max-w-[85%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}
+        >
             <span
-                className="text-[10px] font-bold tracking-wide px-1"
+                className="text-[11px] font-bold tracking-wide px-1"
                 style={{
-                    color: isOwn ? "var(--accent, #00ffc8)" : "var(--fg-muted, #888)",
+                    color: isOwn ? "var(--accent, #00ffc8)" : "var(--fg-2, rgba(255,255,255,0.6))",
                     fontFamily: "var(--font-mono)",
                 }}
             >
@@ -124,7 +128,7 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
             </span>
 
             <div
-                className="rounded-lg px-3 py-2 text-sm leading-relaxed break-words"
+                className="rounded-lg px-4 py-2 text-sm break-words"
                 style={{
                     background: isOwn
                         ? "rgba(0, 255, 200, 0.12)"
@@ -133,15 +137,16 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
                         ? "1px solid rgba(0, 255, 200, 0.2)"
                         : "1px solid var(--border-2, #333)",
                     fontFamily: "var(--font)",
+                    lineHeight: "1.5",
                 }}
             >
                 {formattedContent}
             </div>
 
             <span
-                className="text-[10px] px-1"
+                className="text-[11px] px-1"
                 style={{
-                    color: "var(--fg-muted, #666)",
+                    color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
                 }}
             >

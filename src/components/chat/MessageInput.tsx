@@ -7,6 +7,8 @@ interface MessageInputProps {
     disabled: boolean;
 }
 
+const INPUT_HINT_ID = "message-input-hint";
+
 export default function MessageInput({ onSend, onTyping, disabled }: MessageInputProps) {
     const [value, setValue] = useState("");
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -81,8 +83,11 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
 
     return (
         <div
-            className="shrink-0 px-4 py-3"
-            style={{ borderTop: "1px solid var(--border-2, #333)" }}
+            className="shrink-0 px-3 md:px-4 py-3"
+            style={{
+                borderTop: "1px solid var(--border-2, #333)",
+                paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+            }}
         >
             <div
                 className="flex items-end gap-2 rounded px-3 py-2"
@@ -100,30 +105,41 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
                     disabled={disabled}
                     placeholder={disabled ? "Connecting…" : "Type a message…"}
                     rows={1}
+                    aria-label="Message"
+                    aria-describedby={INPUT_HINT_ID}
                     className="flex-1 bg-transparent text-sm outline-none border-0 resize-none"
                     style={{
                         color: "var(--fg, #eee)",
                         fontFamily: "var(--font)",
                         lineHeight: "20px",
                         maxHeight: "100px",
+                        fontSize: "14px",
                     }}
                 />
                 <button
                     type="button"
                     onClick={handleSend}
                     disabled={disabled || !value.trim()}
-                    className="shrink-0 p-1 rounded transition-colors"
+                    className="shrink-0 inline-flex items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
+                        width: "44px",
+                        height: "44px",
                         color: value.trim() && !disabled
                             ? "var(--accent, #00ffc8)"
-                            : "var(--fg-muted, #888)",
+                            : "var(--fg-3, #888)",
                         cursor: value.trim() && !disabled ? "pointer" : "default",
+                        border: "none",
+                        background: "transparent",
+                        outlineColor: "var(--accent, #00ffc8)",
                     }}
                     aria-label="Send message"
                 >
-                    <Send size={16} />
+                    <Send size={18} />
                 </button>
             </div>
+            <span id={INPUT_HINT_ID} className="sr-only">
+                Press Enter to send, Shift+Enter for a new line
+            </span>
         </div>
     );
 }
