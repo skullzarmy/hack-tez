@@ -41,23 +41,28 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     const [currentDomain, setCurrentDomain] = useState(activeDomain);
     const wsRef = useRef<PartySocket | null>(null);
     const historyLoadedRef = useRef(false);
+    const tokenRef = useRef(token);
     const onSwitchRef = useRef(config.onIdentitySwitched);
     onSwitchRef.current = config.onIdentitySwitched;
+
+    // Keep token ref current for reconnects without triggering effect
+    useEffect(() => { tokenRef.current = token; }, [token]);
+
+    // Stable connection key — only changes on first auth, not refreshes
+    const [connectionKey] = useState(() => token);
 
     useEffect(() => {
         const ws = new PartySocket({
             host: PARTYKIT_HOST,
             room: "global",
-            query: { token },
+            query: { token: tokenRef.current },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
-            if (!historyLoadedRef.current) {
-                ws.send(JSON.stringify({ type: "history" }));
-                historyLoadedRef.current = true;
-            }
+            // Always load history on connect/reconnect, dedup handled by ID
+            ws.send(JSON.stringify({ type: "history" }));
         });
 
         ws.addEventListener("close", () => {
@@ -80,12 +85,20 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                         content: data.content as string,
                         timestamp: data.timestamp as string,
                     };
-                    setMessages((prev) => [...prev, msg]);
+                    setMessages((prev) => {
+                        if (prev.some((m) => m.id === msg.id)) return prev;
+                        return [...prev, msg];
+                    });
                     break;
                 }
                 case "history": {
                     const histMsgs = (data.messages as ChatMessage[]).reverse();
-                    setMessages((prev) => [...histMsgs, ...prev]);
+                    setMessages((prev) => {
+                        // Deduplicate: only prepend messages not already present
+                        const existingIds = new Set(prev.map((m) => m.id));
+                        const newMsgs = histMsgs.filter((m) => !existingIds.has(m.id));
+                        return newMsgs.length > 0 ? [...newMsgs, ...prev] : prev;
+                    });
                     setHasMore(data.hasMore as boolean);
                     setIsLoading(false);
                     break;
@@ -143,7 +156,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
             setIsConnected(false);
             historyLoadedRef.current = false;
         };
-    }, [token]);
+    }, [connectionKey]);
 
     const sendMessage = useCallback(
         (content: string) => {

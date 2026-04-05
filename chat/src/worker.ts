@@ -172,7 +172,37 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
   const token = await new SignJWT({ address, domains, activeDomain })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("1h")
+    .setExpirationTime("24h")
+    .sign(secret);
+
+  return corsResponse(request, JSON.stringify({ token, domains, activeDomain }));
+}
+
+async function handleRefresh(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Token invalid or expired", "AUTH_REQUIRED", 401);
+
+  // Re-verify domain ownership before issuing a new token
+  const network = (env.TEZOS_NETWORK === "mainnet" ? "mainnet" : "ghostnet") as "ghostnet" | "mainnet";
+  let domains: string[];
+  try {
+    domains = await getOwnedDomains(user.address, network);
+  } catch {
+    return errorResponse(request, "Failed to verify domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
+  }
+
+  if (domains.length === 0) {
+    return errorResponse(request, "No hack.tez domain found — ownership may have changed", "NO_DOMAIN", 403);
+  }
+
+  // Keep current active domain if still owned, otherwise pick first
+  const activeDomain = domains.includes(user.activeDomain) ? user.activeDomain : domains[0];
+
+  const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
+  const token = await new SignJWT({ address: user.address, domains, activeDomain })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("24h")
     .sign(secret);
 
   return corsResponse(request, JSON.stringify({ token, domains, activeDomain }));
@@ -402,6 +432,10 @@ export default {
         });
       }
       return handleAuth(request, env);
+    }
+
+    if (path === "/auth/refresh" && request.method === "POST") {
+      return handleRefresh(request, env);
     }
 
     if (path === "/history" && request.method === "GET") {

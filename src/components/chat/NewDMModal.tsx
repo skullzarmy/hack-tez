@@ -86,23 +86,22 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 role="dialog"
                 aria-modal="true"
                 aria-label="New direct message"
-                className="w-full max-w-sm overflow-hidden flex flex-col"
+                className="w-full max-w-sm overflow-hidden flex flex-col mx-4"
                 style={{
                     background: "var(--bg-2, #0a0a0a)",
                     border: "1px solid var(--border-2, #333)",
                     maxHeight: "70vh",
-                    margin: "0 16px",
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div
-                    className="flex items-center justify-between"
-                    style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px", padding: "0 20px" }}
+                    className="flex items-center justify-between px-5"
+                    style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px" }}
                 >
                     <span
-                        className="text-xs font-bold uppercase tracking-widest flex items-center"
-                        style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em", gap: "8px" }}
+                        className="text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                        style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
                         id="new-dm-title"
                     >
                         <MessageSquare size={14} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
@@ -128,15 +127,13 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 </div>
 
                 {/* Search input */}
-                <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border-2, #222)" }}>
+                <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--border-2, #222)" }}>
                     <div
-                        className="flex items-center"
+                        className="flex items-center px-3 gap-2"
                         style={{
                             background: "var(--bg, #000)",
                             border: "1px solid var(--border-2, #333)",
                             minHeight: "44px",
-                            padding: "0 12px",
-                            gap: "8px",
                         }}
                     >
                         <Search size={14} style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }} aria-hidden="true" />
@@ -170,7 +167,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                             type="button"
                             onClick={() => onStartDM(domain)}
                             role="listitem"
-                            className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                            className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] px-5 gap-3"
                             style={{
                                 cursor: "pointer",
                                 border: "none",
@@ -178,8 +175,6 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                                 background: "transparent",
                                 minHeight: "44px",
                                 outlineColor: "var(--accent, #00ffc8)",
-                                padding: "0 20px",
-                                gap: "12px",
                             }}
                         >
                             <span
@@ -205,7 +200,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                             type="button"
                             onClick={handleManualSend}
                             role="listitem"
-                            className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                            className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] px-5 gap-3"
                             style={{
                                 cursor: "pointer",
                                 border: "none",
@@ -213,8 +208,6 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                                 background: "rgba(0, 255, 200, 0.05)",
                                 minHeight: "44px",
                                 outlineColor: "var(--accent, #00ffc8)",
-                                padding: "0 20px",
-                                gap: "12px",
                             }}
                         >
                             <MessageSquare size={14} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
@@ -229,8 +222,8 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
 
                     {filteredUsers.length === 0 && !canSendManual && (
                         <div
-                            className="text-center text-xs uppercase tracking-widest"
-                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px", padding: "24px 20px" }}
+                            className="text-center text-xs uppercase tracking-widest px-5 py-6"
+                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
                         >
                             {search ? "No matching users online" : "No other users online"}
                         </div>

@@ -7,7 +7,7 @@ import ChatLayout from "./ChatLayout";
 const IDENTITY_STORAGE_KEY = "hack-tez-chat-identity";
 const SESSION_STORAGE_KEY = "hack-tez-chat-session";
 const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
-const REFRESH_LEAD_MS = 5 * 60 * 1000; // refresh 5 minutes before expiry
+const REFRESH_LEAD_MS = 60 * 60 * 1000; // refresh 1 hour before expiry
 
 interface ChatSession {
     token: string;
@@ -62,6 +62,7 @@ export default function ChatPage() {
         return loadSession();
     });
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const tokenRef = useRef<string | null>(session?.token ?? null);
 
     // Try to restore session when wallet connects
     useEffect(() => {
@@ -94,39 +95,41 @@ export default function ChatPage() {
             if (!expiry) return;
             const delay = Math.max(expiry - Date.now() - REFRESH_LEAD_MS, 0);
             refreshTimerRef.current = setTimeout(async () => {
-                if (!address || !client) {
-                    clearSession();
-                    return;
-                }
                 try {
-                    const { signMessage } = await import("../../lib/signing");
-                    const timestamp = Math.floor(Date.now() / 1000);
-                    const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
-                    const nonce = Array.from(nonceBytes)
-                        .map((b) => b.toString(16).padStart(2, "0"))
-                        .join("");
-                    const challenge = `hack.tez-chat:${timestamp}:${nonce}`;
-                    const { signature, publicKey } = await signMessage(client, challenge);
-
-                    const res = await fetch(`${HACKCHAT_URL}/auth`, {
+                    // Silent refresh — no wallet signing required
+                    const currentSession = loadSession();
+                    if (!currentSession) {
+                        clearSession();
+                        return;
+                    }
+                    const res = await fetch(`${HACKCHAT_URL}/auth/refresh`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ address, publicKey, signature, timestamp, nonce }),
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${currentSession.token}`,
+                        },
                     });
                     if (!res.ok) throw new Error("Refresh failed");
                     const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string };
                     const resolved = resolveInitialDomain(data.domains, data.activeDomain);
                     localStorage.setItem(IDENTITY_STORAGE_KEY, resolved);
+                    // Update storage + ref but DON'T change state to avoid WebSocket reconnect
                     const newSession = { token: data.token, domains: data.domains, activeDomain: resolved };
-                    updateSession(newSession);
+                    saveSession(newSession);
+                    tokenRef.current = data.token;
                     scheduleRefresh(data.token);
                 } catch {
                     clearSession();
                 }
             }, delay);
         },
-        [address, client, clearSession, updateSession],
+        [clearSession],
     );
+
+    // Keep tokenRef in sync with session state
+    useEffect(() => {
+        tokenRef.current = session?.token ?? null;
+    }, [session]);
 
     // Schedule refresh for restored sessions
     useEffect(() => {
@@ -142,12 +145,11 @@ export default function ChatPage() {
     if (!address || !client) {
         return (
             <div
-                className="flex flex-col items-center justify-center"
+                className="flex flex-col items-center justify-center gap-6"
                 style={{
                     flex: "1 1 0",
                     fontFamily: "var(--font)",
                     padding: "clamp(1.5rem, 4vw, 3rem)",
-                    gap: "24px",
                 }}
             >
                 <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />

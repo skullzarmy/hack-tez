@@ -83,21 +83,18 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
 
     return (
         <div
-            className="shrink-0"
+            className="shrink-0 px-6 py-3"
             style={{
                 borderTop: "1px solid var(--border-2, #333)",
-                padding: "12px 24px",
                 paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
             }}
         >
             <div
-                className="flex items-end"
+                className="flex items-end px-3 py-2 gap-2"
                 style={{
                     background: "var(--bg-2, #0a0a0a)",
                     border: `1px solid ${disabled ? "var(--border, rgba(255,255,255,0.1))" : "var(--border-2, #333)"}`,
                     opacity: disabled ? 0.5 : 1,
-                    padding: "8px 12px",
-                    gap: "8px",
                 }}
             >
                 <textarea

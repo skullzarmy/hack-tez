@@ -181,13 +181,6 @@ export default class GlobalRoom implements Server {
       domains: payload.domains,
     });
 
-    // Send system welcome
-    sendJson(conn, {
-      type: "system",
-      content: `Welcome to hack.tez global chat, ${payload.activeDomain}!`,
-      timestamp: new Date().toISOString(),
-    });
-
     // Send current online users to the new connection
     const onlineDomains = this.getOnlineDomains();
     for (const domain of onlineDomains) {

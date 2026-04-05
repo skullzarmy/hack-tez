@@ -62,12 +62,10 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
         <div className="flex flex-col flex-1 min-w-0">
             {/* Header */}
             <header
-                className="flex items-center shrink-0"
+                className="flex items-center shrink-0 px-6 gap-3"
                 style={{
                     borderBottom: "1px solid var(--border-2, #333)",
                     minHeight: "56px",
-                    padding: "0 24px",
-                    gap: "12px",
                 }}
             >
                 <button
@@ -87,7 +85,7 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                 >
                     <ArrowLeft size={18} />
                 </button>
-                <div className="flex items-center" style={{ gap: "8px" }}>
+                <div className="flex items-center gap-2">
                     <span
                         className="inline-block w-1.5 h-1.5 shrink-0"
                         style={{ background: peerOnline ? "var(--accent, #00ffc8)" : "var(--fg-3, #555)" }}
@@ -115,15 +113,13 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
             {!isConnected && (
                 <div
                     role="alert"
-                    className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0"
+                    className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0 px-4 py-2 gap-2"
                     style={{
                         background: "var(--warn-bg, rgba(255,209,102,0.08))",
                         borderBottom: "1px solid var(--warn, #ffd166)",
                         color: "var(--warn, #ffd166)",
                         fontFamily: "var(--font-mono)",
                         letterSpacing: "0.1em",
-                        padding: "8px 16px",
-                        gap: "8px",
                     }}
                 >
                     <AlertTriangle size={14} aria-hidden="true" />
@@ -138,11 +134,10 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                 role="log"
                 aria-label={`DM with ${peerDomain}`}
                 aria-live="polite"
-                className="flex-1 overflow-y-auto flex flex-col"
-                style={{ padding: "20px 24px", gap: "16px" }}
+                className="flex-1 overflow-y-auto flex flex-col px-6 py-5 gap-4"
             >
                 {isLoading && (
-                    <div className="flex justify-center" style={{ padding: "8px 0" }} aria-label="Loading older messages">
+                    <div className="flex justify-center py-2" aria-label="Loading older messages">
                         <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-3, #888)" }} />
                     </div>
                 )}
@@ -150,14 +145,13 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                     <button
                         type="button"
                         onClick={loadMore}
-                        className="text-xs self-center uppercase tracking-widest font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="text-xs self-center uppercase tracking-widest font-bold focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2"
                         style={{
                             color: "var(--accent, #00ffc8)",
                             background: "transparent",
                             fontFamily: "var(--font-mono)",
                             cursor: "pointer",
                             minHeight: "44px",
-                            padding: "8px 16px",
                             border: "1px solid var(--border-2, #333)",
                             outlineColor: "var(--accent, #00ffc8)",
                             letterSpacing: "0.1em",
@@ -169,9 +163,9 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                 )}
 
                 {messages.length === 0 && !isLoading && (
-                    <div className="flex-1 flex items-center justify-center" style={{ padding: "0 16px" }}>
+                    <div className="flex-1 flex items-center justify-center px-4">
                         <div className="text-center" style={{ color: "var(--fg-3, #888)" }}>
-                            <MessageCircle size={48} className="opacity-20" style={{ margin: "0 auto 16px" }} aria-hidden="true" />
+                            <MessageCircle size={48} className="opacity-20 mx-auto mb-4" aria-hidden="true" />
                             <p
                                 className="text-xs uppercase tracking-widest font-bold"
                                 style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
@@ -179,8 +173,8 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                                 Start a conversation
                             </p>
                             <p
-                                className="text-xs"
-                                style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)", marginTop: "8px" }}
+                                className="text-xs mt-2"
+                                style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)" }}
                             >
                                 with {peerDomain}
                             </p>
@@ -204,14 +198,13 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
             {/* Typing indicator */}
             {peerTyping && (
                 <div
-                    className="text-xs uppercase tracking-wide"
+                    className="text-xs uppercase tracking-wide px-7 py-1.5"
                     aria-live="polite"
                     style={{
                         color: "var(--fg-3, #888)",
                         fontFamily: "var(--font-mono)",
                         fontSize: "10px",
                         letterSpacing: "0.08em",
-                        padding: "6px 28px",
                     }}
                 >
                     {peerDomain} is typing…

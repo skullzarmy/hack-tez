@@ -39,23 +39,24 @@ export function useDM(config: UseDMConfig): UseDMReturn {
     const [peerTyping, setPeerTyping] = useState(false);
     const [peerOnline, setPeerOnline] = useState(false);
     const wsRef = useRef<PartySocket | null>(null);
-    const historyLoadedRef = useRef(false);
+    const tokenRef = useRef(token);
+
+    // Keep token ref current for reconnects
+    useEffect(() => { tokenRef.current = token; }, [token]);
 
     useEffect(() => {
         const ws = new PartySocket({
             host: PARTYKIT_HOST,
             party: "dm",
             room: roomId,
-            query: { token },
+            query: { token: tokenRef.current },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
-            if (!historyLoadedRef.current) {
-                ws.send(JSON.stringify({ type: "history" }));
-                historyLoadedRef.current = true;
-            }
+            // Always load history on connect/reconnect, dedup handled by ID
+            ws.send(JSON.stringify({ type: "history" }));
         });
 
         ws.addEventListener("close", () => {
@@ -78,12 +79,19 @@ export function useDM(config: UseDMConfig): UseDMReturn {
                         content: data.content as string,
                         timestamp: data.timestamp as string,
                     };
-                    setMessages((prev) => [...prev, msg]);
+                    setMessages((prev) => {
+                        if (prev.some((m) => m.id === msg.id)) return prev;
+                        return [...prev, msg];
+                    });
                     break;
                 }
                 case "history": {
                     const histMsgs = (data.messages as ChatMessage[]).reverse();
-                    setMessages((prev) => [...histMsgs, ...prev]);
+                    setMessages((prev) => {
+                        const existingIds = new Set(prev.map((m) => m.id));
+                        const newMsgs = histMsgs.filter((m) => !existingIds.has(m.id));
+                        return newMsgs.length > 0 ? [...newMsgs, ...prev] : prev;
+                    });
                     setHasMore(data.hasMore as boolean);
                     setIsLoading(false);
                     break;
@@ -130,9 +138,8 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             setHasMore(false);
             setPeerTyping(false);
             setPeerOnline(false);
-            historyLoadedRef.current = false;
         };
-    }, [token, roomId, peerDomain]);
+    }, [roomId, peerDomain]);
 
     const sendMessage = useCallback(
         (content: string) => {

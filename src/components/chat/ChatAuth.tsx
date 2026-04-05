@@ -59,12 +59,11 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
 
     return (
         <div
-            className="flex flex-col items-center justify-center"
+            className="flex flex-col items-center justify-center gap-6"
             style={{
                 flex: "1 1 0",
                 fontFamily: "var(--font)",
                 padding: "clamp(1.5rem, 4vw, 3rem)",
-                gap: "24px",
             }}
         >
             <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
@@ -84,15 +83,13 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
 
             {error && (
                 <div
-                    className="flex items-center text-xs"
+                    className="flex items-center text-xs px-4 py-2 gap-2"
                     role="alert"
                     style={{
                         background: "rgba(255,107,107,0.08)",
                         border: "1px solid var(--err, #ff6b6b)",
                         color: "var(--err, #ff6b6b)",
                         fontFamily: "var(--font-mono)",
-                        padding: "8px 16px",
-                        gap: "8px",
                     }}
                 >
                     <AlertTriangle size={14} aria-hidden="true" />
@@ -104,14 +101,13 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
                 type="button"
                 onClick={handleAuth}
                 disabled={isBusy}
-                className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2 gap-2"
                 style={{
                     minWidth: "200px",
                     minHeight: "44px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "0.5rem",
                     outlineColor: "var(--accent, #00ffc8)",
                 }}
             >

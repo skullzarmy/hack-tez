@@ -113,13 +113,6 @@ export default class DMRoom implements Server {
       address: payload.address,
     });
 
-    // Send welcome
-    sendJson(conn, {
-      type: "system",
-      content: `DM with ${participants.find((p) => p !== payload.activeDomain) ?? "unknown"}`,
-      timestamp: new Date().toISOString(),
-    });
-
     // Send presence for all currently connected domains
     for (const other of this.room.getConnections()) {
       const otherDomain = this.getDomain(other);
