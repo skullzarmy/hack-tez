@@ -1,0 +1,233 @@
+import { Hash, MessageSquare, Plus, Users } from "lucide-react";
+
+interface DMConversation {
+    roomId: string;
+    peerDomain: string;
+    lastMessage: string | null;
+    lastMessageAt: string | null;
+    unreadCount: number;
+}
+
+interface ActiveView {
+    type: "global" | "dm";
+    roomId?: string;
+    peerDomain?: string;
+}
+
+interface ChatSidebarProps {
+    onlineUsers: string[];
+    activeView: ActiveView;
+    conversations: DMConversation[];
+    onSelectGlobal: () => void;
+    onSelectDM: (roomId: string, peerDomain: string) => void;
+    onNewDM: () => void;
+    totalUnread: number;
+}
+
+function formatRelativeShort(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const seconds = Math.floor(diff / 1000);
+    if (seconds < 60) return "now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+}
+
+function truncate(str: string, maxLen: number): string {
+    if (str.length <= maxLen) return str;
+    return str.slice(0, maxLen) + "…";
+}
+
+export default function ChatSidebar({
+    onlineUsers,
+    activeView,
+    conversations,
+    onSelectGlobal,
+    onSelectDM,
+    onNewDM,
+    totalUnread,
+}: ChatSidebarProps) {
+    return (
+        <aside
+            className="hidden md:flex flex-col shrink-0"
+            style={{
+                width: "220px",
+                borderRight: "1px solid var(--border-2, #333)",
+                background: "var(--bg-2, #0a0a0a)",
+            }}
+        >
+            {/* Rooms section */}
+            <div
+                className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
+                style={{ color: "var(--fg-muted, #888)", fontFamily: "var(--font-mono)" }}
+            >
+                Rooms
+            </div>
+            <button
+                type="button"
+                onClick={onSelectGlobal}
+                className="flex items-center gap-2 px-4 py-2 text-sm w-full text-left"
+                style={{
+                    background: activeView.type === "global" ? "var(--accent, #00ffc8)" : "transparent",
+                    color: activeView.type === "global" ? "var(--bg, #000)" : "var(--fg, #eee)",
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: activeView.type === "global" ? 700 : 400,
+                    cursor: "pointer",
+                    border: "none",
+                }}
+            >
+                <Hash size={14} />
+                global
+            </button>
+
+            {/* DMs section */}
+            <div
+                className="flex items-center justify-between px-4 py-3 text-xs font-bold tracking-widest uppercase"
+                style={{
+                    color: "var(--fg-muted, #888)",
+                    fontFamily: "var(--font-mono)",
+                    borderTop: "1px solid var(--border-2, #333)",
+                }}
+            >
+                <span className="flex items-center gap-1.5">
+                    <MessageSquare size={12} />
+                    DMs
+                    {totalUnread > 0 && (
+                        <span
+                            className="inline-flex items-center justify-center rounded-full text-[10px] font-bold leading-none px-1.5 py-0.5"
+                            style={{
+                                background: "var(--accent, #00ffc8)",
+                                color: "var(--bg, #000)",
+                                minWidth: "16px",
+                            }}
+                        >
+                            {totalUnread}
+                        </span>
+                    )}
+                </span>
+                <button
+                    type="button"
+                    onClick={onNewDM}
+                    className="p-0.5 rounded"
+                    style={{
+                        color: "var(--fg-muted, #888)",
+                        cursor: "pointer",
+                        border: "none",
+                        background: "transparent",
+                    }}
+                    aria-label="New DM"
+                    title="New DM"
+                >
+                    <Plus size={14} />
+                </button>
+            </div>
+
+            <div className="flex flex-col overflow-y-auto flex-1 min-h-0">
+                {conversations.length === 0 && (
+                    <div
+                        className="px-4 py-2 text-xs"
+                        style={{ color: "var(--fg-muted, #666)", fontFamily: "var(--font-mono)" }}
+                    >
+                        No conversations yet
+                    </div>
+                )}
+                {conversations.map((conv) => {
+                    const isActive = activeView.type === "dm" && activeView.roomId === conv.roomId;
+                    return (
+                        <button
+                            key={conv.roomId}
+                            type="button"
+                            onClick={() => onSelectDM(conv.roomId, conv.peerDomain)}
+                            className="flex flex-col gap-0.5 px-4 py-2 text-left w-full"
+                            style={{
+                                background: isActive ? "rgba(0, 255, 200, 0.1)" : "transparent",
+                                borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
+                                cursor: "pointer",
+                                border: "none",
+                                borderBottom: "1px solid var(--border-2, #222)",
+                            }}
+                        >
+                            <div className="flex items-center justify-between w-full">
+                                <span
+                                    className="text-xs font-bold truncate"
+                                    style={{
+                                        color: isActive ? "var(--accent, #00ffc8)" : "var(--fg, #eee)",
+                                        fontFamily: "var(--font-mono)",
+                                        maxWidth: "130px",
+                                    }}
+                                >
+                                    {conv.peerDomain}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    {conv.lastMessageAt && (
+                                        <span
+                                            className="text-[10px]"
+                                            style={{ color: "var(--fg-muted, #666)", fontFamily: "var(--font-mono)" }}
+                                        >
+                                            {formatRelativeShort(conv.lastMessageAt)}
+                                        </span>
+                                    )}
+                                    {conv.unreadCount > 0 && (
+                                        <span
+                                            className="inline-flex items-center justify-center rounded-full text-[10px] font-bold leading-none px-1.5 py-0.5"
+                                            style={{
+                                                background: "var(--accent, #00ffc8)",
+                                                color: "var(--bg, #000)",
+                                                minWidth: "16px",
+                                            }}
+                                        >
+                                            {conv.unreadCount}
+                                        </span>
+                                    )}
+                                </span>
+                            </div>
+                            {conv.lastMessage && (
+                                <span
+                                    className="text-[11px] truncate w-full block"
+                                    style={{ color: "var(--fg-muted, #888)" }}
+                                >
+                                    {truncate(conv.lastMessage, 30)}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Online users section */}
+            <div
+                className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
+                style={{
+                    color: "var(--fg-muted, #888)",
+                    fontFamily: "var(--font-mono)",
+                    borderTop: "1px solid var(--border-2, #333)",
+                }}
+            >
+                <span className="flex items-center gap-1.5">
+                    <Users size={12} />
+                    Online — {onlineUsers.length}
+                </span>
+            </div>
+            <div className="px-4 pb-3 flex flex-col gap-1 overflow-y-auto max-h-40">
+                {onlineUsers.map((d) => (
+                    <div
+                        key={d}
+                        className="flex items-center gap-2 text-xs"
+                        style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                        <span
+                            className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ background: "var(--accent, #00ffc8)" }}
+                        />
+                        <span className="truncate" style={{ color: "var(--fg, #eee)" }}>
+                            {d}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </aside>
+    );
+}

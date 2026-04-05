@@ -1,9 +1,15 @@
-import { useRef, useEffect, useCallback } from "react";
-import { MessageCircle, Hash, Users, Loader2 } from "lucide-react";
+import { useRef, useEffect, useCallback, useState } from "react";
+import { MessageCircle, Users, Loader2 } from "lucide-react";
 import IdentitySelector from "./IdentitySelector";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
+import ChatSidebar from "./ChatSidebar";
+import DMView from "./DMView";
+import NewDMModal from "./NewDMModal";
 import { useChat } from "../../hooks/useChat";
+import { useDMList } from "../../hooks/useDMList";
+
+const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
 
 interface ChatLayoutProps {
     token: string;
@@ -12,7 +18,16 @@ interface ChatLayoutProps {
     onSwitchDomain: (domain: string) => void;
 }
 
+interface ActiveView {
+    type: "global" | "dm";
+    roomId?: string;
+    peerDomain?: string;
+}
+
 export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain }: ChatLayoutProps) {
+    const [activeView, setActiveView] = useState<ActiveView>({ type: "global" });
+    const [showNewDM, setShowNewDM] = useState(false);
+
     const {
         messages,
         isConnected,
@@ -26,6 +41,8 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         activeDomain: currentDomain,
         switchIdentity,
     } = useChat({ token, activeDomain, onIdentitySwitched: onSwitchDomain });
+
+    const { conversations, totalUnread, refresh: refreshDMs } = useDMList({ token, activeDomain: currentDomain });
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -53,6 +70,39 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
 
     const filteredTyping = typingUsers.filter((d) => d !== currentDomain);
 
+    const handleSelectGlobal = useCallback(() => {
+        setActiveView({ type: "global" });
+    }, []);
+
+    const handleSelectDM = useCallback((roomId: string, peerDomain: string) => {
+        setActiveView({ type: "dm", roomId, peerDomain });
+    }, []);
+
+    const handleStartDM = useCallback(async (targetDomain: string) => {
+        setShowNewDM(false);
+        try {
+            const res = await fetch(`${HACKCHAT_URL}/dm/create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ targetDomain }),
+            });
+            if (!res.ok) return;
+            const data = (await res.json()) as { roomId: string; targetDomain: string };
+            setActiveView({ type: "dm", roomId: data.roomId, peerDomain: data.targetDomain });
+            refreshDMs();
+        } catch {
+            // Silently fail
+        }
+    }, [token, refreshDMs]);
+
+    const handleDMBack = useCallback(() => {
+        setActiveView({ type: "global" });
+        refreshDMs();
+    }, [refreshDMs]);
+
     return (
         <div
             className="flex"
@@ -61,203 +111,152 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 fontFamily: "var(--font)",
             }}
         >
-            {/* Sidebar — hidden on mobile */}
-            <aside
-                className="hidden md:flex flex-col shrink-0"
-                style={{
-                    width: "220px",
-                    borderRight: "1px solid var(--border-2, #333)",
-                    background: "var(--bg-2, #0a0a0a)",
-                }}
-            >
-                <div
-                    className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
-                    style={{ color: "var(--fg-muted, #888)", fontFamily: "var(--font-mono)" }}
-                >
-                    Rooms
-                </div>
-                <div
-                    className="flex items-center gap-2 px-4 py-2 text-sm cursor-default"
-                    style={{
-                        background: "var(--accent, #00ffc8)",
-                        color: "var(--bg, #000)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                    }}
-                >
-                    <Hash size={14} />
-                    global
-                </div>
+            <ChatSidebar
+                onlineUsers={onlineUsers}
+                activeView={activeView}
+                conversations={conversations}
+                onSelectGlobal={handleSelectGlobal}
+                onSelectDM={handleSelectDM}
+                onNewDM={() => setShowNewDM(true)}
+                totalUnread={totalUnread}
+            />
 
-                {/* Online users */}
-                <div
-                    className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
-                    style={{
-                        color: "var(--fg-muted, #888)",
-                        fontFamily: "var(--font-mono)",
-                        borderTop: "1px solid var(--border-2, #333)",
-                        marginTop: "auto",
-                    }}
-                >
-                    Online — {onlineUsers.length}
-                </div>
-                <div className="px-4 pb-3 flex flex-col gap-1 overflow-y-auto max-h-40">
-                    {onlineUsers.map((d) => (
-                        <div
-                            key={d}
-                            className="flex items-center gap-2 text-xs"
-                            style={{ fontFamily: "var(--font-mono)" }}
-                        >
+            {/* Conditional: Global Chat or DM View */}
+            {activeView.type === "dm" && activeView.roomId && activeView.peerDomain ? (
+                <DMView
+                    token={token}
+                    activeDomain={currentDomain}
+                    roomId={activeView.roomId}
+                    peerDomain={activeView.peerDomain}
+                    onBack={handleDMBack}
+                />
+            ) : (
+                /* Main global chat area */
+                <div className="flex flex-col flex-1 min-w-0">
+                    {/* Header */}
+                    <header
+                        className="flex items-center justify-between px-4 py-3 shrink-0"
+                        style={{ borderBottom: "1px solid var(--border-2, #333)" }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <MessageCircle size={18} style={{ color: "var(--accent, #00ffc8)" }} />
                             <span
-                                className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-                                style={{ background: "var(--accent, #00ffc8)" }}
-                            />
-                            <span className="truncate" style={{ color: "var(--fg, #eee)" }}>
-                                {d}
+                                className="text-sm font-bold tracking-wide"
+                                style={{ fontFamily: "var(--font-mono)" }}
+                            >
+                                hack.tez chat
                             </span>
+                            <span className="flex items-center gap-1 text-xs" style={{ color: "var(--fg-muted, #888)" }}>
+                                <Users size={12} />
+                                {onlineUsers.length}
+                            </span>
+                            {!isConnected && (
+                                <span
+                                    className="text-xs px-2 py-0.5 rounded"
+                                    style={{
+                                        background: "rgba(255,107,107,0.15)",
+                                        color: "var(--err, #ff6b6b)",
+                                        fontFamily: "var(--font-mono)",
+                                    }}
+                                >
+                                    reconnecting…
+                                </span>
+                            )}
                         </div>
-                    ))}
-                </div>
-                <div
-                    className="px-4 py-3 text-xs"
-                    style={{ color: "var(--fg-muted, #888)", borderTop: "1px solid var(--border-2, #333)" }}
-                >
-                    DMs coming soon
-                </div>
-            </aside>
+                        <IdentitySelector
+                            domains={domains}
+                            activeDomain={currentDomain}
+                            onSwitch={switchIdentity}
+                        />
+                    </header>
 
-            {/* Main chat area */}
-            <div className="flex flex-col flex-1 min-w-0">
-                {/* Header */}
-                <header
-                    className="flex items-center justify-between px-4 py-3 shrink-0"
-                    style={{ borderBottom: "1px solid var(--border-2, #333)" }}
-                >
-                    <div className="flex items-center gap-3">
-                        <MessageCircle size={18} style={{ color: "var(--accent, #00ffc8)" }} />
-                        <span
-                            className="text-sm font-bold tracking-wide"
-                            style={{ fontFamily: "var(--font-mono)" }}
-                        >
-                            hack.tez chat
-                        </span>
-                        <span className="flex items-center gap-1 text-xs" style={{ color: "var(--fg-muted, #888)" }}>
-                            <Users size={12} />
-                            {onlineUsers.length}
-                        </span>
-                        {!isConnected && (
-                            <span
-                                className="text-xs px-2 py-0.5 rounded"
+                    {/* Message list */}
+                    <div
+                        ref={messagesContainerRef}
+                        onScroll={handleScroll}
+                        className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3"
+                    >
+                        {/* Load more indicator */}
+                        {isLoading && (
+                            <div className="flex justify-center py-2">
+                                <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-muted, #888)" }} />
+                            </div>
+                        )}
+                        {hasMore && !isLoading && (
+                            <button
+                                type="button"
+                                onClick={loadMore}
+                                className="text-xs self-center py-1 px-3 rounded"
                                 style={{
-                                    background: "rgba(255,107,107,0.15)",
-                                    color: "var(--err, #ff6b6b)",
+                                    color: "var(--accent, #00ffc8)",
+                                    background: "rgba(0,255,200,0.05)",
                                     fontFamily: "var(--font-mono)",
+                                    cursor: "pointer",
                                 }}
                             >
-                                offline
-                            </span>
+                                Load older messages
+                            </button>
                         )}
-                    </div>
-                    <IdentitySelector
-                        domains={domains}
-                        activeDomain={currentDomain}
-                        onSwitch={switchIdentity}
-                    />
-                </header>
 
-                {/* Reconnection banner */}
-                {!isConnected && (
-                    <div
-                        className="flex items-center justify-center gap-2 px-4 py-2 shrink-0"
-                        style={{
-                            background: "rgba(255,107,107,0.1)",
-                            borderBottom: "1px solid rgba(255,107,107,0.2)",
-                            color: "var(--err, #ff6b6b)",
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.75rem",
-                        }}
-                    >
-                        <Loader2 size={12} className="animate-spin" />
-                        Connection lost — reconnecting automatically…
-                    </div>
-                )}
+                        {/* Empty state */}
+                        {messages.length === 0 && !isLoading && (
+                            <div className="flex-1 flex items-center justify-center">
+                                <div className="text-center" style={{ color: "var(--fg-muted, #888)" }}>
+                                    <MessageCircle size={48} className="mx-auto mb-4 opacity-30" />
+                                    <p className="text-sm" style={{ fontFamily: "var(--font-mono)" }}>
+                                        No messages yet — be the first to say something!
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
-                {/* Message list */}
-                <div
-                    ref={messagesContainerRef}
-                    onScroll={handleScroll}
-                    className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3"
-                >
-                    {/* Load more indicator */}
-                    {isLoading && (
-                        <div className="flex justify-center py-2">
-                            <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-muted, #888)" }} />
-                        </div>
-                    )}
-                    {hasMore && !isLoading && (
-                        <button
-                            type="button"
-                            onClick={loadMore}
-                            className="text-xs self-center py-1 px-3 rounded"
+                        {/* Messages */}
+                        {messages.map((msg) => (
+                            <MessageBubble
+                                key={msg.id}
+                                id={msg.id}
+                                sender={msg.sender}
+                                content={msg.content}
+                                timestamp={msg.timestamp}
+                                isOwn={msg.sender === currentDomain}
+                            />
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Typing indicator */}
+                    {filteredTyping.length > 0 && (
+                        <div
+                            className="px-4 py-1 text-xs"
                             style={{
-                                color: "var(--accent, #00ffc8)",
-                                background: "rgba(0,255,200,0.05)",
+                                color: "var(--fg-muted, #888)",
                                 fontFamily: "var(--font-mono)",
-                                cursor: "pointer",
                             }}
                         >
-                            Load older messages
-                        </button>
-                    )}
-
-                    {/* Empty state */}
-                    {messages.length === 0 && !isLoading && (
-                        <div className="flex-1 flex items-center justify-center">
-                            <div className="text-center" style={{ color: "var(--fg-muted, #888)" }}>
-                                <MessageCircle size={48} className="mx-auto mb-4 opacity-30" />
-                                <p className="text-sm" style={{ fontFamily: "var(--font-mono)" }}>
-                                    No messages yet — be the first to say something!
-                                </p>
-                            </div>
+                            {filteredTyping.length === 1
+                                ? `${filteredTyping[0]} is typing…`
+                                : `${filteredTyping.join(", ")} are typing…`}
                         </div>
                     )}
 
-                    {/* Messages */}
-                    {messages.map((msg) => (
-                        <MessageBubble
-                            key={msg.id}
-                            id={msg.id}
-                            sender={msg.sender}
-                            content={msg.content}
-                            timestamp={msg.timestamp}
-                            isOwn={msg.sender === currentDomain}
-                        />
-                    ))}
-                    <div ref={messagesEndRef} />
+                    {/* Message input */}
+                    <MessageInput
+                        onSend={sendMessage}
+                        onTyping={sendTyping}
+                        disabled={!isConnected}
+                    />
                 </div>
+            )}
 
-                {/* Typing indicator */}
-                {filteredTyping.length > 0 && (
-                    <div
-                        className="px-4 py-1 text-xs"
-                        style={{
-                            color: "var(--fg-muted, #888)",
-                            fontFamily: "var(--font-mono)",
-                        }}
-                    >
-                        {filteredTyping.length === 1
-                            ? `${filteredTyping[0]} is typing…`
-                            : `${filteredTyping.join(", ")} are typing…`}
-                    </div>
-                )}
-
-                {/* Message input */}
-                <MessageInput
-                    onSend={sendMessage}
-                    onTyping={sendTyping}
-                    disabled={!isConnected}
+            {/* New DM Modal */}
+            {showNewDM && (
+                <NewDMModal
+                    onlineUsers={onlineUsers}
+                    activeDomain={currentDomain}
+                    onStartDM={handleStartDM}
+                    onClose={() => setShowNewDM(false)}
                 />
-            </div>
+            )}
         </div>
     );
 }
