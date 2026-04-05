@@ -49,9 +49,10 @@ function formatContent(raw: string): ReactNode[] {
             parts.push(
                 <code
                     key={key++}
-                    className="rounded px-1 py-0.5 text-xs"
+                    className="px-1.5 py-0.5 text-xs"
                     style={{
-                        background: "rgba(255,255,255,0.08)",
+                        background: "rgba(255,255,255,0.12)",
+                        border: "1px solid var(--border, rgba(255,255,255,0.1))",
                         fontFamily: "var(--font-mono)",
                     }}
                 >
@@ -87,18 +88,20 @@ function formatContent(raw: string): ReactNode[] {
 function SystemMessage({ content, timestamp }: { content: string; timestamp: string }) {
     const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
     return (
-        <div className="flex justify-center py-1" role="article" aria-label={`System: ${content}`}>
+        <div className="flex items-center gap-3 py-2" role="article" aria-label={`System: ${content}`}>
+            <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
             <span
-                className="text-xs italic px-3 py-1 rounded-full"
+                className="text-[11px] uppercase tracking-widest shrink-0"
                 style={{
-                    color: "var(--fg-2, rgba(255,255,255,0.6))",
-                    background: "rgba(255,255,255,0.03)",
+                    color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
+                    letterSpacing: "0.1em",
                 }}
             >
                 {content}
-                <span className="ml-2 text-[10px]" style={{ color: "var(--fg-3, #888)" }}>{relativeTime}</span>
+                <span className="ml-2 opacity-60">{relativeTime}</span>
             </span>
+            <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
         </div>
     );
 }
@@ -115,39 +118,42 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
         <div
             role="article"
             aria-label={`Message from ${sender}`}
-            className={`flex flex-col gap-0.5 max-w-[95%] md:max-w-[85%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}
+            className={`flex flex-col gap-1 max-w-[95%] md:max-w-[80%] ${isOwn ? "self-end items-end" : "self-start items-start"}`}
         >
             <span
-                className="text-[11px] font-bold tracking-wide px-1"
+                className="text-xs font-bold uppercase tracking-widest px-1"
                 style={{
                     color: isOwn ? "var(--accent, #00ffc8)" : "var(--fg-2, rgba(255,255,255,0.6))",
                     fontFamily: "var(--font-mono)",
+                    fontSize: "10px",
+                    letterSpacing: "0.12em",
                 }}
             >
                 {sender}
             </span>
 
             <div
-                className="rounded-lg px-4 py-2 text-sm break-words"
+                className="px-4 py-2.5 text-sm break-words"
                 style={{
                     background: isOwn
-                        ? "rgba(0, 255, 200, 0.12)"
+                        ? "rgba(0, 255, 200, 0.08)"
                         : "var(--bg-2, #0a0a0a)",
-                    border: isOwn
-                        ? "1px solid rgba(0, 255, 200, 0.2)"
-                        : "1px solid var(--border-2, #333)",
+                    borderLeft: isOwn
+                        ? "2px solid var(--accent, #00ffc8)"
+                        : "2px solid var(--border-2, #333)",
                     fontFamily: "var(--font)",
-                    lineHeight: "1.5",
+                    lineHeight: "1.6",
                 }}
             >
                 {formattedContent}
             </div>
 
             <span
-                className="text-[11px] px-1"
+                className="text-xs px-1 uppercase tracking-wide"
                 style={{
                     color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
+                    fontSize: "10px",
                 }}
             >
                 {relativeTime}

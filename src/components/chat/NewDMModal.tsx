@@ -86,7 +86,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 role="dialog"
                 aria-modal="true"
                 aria-label="New direct message"
-                className="rounded-lg w-full max-w-sm mx-4 overflow-hidden flex flex-col"
+                className="w-full max-w-sm mx-4 overflow-hidden flex flex-col"
                 style={{
                     background: "var(--bg-2, #0a0a0a)",
                     border: "1px solid var(--border-2, #333)",
@@ -97,20 +97,20 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 {/* Header */}
                 <div
                     className="flex items-center justify-between px-4"
-                    style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "52px" }}
+                    style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px" }}
                 >
                     <span
-                        className="text-sm font-bold tracking-wide flex items-center gap-2"
-                        style={{ fontFamily: "var(--font-mono)" }}
+                        className="text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                        style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
                         id="new-dm-title"
                     >
-                        <MessageSquare size={16} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
+                        <MessageSquare size={14} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
                         New DM
                     </span>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2"
                         style={{
                             width: "44px",
                             height: "44px",
@@ -129,10 +129,10 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 {/* Search input */}
                 <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-2, #222)" }}>
                     <div
-                        className="flex items-center gap-2 rounded px-3"
+                        className="flex items-center gap-2 px-3"
                         style={{
                             background: "var(--bg, #000)",
-                            border: "1px solid var(--border, #555)",
+                            border: "1px solid var(--border-2, #333)",
                             minHeight: "44px",
                         }}
                     >
@@ -222,8 +222,8 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
 
                     {filteredUsers.length === 0 && !canSendManual && (
                         <div
-                            className="px-4 py-6 text-center text-xs"
-                            style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                            className="px-4 py-6 text-center text-xs uppercase tracking-widest"
+                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
                         >
                             {search ? "No matching users online" : "No other users online"}
                         </div>

@@ -10,12 +10,13 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
     if (domains.length <= 1) {
         return (
             <span
-                className="inline-flex items-center gap-1 rounded px-2 text-xs font-bold tracking-wide"
+                className="inline-flex items-center gap-1 px-2 text-[10px] font-bold uppercase tracking-widest"
                 style={{
                     background: "var(--accent, #00ffc8)",
                     color: "var(--bg, #000)",
                     fontFamily: "var(--font-mono)",
                     minHeight: "28px",
+                    letterSpacing: "0.12em",
                 }}
                 aria-label={`Active identity: ${activeDomain}`}
             >
@@ -33,13 +34,14 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
                 id="identity-selector"
                 value={activeDomain}
                 onChange={(e) => onSwitch(e.target.value)}
-                className="appearance-none rounded border-0 pr-6 pl-2 text-xs font-bold tracking-wide cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="appearance-none border-0 pr-6 pl-2 text-[10px] font-bold uppercase tracking-widest cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
                     background: "var(--accent, #00ffc8)",
                     color: "var(--bg, #000)",
                     fontFamily: "var(--font-mono)",
                     minHeight: "44px",
                     outlineColor: "var(--bg, #000)",
+                    letterSpacing: "0.12em",
                 }}
             >
                 {domains.map((d) => (

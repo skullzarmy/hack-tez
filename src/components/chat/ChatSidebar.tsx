@@ -67,12 +67,12 @@ export default function ChatSidebar({
     const sidebarContent = (
         <>
             {/* Mobile close button */}
-            <div className="flex md:hidden items-center justify-between px-3 shrink-0"
-                style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "52px" }}
+            <div className="flex md:hidden items-center justify-between px-4 shrink-0"
+                style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px" }}
             >
                 <span
-                    className="text-sm font-bold tracking-wide"
-                    style={{ fontFamily: "var(--font-mono)" }}
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
                 >
                     Navigation
                 </span>
@@ -80,7 +80,7 @@ export default function ChatSidebar({
                     ref={closeButtonRef}
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
                         width: "44px",
                         height: "44px",
@@ -92,14 +92,14 @@ export default function ChatSidebar({
                     }}
                     aria-label="Close navigation"
                 >
-                    <X size={20} />
+                    <X size={18} />
                 </button>
             </div>
 
             {/* Rooms section */}
             <div
-                className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
-                style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                className="px-4 py-3 text-[10px] font-bold tracking-widest uppercase"
+                style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
             >
                 Rooms
             </div>
@@ -107,16 +107,18 @@ export default function ChatSidebar({
                 <button
                     type="button"
                     onClick={onSelectGlobal}
-                    className="flex items-center gap-2 px-3 text-sm w-full text-left rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="flex items-center gap-2 px-3 text-xs w-full text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
                         background: activeView.type === "global" ? "var(--accent, #00ffc8)" : "transparent",
                         color: activeView.type === "global" ? "var(--bg, #000)" : "var(--fg, #eee)",
                         fontFamily: "var(--font-mono)",
-                        fontWeight: activeView.type === "global" ? 700 : 400,
+                        fontWeight: 700,
                         cursor: "pointer",
                         border: "none",
                         minHeight: "44px",
                         outlineColor: "var(--accent, #00ffc8)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
                     }}
                     aria-current={activeView.type === "global" ? "page" : undefined}
                 >
@@ -127,11 +129,12 @@ export default function ChatSidebar({
 
             {/* DMs section */}
             <div
-                className="flex items-center justify-between px-4 py-3 text-xs font-bold tracking-widest uppercase"
+                className="flex items-center justify-between px-4 py-3 text-[10px] font-bold tracking-widest uppercase"
                 style={{
-                    color: "var(--fg-2, rgba(255,255,255,0.6))",
+                    color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
                     borderTop: "1px solid var(--border-2, #333)",
+                    letterSpacing: "0.2em",
                 }}
             >
                 <span className="flex items-center gap-1.5">
@@ -139,7 +142,7 @@ export default function ChatSidebar({
                     DMs
                     {totalUnread > 0 && (
                         <span
-                            className="inline-flex items-center justify-center rounded-full text-[10px] font-bold leading-none px-1.5 py-0.5"
+                            className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
                             style={{
                                 background: "var(--accent, #00ffc8)",
                                 color: "var(--bg, #000)",
@@ -154,7 +157,7 @@ export default function ChatSidebar({
                 <button
                     type="button"
                     onClick={onNewDM}
-                    className="inline-flex items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
                         width: "44px",
                         height: "44px",
@@ -174,8 +177,8 @@ export default function ChatSidebar({
             <div className="flex flex-col overflow-y-auto flex-1 min-h-0 px-2">
                 {conversations.length === 0 && (
                     <div
-                        className="px-3 py-3 text-xs"
-                        style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                        className="px-3 py-4 text-xs uppercase tracking-widest"
+                        style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
                     >
                         No conversations yet
                     </div>
@@ -187,15 +190,17 @@ export default function ChatSidebar({
                             key={conv.roomId}
                             type="button"
                             onClick={() => onSelectDM(conv.roomId, conv.peerDomain)}
-                            className="flex flex-col gap-0.5 px-3 text-left w-full rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                            className="flex flex-col gap-0.5 px-3 text-left w-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                             style={{
-                                background: isActive ? "rgba(0, 255, 200, 0.1)" : "transparent",
+                                background: isActive ? "rgba(0, 255, 200, 0.06)" : "transparent",
                                 borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
                                 cursor: "pointer",
-                                border: "none",
-                                minHeight: "44px",
-                                paddingTop: "8px",
-                                paddingBottom: "8px",
+                                borderTop: "none",
+                                borderRight: "none",
+                                borderBottom: "none",
+                                minHeight: "48px",
+                                paddingTop: "10px",
+                                paddingBottom: "10px",
                                 outlineColor: "var(--accent, #00ffc8)",
                             }}
                             aria-current={isActive ? "page" : undefined}
@@ -206,7 +211,7 @@ export default function ChatSidebar({
                                     style={{
                                         color: isActive ? "var(--accent, #00ffc8)" : "var(--fg, #eee)",
                                         fontFamily: "var(--font-mono)",
-                                        maxWidth: "130px",
+                                        maxWidth: "140px",
                                     }}
                                 >
                                     {conv.peerDomain}
@@ -214,15 +219,15 @@ export default function ChatSidebar({
                                 <span className="flex items-center gap-1.5">
                                     {conv.lastMessageAt && (
                                         <span
-                                            className="text-[11px]"
-                                            style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                                            className="text-xs"
+                                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "10px" }}
                                         >
                                             {formatRelativeShort(conv.lastMessageAt)}
                                         </span>
                                     )}
                                     {conv.unreadCount > 0 && (
                                         <span
-                                            className="inline-flex items-center justify-center rounded-full text-[10px] font-bold leading-none px-1.5 py-0.5"
+                                            className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
                                             style={{
                                                 background: "var(--accent, #00ffc8)",
                                                 color: "var(--bg, #000)",
@@ -239,10 +244,10 @@ export default function ChatSidebar({
                             </div>
                             {conv.lastMessage && (
                                 <span
-                                    className="text-[11px] truncate w-full block"
-                                    style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}
+                                    className="text-xs truncate w-full block"
+                                    style={{ color: "var(--fg-3, #888)", fontSize: "11px" }}
                                 >
-                                    {truncate(conv.lastMessage, 30)}
+                                    {truncate(conv.lastMessage, 34)}
                                 </span>
                             )}
                         </button>
@@ -252,11 +257,12 @@ export default function ChatSidebar({
 
             {/* Online users section */}
             <div
-                className="px-4 py-3 text-xs font-bold tracking-widest uppercase"
+                className="px-4 py-3 text-[10px] font-bold tracking-widest uppercase"
                 style={{
-                    color: "var(--fg-2, rgba(255,255,255,0.6))",
+                    color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
                     borderTop: "1px solid var(--border-2, #333)",
+                    letterSpacing: "0.2em",
                 }}
             >
                 <span className="flex items-center gap-1.5">
@@ -264,7 +270,7 @@ export default function ChatSidebar({
                     Online — {onlineUsers.length}
                 </span>
             </div>
-            <div className="px-4 pb-3 flex flex-col gap-1 overflow-y-auto max-h-40">
+            <div className="px-4 pb-4 flex flex-col gap-1.5 overflow-y-auto max-h-40">
                 {onlineUsers.map((d) => (
                     <div
                         key={d}
@@ -272,11 +278,11 @@ export default function ChatSidebar({
                         style={{ fontFamily: "var(--font-mono)", minHeight: "28px" }}
                     >
                         <span
-                            className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                            className="inline-block w-1.5 h-1.5 shrink-0"
                             style={{ background: "var(--accent, #00ffc8)" }}
                             aria-hidden="true"
                         />
-                        <span className="truncate" style={{ color: "var(--fg, #eee)" }}>
+                        <span className="truncate" style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}>
                             {d}
                         </span>
                         <span className="sr-only">(online)</span>
@@ -294,7 +300,7 @@ export default function ChatSidebar({
                 role="navigation"
                 aria-label="Chat navigation"
                 style={{
-                    width: "220px",
+                    width: "240px",
                     borderRight: "1px solid var(--border-2, #333)",
                     background: "var(--bg-2, #0a0a0a)",
                 }}

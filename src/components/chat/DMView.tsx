@@ -59,16 +59,16 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
         <div className="flex flex-col flex-1 min-w-0">
             {/* Header */}
             <header
-                className="flex items-center gap-2 md:gap-3 px-3 md:px-4 shrink-0"
+                className="flex items-center gap-2 md:gap-3 px-4 md:px-5 shrink-0"
                 style={{
                     borderBottom: "1px solid var(--border-2, #333)",
-                    minHeight: "52px",
+                    minHeight: "56px",
                 }}
             >
                 <button
                     type="button"
                     onClick={onBack}
-                    className="inline-flex items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
                         width: "44px",
                         height: "44px",
@@ -84,19 +84,19 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                 </button>
                 <div className="flex items-center gap-2">
                     <span
-                        className="inline-block w-2 h-2 rounded-full shrink-0"
+                        className="inline-block w-1.5 h-1.5 shrink-0"
                         style={{ background: peerOnline ? "var(--accent, #00ffc8)" : "var(--fg-3, #555)" }}
                         aria-hidden="true"
                     />
                     <span
-                        className="text-sm font-bold tracking-wide"
-                        style={{ fontFamily: "var(--font-mono)" }}
+                        className="text-sm font-bold uppercase tracking-widest"
+                        style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}
                     >
                         {peerDomain}
                     </span>
                     <span
-                        className="text-xs"
-                        style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                        className="text-[10px] uppercase tracking-widest"
+                        style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}
                     >
                         {peerOnline ? "online" : "offline"}
                     </span>
@@ -110,15 +110,16 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
             {!isConnected && (
                 <div
                     role="alert"
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold shrink-0"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest shrink-0"
                     style={{
                         background: "var(--warn-bg, rgba(255,209,102,0.08))",
                         borderBottom: "1px solid var(--warn, #ffd166)",
                         color: "var(--warn, #ffd166)",
                         fontFamily: "var(--font-mono)",
+                        letterSpacing: "0.1em",
                     }}
                 >
-                    <AlertTriangle size={16} aria-hidden="true" />
+                    <AlertTriangle size={14} aria-hidden="true" />
                     Reconnecting…
                 </div>
             )}
@@ -130,38 +131,50 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
                 role="log"
                 aria-label={`DM with ${peerDomain}`}
                 aria-live="polite"
-                className="flex-1 overflow-y-auto px-3 md:px-4 py-4 flex flex-col gap-3"
+                className="flex-1 overflow-y-auto px-4 md:px-5 py-5 flex flex-col gap-4"
             >
                 {isLoading && (
                     <div className="flex justify-center py-2" aria-label="Loading older messages">
-                        <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }} />
+                        <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-3, #888)" }} />
                     </div>
                 )}
                 {hasMore && !isLoading && (
                     <button
                         type="button"
                         onClick={loadMore}
-                        className="text-xs self-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="text-xs self-center uppercase tracking-widest font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
                         style={{
                             color: "var(--accent, #00ffc8)",
-                            background: "rgba(0,255,200,0.05)",
+                            background: "transparent",
                             fontFamily: "var(--font-mono)",
                             cursor: "pointer",
                             minHeight: "44px",
                             padding: "8px 16px",
+                            border: "1px solid var(--border-2, #333)",
                             outlineColor: "var(--accent, #00ffc8)",
+                            letterSpacing: "0.1em",
+                            fontSize: "10px",
                         }}
                     >
-                        Load older messages
+                        ↑ Load older messages
                     </button>
                 )}
 
                 {messages.length === 0 && !isLoading && (
                     <div className="flex-1 flex items-center justify-center px-4">
-                        <div className="text-center" style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}>
-                            <MessageCircle size={48} className="mx-auto mb-4 opacity-30" aria-hidden="true" />
-                            <p className="text-sm" style={{ fontFamily: "var(--font-mono)" }}>
-                                Start a conversation with {peerDomain}
+                        <div className="text-center" style={{ color: "var(--fg-3, #888)" }}>
+                            <MessageCircle size={48} className="mx-auto mb-4 opacity-20" aria-hidden="true" />
+                            <p
+                                className="text-xs uppercase tracking-widest font-bold"
+                                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
+                            >
+                                Start a conversation
+                            </p>
+                            <p
+                                className="text-xs mt-2"
+                                style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)" }}
+                            >
+                                with {peerDomain}
                             </p>
                         </div>
                     </div>
@@ -183,11 +196,13 @@ export default function DMView({ token, activeDomain, roomId, peerDomain, onBack
             {/* Typing indicator */}
             {peerTyping && (
                 <div
-                    className="px-4 py-1 text-xs"
+                    className="px-5 py-1.5 text-xs uppercase tracking-wide"
                     aria-live="polite"
                     style={{
-                        color: "var(--fg-2, rgba(255,255,255,0.6))",
+                        color: "var(--fg-3, #888)",
                         fontFamily: "var(--font-mono)",
+                        fontSize: "10px",
+                        letterSpacing: "0.08em",
                     }}
                 >
                     {peerDomain} is typing…

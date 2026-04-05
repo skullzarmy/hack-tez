@@ -83,18 +83,18 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
 
     return (
         <div
-            className="shrink-0 px-3 md:px-4 py-3"
+            className="shrink-0 px-4 md:px-5 py-3"
             style={{
                 borderTop: "1px solid var(--border-2, #333)",
                 paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
             }}
         >
             <div
-                className="flex items-end gap-2 rounded px-3 py-2"
+                className="flex items-end gap-2 px-3 py-2"
                 style={{
                     background: "var(--bg-2, #0a0a0a)",
-                    border: `1px solid ${disabled ? "var(--border-2, #333)" : "var(--border, #555)"}`,
-                    opacity: disabled ? 0.6 : 1,
+                    border: `1px solid ${disabled ? "var(--border, rgba(255,255,255,0.1))" : "var(--border-2, #333)"}`,
+                    opacity: disabled ? 0.5 : 1,
                 }}
             >
                 <textarea
@@ -103,7 +103,7 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     disabled={disabled}
-                    placeholder={disabled ? "Connecting…" : "Type a message…"}
+                    placeholder={disabled ? "connecting…" : "type a message…"}
                     rows={1}
                     aria-label="Message"
                     aria-describedby={INPUT_HINT_ID}
@@ -111,19 +111,19 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
                     style={{
                         color: "var(--fg, #eee)",
                         fontFamily: "var(--font)",
-                        lineHeight: "20px",
-                        maxHeight: "100px",
-                        fontSize: "14px",
+                        lineHeight: "22px",
+                        maxHeight: "110px",
+                        fontSize: "13px",
                     }}
                 />
                 <button
                     type="button"
                     onClick={handleSend}
                     disabled={disabled || !value.trim()}
-                    className="shrink-0 inline-flex items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="shrink-0 inline-flex items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
-                        width: "44px",
-                        height: "44px",
+                        width: "36px",
+                        height: "36px",
                         color: value.trim() && !disabled
                             ? "var(--accent, #00ffc8)"
                             : "var(--fg-3, #888)",
@@ -134,7 +134,7 @@ export default function MessageInput({ onSend, onTyping, disabled }: MessageInpu
                     }}
                     aria-label="Send message"
                 >
-                    <Send size={18} />
+                    <Send size={16} />
                 </button>
             </div>
             <span id={INPUT_HINT_ID} className="sr-only">

@@ -62,24 +62,27 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
             className="flex flex-col items-center justify-center gap-6 px-4"
             style={{ minHeight: "60vh", fontFamily: "var(--font)" }}
         >
-            <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.8 }} aria-hidden="true" />
+            <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
             <h2
-                className="text-lg font-bold tracking-wide text-center"
-                style={{ fontFamily: "var(--font-mono)" }}
+                className="text-sm font-bold uppercase tracking-widest text-center"
+                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
             >
                 Sign to verify your hack.tez identity
             </h2>
-            <p className="text-sm text-center max-w-md" style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}>
+            <p
+                className="text-xs text-center max-w-md"
+                style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", lineHeight: "1.7" }}
+            >
                 Your wallet will ask you to sign a message. This proves you own your address
                 without sending a transaction.
             </p>
 
             {error && (
                 <div
-                    className="flex items-center gap-2 rounded px-4 py-2 text-sm"
+                    className="flex items-center gap-2 px-4 py-2 text-xs"
                     role="alert"
                     style={{
-                        background: "rgba(255,107,107,0.1)",
+                        background: "rgba(255,107,107,0.08)",
                         border: "1px solid var(--err, #ff6b6b)",
                         color: "var(--err, #ff6b6b)",
                         fontFamily: "var(--font-mono)",

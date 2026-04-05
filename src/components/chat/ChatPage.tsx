@@ -100,10 +100,10 @@ export default function ChatPage() {
                 className="flex flex-col items-center justify-center gap-6 px-4"
                 style={{ minHeight: "60vh", fontFamily: "var(--font)" }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
+                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />
                 <h2
-                    className="text-lg font-bold tracking-wide text-center"
-                    style={{ fontFamily: "var(--font-mono)" }}
+                    className="text-sm font-bold uppercase tracking-widest text-center"
+                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
                 >
                     Connect your wallet to enter hack.tez chat
                 </h2>
