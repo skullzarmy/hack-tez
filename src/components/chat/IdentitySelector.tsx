@@ -6,6 +6,11 @@ interface IdentitySelectorProps {
     onSwitch: (domain: string) => void;
 }
 
+/** Strip the parent domain (hack.gho, hack.tez) to show just the label(s) */
+function shortLabel(domain: string): string {
+    return domain.replace(/\.hack\.\w+$/, "");
+}
+
 export default function IdentitySelector({ domains, activeDomain, onSwitch }: IdentitySelectorProps) {
     if (domains.length <= 1) {
         return (
@@ -17,15 +22,20 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
                     fontFamily: "var(--font-mono)",
                     minHeight: "28px",
                     letterSpacing: "0.12em",
+                    maxWidth: "120px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                 }}
+                title={activeDomain}
                 aria-label={`Active identity: ${activeDomain}`}
             >
-                {activeDomain}
+                {shortLabel(activeDomain)}
             </span>
         );
     }
 
-    const options = domains.map((d) => ({ value: d, label: d }));
+    const options = domains.map((d) => ({ value: d, label: shortLabel(d) }));
 
     return (
         <Select
