@@ -39,6 +39,11 @@ Both must exit 0. Never commit with type errors.
 - `"jsx": "react-jsx"` — no need to `import React` in `.tsx` files
 - Tailwind via `@tailwindcss/vite` — no separate config file, just `@import "tailwindcss"` in `src/index.css`
 
+## React / Data-Fetching Rules
+
+- **Never wipe the DOM on background refresh.** When a hook or component re-fetches data (polling, post-mutation refresh, `refreshKey` increment), do NOT set `loading=true` if data already exists. Only show a loading spinner/skeleton on the very first fetch. Use a `hasFetched` ref to track this. Subsequent fetches silently update state in place.
+- **Network-dependent URLs must come from `config` (`src/config/tezos.ts`).** Never construct TED, TzKT, or GraphQL URLs ad-hoc in components. Use `config.tedAppUrl`, `config.tzktApi`, `config.domainsGraphql`, etc.
+
 ---
 
 ## Key Files
@@ -126,7 +131,7 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **Owner = sender.** Users own TED records directly. The contract sets `owner=sp.sender` in TED calls.
 - **1 claim per wallet (permanent).** `registrations` big_map tracks claims. Even if TED record is removed, the claim slot is spent.
 - **Wallet SDK is `@tezos-x/octez.connect-sdk`** (Beacon). Use `DAppClient.requestOperation()` with raw Michelson — NOT Taquito's `ContractAbstraction`.
-- **No Netlify Functions for redirect/resolution.** The API in `netlify/functions/api.mts` is a pure proxy to TED GraphQL + TzKT.
+- **No Netlify Functions for resolution.** The API in `netlify/functions/api.mts` is a pure proxy to TED GraphQL + TzKT.
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects.
 - **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
 - **JWT is the trust boundary.** CF Worker issues JWT after verifying wallet signature + TED domain ownership. PartyKit only accepts connections with valid JWT. Both share `CHAT_JWT_SECRET`.

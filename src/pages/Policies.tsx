@@ -55,7 +55,7 @@ export default function Policies() {
                         >
                             Tezos Domains
                         </a>{" "}
-                        record — an NFT you actually own, that you can set addresses on, redirect to a website, or
+                        record — an NFT you actually own, that you can set addresses on or
                         transfer to someone else. We don't hold it. The chain does.
                     </p>
                     <p>

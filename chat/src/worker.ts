@@ -210,6 +210,9 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleHistory(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
+
   const url = new URL(request.url);
   const before = url.searchParams.get("before") ?? undefined;
   const limitParam = url.searchParams.get("limit");

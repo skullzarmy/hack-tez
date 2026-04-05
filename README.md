@@ -4,7 +4,7 @@ Free Tezos subdomains. No permission required.
 
 Connect a wallet. Claim `yourname.hack.tez`. Set up your builder profile. That's it.
 
-Your name is a real on-chain  it resolves, routes, and can be queried by contracts. Manage it at [Tezos Domains](https://tezos.domains). Set an address, a redirect, an IPFS hash. It's yours.record 
+Your name is a real on-chain record — it resolves, routes, and can be queried by contracts. Manage it at [Tezos Domains](https://tezos.domains). Set an address, configure your record. It's yours.
 
 One claim per wallet. Permanent.
 
