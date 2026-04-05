@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { useState, useRef, useEffect, useCallback, useId, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 
 export interface SelectOption {
@@ -12,12 +13,16 @@ interface SelectProps {
     onChange: (value: string) => void;
     placeholder?: string;
     id?: string;
-    /** Compact variant for tight spaces (chat header, etc.) */
     variant?: "default" | "compact" | "accent";
-    /** Full width */
     fullWidth?: boolean;
     disabled?: boolean;
     "aria-label"?: string;
+}
+
+interface DropdownPos {
+    top: number;
+    left: number;
+    width: number;
 }
 
 export default function Select({
@@ -33,7 +38,7 @@ export default function Select({
 }: SelectProps) {
     const [open, setOpen] = useState(false);
     const [focusIndex, setFocusIndex] = useState(-1);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState<DropdownPos>({ top: 0, left: 0, width: 0 });
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
     const uid = useId();
@@ -48,13 +53,45 @@ export default function Select({
         triggerRef.current?.focus();
     }, []);
 
+    // Position the dropdown relative to the trigger
+    useLayoutEffect(() => {
+        if (!open || !triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        setPos({
+            top: rect.bottom + window.scrollY,
+            left: rect.left + window.scrollX,
+            width: rect.width,
+        });
+    }, [open]);
+
+    // Reposition on scroll/resize while open
+    useEffect(() => {
+        if (!open) return;
+        function reposition() {
+            if (!triggerRef.current) return;
+            const rect = triggerRef.current.getBoundingClientRect();
+            setPos({
+                top: rect.bottom + window.scrollY,
+                left: rect.left + window.scrollX,
+                width: rect.width,
+            });
+        }
+        window.addEventListener("scroll", reposition, true);
+        window.addEventListener("resize", reposition);
+        return () => {
+            window.removeEventListener("scroll", reposition, true);
+            window.removeEventListener("resize", reposition);
+        };
+    }, [open]);
+
     // Close on outside click
     useEffect(() => {
         if (!open) return;
         function handleClick(e: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
-            }
+            const target = e.target as Node;
+            if (triggerRef.current?.contains(target)) return;
+            if (listRef.current?.contains(target)) return;
+            setOpen(false);
         }
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
@@ -69,13 +106,10 @@ export default function Select({
         }
     }, [focusIndex, open]);
 
-    const openAt = useCallback(
-        (idx: number) => {
-            setOpen(true);
-            setFocusIndex(idx >= 0 ? idx : 0);
-        },
-        [],
-    );
+    const openAt = useCallback((idx: number) => {
+        setOpen(true);
+        setFocusIndex(idx >= 0 ? idx : 0);
+    }, []);
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
@@ -137,11 +171,8 @@ export default function Select({
         [onChange, closeAndFocus],
     );
 
-    // Focus ring applied via outline — visible on :focus-visible via browser default,
-    // but we also set an explicit outline for all-variant consistency.
     const focusRing: React.CSSProperties = {
-        outline: "2px solid var(--accent, #00ffc8)",
-        outlineOffset: "2px",
+        boxShadow: "inset 0 0 0 2px var(--accent, #00ffc8)",
     };
 
     const triggerStyle: React.CSSProperties =
@@ -182,22 +213,22 @@ export default function Select({
                   whiteSpace: "nowrap",
               };
 
+    const dropdownMinWidth = variant === "accent" ? 180 : pos.width;
+
     const dropdownStyle: React.CSSProperties = {
         position: "absolute",
-        top: "100%",
-        left: 0,
-        right: variant === "accent" ? undefined : 0,
-        minWidth: variant === "accent" ? "180px" : undefined,
-        zIndex: 999,
-        marginTop: "2px",
+        top: pos.top + 2,
+        left: pos.left,
+        minWidth: dropdownMinWidth,
+        zIndex: 9999,
         background: "var(--bg-2, #111)",
         border: "1px solid var(--border, #333)",
         borderRadius: "4px",
         maxHeight: "200px",
-        overflowY: "auto",
+        overflow: "hidden auto",
         boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
         listStyle: "none",
-        margin: "2px 0 0",
+        margin: 0,
         padding: "4px 0",
     };
 
@@ -213,15 +244,46 @@ export default function Select({
         whiteSpace: "nowrap",
     };
 
+    const triggerId = id ?? `${uid}-trigger`;
+
+    const dropdown =
+        open &&
+        createPortal(
+            <ul ref={listRef} id={listboxId} role="listbox" aria-label={ariaLabel} style={dropdownStyle}>
+                {options.map((opt, i) => {
+                    const isSelected = opt.value === value;
+                    const isFocused = i === focusIndex;
+                    return (
+                        <li
+                            key={opt.value}
+                            id={optionId(i)}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => handleSelect(opt.value)}
+                            onMouseEnter={() => setFocusIndex(i)}
+                            style={{
+                                ...itemBase,
+                                background: isFocused ? "var(--bg-3, #222)" : "transparent",
+                                color: isSelected ? "var(--accent, #00ffc8)" : "var(--fg)",
+                                ...(isFocused ? focusRing : {}),
+                            }}
+                        >
+                            <span>{opt.label}</span>
+                            {isSelected && <Check size={12} style={{ flexShrink: 0, marginLeft: "0.5rem", color: "var(--accent, #00ffc8)" }} aria-hidden="true" />}
+                        </li>
+                    );
+                })}
+            </ul>,
+            document.body,
+        );
+
     return (
-        <div ref={containerRef} style={{ position: "relative", display: fullWidth ? "block" : "inline-block", width: fullWidth ? "100%" : undefined }}>
-            {/* The focus-visible outline is injected via a <style> tag scoped by uid to avoid
-                inline-style :focus-visible limitations. */}
-            <style>{`#${CSS.escape(id ?? `${uid}-trigger`)}:focus-visible { outline: 2px solid var(--accent, #00ffc8); outline-offset: 2px; }`}</style>
+        <div style={{ display: fullWidth ? "block" : "inline-block", width: fullWidth ? "100%" : undefined }}>
+            <style>{`#${CSS.escape(triggerId)}:focus-visible { outline: 2px solid var(--accent, #00ffc8); outline-offset: 2px; }`}</style>
             <button
                 ref={triggerRef}
                 type="button"
-                id={id ?? `${uid}-trigger`}
+                id={triggerId}
                 role="combobox"
                 aria-expanded={open}
                 aria-haspopup="listbox"
@@ -254,34 +316,7 @@ export default function Select({
                     aria-hidden="true"
                 />
             </button>
-
-            {open && (
-                <ul ref={listRef} id={listboxId} role="listbox" aria-label={ariaLabel} style={dropdownStyle}>
-                    {options.map((opt, i) => {
-                        const isSelected = opt.value === value;
-                        const isFocused = i === focusIndex;
-                        return (
-                            <li
-                                key={opt.value}
-                                id={optionId(i)}
-                                role="option"
-                                aria-selected={isSelected}
-                                onClick={() => handleSelect(opt.value)}
-                                onMouseEnter={() => setFocusIndex(i)}
-                                style={{
-                                    ...itemBase,
-                                    background: isFocused ? "var(--bg-3, #222)" : "transparent",
-                                    color: isSelected ? "var(--accent, #00ffc8)" : "var(--fg)",
-                                    ...(isFocused ? focusRing : {}),
-                                }}
-                            >
-                                <span>{opt.label}</span>
-                                {isSelected && <Check size={12} style={{ flexShrink: 0, marginLeft: "0.5rem", color: "var(--accent, #00ffc8)" }} aria-hidden="true" />}
-                            </li>
-                        );
-                    })}
-                </ul>
-            )}
+            {dropdown}
         </div>
     );
 }
