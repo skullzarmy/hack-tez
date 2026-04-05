@@ -41,6 +41,7 @@
 /* --- TOKENS: DARK (default) --------------------------------- */
 :root {
     --font: "Space Mono", "Courier New", monospace;
+    --font-mono: var(--font);
 
     --bg: #000000;
     --bg-2: #0d0d0d;
@@ -48,6 +49,7 @@
     --fg: #ffffff;
     --fg-2: rgba(255, 255, 255, 0.6);
     --fg-3: #888888; /* 4.88:1 on #1a1a1a, 5.9:1 on #000 — AA ✓ */
+    --fg-muted: var(--fg-3);
     --border: rgba(255, 255, 255, 0.1);
     --border-2: rgba(255, 255, 255, 0.32);
     --border-3: rgba(255, 255, 255, 0.7);
@@ -1672,7 +1674,12 @@ a:hover {
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
-    padding: 0;
+    padding: 0.2rem 0.3rem;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: color 0.15s;
 }
 .wallet-chip-disconnect:hover {
@@ -1920,12 +1927,16 @@ a:hover {
     text-transform: uppercase;
     color: var(--fg-3);
     transition: color 0.15s;
+    padding: 0.3rem 0.4rem;
+    min-height: 24px;
 }
 .pending-dismiss:hover {
     color: var(--err);
 }
 .pending-release {
     color: var(--err);
+    padding: 0.3rem 0.4rem;
+    min-height: 24px;
 }
 .pending-release:hover {
     color: var(--err);
@@ -2304,7 +2315,12 @@ a:hover {
     font-family: var(--font);
     font-size: 0.65rem;
     line-height: 1;
-    padding: 0.1rem 0.2rem;
+    padding: 0.35rem 0.4rem;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: color 0.15s;
     flex-shrink: 0;
 }
@@ -2503,7 +2519,12 @@ a:hover {
     font-family: var(--font);
     font-size: 0.6rem;
     line-height: 1;
-    padding: 0.1rem;
+    padding: 0.3rem 0.4rem;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     transition: color 0.15s;
 }
