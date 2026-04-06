@@ -29,8 +29,14 @@ const NAV: NavSection[] = [
             { id: "ep-resolve", label: "Reverse Resolve" },
             { id: "ep-config", label: "Contract Config" },
             { id: "ep-activity", label: "Recent Activity" },
+        ],
+    },
+    {
+        id: "endpoints-profiles",
+        label: "Profiles & Identity",
+        children: [
             { id: "ep-profile", label: "Get Profile" },
-            { id: "ep-pin", label: "IPFS Pin" },
+            { id: "ep-hackatar", label: "Hackatar" },
         ],
     },
     {
@@ -158,47 +164,6 @@ function MethodBadge() {
             }}
         >
             GET
-        </span>
-    );
-}
-
-function PostBadge() {
-    return (
-        <span
-            style={{
-                fontFamily: "var(--font)",
-                fontSize: "0.6rem",
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                color: "var(--warn, #f59e0b)",
-                background: "color-mix(in srgb, var(--warn, #f59e0b) 12%, transparent)",
-                padding: "0.2rem 0.45rem",
-                border: "1px solid color-mix(in srgb, var(--warn, #f59e0b) 30%, transparent)",
-                flexShrink: 0,
-            }}
-        >
-            POST
-        </span>
-    );
-}
-
-function ComingSoonBadge() {
-    return (
-        <span
-            style={{
-                fontFamily: "var(--font)",
-                fontSize: "0.55rem",
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--fg-3)",
-                background: "color-mix(in srgb, var(--fg-3) 10%, transparent)",
-                padding: "0.15rem 0.4rem",
-                border: "1px solid color-mix(in srgb, var(--fg-3) 25%, transparent)",
-                flexShrink: 0,
-            }}
-        >
-            Coming soon
         </span>
     );
 }
@@ -525,7 +490,7 @@ export default function Developers() {
                     {/* ---- Base URL ---- */}
                     <section style={{ marginBottom: "2.5rem" }}>
                         <SectionHeading id="base-url">Base URL</SectionHeading>
-                        <CodeBlock code="https://hack.fafolab.xyz" lang="url" />
+                        <CodeBlock code="https://hacktez.com" lang="url" />
                     </section>
 
                     {/* ---- Conventions ---- */}
@@ -727,20 +692,13 @@ export default function Developers() {
                                         kind: "query",
                                         type: "integer",
                                         default: "50",
-                                        description: "Results per page (max 200)",
-                                    },
-                                    {
-                                        name: "offset",
-                                        kind: "query",
-                                        type: "integer",
-                                        default: "0",
-                                        description: "Skip N results for pagination",
+                                        description: "Results per page (max 50)",
                                     },
                                 ]}
                             />
                             <CodeBlock
                                 lang="http"
-                                code="GET https://hack.fafolab.xyz/api/v1/domains?limit=3&offset=0"
+                                code="GET https://hacktez.com/api/v1/domains?limit=3"
                             />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
@@ -751,13 +709,13 @@ export default function Developers() {
                                                 name: `alice.hack.${tld}`,
                                                 label: "alice",
                                                 owner: "tz1...",
+                                                address: "tz1...",
                                                 registeredAt: "2025-03-27T08:01:29Z",
                                                 opHash: "oo...",
                                             },
                                         ],
                                         count: 1,
                                         limit: 3,
-                                        offset: 0,
                                         network,
                                     },
                                     null,
@@ -817,7 +775,7 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/domain/alice" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/domain/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
@@ -886,7 +844,7 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/availability/alice" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/availability/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ label: "alice", available: false, network }, null, 2)} />
                         </div>
@@ -941,7 +899,7 @@ export default function Developers() {
                             />
                             <CodeBlock
                                 lang="http"
-                                code="GET https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+                                code="GET https://hacktez.com/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
                             />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
@@ -1017,7 +975,7 @@ export default function Developers() {
                             />
                             <CodeBlock
                                 lang="http"
-                                code="GET https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+                                code="GET https://hacktez.com/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
                             />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
@@ -1087,7 +1045,7 @@ export default function Developers() {
                                 Current contract configuration. Check before starting a registration flow to get commit
                                 timing and verify registration is not paused.
                             </p>
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/config" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/config" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
@@ -1176,7 +1134,7 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/activity?limit=30" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/activity?limit=30" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
@@ -1208,7 +1166,29 @@ export default function Developers() {
                         </div>
                     </section>
 
-                    {/* ---- GET /api/v1/profile/:name (Coming soon) ---- */}
+                    {/* ================================================================ */}
+                    {/* Profiles & Identity                                              */}
+                    {/* ================================================================ */}
+
+                    <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+                        <h2
+                            id="endpoints-profiles"
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--fg-3)",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                                marginBottom: 0,
+                            }}
+                        >
+                            Profiles &amp; Identity
+                        </h2>
+                    </div>
+
+                    {/* ---- GET /api/v1/profile/:name ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-profile" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
@@ -1231,7 +1211,6 @@ export default function Developers() {
                                 <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
                                     /api/v1/profile/:name
                                 </code>
-                                <ComingSoonBadge />
                             </div>
                             <p
                                 style={{
@@ -1259,29 +1238,35 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/profile/alice" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/profile/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
                                     {
-                                        name: `alice.hack.${tld}`,
-                                        owner: "tz1...",
-                                        address: "tz1...",
-                                        profile: {
-                                            bio: "building tezos tooling",
-                                            github: "alice",
-                                            x: "alice",
-                                            website: "https://alice.xyz",
-                                            location: "Berlin",
-                                            status: "building",
-                                            skills: ["SmartPy", "TypeScript"],
-                                            projects: [
-                                                {
-                                                    name: "my-dapp",
-                                                    url: "https://my-dapp.xyz",
-                                                    desc: "a decentralized app",
-                                                },
-                                            ],
+                                        data: {
+                                            name: `alice.hack.${tld}`,
+                                            owner: "tz1...",
+                                            address: "tz1...",
+                                            profile: {
+                                                name: "alice",
+                                                picture: "ipfs://bafybei...",
+                                                bio: "building tezos tooling",
+                                                github: "alice",
+                                                twitter: "alice",
+                                                website: "https://alice.xyz",
+                                                location: "Berlin",
+                                                status: "building",
+                                                skills: ["SmartPy", "TypeScript"],
+                                                projects: [
+                                                    {
+                                                        name: "my-dapp",
+                                                        url: "https://my-dapp.xyz",
+                                                        desc: "a decentralized app",
+                                                    },
+                                                ],
+                                            },
+                                            registrationHash: "op...",
+                                            registeredAt: "2025-03-27T08:01:29Z",
                                         },
                                         network,
                                     },
@@ -1306,10 +1291,10 @@ export default function Developers() {
                         </div>
                     </section>
 
-                    {/* ---- POST /api/v1/pin (Coming soon) ---- */}
+                    {/* ---- GET /api/v1/hackatar/:label ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
-                        <div id="ep-pin" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                        <div id="ep-hackatar" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
                             <h3
                                 style={{
                                     fontFamily: "var(--font)",
@@ -1320,16 +1305,15 @@ export default function Developers() {
                                     letterSpacing: "0.02em",
                                 }}
                             >
-                                IPFS Pin
+                                Hackatar
                             </h3>
                             <div
                                 style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
                             >
-                                <PostBadge />
+                                <MethodBadge />
                                 <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
-                                    /api/v1/pin
+                                    /api/v1/hackatar/:label
                                 </code>
-                                <ComingSoonBadge />
                             </div>
                             <p
                                 style={{
@@ -1341,39 +1325,63 @@ export default function Developers() {
                                     maxWidth: "560px",
                                 }}
                             >
-                                Authenticated IPFS pin proxy. Upload an image (avatar, project logo) with a wallet
-                                signature — the server validates ownership of a hack.{tld} domain and pins the file via
-                                Pinata. Returns the IPFS CID.
+                                Generative avatar for a hack.{tld} subdomain. Deterministically generated from a
+                                salted domain name — same domain always produces the same hackatar.
+                                Returns a GIF image (not JSON). Cached immutably after first generation.
                             </p>
+
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "label",
+                                        kind: "path",
+                                        type: "string",
+                                        description: "Bare subdomain label (e.g. skllz, not skllz.hack.tez)",
+                                    },
+                                    {
+                                        name: "static",
+                                        kind: "query",
+                                        type: '"1"',
+                                        description: "If set, returns a single-frame still instead of animated loop",
+                                    },
+                                ]}
+                            />
+
+                            <CodeBlock lang="http" code={`GET https://hacktez.com/api/v1/hackatar/skllz`} />
+                            <div style={{ height: "0.25rem" }} />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.5rem",
+                                    marginBottom: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                → <code style={{ color: "var(--fg)" }}>image/gif</code> (binary). Animated: 30 frames
+                                at 80ms (2.4s loop), 192×192px. Static: single frame.
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>Cache-Control: public, max-age=31536000, immutable</code>
+                            </p>
+
                             <p
                                 style={{
                                     fontFamily: "var(--font)",
                                     fontSize: "0.78rem",
                                     color: "var(--fg-2)",
                                     lineHeight: 1.8,
-                                    marginBottom: "1.25rem",
+                                    marginBottom: "0.75rem",
                                     maxWidth: "560px",
                                 }}
                             >
-                                <strong style={{ color: "var(--fg)" }}>Auth:</strong> wallet signature. The request must
-                                include a signed message proving the caller owns a hack.{tld} domain.
+                                <strong style={{ color: "var(--fg)" }}>Usage in HTML:</strong>
                             </p>
                             <CodeBlock
-                                lang="http"
-                                code={`POST https://hack.fafolab.xyz/api/v1/pin
-Content-Type: multipart/form-data
+                                lang="html"
+                                code={`<img src="https://hacktez.com/api/v1/hackatar/skllz" alt="hackatar" />`}
+                            />
 
-file:       <blob>
-address:    "tz1..."
-publicKey:  "edpk..."
-timestamp:  1712345678
-nonce:      "a3f9c2..."
-signature:  "<sig of hack.tez:pin:<timestamp>:<nonce>>"`}
-                            />
-                            <div style={{ height: "0.5rem" }} />
-                            <CodeBlock
-                                code={JSON.stringify({ cid: "bafybei..." }, null, 2)}
-                            />
                             <p
                                 style={{
                                     fontFamily: "var(--font)",
@@ -1383,17 +1391,11 @@ signature:  "<sig of hack.tez:pin:<timestamp>:<nonce>>"`}
                                     lineHeight: 1.8,
                                 }}
                             >
-                                Max file size: 4 MB. Allowed types:{" "}
-                                <code style={{ color: "var(--fg)" }}>image/jpeg</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/png</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/gif</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/webp</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/svg+xml</code>.
+                                Add <code style={{ color: "var(--fg)" }}>?static=1</code> for a single-frame still.
+                                Useful for grid views, chat avatars, or anywhere animation is unwanted.
                                 <br />
-                                Timestamp must be within 5 minutes. Signature verified against public key.
-                                <br />
-                                Display via{" "}
-                                <code style={{ color: "var(--fg)" }}>{"https://ipfs.fileship.xyz/ipfs/<CID>"}</code>.
+                                Returns <code style={{ color: "var(--fg)" }}>400</code> for invalid labels,{" "}
+                                <code style={{ color: "var(--fg)" }}>404</code> if the domain is not registered.
                             </p>
                         </div>
                     </section>
@@ -1492,7 +1494,12 @@ signature:  "<sig of hack.tez:pin:<timestamp>:<nonce>>"`}
                                             [
                                                 "openid:picture",
                                                 "TED native",
-                                                "Avatar image URL — ipfs:// URI preferred. Fallback chain: openid:picture → gravatar:hash → generated",
+                                                "Avatar image URL — ipfs:// or https:// URI. See Avatar Fallback below.",
+                                            ],
+                                            [
+                                                "gravatar:hash",
+                                                "TED native",
+                                                "MD5 hash for Gravatar fallback avatar. Second step in the avatar chain.",
                                             ],
                                             ["github:username", "TED native", "GitHub username"],
                                             ["twitter:handle", "TED native", "Twitter/X handle"],
@@ -1906,8 +1913,16 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                                         Gravatar URL from the hash
                                     </li>
                                     <li>
-                                        <strong style={{ color: "var(--fg)" }}>Deterministic generated avatar</strong>{" "}
-                                        — generated from the domain label, always unique
+                                        <strong style={{ color: "var(--fg)" }}>Hackatar</strong>{" "}
+                                        — deterministic generative avatar served from{" "}
+                                        <code style={{ color: "var(--fg)" }}>/api/v1/hackatar/:label</code>.
+                                        Always unique per domain. See{" "}
+                                        <a
+                                            href="#ep-hackatar"
+                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                        >
+                                            Hackatar endpoint
+                                        </a>.
                                     </li>
                                 </ol>
                             </div>
@@ -2277,26 +2292,26 @@ ws.send(JSON.stringify({ type: "message", content: "gm hackers" }))
                                 <CodeBlock
                                     lang="bash"
                                     code={`# Check availability
-curl https://hack.fafolab.xyz/api/v1/availability/yourname
+curl https://hacktez.com/api/v1/availability/yourname
 
 # Fetch domain record
-curl https://hack.fafolab.xyz/api/v1/domain/alice
+curl https://hacktez.com/api/v1/domain/alice
 
 # Domains owned by a wallet
-curl https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
+curl https://hacktez.com/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
 
 # Reverse-resolve an address
-curl https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`}
+curl https://hacktez.com/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`}
                                 />
                                 <CodeBlock
                                     lang="javascript"
                                     code={`// JavaScript / TypeScript
-const { available } = await fetch('https://hack.fafolab.xyz/api/v1/availability/yourname')
+const { available } = await fetch('https://hacktez.com/api/v1/availability/yourname')
   .then(r => r.json());
 
 // Resolve address for display
 async function getDisplayName(address) {
-  const { primary, hackTez } = await fetch(\`https://hack.fafolab.xyz/api/v1/resolve/\${address}\`)
+  const { primary, hackTez } = await fetch(\`https://hacktez.com/api/v1/resolve/\${address}\`)
     .then(r => r.json());
   return primary ?? hackTez[0] ?? \`\${address.slice(0,6)}…\${address.slice(-4)}\`;
 }`}

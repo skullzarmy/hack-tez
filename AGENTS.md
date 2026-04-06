@@ -54,12 +54,14 @@ Both must exit 0. Never commit with type errors.
 | `src/lib/domains.ts`           | TED GraphQL queries, label validation, reserved names                      |
 | `src/lib/contract.ts`          | `submitCommit()` and `submitRegister()` — raw Michelson ops via DAppClient |
 | `src/lib/commitment.ts`        | blake2b commitment hash (must match on-chain computation)                  |
+| `src/lib/hackatar/`            | Hackatar engine — seeded generative avatar (PRNG, traits, grid, glitch, render) |
+| `src/components/Hackatar.tsx`  | Hackatar `<img>` component — serves from `/api/v1/hackatar/:label`         |
 | `src/context/TezosContext.tsx` | Wallet state via `@tezos-x/octez.connect-sdk` (Beacon)                     |
 | `src/types/profile.ts`        | Profile types, parsing, validation                                         |
 | `src/lib/signing.ts`          | Wallet message signing for authenticated requests                          |
 | `src/lib/pin.ts`              | Pinata upload client                                                       |
-| `netlify/functions/api.mts`    | Public REST API — all `/api/*` routes (Netlify v2 function)                |
-| `netlify/functions/pin.mts`   | Authenticated IPFS pin proxy                                               |
+| `netlify/functions/api.mts`    | Public REST API — all `/api/v1/*` routes (Netlify v2 function)                |
+| `netlify/functions/pin.mts`   | Internal IPFS pin proxy (not public API — wallet-sig authenticated)          |
 | `netlify.toml`                 | Build config, SPA redirect, security headers/CSP                           |
 | `chat/src/worker.ts`           | Chat auth endpoint + DM REST API (CF Worker)                               |
 | `chat/src/auth/verify.ts`      | Tezos signature verification + TED domain ownership check                  |
@@ -74,20 +76,23 @@ Both must exit 0. Never commit with type errors.
 
 ## Public REST API
 
-Base URL: `https://hack.tez` (locally: `http://localhost:8888`)
+Base URL: `https://hacktez.com` (locally: `http://localhost:8888`)
 
 All responses: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ error: "...", code: "..." }` on failure.
 
 | Endpoint                             | Description                                                                        |
 | ------------------------------------ | ---------------------------------------------------------------------------------- |
-| `GET /api/domains?limit=50&offset=0` | Paginated list of all registrations (TzKT-backed, includes timestamp + opHash)     |
-| `GET /api/domain/:name`              | Domain record by label or full name. `available: true` + `data: null` if unclaimed |
-| `GET /api/availability/:label`       | Returns `{ available: boolean }`                                                   |
-| `GET /api/owner/:address`            | All hack.tez domains owned by a wallet                                             |
-| `GET /api/resolve/:address`          | Reverse-resolve wallet → primary domain (hack.tez preferred over .tez)             |
-| `GET /api/config`                    | Contract config: `minCommitAgeSec`, `maxCommitAgeSec`, `maxPerWallet`, `paused`    |
+| `GET /api/v1/domains?limit=50&offset=0` | Paginated list of all registrations (TzKT-backed, includes timestamp + opHash)     |
+| `GET /api/v1/domain/:name`              | Domain record by label or full name. `available: true` + `data: null` if unclaimed |
+| `GET /api/v1/availability/:label`       | Returns `{ available: boolean }`                                                   |
+| `GET /api/v1/owner/:address`            | All hack.tez domains owned by a wallet                                             |
+| `GET /api/v1/resolve/:address`          | Reverse-resolve wallet → primary domain (hack.tez preferred over .tez)             |
+| `GET /api/v1/config`                    | Contract config: `minCommitAgeSec`, `maxCommitAgeSec`, `maxPerWallet`, `paused`    |
+| `GET /api/v1/activity?limit=30`         | Recent on-chain claim + commit events                                              |
+| `GET /api/v1/profile/:name`             | Parsed builder profile for a domain                                                |
+| `GET /api/v1/hackatar/:label`           | Generative avatar GIF (animated). Add `?static=1` for single-frame still.          |
 
-**Adding a new endpoint:** Add a handler function in `netlify/functions/api.mts` and register it in the `handler` dispatch block. The `export const config = { path: "/api/:route*" }` at the bottom of that file registers all `/api/*` routes — no `netlify.toml` redirect needed.
+**Adding a new endpoint:** Add a handler function in `netlify/functions/api.mts` and register it in the `handler` dispatch block. The `export const config = { path: "/api/v1/:route*" }` at the bottom of that file registers all `/api/v1/*` routes — no `netlify.toml` redirect needed.
 
 ---
 
@@ -135,6 +140,7 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects.
 - **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
 - **JWT is the trust boundary.** CF Worker issues JWT after verifying wallet signature + TED domain ownership. PartyKit only accepts connections with valid JWT. Both share `CHAT_JWT_SECRET`.
+- **Hackatars are server-generated.** Generative avatars are built server-side in `api.mts`, seeded by a salted domain name (deterministic). Cached immutably in Netlify Blobs. The frontend `<Hackatar>` component uses `<img>` tags pointing to `/api/v1/hackatar/:label`. The engine lives in `src/lib/hackatar/` (pure JS, no DOM deps). See `HACKATARS.md` for the seeding roadmap.
 
 ---
 

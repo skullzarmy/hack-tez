@@ -13,6 +13,8 @@ export interface HackerEntry {
     profile: HackProfile;
     /** Registration timestamp from the builders API (if available) */
     timestamp: Date | null;
+    /** Registration opHash — hackatar seed */
+    opHash: string | null;
 }
 
 interface BuilderApiRecord {
@@ -87,6 +89,7 @@ export function useHackerProfiles(): UseHackerProfilesResult {
                 address: sub.address,
                 profile: sub.profile,
                 timestamp: builder?.registeredAt ? new Date(builder.registeredAt) : null,
+                opHash: builder?.opHash ?? null,
             };
         });
     }, [subdomains, builders]);

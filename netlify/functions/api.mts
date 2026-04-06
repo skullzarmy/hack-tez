@@ -9,8 +9,19 @@
  *   GET /api/v1/resolve/:address    — reverse-resolve wallet → primary domain
  *   GET /api/v1/config              — contract config (commit age, max, paused)
  *   GET /api/v1/activity            — recent on-chain claim + commit events
+ *   GET /api/v1/hackatar/:label     — generated avatar GIF (?static=1 for single frame)
  */
 import type { Config, Context } from "@netlify/functions";
+import { getStore } from "@netlify/blobs";
+// @ts-expect-error — gifenc is CJS, no proper ESM types
+import gifenc from "gifenc";
+import {
+    seedFromHash,
+    createPrng,
+    selectTraits,
+    renderFrames,
+    renderSingleFrame,
+} from "../../src/lib/hackatar/index.ts";
 
 // ---------------------------------------------------------------------------
 // Network config (mirrors src/config/tezos.ts without Vite import.meta.env)
@@ -93,7 +104,7 @@ async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<st
 }
 
 // ---------------------------------------------------------------------------
-// Profile parsing (inlined — Netlify Functions can't import from src/)
+// Profile parsing (inlined — avoids a circular dependency with src/types)
 // ---------------------------------------------------------------------------
 
 interface ProfileProject {
@@ -252,25 +263,28 @@ async function handleProfile(name: string, net: ReturnType<typeof getNetwork>): 
 
     const fullName = `${label}.hack.${net.tld}`;
 
-    const result = await tedGql<{
-        domain: {
-            name: string;
-            address: string | null;
-            owner: string;
-            data: Array<{ key: string; value: unknown }>;
-        } | null;
-    }>(
-        net.domainsGraphql,
-        `query GetProfile($name: String!) {
-          domain(name: $name) {
-            name
-            address
-            owner
-            data { key value }
-          }
-        }`,
-        { name: fullName },
-    );
+    const [result, regInfo] = await Promise.all([
+        tedGql<{
+            domain: {
+                name: string;
+                address: string | null;
+                owner: string;
+                data: Array<{ key: string; value: unknown }>;
+            } | null;
+        }>(
+            net.domainsGraphql,
+            `query GetProfile($name: String!) {
+              domain(name: $name) {
+                name
+                address
+                owner
+                data { key value }
+              }
+            }`,
+            { name: fullName },
+        ),
+        getRegistrationHash(label, net),
+    ]);
 
     if (!result.domain) {
         return json({ error: "not found" }, 404, {
@@ -287,6 +301,8 @@ async function handleProfile(name: string, net: ReturnType<typeof getNetwork>): 
                 owner: result.domain.owner,
                 address: result.domain.address,
                 profile,
+                registrationHash: regInfo?.hash ?? null,
+                registeredAt: regInfo?.timestamp ?? null,
             },
             network: net.name,
         },
@@ -404,6 +420,127 @@ function hexToUtf8(hex: string): string {
     }
 }
 
+/** Encode a UTF-8 string to hex bytes (for TzKT parameter filtering) */
+function utf8ToHex(str: string): string {
+    return Array.from(new TextEncoder().encode(str))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+/**
+ * Fetch the registration opHash for a single label from TzKT.
+ * Returns { hash, timestamp } or null if not found.
+ */
+async function getRegistrationHash(
+    label: string,
+    net: ReturnType<typeof getNetwork>,
+): Promise<{ hash: string; timestamp: string } | null> {
+    const registrars = getRegistrarAddresses(net);
+    const hexLabel = utf8ToHex(label);
+
+    for (const addr of registrars) {
+        try {
+            const url =
+                `${net.tzktApi}/v1/operations/transactions` +
+                `?target=${addr}` +
+                `&entrypoint=register` +
+                `&parameter.value.label=${hexLabel}` +
+                `&status=applied` +
+                `&limit=1` +
+                `&select=hash,timestamp`;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const ops: Array<{ hash: string; timestamp: string }> = await res.json();
+            if (ops.length > 0) return ops[0];
+        } catch {
+            continue;
+        }
+    }
+    return null;
+}
+
+/**
+ * Batch-fetch registration opHashes for all register operations.
+ * Returns a map of UTF-8 label → { hash, timestamp }.
+ * Results are cached in-memory for 5 minutes to avoid repeated large TzKT fetches.
+ */
+
+const REGISTRATION_HASHES_TTL_MS = 5 * 60 * 1000;
+const registrationHashesCache = new Map<
+    string,
+    { expiresAt: number; value: Map<string, { hash: string; timestamp: string }> }
+>();
+const registrationHashesInflight = new Map<
+    string,
+    Promise<Map<string, { hash: string; timestamp: string }>>
+>();
+
+async function getAllRegistrationHashes(
+    net: ReturnType<typeof getNetwork>,
+): Promise<Map<string, { hash: string; timestamp: string }>> {
+    const cacheKey = net.tzktApi;
+    const now = Date.now();
+    const cached = registrationHashesCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+        return new Map(cached.value);
+    }
+
+    const inflight = registrationHashesInflight.get(cacheKey);
+    if (inflight) {
+        return new Map(await inflight);
+    }
+
+    type TzKTRegOp = {
+        hash: string;
+        timestamp: string;
+        parameter: { value: { label: string } };
+    };
+
+    const loadPromise = (async () => {
+        const registrars = getRegistrarAddresses(net);
+        const map = new Map<string, { hash: string; timestamp: string }>();
+
+        await Promise.all(
+            registrars.map(async (addr) => {
+                try {
+                    const url =
+                        `${net.tzktApi}/v1/operations/transactions` +
+                        `?target=${addr}` +
+                        `&entrypoint=register` +
+                        `&status=applied` +
+                        `&select=hash,timestamp,parameter` +
+                        `&sort.asc=id` +
+                        `&limit=10000`;
+                    const res = await fetch(url);
+                    if (!res.ok) return;
+                    const ops: TzKTRegOp[] = await res.json();
+                    for (const op of ops) {
+                        const rawLabel = op.parameter?.value?.label;
+                        if (!rawLabel) continue;
+                        const label = hexToUtf8(rawLabel);
+                        // Keep first match (earliest registration — TzKT sorted ascending by id)
+                        if (!map.has(label)) {
+                            map.set(label, { hash: op.hash, timestamp: op.timestamp });
+                        }
+                    }
+                } catch {
+                    // skip failing contracts
+                }
+            }),
+        );
+
+        registrationHashesCache.set(cacheKey, { expiresAt: now + REGISTRATION_HASHES_TTL_MS, value: map });
+        return map;
+    })();
+
+    registrationHashesInflight.set(cacheKey, loadPromise);
+    try {
+        return new Map(await loadPromise);
+    } finally {
+        registrationHashesInflight.delete(cacheKey);
+    }
+}
+
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
@@ -415,38 +552,44 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
     if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
     const limit = Math.min(rawLimit, 50); // TED GraphQL caps first at 50
 
-    const data = await tedGql<{
-        domains: {
-            items: Array<{
-                name: string;
-                owner: string;
-                address: string | null;
-                data: Array<{ key: string; value: unknown }>;
-            }>;
-        };
-    }>(
-        net.domainsGraphql,
-        `query AllDomains($parent: String!, $first: Int!) {
-          domains(where: { name: { endsWith: $parent } }, first: $first) {
-            items {
-              name
-              owner
-              address
-              data { key value }
-            }
-          }
-        }`,
-        { parent: `.${parent}`, first: limit },
-    );
+    const [data, regHashes] = await Promise.all([
+        tedGql<{
+            domains: {
+                items: Array<{
+                    name: string;
+                    owner: string;
+                    address: string | null;
+                    data: Array<{ key: string; value: unknown }>;
+                }>;
+            };
+        }>(
+            net.domainsGraphql,
+            `query AllDomains($parent: String!, $first: Int!) {
+              domains(where: { name: { endsWith: $parent } }, first: $first) {
+                items {
+                  name
+                  owner
+                  address
+                  data { key value }
+                }
+              }
+            }`,
+            { parent: `.${parent}`, first: limit },
+        ),
+        getAllRegistrationHashes(net),
+    ]);
 
     const domains = data.domains.items.flatMap((d) => {
         const label = d.name.replace(`.${parent}`, "");
         if (label.includes(".")) return [];
+        const reg = regHashes.get(label);
         return [{
             name: d.name,
             label,
             owner: d.owner,
             address: d.address,
+            registeredAt: reg?.timestamp ?? null,
+            opHash: reg?.hash ?? null,
         }];
     });
 
@@ -591,6 +734,109 @@ async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Respons
 }
 
 // ---------------------------------------------------------------------------
+// Hackatar — generative avatar GIF
+// ---------------------------------------------------------------------------
+
+const { GIFEncoder, quantize, applyPalette } = gifenc;
+const HACKATAR_SIZE = 192;
+
+function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, delayMs: number): Uint8Array {
+    const gif = GIFEncoder();
+    for (const frame of frames) {
+        const palette = quantize(frame, 256, { format: "rgba4444" });
+        const indexed = applyPalette(frame, palette, "rgba4444");
+        gif.writeFrame(indexed, w, h, { palette, delay: delayMs, transparent: true, transparentIndex: 0 });
+    }
+    gif.finish();
+    return gif.bytes();
+}
+
+async function handleHackatar(label: string, url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+    const isStatic = url.searchParams.has("static");
+
+    // Try blob cache first
+    const blobKey = isStatic ? `${label}-static.gif` : `${label}.gif`;
+    try {
+        const store = getStore("hackatars");
+        const cached = await store.get(blobKey, { type: "arrayBuffer" });
+        if (cached) {
+            return new Response(cached, {
+                headers: {
+                    "Content-Type": "image/gif",
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    ...CORS_HEADERS,
+                },
+            });
+        }
+    } catch {
+        // Blob store unavailable — generate on the fly
+    }
+
+    // Verify domain is registered (TED lookup)
+    const fullName = `${label}.hack.${net.tld}`;
+    const domainRecord = await tedGql<{ domain: { name: string } | null }>(
+        net.domainsGraphql,
+        `query($name:String!){domain(name:$name){name}}`,
+        { name: fullName },
+    );
+    if (!domainRecord?.domain) {
+        return err("Domain not registered", "NOT_FOUND", 404);
+    }
+
+    // Phase 1 seed: salted domain name (deterministic, no opHash required)
+    const HACKATAR_SALT = "ReggieRocksFAFO4life";
+    const seedStr = `${HACKATAR_SALT}:a7f3c9e2b1d4f805:${label}`;
+    const seed = seedFromHash(seedStr);
+    const prng = createPrng(seed);
+    const traits = selectTraits(prng);
+
+    let rendered: { imageBytes: Uint8Array; altBlobKey: string; altImageBytes: Uint8Array };
+    try {
+        if (isStatic) {
+            const frame = renderSingleFrame(traits, HACKATAR_SIZE);
+            const animResult = renderFrames(traits, HACKATAR_SIZE);
+            rendered = {
+                imageBytes: encodeGif([frame], HACKATAR_SIZE, HACKATAR_SIZE, 0),
+                altBlobKey: `${label}.gif`,
+                altImageBytes: encodeGif(animResult.frames, HACKATAR_SIZE, HACKATAR_SIZE, animResult.frameDelayMs),
+            };
+        } else {
+            const result = renderFrames(traits, HACKATAR_SIZE);
+            const staticFrame = renderSingleFrame(traits, HACKATAR_SIZE);
+            rendered = {
+                imageBytes: encodeGif(result.frames, HACKATAR_SIZE, HACKATAR_SIZE, result.frameDelayMs),
+                altBlobKey: `${label}-static.gif`,
+                altImageBytes: encodeGif([staticFrame], HACKATAR_SIZE, HACKATAR_SIZE, 0),
+            };
+        }
+    } catch {
+        return err("Failed to generate hackatar", "GENERATION_FAILED", 500);
+    }
+
+    const { imageBytes, altBlobKey, altImageBytes } = rendered;
+
+    // Cache both variants
+    try {
+        const store = getStore("hackatars");
+        await store.set(blobKey, imageBytes);
+        await store.set(altBlobKey, altImageBytes);
+    } catch {
+        // Cache write failed — that's OK
+    }
+
+    return new Response(imageBytes, {
+        headers: {
+            "Content-Type": "image/gif",
+            "Cache-Control": "public, max-age=31536000, immutable",
+            ...CORS_HEADERS,
+        },
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -617,6 +863,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         if (resource === "resolve" && param) return await handleResolve(decodeURIComponent(param), net);
         if (resource === "config") return await handleConfig(net);
         if (resource === "activity") return await handleActivity(new URL(req.url), net);
+        if (resource === "hackatar" && param) return await handleHackatar(decodeURIComponent(param), new URL(req.url), net);
 
         return json(
             {
@@ -624,7 +871,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                 version: "1",
                 network: net.name,
                 endpoints: [
-                    `/api/v1/domains?limit=50&offset=0`,
+                    `/api/v1/domains?limit=50`,
                     `/api/v1/domain/:name`,
                     `/api/v1/profile/:name`,
                     `/api/v1/availability/:label`,
@@ -632,6 +879,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                     `/api/v1/resolve/:address`,
                     `/api/v1/config`,
                     `/api/v1/activity?limit=30`,
+                    `/api/v1/hackatar/:label`,
                 ],
                 docs: "/developers",
             },
