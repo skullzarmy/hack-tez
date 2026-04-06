@@ -13,6 +13,7 @@
     "dependencies": {
         "@fontsource/space-mono": "^5.2.9",
         "@icons-pack/react-simple-icons": "^13.13.0",
+        "@netlify/blobs": "^10.7.4",
         "@taquito/michel-codec": "^24.2.0",
         "@taquito/signer": "^24.2.0",
         "@taquito/taquito": "^24.2.0",
@@ -41,6 +42,7 @@
         "@vitejs/plugin-react": "^6.0.1",
         "buffer": "^6.0.3",
         "cross-env": "^10.1.0",
+        "gifenc": "^1.0.3",
         "process": "^0.11.10",
         "stream-browserify": "^3.0.0",
         "tailwindcss": "^4.2.2",

@@ -30,6 +30,7 @@ const NAV: NavSection[] = [
             { id: "ep-config", label: "Contract Config" },
             { id: "ep-activity", label: "Recent Activity" },
             { id: "ep-profile", label: "Get Profile" },
+            { id: "ep-hackatar", label: "Hackatar" },
             { id: "ep-pin", label: "IPFS Pin" },
         ],
     },
@@ -1208,7 +1209,7 @@ export default function Developers() {
                         </div>
                     </section>
 
-                    {/* ---- GET /api/v1/profile/:name (Coming soon) ---- */}
+                    {/* ---- GET /api/v1/profile/:name ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
                         <div id="ep-profile" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
@@ -1231,7 +1232,6 @@ export default function Developers() {
                                 <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
                                     /api/v1/profile/:name
                                 </code>
-                                <ComingSoonBadge />
                             </div>
                             <p
                                 style={{
@@ -1302,6 +1302,115 @@ export default function Developers() {
                                 Returns <code style={{ color: "var(--fg)" }}>200</code> with{" "}
                                 <code style={{ color: "var(--fg)" }}>profile: {"{}"}</code> if the domain exists but has
                                 no hack: data.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/hackatar/:label ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-hackatar" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Hackatar
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/hackatar/:label
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Generative avatar for a hack.{tld} subdomain. Deterministically generated from the
+                                domain's registration opHash — same domain always produces the same hackatar.
+                                Returns a GIF image (not JSON). Cached immutably after first generation.
+                            </p>
+
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "label",
+                                        kind: "path",
+                                        type: "string",
+                                        description: "Bare subdomain label (e.g. skllz, not skllz.hack.tez)",
+                                    },
+                                    {
+                                        name: "static",
+                                        kind: "query",
+                                        type: '"1"',
+                                        description: "If set, returns a single-frame still instead of animated loop",
+                                    },
+                                ]}
+                            />
+
+                            <CodeBlock lang="http" code={`GET https://hack.fafolab.xyz/api/v1/hackatar/skllz`} />
+                            <div style={{ height: "0.25rem" }} />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.5rem",
+                                    marginBottom: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                → <code style={{ color: "var(--fg)" }}>image/gif</code> (binary). Animated: 30 frames
+                                at 80ms (2.4s loop), 192×192px. Static: single frame.
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>Cache-Control: public, max-age=31536000, immutable</code>
+                            </p>
+
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "0.75rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <strong style={{ color: "var(--fg)" }}>Usage in HTML:</strong>
+                            </p>
+                            <CodeBlock
+                                lang="html"
+                                code={`<img src="https://hack.fafolab.xyz/api/v1/hackatar/skllz" alt="hackatar" />`}
+                            />
+
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                Add <code style={{ color: "var(--fg)" }}>?static=1</code> for a single-frame still.
+                                Useful for grid views, chat avatars, or anywhere animation is unwanted.
+                                <br />
+                                Returns <code style={{ color: "var(--fg)" }}>400</code> for invalid labels,{" "}
+                                <code style={{ color: "var(--fg)" }}>404</code> if the domain is not registered.
                             </p>
                         </div>
                     </section>

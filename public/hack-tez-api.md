@@ -266,6 +266,50 @@ Recent on-chain claim and commit events, merged and sorted by time. Commit event
 
 ---
 
+### GET /api/v1/hackatar/:label
+
+Generative avatar GIF for a hack.tez subdomain. Deterministically generated from the domain's registration opHash — same domain always produces the same hackatar. Cached immutably after first generation.
+
+**Path:** `label` — bare subdomain label (e.g. `skllz`)
+**Query:** `static=1` — returns single-frame still instead of animated loop
+
+**Response:** Binary GIF image (`Content-Type: image/gif`)
+- Animated: 30 frames at 80ms, 192×192px
+- Static: single frame, 192×192px
+- `Cache-Control: public, max-age=31536000, immutable`
+
+```
+GET https://hack.fafolab.xyz/api/v1/hackatar/skllz         → animated GIF
+GET https://hack.fafolab.xyz/api/v1/hackatar/skllz?static=1 → still GIF
+```
+
+**Usage:**
+
+```html
+<img src="https://hack.fafolab.xyz/api/v1/hackatar/skllz" alt="skllz hackatar" />
+```
+
+---
+
+### GET /api/v1/profile/:name
+
+Parsed builder profile for a hack.tez subdomain. Accepts bare label or full name. Returns `profile: {}` if domain exists but has no hack: data.
+
+**Response:**
+
+```json
+{
+    "data": {
+        "name": "alice.hack.tez",
+        "owner": "tz1...",
+        "profile": { "bio": "...", "avatar": "ipfs://...", "status": "hacking" }
+    },
+    "network": "ghostnet"
+}
+```
+
+---
+
 ## Registration Flow (Contract Interaction)
 
 The registrar uses a commit-reveal scheme to prevent front-running.

@@ -9,6 +9,7 @@ import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile"
 import { ipfsUriToGatewayUrl } from "../lib/pin";
 import config from "../config/tezos";
 import { useTedContracts } from "../hooks/useTedContracts";
+import { Hackatar } from "../components/Hackatar";
 import { Globe } from "lucide-react";
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 
@@ -21,30 +22,12 @@ function safeHref(url: string | undefined): string | null {
     return null;
 }
 
-function hashCode(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
-    }
-    return Math.abs(hash);
-}
-
-function labelToHsl(label: string): string {
-    const h = hashCode(label) % 360;
-    return `hsl(${h}, 55%, 45%)`;
-}
-
-function labelToHslLight(label: string): string {
-    const h = hashCode(label) % 360;
-    return `hsl(${h}, 55%, 75%)`;
-}
-
 function truncateAddress(addr: string): string {
     if (addr.length <= 12) return addr;
     return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function resolveAvatarUrl(profile: HackProfile, gravatar: string | null, label: string): { type: "image"; url: string } | { type: "generated"; label: string } {
+function resolveAvatarUrl(profile: HackProfile, gravatar: string | null, label: string): { type: "image"; url: string } | { type: "hackatar"; label: string } {
     if (profile.picture) {
         if (profile.picture.startsWith("ipfs://")) {
             const cid = profile.picture.replace("ipfs://", "");
@@ -57,7 +40,8 @@ function resolveAvatarUrl(profile: HackProfile, gravatar: string | null, label: 
     if (gravatar) {
         return { type: "image", url: `https://www.gravatar.com/avatar/${gravatar}?s=200&d=identicon` };
     }
-    return { type: "generated", label };
+    // Server resolves label → opHash → deterministic hackatar
+    return { type: "hackatar", label };
 }
 
 const STATUS_STYLES: Record<BuilderStatus, { bg: string; color: string; label: string }> = {
@@ -84,33 +68,6 @@ const PROJECT_STATUS_STYLES: Record<string, { bg: string; color: string }> = {
 
 // ── Sub-components ───────────────────────────────────────────────────
 
-function GeneratedAvatar({ label, size }: { label: string; size: number }) {
-    const bg = labelToHsl(label);
-    const fg = labelToHslLight(label);
-    const initial = label.charAt(0).toUpperCase();
-    return (
-        <div
-            aria-hidden="true"
-            style={{
-                width: size,
-                height: size,
-                borderRadius: "50%",
-                background: bg,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: size * 0.4,
-                fontWeight: 900,
-                color: fg,
-                fontFamily: "var(--font-mono)",
-                flexShrink: 0,
-            }}
-        >
-            {initial}
-        </div>
-    );
-}
-
 function CopyableAddress({ address }: { address: string }) {
     const [copied, setCopied] = useState(false);
 
@@ -128,11 +85,10 @@ function CopyableAddress({ address }: { address: string }) {
             title={`Copy full address: ${address}`}
             style={{
                 background: "none",
-                border: "1px solid var(--border)",
-                borderRadius: "4px",
-                padding: "0.2rem 0.5rem",
-                color: "var(--fg-2)",
-                fontFamily: "var(--font)",
+                border: "none",
+                padding: 0,
+                color: "var(--fg-3)",
+                fontFamily: "var(--font-mono)",
                 fontSize: "0.75rem",
                 cursor: "pointer",
                 letterSpacing: "0.04em",
@@ -142,28 +98,63 @@ function CopyableAddress({ address }: { address: string }) {
             }}
         >
             {truncateAddress(address)}
-            <span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{copied ? "✓" : "⧉"}</span>
+            <span style={{ fontSize: "0.65rem", opacity: 0.5 }}>{copied ? "✓" : "⧉"}</span>
         </button>
     );
 }
 
-function StatusBadge({ status }: { status: BuilderStatus }) {
-    const s = STATUS_STYLES[status];
+function CopyableDomain({ name }: { name: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = useCallback(() => {
+        navigator.clipboard.writeText(name).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    }, [name]);
+
     return (
-        <span
+        <button
+            type="button"
+            onClick={handleCopy}
+            title={`Copy: ${name}`}
             style={{
-                background: s.bg,
-                color: s.color,
-                padding: "0.2rem 0.6rem",
-                borderRadius: "9999px",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
             }}
         >
-            {s.label}
-        </span>
+            <span
+                aria-hidden="true"
+                style={{
+                    color: "var(--fg-3)",
+                    fontSize: "1.1rem",
+                    opacity: 0.35,
+                    fontFamily: "var(--font-mono)",
+                }}
+            >
+                &gt;
+            </span>
+            <h1
+                style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "1.3rem",
+                    letterSpacing: "-0.01em",
+                    color: "var(--ok)",
+                    margin: 0,
+                    fontWeight: 700,
+                }}
+            >
+                {name}
+            </h1>
+            <span style={{ fontSize: "0.65rem", color: "var(--fg-3)", opacity: 0.4 }}>
+                {copied ? "✓" : "⧉"}
+            </span>
+        </button>
     );
 }
 
@@ -466,38 +457,35 @@ export default function Profile() {
                         }}
                     />
                 ) : (
-                    <GeneratedAvatar label={avatar.label} size={96} />
+                    <Hackatar label={avatar.label} size={96} animated />
                 )}
 
-                <div style={{ textAlign: "center" }}>
-                    <h1 style={{ fontFamily: "var(--font-mono)", fontSize: "1.5rem", letterSpacing: "-0.02em", marginBottom: "0.4rem" }}>
+                <CopyableDomain name={fullName} />
+
+                {displayName !== label && (
+                    <span style={{
+                        fontFamily: "var(--font)",
+                        fontSize: "0.8rem",
+                        color: "var(--fg-3)",
+                        letterSpacing: "0.02em",
+                        marginTop: "-0.25rem",
+                    }}>
                         {displayName}
-                    </h1>
-                    <span
-                        style={{
-                            display: "inline-block",
-                            background: "rgba(34,197,94,0.1)",
-                            color: "var(--ok)",
-                            border: "1px solid rgba(34,197,94,0.25)",
-                            padding: "0.15rem 0.6rem",
-                            borderRadius: "9999px",
-                            fontSize: "0.75rem",
-                            fontFamily: "var(--font)",
-                            fontWeight: 700,
-                            letterSpacing: "0.03em",
-                            marginBottom: "0.5rem",
-                        }}
-                    >
-                        {fullName}
                     </span>
-                </div>
+                )}
 
                 <CopyableAddress address={owner} />
 
                 {profile.status && (
-                    <div style={{ marginTop: "0.25rem" }}>
-                        <StatusBadge status={profile.status} />
-                    </div>
+                    <span style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.7rem",
+                        color: STATUS_STYLES[profile.status].color,
+                        letterSpacing: "0.02em",
+                        opacity: 0.8,
+                    }}>
+                        {"// "}{STATUS_STYLES[profile.status].label.toLowerCase()}
+                    </span>
                 )}
 
                 {isOwner && !editState.editing && tedContracts?.updateRecord && (

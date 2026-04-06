@@ -5,6 +5,7 @@ import config from "../config/tezos";
 import { useHackerProfiles } from "../hooks/useHackerProfiles";
 import type { HackerEntry } from "../hooks/useHackerProfiles";
 import type { BuilderStatus } from "../types/profile";
+import { Hackatar } from "../components/Hackatar";
 import { Globe } from "lucide-react";
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 
@@ -32,14 +33,6 @@ const ALL_STATUSES: BuilderStatus[] = ["building", "open-to-collab", "available"
 // ── Avatar helpers ───────────────────────────────────────────────────
 
 /** Hash a string to a deterministic hue (0–360) for fallback avatars */
-function labelToHue(label: string): number {
-    let hash = 0;
-    for (let i = 0; i < label.length; i++) {
-        hash = label.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return Math.abs(hash) % 360;
-}
-
 function resolveAvatarUrl(picture: string | undefined): string | null {
     if (!picture) return null;
     if (picture.startsWith("ipfs://")) {
@@ -52,7 +45,7 @@ function resolveAvatarUrl(picture: string | undefined): string | null {
 
 // ── Sub-components ───────────────────────────────────────────────────
 
-function Avatar({ label, picture }: { label: string; picture?: string }) {
+function Avatar({ picture, label, playing }: { picture?: string; label: string; playing?: boolean }) {
     const [imgFailed, setImgFailed] = useState(false);
     const url = resolveAvatarUrl(picture);
 
@@ -74,29 +67,7 @@ function Avatar({ label, picture }: { label: string; picture?: string }) {
         );
     }
 
-    const hue = labelToHue(label);
-    return (
-        <div
-            aria-hidden="true"
-            style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                flexShrink: 0,
-                background: `hsl(${hue}, 50%, 35%)`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontFamily: "var(--font)",
-                fontSize: "1rem",
-                fontWeight: 700,
-                color: "#fff",
-                border: "1px solid var(--border)",
-            }}
-        >
-            {label.charAt(0).toUpperCase()}
-        </div>
-    );
+    return <Hackatar label={label} size={48} playing={playing} />;
 }
 
 function StatusBadge({ status }: { status: BuilderStatus }) {
@@ -187,6 +158,7 @@ function HackerCard({
     onSkillClick: (skill: string) => void;
 }) {
     const { label, name, owner, ownerShort, profile } = hacker;
+    const [cardHover, setCardHover] = useState(false);
     const hasProfile = !!(profile.bio || profile.status || profile.skills?.length || profile.github || profile.twitter || profile.website);
 
     const bio = profile.bio
@@ -205,6 +177,8 @@ function HackerCard({
         <Link
             to={`/u/${label}`}
             style={{ textDecoration: "none", color: "inherit", display: "block" }}
+            onMouseEnter={() => setCardHover(true)}
+            onMouseLeave={() => setCardHover(false)}
         >
             <div
                 className="hacker-card"
@@ -221,7 +195,7 @@ function HackerCard({
             >
                 {/* Top row: avatar + name + status */}
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <Avatar label={label} picture={profile.picture} />
+                    <Avatar picture={profile.picture} label={label} playing={cardHover} />
                     <div style={{ minWidth: 0, flex: 1 }}>
                         <div
                             style={{

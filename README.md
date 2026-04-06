@@ -153,18 +153,20 @@ npx partykit deploy             # PartyKit rooms
 
 ## Public REST API (`netlify/functions/api.mts`)
 
-All `/api/*` routes. No auth. Pure proxy to TED GraphQL + TzKT.
+All `/api/v1/*` routes. No auth. Pure proxy to TED GraphQL + TzKT.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/domain/:name` | Domain record or `available: true` if unclaimed |
-| `GET /api/availability/:label` | `{ available: boolean }` |
-| `GET /api/owner/:address` | All hack.tez domains for a wallet |
-| `GET /api/resolve/:address` | Reverse-resolve wallet to primary domain |
-| `GET /api/domains?limit=50&offset=0` | Paginated list of all registrations |
-| `GET /api/config` | Contract config (commit ages, max per wallet, paused) |
-| `GET /api/v1/profile/:name` | Parsed builder profile for a domain (coming soon) |
-| `POST /api/v1/pin` | Authenticated IPFS pin proxy — wallet signature required (coming soon) |
+| `GET /api/v1/domain/:name` | Domain record or `available: true` if unclaimed |
+| `GET /api/v1/availability/:label` | `{ available: boolean }` |
+| `GET /api/v1/owner/:address` | All hack.tez domains for a wallet |
+| `GET /api/v1/resolve/:address` | Reverse-resolve wallet to primary domain |
+| `GET /api/v1/domains?limit=50&offset=0` | Paginated list of all registrations |
+| `GET /api/v1/config` | Contract config (commit ages, max per wallet, paused) |
+| `GET /api/v1/activity?limit=30` | Recent on-chain claim + commit events |
+| `GET /api/v1/profile/:name` | Parsed builder profile for a domain |
+| `GET /api/v1/hackatar/:label` | Generative avatar GIF (animated). `?static=1` for single frame. |
+| `POST /api/v1/pin` | Authenticated IPFS pin proxy — wallet signature required |
 
 Response shape: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ error: "...", code: "..." }` on failure.
 

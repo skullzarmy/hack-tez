@@ -283,6 +283,93 @@ Recent on-chain claim and commit events, merged and sorted by time. Commit event
 
 ---
 
+### GET /api/v1/hackatar/:label
+
+Returns a generative avatar GIF for the given hack.tez subdomain label. The image is deterministically generated from the domain's registration opHash — same domain always produces the same hackatar. Cached immutably in Netlify Blobs after first generation.
+
+**Path parameters:**
+
+| Param   | Type   | Description                                       |
+| ------- | ------ | ------------------------------------------------- |
+| `label` | string | The subdomain label (e.g. `skllz`, not `skllz.hack.tez`) |
+
+**Query parameters:**
+
+| Param    | Type   | Default | Description                                 |
+| -------- | ------ | ------- | ------------------------------------------- |
+| `static` | `"1"`  | —       | If set, returns a single-frame still image   |
+
+**Response:** Binary GIF image (`Content-Type: image/gif`).
+
+- Animated (default): 30 frames at 80ms = 2.4s seamless loop, 192×192 pixels
+- Static (`?static=1`): Single-frame GIF, 192×192 pixels
+- `Cache-Control: public, max-age=31536000, immutable`
+
+**Example:**
+
+```
+GET https://hack.fafolab.xyz/api/v1/hackatar/skllz
+→ animated GIF (binary)
+
+GET https://hack.fafolab.xyz/api/v1/hackatar/skllz?static=1
+→ single-frame GIF (binary)
+```
+
+**Errors:**
+
+| Status | Code               | Reason                         |
+| ------ | ------------------ | ------------------------------ |
+| 400    | `INVALID_LABEL`    | Label fails validation         |
+| 404    | `NOT_FOUND`        | Domain not registered          |
+| 500    | `GENERATION_FAILED`| Server-side rendering error    |
+
+**How it works:**
+1. Validates the label
+2. Checks Netlify Blobs cache — serves immediately if cached
+3. Resolves the domain's registration `opHash` via TzKT
+4. Seeds the hackatar engine with the opHash
+5. Generates both animated + static GIFs, caches both
+6. Returns the requested variant
+
+**Usage in HTML/Markdown:**
+
+```html
+<img src="https://hack.fafolab.xyz/api/v1/hackatar/skllz" alt="skllz hackatar" />
+```
+
+---
+
+### GET /api/v1/profile/:name
+
+Returns the parsed builder profile for a hack.tez subdomain. Accepts a bare label (`alice`) or full domain name (`alice.hack.tez`). Returns `profile: {}` if the domain exists but has no hack: data keys.
+
+**Response:**
+
+```json
+{
+    "data": {
+        "name": "alice.hack.tez",
+        "owner": "tz1...",
+        "profile": {
+            "bio": "building on tezos",
+            "avatar": "ipfs://bafybei...",
+            "status": "hacking",
+            "projects": [...]
+        }
+    },
+    "network": "ghostnet"
+}
+```
+
+**Errors:**
+
+| Status | Code          | Reason                |
+| ------ | ------------- | --------------------- |
+| 400    | `INVALID_NAME`| Invalid domain name   |
+| 404    | `NOT_FOUND`   | Domain not registered |
+
+---
+
 ## Registration Flow (Contract Interaction)
 
 The registrar uses a commit-reveal scheme to prevent front-running.
