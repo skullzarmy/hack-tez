@@ -166,7 +166,6 @@ All `/api/v1/*` routes. No auth. Pure proxy to TED GraphQL + TzKT.
 | `GET /api/v1/activity?limit=30` | Recent on-chain claim + commit events |
 | `GET /api/v1/profile/:name` | Parsed builder profile for a domain |
 | `GET /api/v1/hackatar/:label` | Generative avatar GIF (animated). `?static=1` for single frame. |
-| `POST /api/v1/pin` | Authenticated IPFS pin proxy — wallet signature required |
 
 Response shape: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ error: "...", code: "..." }` on failure.
 

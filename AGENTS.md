@@ -60,8 +60,8 @@ Both must exit 0. Never commit with type errors.
 | `src/types/profile.ts`        | Profile types, parsing, validation                                         |
 | `src/lib/signing.ts`          | Wallet message signing for authenticated requests                          |
 | `src/lib/pin.ts`              | Pinata upload client                                                       |
-| `netlify/functions/api.mts`    | Public REST API — all `/api/*` routes (Netlify v2 function)                |
-| `netlify/functions/pin.mts`   | Authenticated IPFS pin proxy                                               |
+| `netlify/functions/api.mts`    | Public REST API — all `/api/v1/*` routes (Netlify v2 function)                |
+| `netlify/functions/pin.mts`   | Internal IPFS pin proxy (not public API — wallet-sig authenticated)          |
 | `netlify.toml`                 | Build config, SPA redirect, security headers/CSP                           |
 | `chat/src/worker.ts`           | Chat auth endpoint + DM REST API (CF Worker)                               |
 | `chat/src/auth/verify.ts`      | Tezos signature verification + TED domain ownership check                  |
@@ -140,7 +140,7 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects.
 - **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
 - **JWT is the trust boundary.** CF Worker issues JWT after verifying wallet signature + TED domain ownership. PartyKit only accepts connections with valid JWT. Both share `CHAT_JWT_SECRET`.
-- **Hackatars are server-generated.** Generative avatars are built server-side in `api.mts`, seeded by the domain's registration opHash (resolved via TzKT). Cached immutably in Netlify Blobs. The frontend `<Hackatar>` component uses `<img>` tags pointing to `/api/v1/hackatar/:label`. The engine lives in `src/lib/hackatar/` (pure JS, no DOM deps).
+- **Hackatars are server-generated.** Generative avatars are built server-side in `api.mts`, seeded by a salted domain name (deterministic). Cached immutably in Netlify Blobs. The frontend `<Hackatar>` component uses `<img>` tags pointing to `/api/v1/hackatar/:label`. The engine lives in `src/lib/hackatar/` (pure JS, no DOM deps). See `HACKATARS.md` for the seeding roadmap.
 
 ---
 

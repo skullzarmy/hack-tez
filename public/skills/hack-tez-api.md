@@ -285,7 +285,7 @@ Recent on-chain claim and commit events, merged and sorted by time. Commit event
 
 ### GET /api/v1/hackatar/:label
 
-Returns a generative avatar GIF for the given hack.tez subdomain label. The image is deterministically generated from the domain's registration opHash — same domain always produces the same hackatar. Cached immutably in Netlify Blobs after first generation.
+Returns a generative avatar GIF for the given hack.tez subdomain label. The image is deterministically generated from a salted domain name — same domain always produces the same hackatar. Cached immutably in Netlify Blobs after first generation.
 
 **Path parameters:**
 
@@ -326,8 +326,8 @@ GET https://hack.fafolab.xyz/api/v1/hackatar/skllz?static=1
 **How it works:**
 1. Validates the label
 2. Checks Netlify Blobs cache — serves immediately if cached
-3. Resolves the domain's registration `opHash` via TzKT
-4. Seeds the hackatar engine with the opHash
+3. Verifies domain is registered via TED GraphQL
+4. Seeds the hackatar engine with a salted domain name
 5. Generates both animated + static GIFs, caches both
 6. Returns the requested variant
 

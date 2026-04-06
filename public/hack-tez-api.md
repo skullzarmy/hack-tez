@@ -268,7 +268,7 @@ Recent on-chain claim and commit events, merged and sorted by time. Commit event
 
 ### GET /api/v1/hackatar/:label
 
-Generative avatar GIF for a hack.tez subdomain. Deterministically generated from the domain's registration opHash — same domain always produces the same hackatar. Cached immutably after first generation.
+Generative avatar GIF for a hack.tez subdomain. Deterministically generated from a salted domain name — same domain always produces the same hackatar. Cached immutably after first generation.
 
 **Path:** `label` — bare subdomain label (e.g. `skllz`)
 **Query:** `static=1` — returns single-frame still instead of animated loop

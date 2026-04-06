@@ -29,9 +29,14 @@ const NAV: NavSection[] = [
             { id: "ep-resolve", label: "Reverse Resolve" },
             { id: "ep-config", label: "Contract Config" },
             { id: "ep-activity", label: "Recent Activity" },
+        ],
+    },
+    {
+        id: "endpoints-profiles",
+        label: "Profiles & Identity",
+        children: [
             { id: "ep-profile", label: "Get Profile" },
             { id: "ep-hackatar", label: "Hackatar" },
-            { id: "ep-pin", label: "IPFS Pin" },
         ],
     },
     {
@@ -159,47 +164,6 @@ function MethodBadge() {
             }}
         >
             GET
-        </span>
-    );
-}
-
-function PostBadge() {
-    return (
-        <span
-            style={{
-                fontFamily: "var(--font)",
-                fontSize: "0.6rem",
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                color: "var(--warn, #f59e0b)",
-                background: "color-mix(in srgb, var(--warn, #f59e0b) 12%, transparent)",
-                padding: "0.2rem 0.45rem",
-                border: "1px solid color-mix(in srgb, var(--warn, #f59e0b) 30%, transparent)",
-                flexShrink: 0,
-            }}
-        >
-            POST
-        </span>
-    );
-}
-
-function ComingSoonBadge() {
-    return (
-        <span
-            style={{
-                fontFamily: "var(--font)",
-                fontSize: "0.55rem",
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "var(--fg-3)",
-                background: "color-mix(in srgb, var(--fg-3) 10%, transparent)",
-                padding: "0.15rem 0.4rem",
-                border: "1px solid color-mix(in srgb, var(--fg-3) 25%, transparent)",
-                flexShrink: 0,
-            }}
-        >
-            Coming soon
         </span>
     );
 }
@@ -1209,6 +1173,28 @@ export default function Developers() {
                         </div>
                     </section>
 
+                    {/* ================================================================ */}
+                    {/* Profiles & Identity                                              */}
+                    {/* ================================================================ */}
+
+                    <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+                        <h2
+                            id="endpoints-profiles"
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--fg-3)",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                                marginBottom: 0,
+                            }}
+                        >
+                            Profiles &amp; Identity
+                        </h2>
+                    </div>
+
                     {/* ---- GET /api/v1/profile/:name ---- */}
                     <section style={{ marginBottom: "3rem" }}>
                         <Divider />
@@ -1411,98 +1397,6 @@ export default function Developers() {
                                 <br />
                                 Returns <code style={{ color: "var(--fg)" }}>400</code> for invalid labels,{" "}
                                 <code style={{ color: "var(--fg)" }}>404</code> if the domain is not registered.
-                            </p>
-                        </div>
-                    </section>
-
-                    {/* ---- POST /api/v1/pin (Coming soon) ---- */}
-                    <section style={{ marginBottom: "3rem" }}>
-                        <Divider />
-                        <div id="ep-pin" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
-                            <h3
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "1rem",
-                                    fontWeight: 700,
-                                    color: "var(--fg)",
-                                    margin: "0 0 0.35rem 0",
-                                    letterSpacing: "0.02em",
-                                }}
-                            >
-                                IPFS Pin
-                            </h3>
-                            <div
-                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
-                            >
-                                <PostBadge />
-                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
-                                    /api/v1/pin
-                                </code>
-                                <ComingSoonBadge />
-                            </div>
-                            <p
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "0.78rem",
-                                    color: "var(--fg-2)",
-                                    lineHeight: 1.8,
-                                    marginBottom: "1.25rem",
-                                    maxWidth: "560px",
-                                }}
-                            >
-                                Authenticated IPFS pin proxy. Upload an image (avatar, project logo) with a wallet
-                                signature — the server validates ownership of a hack.{tld} domain and pins the file via
-                                Pinata. Returns the IPFS CID.
-                            </p>
-                            <p
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "0.78rem",
-                                    color: "var(--fg-2)",
-                                    lineHeight: 1.8,
-                                    marginBottom: "1.25rem",
-                                    maxWidth: "560px",
-                                }}
-                            >
-                                <strong style={{ color: "var(--fg)" }}>Auth:</strong> wallet signature. The request must
-                                include a signed message proving the caller owns a hack.{tld} domain.
-                            </p>
-                            <CodeBlock
-                                lang="http"
-                                code={`POST https://hack.fafolab.xyz/api/v1/pin
-Content-Type: multipart/form-data
-
-file:       <blob>
-address:    "tz1..."
-publicKey:  "edpk..."
-timestamp:  1712345678
-nonce:      "a3f9c2..."
-signature:  "<sig of hack.tez:pin:<timestamp>:<nonce>>"`}
-                            />
-                            <div style={{ height: "0.5rem" }} />
-                            <CodeBlock
-                                code={JSON.stringify({ cid: "bafybei..." }, null, 2)}
-                            />
-                            <p
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "0.7rem",
-                                    color: "var(--fg-3)",
-                                    marginTop: "0.75rem",
-                                    lineHeight: 1.8,
-                                }}
-                            >
-                                Max file size: 4 MB. Allowed types:{" "}
-                                <code style={{ color: "var(--fg)" }}>image/jpeg</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/png</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/gif</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/webp</code>,{" "}
-                                <code style={{ color: "var(--fg)" }}>image/svg+xml</code>.
-                                <br />
-                                Timestamp must be within 5 minutes. Signature verified against public key.
-                                <br />
-                                Display via{" "}
-                                <code style={{ color: "var(--fg)" }}>{"https://ipfs.fileship.xyz/ipfs/<CID>"}</code>.
                             </p>
                         </div>
                     </section>
