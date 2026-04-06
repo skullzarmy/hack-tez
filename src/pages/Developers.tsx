@@ -490,7 +490,7 @@ export default function Developers() {
                     {/* ---- Base URL ---- */}
                     <section style={{ marginBottom: "2.5rem" }}>
                         <SectionHeading id="base-url">Base URL</SectionHeading>
-                        <CodeBlock code="https://hack.fafolab.xyz" lang="url" />
+                        <CodeBlock code="https://hacktez.com" lang="url" />
                     </section>
 
                     {/* ---- Conventions ---- */}
@@ -692,20 +692,13 @@ export default function Developers() {
                                         kind: "query",
                                         type: "integer",
                                         default: "50",
-                                        description: "Results per page (max 200)",
-                                    },
-                                    {
-                                        name: "offset",
-                                        kind: "query",
-                                        type: "integer",
-                                        default: "0",
-                                        description: "Skip N results for pagination",
+                                        description: "Results per page (max 50)",
                                     },
                                 ]}
                             />
                             <CodeBlock
                                 lang="http"
-                                code="GET https://hack.fafolab.xyz/api/v1/domains?limit=3&offset=0"
+                                code="GET https://hacktez.com/api/v1/domains?limit=3"
                             />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
@@ -716,13 +709,13 @@ export default function Developers() {
                                                 name: `alice.hack.${tld}`,
                                                 label: "alice",
                                                 owner: "tz1...",
+                                                address: "tz1...",
                                                 registeredAt: "2025-03-27T08:01:29Z",
                                                 opHash: "oo...",
                                             },
                                         ],
                                         count: 1,
                                         limit: 3,
-                                        offset: 0,
                                         network,
                                     },
                                     null,
@@ -782,7 +775,7 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/domain/alice" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/domain/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
@@ -851,7 +844,7 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/availability/alice" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/availability/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock code={JSON.stringify({ label: "alice", available: false, network }, null, 2)} />
                         </div>
@@ -906,7 +899,7 @@ export default function Developers() {
                             />
                             <CodeBlock
                                 lang="http"
-                                code="GET https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+                                code="GET https://hacktez.com/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
                             />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
@@ -982,7 +975,7 @@ export default function Developers() {
                             />
                             <CodeBlock
                                 lang="http"
-                                code="GET https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+                                code="GET https://hacktez.com/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
                             />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
@@ -1052,7 +1045,7 @@ export default function Developers() {
                                 Current contract configuration. Check before starting a registration flow to get commit
                                 timing and verify registration is not paused.
                             </p>
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/config" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/config" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
@@ -1141,7 +1134,7 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/activity?limit=30" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/activity?limit=30" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
@@ -1245,29 +1238,35 @@ export default function Developers() {
                                     },
                                 ]}
                             />
-                            <CodeBlock lang="http" code="GET https://hack.fafolab.xyz/api/v1/profile/alice" />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/profile/alice" />
                             <div style={{ height: "0.5rem" }} />
                             <CodeBlock
                                 code={JSON.stringify(
                                     {
-                                        name: `alice.hack.${tld}`,
-                                        owner: "tz1...",
-                                        address: "tz1...",
-                                        profile: {
-                                            bio: "building tezos tooling",
-                                            github: "alice",
-                                            x: "alice",
-                                            website: "https://alice.xyz",
-                                            location: "Berlin",
-                                            status: "building",
-                                            skills: ["SmartPy", "TypeScript"],
-                                            projects: [
-                                                {
-                                                    name: "my-dapp",
-                                                    url: "https://my-dapp.xyz",
-                                                    desc: "a decentralized app",
-                                                },
-                                            ],
+                                        data: {
+                                            name: `alice.hack.${tld}`,
+                                            owner: "tz1...",
+                                            address: "tz1...",
+                                            profile: {
+                                                name: "alice",
+                                                picture: "ipfs://bafybei...",
+                                                bio: "building tezos tooling",
+                                                github: "alice",
+                                                twitter: "alice",
+                                                website: "https://alice.xyz",
+                                                location: "Berlin",
+                                                status: "building",
+                                                skills: ["SmartPy", "TypeScript"],
+                                                projects: [
+                                                    {
+                                                        name: "my-dapp",
+                                                        url: "https://my-dapp.xyz",
+                                                        desc: "a decentralized app",
+                                                    },
+                                                ],
+                                            },
+                                            registrationHash: "op...",
+                                            registeredAt: "2025-03-27T08:01:29Z",
                                         },
                                         network,
                                     },
@@ -1326,8 +1325,8 @@ export default function Developers() {
                                     maxWidth: "560px",
                                 }}
                             >
-                                Generative avatar for a hack.{tld} subdomain. Deterministically generated from the
-                                domain's registration opHash — same domain always produces the same hackatar.
+                                Generative avatar for a hack.{tld} subdomain. Deterministically generated from a
+                                salted domain name — same domain always produces the same hackatar.
                                 Returns a GIF image (not JSON). Cached immutably after first generation.
                             </p>
 
@@ -1348,7 +1347,7 @@ export default function Developers() {
                                 ]}
                             />
 
-                            <CodeBlock lang="http" code={`GET https://hack.fafolab.xyz/api/v1/hackatar/skllz`} />
+                            <CodeBlock lang="http" code={`GET https://hacktez.com/api/v1/hackatar/skllz`} />
                             <div style={{ height: "0.25rem" }} />
                             <p
                                 style={{
@@ -1380,7 +1379,7 @@ export default function Developers() {
                             </p>
                             <CodeBlock
                                 lang="html"
-                                code={`<img src="https://hack.fafolab.xyz/api/v1/hackatar/skllz" alt="hackatar" />`}
+                                code={`<img src="https://hacktez.com/api/v1/hackatar/skllz" alt="hackatar" />`}
                             />
 
                             <p
@@ -1495,7 +1494,12 @@ export default function Developers() {
                                             [
                                                 "openid:picture",
                                                 "TED native",
-                                                "Avatar image URL — ipfs:// URI preferred. Fallback chain: openid:picture → gravatar:hash → generated",
+                                                "Avatar image URL — ipfs:// or https:// URI. See Avatar Fallback below.",
+                                            ],
+                                            [
+                                                "gravatar:hash",
+                                                "TED native",
+                                                "MD5 hash for Gravatar fallback avatar. Second step in the avatar chain.",
                                             ],
                                             ["github:username", "TED native", "GitHub username"],
                                             ["twitter:handle", "TED native", "Twitter/X handle"],
@@ -1909,8 +1913,16 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                                         Gravatar URL from the hash
                                     </li>
                                     <li>
-                                        <strong style={{ color: "var(--fg)" }}>Deterministic generated avatar</strong>{" "}
-                                        — generated from the domain label, always unique
+                                        <strong style={{ color: "var(--fg)" }}>Hackatar</strong>{" "}
+                                        — deterministic generative avatar served from{" "}
+                                        <code style={{ color: "var(--fg)" }}>/api/v1/hackatar/:label</code>.
+                                        Always unique per domain. See{" "}
+                                        <a
+                                            href="#ep-hackatar"
+                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                        >
+                                            Hackatar endpoint
+                                        </a>.
                                     </li>
                                 </ol>
                             </div>
@@ -2280,26 +2292,26 @@ ws.send(JSON.stringify({ type: "message", content: "gm hackers" }))
                                 <CodeBlock
                                     lang="bash"
                                     code={`# Check availability
-curl https://hack.fafolab.xyz/api/v1/availability/yourname
+curl https://hacktez.com/api/v1/availability/yourname
 
 # Fetch domain record
-curl https://hack.fafolab.xyz/api/v1/domain/alice
+curl https://hacktez.com/api/v1/domain/alice
 
 # Domains owned by a wallet
-curl https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
+curl https://hacktez.com/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
 
 # Reverse-resolve an address
-curl https://hack.fafolab.xyz/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`}
+curl https://hacktez.com/api/v1/resolve/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb`}
                                 />
                                 <CodeBlock
                                     lang="javascript"
                                     code={`// JavaScript / TypeScript
-const { available } = await fetch('https://hack.fafolab.xyz/api/v1/availability/yourname')
+const { available } = await fetch('https://hacktez.com/api/v1/availability/yourname')
   .then(r => r.json());
 
 // Resolve address for display
 async function getDisplayName(address) {
-  const { primary, hackTez } = await fetch(\`https://hack.fafolab.xyz/api/v1/resolve/\${address}\`)
+  const { primary, hackTez } = await fetch(\`https://hacktez.com/api/v1/resolve/\${address}\`)
     .then(r => r.json());
   return primary ?? hackTez[0] ?? \`\${address.slice(0,6)}…\${address.slice(-4)}\`;
 }`}

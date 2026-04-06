@@ -76,7 +76,7 @@ Both must exit 0. Never commit with type errors.
 
 ## Public REST API
 
-Base URL: `https://hack.tez` (locally: `http://localhost:8888`)
+Base URL: `https://hacktez.com` (locally: `http://localhost:8888`)
 
 All responses: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ error: "...", code: "..." }` on failure.
 

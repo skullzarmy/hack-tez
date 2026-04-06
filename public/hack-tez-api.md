@@ -4,7 +4,7 @@
 skill_type: hybrid
 domain: Tezos / hack.tez subdomain registrar
 version: 1.0
-api_base: https://hack.fafolab.xyz
+api_base: https://hacktez.com
 network_default: ghostnet
 ```
 
@@ -24,7 +24,7 @@ hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (
 
 ## Public REST API
 
-**Base URL:** `https://hack.fafolab.xyz`
+**Base URL:** `https://hacktez.com`
 **Local dev:** `http://localhost:8888`
 **Response envelope (success):** `{ "data": ..., "network": "ghostnet" | "mainnet" }`
 **Response envelope (error):** `{ "error": "...", "code": "INVALID_INPUT" | "UPSTREAM_ERROR" | "METHOD_NOT_ALLOWED" }`
@@ -38,10 +38,9 @@ Paginated list of all hack.tez registrations, newest first. Backed by on-chain t
 
 **Query parameters:**
 
-| Param    | Type    | Default | Max | Description                     |
-| -------- | ------- | ------- | --- | ------------------------------- |
-| `limit`  | integer | 50      | 200 | Number of results               |
-| `offset` | integer | 0       | —   | Skip N results (for pagination) |
+| Param   | Type    | Default | Max | Description       |
+| ------- | ------- | ------- | --- | ----------------- |
+| `limit` | integer | 50      | 50  | Number of results |
 
 **Response:**
 
@@ -52,13 +51,13 @@ Paginated list of all hack.tez registrations, newest first. Backed by on-chain t
             "name": "skllz.hack.tez",
             "label": "skllz",
             "owner": "tz1Qi77tcJn9foeHHP1QHj6UX1m1vLVLMbuY",
+            "address": "tz1Qi77tcJn9foeHHP1QHj6UX1m1vLVLMbuY",
             "registeredAt": "2025-03-27T08:01:29Z",
             "opHash": "oo..."
         }
     ],
     "count": 1,
     "limit": 50,
-    "offset": 0,
     "network": "mainnet"
 }
 ```
@@ -66,8 +65,8 @@ Paginated list of all hack.tez registrations, newest first. Backed by on-chain t
 **Usage:**
 
 ```typescript
-// Fetch page 2 (results 51–100)
-const res = await fetch("https://hack.fafolab.xyz/api/v1/domains?limit=50&offset=50");
+// Fetch up to 50 registrations
+const res = await fetch("https://hacktez.com/api/v1/domains?limit=50");
 const { data, count } = await res.json();
 ```
 
@@ -87,8 +86,7 @@ Returns `{ data: null, available: true }` if the domain is not registered.
         "name": "alice.hack.tez",
         "label": "alice",
         "address": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-        "owner": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-        "expiresAt": "2027-01-01T00:00:00Z"
+        "owner": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
     },
     "available": false,
     "network": "mainnet"
@@ -104,7 +102,7 @@ Returns `{ data: null, available: true }` if the domain is not registered.
 **Usage:**
 
 ```typescript
-const res = await fetch("https://hack.fafolab.xyz/api/v1/domain/alice");
+const res = await fetch("https://hacktez.com/api/v1/domain/alice");
 const { data, available } = await res.json();
 
 if (available) {
@@ -135,7 +133,7 @@ Lightweight availability check. Returns only the `available` boolean — faster 
 **Usage:**
 
 ```typescript
-const { available } = await fetch("https://hack.fafolab.xyz/api/v1/availability/myname").then((r) => r.json());
+const { available } = await fetch("https://hacktez.com/api/v1/availability/myname").then((r) => r.json());
 ```
 
 ---
@@ -155,8 +153,7 @@ All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (n
             "name": "alice.hack.tez",
             "label": "alice",
             "address": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-            "owner": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-            "expiresAt": null
+            "owner": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
         }
     ],
     "count": 1,
@@ -167,7 +164,7 @@ All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (n
 **Usage:**
 
 ```typescript
-const { data } = await fetch("https://hack.fafolab.xyz/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb").then((r) =>
+const { data } = await fetch("https://hacktez.com/api/v1/owner/tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb").then((r) =>
     r.json(),
 );
 
@@ -199,7 +196,7 @@ Reverse-resolve a Tezos address to its primary domain and all owned hack.tez sub
 **Usage:**
 
 ```typescript
-const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${walletAddress}`).then((r) =>
+const { primary, hackTez } = await fetch(`https://hacktez.com/api/v1/resolve/${walletAddress}`).then((r) =>
     r.json(),
 );
 
@@ -279,14 +276,14 @@ Generative avatar GIF for a hack.tez subdomain. Deterministically generated from
 - `Cache-Control: public, max-age=31536000, immutable`
 
 ```
-GET https://hack.fafolab.xyz/api/v1/hackatar/skllz         → animated GIF
-GET https://hack.fafolab.xyz/api/v1/hackatar/skllz?static=1 → still GIF
+GET https://hacktez.com/api/v1/hackatar/skllz         → animated GIF
+GET https://hacktez.com/api/v1/hackatar/skllz?static=1 → still GIF
 ```
 
 **Usage:**
 
 ```html
-<img src="https://hack.fafolab.xyz/api/v1/hackatar/skllz" alt="skllz hackatar" />
+<img src="https://hacktez.com/api/v1/hackatar/skllz" alt="skllz hackatar" />
 ```
 
 ---
@@ -302,11 +299,16 @@ Parsed builder profile for a hack.tez subdomain. Accepts bare label or full name
     "data": {
         "name": "alice.hack.tez",
         "owner": "tz1...",
-        "profile": { "bio": "...", "avatar": "ipfs://...", "status": "hacking" }
+        "address": "tz1...",
+        "profile": { "name": "Alice", "picture": "ipfs://...", "bio": "...", "status": "hacking" },
+        "registrationHash": "op...",
+        "registeredAt": "2025-03-27T08:01:29Z"
     },
     "network": "ghostnet"
 }
 ```
+
+Profile uses `picture` (from `openid:picture`), not `avatar`. `registrationHash` / `registeredAt` may be `null` for preloaded domains.
 
 ---
 
@@ -370,7 +372,7 @@ localStorage.setItem(
 ### Step 3: Wait for commit age
 
 ```typescript
-const config = await fetch("https://hack.fafolab.xyz/api/v1/config").then((r) => r.json());
+const config = await fetch("https://hacktez.com/api/v1/config").then((r) => r.json());
 const waitMs = config.data.minCommitAgeSec * 1000;
 
 // Check /api/config for current values — don't hardcode
@@ -460,8 +462,8 @@ All errors include a human-readable `error` string alongside the `code`.
 ```typescript
 async function checkAndShow(label: string) {
     const [validationResult, configResult] = await Promise.all([
-        fetch(`https://hack.fafolab.xyz/api/v1/availability/${label}`).then((r) => r.json()),
-        fetch("https://hack.fafolab.xyz/api/v1/config").then((r) => r.json()),
+        fetch(`https://hacktez.com/api/v1/availability/${label}`).then((r) => r.json()),
+        fetch("https://hacktez.com/api/v1/config").then((r) => r.json()),
     ]);
 
     if (configResult.data.paused) return showPausedMessage();
@@ -476,7 +478,7 @@ async function checkAndShow(label: string) {
 ```typescript
 async function getDisplayName(address: string): Promise<string> {
     try {
-        const { primary, hackTez } = await fetch(`https://hack.fafolab.xyz/api/v1/resolve/${address}`).then((r) =>
+        const { primary, hackTez } = await fetch(`https://hacktez.com/api/v1/resolve/${address}`).then((r) =>
             r.json(),
         );
         return primary ?? hackTez[0] ?? `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -486,19 +488,11 @@ async function getDisplayName(address: string): Promise<string> {
 }
 ```
 
-### Paginate through all registrations
+### Fetch all registrations
 
 ```typescript
-async function* allDomains(pageSize = 50) {
-    let offset = 0;
-    while (true) {
-        const { data, count } = await fetch(
-            `https://hack.fafolab.xyz/api/v1/domains?limit=${pageSize}&offset=${offset}`,
-        ).then((r) => r.json());
-
-        yield* data;
-        offset += data.length;
-        if (offset >= count || data.length === 0) break;
-    }
-}
+// The /domains endpoint returns up to 50 results in a single call.
+// For most use cases, one request is sufficient.
+const { data, count } = await fetch("https://hacktez.com/api/v1/domains?limit=50").then((r) => r.json());
+console.log(`Got ${data.length} of ${count} total domains`);
 ```
