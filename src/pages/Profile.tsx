@@ -114,15 +114,10 @@ function CopyableDomain({ name }: { name: string }) {
     }, [name]);
 
     return (
-        <button
-            type="button"
-            onClick={handleCopy}
-            title={`Copy: ${name}`}
+        <div
+            role="group"
+            aria-label={`Domain: ${name}`}
             style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "0.5rem",
@@ -151,10 +146,24 @@ function CopyableDomain({ name }: { name: string }) {
             >
                 {name}
             </h1>
-            <span style={{ fontSize: "0.65rem", color: "var(--fg-3)", opacity: 0.4 }}>
+            <button
+                type="button"
+                onClick={handleCopy}
+                title={`Copy: ${name}`}
+                aria-label={`Copy domain name ${name}`}
+                style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    fontSize: "0.65rem",
+                    color: "var(--fg-3)",
+                    opacity: 0.4,
+                }}
+            >
                 {copied ? "✓" : "⧉"}
-            </span>
-        </button>
+            </button>
+        </div>
     );
 }
 

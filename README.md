@@ -161,7 +161,7 @@ All `/api/v1/*` routes. No auth. Pure proxy to TED GraphQL + TzKT.
 | `GET /api/v1/availability/:label` | `{ available: boolean }` |
 | `GET /api/v1/owner/:address` | All hack.tez domains for a wallet |
 | `GET /api/v1/resolve/:address` | Reverse-resolve wallet to primary domain |
-| `GET /api/v1/domains?limit=50&offset=0` | Paginated list of all registrations |
+| `GET /api/v1/domains?limit=50` | Paginated list of all registrations |
 | `GET /api/v1/config` | Contract config (commit ages, max per wallet, paused) |
 | `GET /api/v1/activity?limit=30` | Recent on-chain claim + commit events |
 | `GET /api/v1/profile/:name` | Parsed builder profile for a domain |

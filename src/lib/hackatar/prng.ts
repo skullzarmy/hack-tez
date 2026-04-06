@@ -49,18 +49,20 @@ export function createPrng(seed: number) {
 
 export type Prng = ReturnType<typeof createPrng>;
 
-/** Derive a 32-bit seed from an opHash string */
+/** Derive a 32-bit seed from a hash or arbitrary string */
 export function seedFromHash(hash: string): number {
   const clean = hash.replace(/^op/, "");
-  // Use first 8 hex chars as uint32
-  const n = parseInt(clean.slice(0, 8), 16);
-  if (isNaN(n)) {
-    // Fallback: hash the whole string
-    let h = 0;
-    for (let i = 0; i < hash.length; i++) {
-      h = ((h << 5) - h + hash.charCodeAt(i)) | 0;
-    }
-    return Math.abs(h);
+  const prefix = clean.slice(0, 8);
+
+  // Only use the fast-path when all 8 chars are valid hex digits.
+  if (/^[0-9a-fA-F]{8}$/.test(prefix)) {
+    return parseInt(prefix, 16) >>> 0;
   }
-  return n >>> 0;
+
+  // Fallback: hash the whole string
+  let h = 0;
+  for (let i = 0; i < hash.length; i++) {
+    h = ((h << 5) - h + hash.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
 }

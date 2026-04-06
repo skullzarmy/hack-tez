@@ -5,13 +5,15 @@
  * Animated mode: shows animated GIF (auto-plays in browser).
  *
  * Images are served from /api/v1/hackatar/:label (animated) and
- * /api/v1/hackatar/:label?static=1 (first frame). The server resolves
- * label → opHash → deterministic generation.
+ * /api/v1/hackatar/:label?static=1 (first frame). In the current
+ * phase-1 implementation, generation is deterministic from the provided
+ * label via the server's salted label-based seed; it does not resolve
+ * the label to an opHash.
  */
 import { useState, useEffect, useRef } from "react";
 
 interface HackatarProps {
-  /** Domain label — server resolves this to the registration opHash */
+  /** Domain label forwarded to the salted label-seeded generation endpoint */
   label: string;
   /** CSS display size in pixels */
   size: number;
@@ -47,11 +49,24 @@ export function Hackatar({
   // Preload animated GIF in background so hover swap is instant
   useEffect(() => {
     if (animated) return; // always-animated mode doesn't need preload
+
+    let cancelled = false;
+    setGifReady(false);
+
     const img = new Image();
-    img.onload = () => setGifReady(true);
+    img.onload = () => {
+      if (!cancelled) {
+        setGifReady(true);
+      }
+    };
     img.src = animatedUrl;
     preloadRef.current = img;
-    return () => { preloadRef.current = null; };
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      preloadRef.current = null;
+    };
   }, [animatedUrl, animated]);
 
   // External `playing` prop takes priority, then self-hover

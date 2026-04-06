@@ -270,7 +270,7 @@ Generative avatar GIF for a hack.tez subdomain. Deterministically generated from
 **Path:** `label` — bare subdomain label (e.g. `skllz`)
 **Query:** `static=1` — returns single-frame still instead of animated loop
 
-**Response:** Binary GIF image (`Content-Type: image/gif`)
+**Response (success):** Binary GIF image (`Content-Type: image/gif`)
 - Animated: 30 frames at 80ms, 192×192px
 - Static: single frame, 192×192px
 - `Cache-Control: public, max-age=31536000, immutable`
@@ -279,6 +279,13 @@ Generative avatar GIF for a hack.tez subdomain. Deterministically generated from
 GET https://hacktez.com/api/v1/hackatar/skllz         → animated GIF
 GET https://hacktez.com/api/v1/hackatar/skllz?static=1 → still GIF
 ```
+
+**Errors:**
+- `400 INVALID_INPUT` — label is invalid (too short, too long, or contains disallowed characters)
+- `404 NOT_FOUND` — label is well-formed but no registered hack.tez record exists
+- `500 GENERATION_FAILED` — server-side rendering or encoding error
+
+Only successful responses return `image/gif`; error responses return JSON.
 
 **Usage:**
 

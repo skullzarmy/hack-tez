@@ -104,7 +104,7 @@ async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<st
 }
 
 // ---------------------------------------------------------------------------
-// Profile parsing (inlined — Netlify Functions can't import from src/)
+// Profile parsing (inlined — avoids a circular dependency with src/types)
 // ---------------------------------------------------------------------------
 
 interface ProfileProject {
@@ -462,12 +462,33 @@ async function getRegistrationHash(
 /**
  * Batch-fetch registration opHashes for all register operations.
  * Returns a map of UTF-8 label → { hash, timestamp }.
+ * Results are cached in-memory for 5 minutes to avoid repeated large TzKT fetches.
  */
+
+const REGISTRATION_HASHES_TTL_MS = 5 * 60 * 1000;
+const registrationHashesCache = new Map<
+    string,
+    { expiresAt: number; value: Map<string, { hash: string; timestamp: string }> }
+>();
+const registrationHashesInflight = new Map<
+    string,
+    Promise<Map<string, { hash: string; timestamp: string }>>
+>();
+
 async function getAllRegistrationHashes(
     net: ReturnType<typeof getNetwork>,
 ): Promise<Map<string, { hash: string; timestamp: string }>> {
-    const registrars = getRegistrarAddresses(net);
-    const map = new Map<string, { hash: string; timestamp: string }>();
+    const cacheKey = net.tzktApi;
+    const now = Date.now();
+    const cached = registrationHashesCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+        return new Map(cached.value);
+    }
+
+    const inflight = registrationHashesInflight.get(cacheKey);
+    if (inflight) {
+        return new Map(await inflight);
+    }
 
     type TzKTRegOp = {
         hash: string;
@@ -475,35 +496,49 @@ async function getAllRegistrationHashes(
         parameter: { value: { label: string } };
     };
 
-    await Promise.all(
-        registrars.map(async (addr) => {
-            try {
-                const url =
-                    `${net.tzktApi}/v1/operations/transactions` +
-                    `?target=${addr}` +
-                    `&entrypoint=register` +
-                    `&status=applied` +
-                    `&select=hash,timestamp,parameter` +
-                    `&limit=10000`;
-                const res = await fetch(url);
-                if (!res.ok) return;
-                const ops: TzKTRegOp[] = await res.json();
-                for (const op of ops) {
-                    const rawLabel = op.parameter?.value?.label;
-                    if (!rawLabel) continue;
-                    const label = hexToUtf8(rawLabel);
-                    // Keep first match (earliest registration)
-                    if (!map.has(label)) {
-                        map.set(label, { hash: op.hash, timestamp: op.timestamp });
-                    }
-                }
-            } catch {
-                // skip failing contracts
-            }
-        }),
-    );
+    const loadPromise = (async () => {
+        const registrars = getRegistrarAddresses(net);
+        const map = new Map<string, { hash: string; timestamp: string }>();
 
-    return map;
+        await Promise.all(
+            registrars.map(async (addr) => {
+                try {
+                    const url =
+                        `${net.tzktApi}/v1/operations/transactions` +
+                        `?target=${addr}` +
+                        `&entrypoint=register` +
+                        `&status=applied` +
+                        `&select=hash,timestamp,parameter` +
+                        `&sort.asc=id` +
+                        `&limit=10000`;
+                    const res = await fetch(url);
+                    if (!res.ok) return;
+                    const ops: TzKTRegOp[] = await res.json();
+                    for (const op of ops) {
+                        const rawLabel = op.parameter?.value?.label;
+                        if (!rawLabel) continue;
+                        const label = hexToUtf8(rawLabel);
+                        // Keep first match (earliest registration — TzKT sorted ascending by id)
+                        if (!map.has(label)) {
+                            map.set(label, { hash: op.hash, timestamp: op.timestamp });
+                        }
+                    }
+                } catch {
+                    // skip failing contracts
+                }
+            }),
+        );
+
+        registrationHashesCache.set(cacheKey, { expiresAt: now + REGISTRATION_HASHES_TTL_MS, value: map });
+        return map;
+    })();
+
+    registrationHashesInflight.set(cacheKey, loadPromise);
+    try {
+        return new Map(await loadPromise);
+    } finally {
+        registrationHashesInflight.delete(cacheKey);
+    }
 }
 
 const DEFAULT_LIMIT = 50;
@@ -758,29 +793,36 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
     const prng = createPrng(seed);
     const traits = selectTraits(prng);
 
-    let imageBytes: Uint8Array;
-    if (isStatic) {
-        const frame = renderSingleFrame(traits, HACKATAR_SIZE);
-        imageBytes = encodeGif([frame], HACKATAR_SIZE, HACKATAR_SIZE, 0);
-    } else {
-        const result = renderFrames(traits, HACKATAR_SIZE);
-        imageBytes = encodeGif(result.frames, HACKATAR_SIZE, HACKATAR_SIZE, result.frameDelayMs);
+    let rendered: { imageBytes: Uint8Array; altBlobKey: string; altImageBytes: Uint8Array };
+    try {
+        if (isStatic) {
+            const frame = renderSingleFrame(traits, HACKATAR_SIZE);
+            const animResult = renderFrames(traits, HACKATAR_SIZE);
+            rendered = {
+                imageBytes: encodeGif([frame], HACKATAR_SIZE, HACKATAR_SIZE, 0),
+                altBlobKey: `${label}.gif`,
+                altImageBytes: encodeGif(animResult.frames, HACKATAR_SIZE, HACKATAR_SIZE, animResult.frameDelayMs),
+            };
+        } else {
+            const result = renderFrames(traits, HACKATAR_SIZE);
+            const staticFrame = renderSingleFrame(traits, HACKATAR_SIZE);
+            rendered = {
+                imageBytes: encodeGif(result.frames, HACKATAR_SIZE, HACKATAR_SIZE, result.frameDelayMs),
+                altBlobKey: `${label}-static.gif`,
+                altImageBytes: encodeGif([staticFrame], HACKATAR_SIZE, HACKATAR_SIZE, 0),
+            };
+        }
+    } catch {
+        return err("Failed to generate hackatar", "GENERATION_FAILED", 500);
     }
+
+    const { imageBytes, altBlobKey, altImageBytes } = rendered;
 
     // Cache both variants
     try {
         const store = getStore("hackatars");
         await store.set(blobKey, imageBytes);
-        // Also generate + cache the other variant
-        if (isStatic) {
-            const animResult = renderFrames(traits, HACKATAR_SIZE);
-            const animBytes = encodeGif(animResult.frames, HACKATAR_SIZE, HACKATAR_SIZE, animResult.frameDelayMs);
-            await store.set(`${label}.gif`, animBytes);
-        } else {
-            const staticFrame = renderSingleFrame(traits, HACKATAR_SIZE);
-            const staticBytes = encodeGif([staticFrame], HACKATAR_SIZE, HACKATAR_SIZE, 0);
-            await store.set(`${label}-static.gif`, staticBytes);
-        }
+        await store.set(altBlobKey, altImageBytes);
     } catch {
         // Cache write failed — that's OK
     }
@@ -829,7 +871,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                 version: "1",
                 network: net.name,
                 endpoints: [
-                    `/api/v1/domains?limit=50&offset=0`,
+                    `/api/v1/domains?limit=50`,
                     `/api/v1/domain/:name`,
                     `/api/v1/profile/:name`,
                     `/api/v1/availability/:label`,
