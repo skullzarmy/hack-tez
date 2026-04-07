@@ -150,6 +150,7 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 | ------------------------ | ----------------------- | ------------------------------------------------- |
 | `VITE_TEZOS_NETWORK`     | Frontend + API function | `ghostnet` (default) or `mainnet`                 |
 | `VITE_REGISTRAR_ADDRESS` | Frontend + API function | Contract address override                         |
+| `VITE_SITE_URL`          | Frontend                | Absolute web URL of the app (default `https://hacktez.com`). Used for profile share links. |
 | `TEZOS_WALLET_PUB_KEY`   | Deploy scripts only     | Actually the `edsk...` secret key (legacy naming) |
 | `PINATA_JWT`             | Netlify server-only     | Pinata API JWT token for IPFS pinning             |
 | `VITE_HACKCHAT_URL`     | Frontend                | Chat worker URL (default `http://localhost:8787`) |

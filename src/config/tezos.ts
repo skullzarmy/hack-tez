@@ -15,6 +15,10 @@ export type TezosNetwork = "mainnet" | "ghostnet" | "shadownet";
 
 const network = (import.meta.env.VITE_TEZOS_NETWORK || "ghostnet") as TezosNetwork;
 
+/** Website base URL for this registrar — used wherever we need an absolute profile/share URL */
+export const siteUrl: string =
+    (import.meta.env.VITE_SITE_URL || "").trim().replace(/\/+$/, "") || "https://hacktez.com";
+
 interface NetworkConfig {
     name: TezosNetwork;
     tld: string;
