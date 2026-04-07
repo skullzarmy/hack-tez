@@ -1,4 +1,4 @@
-import config, { appUrl } from "../config/tezos";
+import config, { siteUrl } from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 
 export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord }) {
@@ -21,7 +21,7 @@ export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord 
                 <span className="claimed-next-eyebrow">What's next</span>
                 <p className="claimed-next-blurb">
                     <strong>Set up your hacker profile.</strong> Add your bio, skills, and projects — share it
-                    at <code style={{ fontSize: "0.85em" }}>{appUrl}/u/{label}</code>.
+                    at <code style={{ fontSize: "0.85em" }}>{siteUrl}/u/{label}</code>.
                 </p>
                 <a
                     href={`/u/${label}?edit=true`}
