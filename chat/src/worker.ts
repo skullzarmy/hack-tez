@@ -39,7 +39,6 @@ function checkAuthRateLimit(ip: string): { allowed: boolean; retryAfterSec: numb
 const ALLOWED_ORIGINS = [
   "https://hacktez.com",
   "https://www.hacktez.com",
-  "https://hack.tez",
   "https://hack-tez.netlify.app",
   "http://localhost:5173",
   "http://localhost:8888",
