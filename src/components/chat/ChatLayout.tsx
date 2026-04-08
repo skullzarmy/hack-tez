@@ -90,10 +90,13 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         setSidebarOpen(false);
     }, []);
 
-    const handleSelectDM = useCallback((roomId: string, peerDomain: string) => {
+    const handleSelectDM = useCallback((roomId: string, peerDomain: string, ownDomain: string) => {
+        if (ownDomain !== currentDomain) {
+            switchIdentity(ownDomain);
+        }
         setActiveView({ type: "dm", roomId, peerDomain });
         setSidebarOpen(false);
-    }, []);
+    }, [currentDomain, switchIdentity]);
 
     const handleStartDM = useCallback(async (targetDomain: string) => {
         setShowNewDM(false);
@@ -114,7 +117,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         } catch {
             // Silently fail
         }
-    }, [token, refreshDMs]);
+    }, [token, currentDomain, refreshDMs]);
 
     const handleDMBack = useCallback(() => {
         setActiveView({ type: "global" });

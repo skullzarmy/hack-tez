@@ -4,6 +4,7 @@ const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787
 
 interface DMConversation {
     roomId: string;
+    ownDomain: string;
     peerDomain: string;
     lastMessage: string | null;
     lastMessageAt: string | null;

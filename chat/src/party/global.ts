@@ -181,8 +181,13 @@ export default class GlobalRoom implements Server {
       return;
     }
 
+    const requestedDomain = url.searchParams.get("activeDomain");
+    const effectiveDomain = requestedDomain && payload.domains.includes(requestedDomain)
+      ? requestedDomain
+      : payload.activeDomain;
+
     conn.setState({
-      domain: payload.activeDomain,
+      domain: effectiveDomain,
       address: payload.address,
       domains: payload.domains,
     });
@@ -193,7 +198,7 @@ export default class GlobalRoom implements Server {
     }
 
     this.room.broadcast(
-      JSON.stringify({ type: "presence", domain: payload.activeDomain, status: "online" }),
+      JSON.stringify({ type: "presence", domain: effectiveDomain, status: "online" }),
       [conn.id],
     );
   }

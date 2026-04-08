@@ -106,37 +106,42 @@ export default class DMRoom implements Server {
       return;
     }
 
+    const requestedDomain = url.searchParams.get("activeDomain");
+    const effectiveDomain = requestedDomain && payload.domains.includes(requestedDomain)
+      ? requestedDomain
+      : payload.activeDomain;
+
     // Verify the connecting domain is a participant in this DM room
     const participants = parseRoomParticipants(this.room.id);
-    if (!participants || !participants.includes(payload.activeDomain)) {
+    if (!participants || !participants.includes(effectiveDomain)) {
       sendJson(conn, { type: "error", code: "NOT_PARTICIPANT", message: "You are not a participant in this DM" });
       conn.close(4003, "Not a participant");
       return;
     }
 
     conn.setState({
-      domain: payload.activeDomain,
+      domain: effectiveDomain,
       address: payload.address,
     });
 
     // Send presence for all currently connected domains
     for (const other of this.room.getConnections()) {
       const otherDomain = this.getDomain(other);
-      if (otherDomain && otherDomain !== payload.activeDomain) {
+      if (otherDomain && otherDomain !== effectiveDomain) {
         sendJson(conn, { type: "presence", domain: otherDomain, status: "online" });
       }
     }
 
     // Broadcast that this user is online
     this.room.broadcast(
-      JSON.stringify({ type: "presence", domain: payload.activeDomain, status: "online" }),
+      JSON.stringify({ type: "presence", domain: effectiveDomain, status: "online" }),
       [conn.id],
     );
 
     // Send unread count via Worker API
     try {
       const resp = await this.workerFetch(
-        `/internal/unread?roomId=${encodeURIComponent(this.room.id)}&domain=${encodeURIComponent(payload.activeDomain)}`,
+        `/internal/unread?roomId=${encodeURIComponent(this.room.id)}&domain=${encodeURIComponent(effectiveDomain)}`,
       );
       if (resp.ok) {
         const data = (await resp.json()) as { count: number };

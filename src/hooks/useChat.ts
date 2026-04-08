@@ -51,11 +51,16 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     // Stable connection key — only changes on first auth, not refreshes
     const [connectionKey] = useState(() => token);
 
+    // Sync local identity when parent session identity changes.
+    useEffect(() => {
+        setCurrentDomain(activeDomain);
+    }, [activeDomain]);
+
     useEffect(() => {
         const ws = new PartySocket({
             host: PARTYKIT_HOST,
             room: "global",
-            query: { token: tokenRef.current },
+            query: { token: tokenRef.current, activeDomain },
         });
         wsRef.current = ws;
 
@@ -156,7 +161,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
             setIsConnected(false);
             historyLoadedRef.current = false;
         };
-    }, [connectionKey]);
+    }, [connectionKey, activeDomain]);
 
     const sendMessage = useCallback(
         (content: string) => {

@@ -49,7 +49,7 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             host: PARTYKIT_HOST,
             party: "dm",
             room: roomId,
-            query: { token: tokenRef.current },
+            query: { token: tokenRef.current, activeDomain },
         });
         wsRef.current = ws;
 
@@ -139,7 +139,7 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             setPeerTyping(false);
             setPeerOnline(false);
         };
-    }, [roomId, peerDomain]);
+    }, [roomId, peerDomain, activeDomain]);
 
     const sendMessage = useCallback(
         (content: string) => {
@@ -167,9 +167,6 @@ export function useDM(config: UseDMConfig): UseDMReturn {
     const markRead = useCallback(() => {
         wsRef.current?.send(JSON.stringify({ type: "read" }));
     }, []);
-
-    // Suppress lint: activeDomain is part of the config identity but not directly used in logic
-    void activeDomain;
 
     return {
         messages,

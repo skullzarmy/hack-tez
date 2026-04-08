@@ -300,6 +300,13 @@ async function handleDmList(request: Request, env: Env): Promise<Response> {
   if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
 
   try {
+    const domains = user.domains;
+    if (domains.length === 0) {
+      return corsResponse(request, JSON.stringify({ conversations: [] }));
+    }
+
+    const placeholders = domains.map(() => "?").join(", ");
+
     // Single CTE query replaces N+1 per-room queries
     const result = await env.DB
       .prepare(
@@ -307,7 +314,7 @@ async function handleDmList(request: Request, env: Env): Promise<Response> {
            SELECT r.id AS room_id, r.created_at AS room_created_at, m.last_read, m.domain AS user_domain
            FROM chat_room_members m
            JOIN chat_rooms r ON r.id = m.room_id
-           WHERE m.domain = ? AND r.type = 'dm'
+           WHERE m.domain IN (${placeholders}) AND r.type = 'dm'
          ),
          latest_msgs AS (
            SELECT room_id, content, created_at, sender_domain,
@@ -328,21 +335,24 @@ async function handleDmList(request: Request, env: Env): Promise<Response> {
                 ur.room_created_at,
                 lm.content AS last_message,
                 lm.created_at AS last_message_at,
-                COALESCE(uc.cnt, 0) AS unread_count
+                COALESCE(uc.cnt, 0) AS unread_count,
+                ur.user_domain AS user_domain
          FROM user_rooms ur
          LEFT JOIN latest_msgs lm ON lm.room_id = ur.room_id AND lm.rn = 1
          LEFT JOIN unread_counts uc ON uc.room_id = ur.room_id
          ORDER BY COALESCE(lm.created_at, ur.room_created_at) DESC`,
       )
-      .bind(user.activeDomain)
+      .bind(...domains)
       .all();
 
     const conversations = result.results.map((row) => {
       const roomId = row.room_id as string;
+      const ownDomain = row.user_domain as string;
       const parts = roomId.slice(3).split("+");
-      const peerDomain = parts[0] === user.activeDomain ? parts[1] : parts[0];
+      const peerDomain = parts[0] === ownDomain ? parts[1] : parts[0];
       return {
         roomId,
+        ownDomain,
         peerDomain,
         lastMessage: (row.last_message as string | null) ?? null,
         lastMessageAt: (row.last_message_at as string | null) ?? null,

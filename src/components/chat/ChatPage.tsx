@@ -205,6 +205,34 @@ export default function ChatPage() {
                     saveSession(updated);
                     return updated;
                 });
+
+                // Re-issue JWT for the newly selected identity so downstream auth
+                // (DM list/create/socket connect) does not fall back to token default.
+                void (async () => {
+                    try {
+                        const current = loadSession();
+                        if (!current) return;
+                        const res = await fetch(`${HACKCHAT_URL}/auth/refresh`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${current.token}`,
+                                "X-Active-Domain": domain,
+                            },
+                        });
+                        if (!res.ok) return;
+                        const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string };
+                        const refreshed = {
+                            token: data.token,
+                            domains: data.domains,
+                            activeDomain: resolveInitialDomain(data.domains, data.activeDomain),
+                        };
+                        saveSession(refreshed);
+                        setSession(refreshed);
+                    } catch {
+                        // Silent refresh failure; existing session remains active.
+                    }
+                })();
             }}
         />
     );

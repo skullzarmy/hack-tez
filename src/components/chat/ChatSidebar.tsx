@@ -3,6 +3,7 @@ import { Hash, MessageSquare, Plus, Users, X } from "lucide-react";
 
 interface DMConversation {
     roomId: string;
+    ownDomain: string;
     peerDomain: string;
     lastMessage: string | null;
     lastMessageAt: string | null;
@@ -20,7 +21,7 @@ interface ChatSidebarProps {
     activeView: ActiveView;
     conversations: DMConversation[];
     onSelectGlobal: () => void;
-    onSelectDM: (roomId: string, peerDomain: string) => void;
+    onSelectDM: (roomId: string, peerDomain: string, ownDomain: string) => void;
     onNewDM: () => void;
     totalUnread: number;
     isOpen: boolean;
@@ -189,7 +190,7 @@ export default function ChatSidebar({
                         <button
                             key={conv.roomId}
                             type="button"
-                            onClick={() => onSelectDM(conv.roomId, conv.peerDomain)}
+                            onClick={() => onSelectDM(conv.roomId, conv.peerDomain, conv.ownDomain)}
                             className="flex flex-col text-left w-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2.5 gap-0.5"
                             style={{
                                 background: isActive ? "rgba(0, 255, 200, 0.06)" : "transparent",
