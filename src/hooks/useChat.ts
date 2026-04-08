@@ -58,6 +58,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     }, [activeDomain]);
 
     useEffect(() => {
+        let closedIntentionally = false;
         const ws = new PartySocket({
             host: PARTYKIT_HOST,
             room: "global",
@@ -77,7 +78,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
 
         ws.addEventListener("close", () => {
             setIsConnected(false);
-            if (!reconnectTimerRef.current) {
+            if (!closedIntentionally && !reconnectTimerRef.current) {
                 reconnectTimerRef.current = setTimeout(() => {
                     reconnectTimerRef.current = null;
                     setReconnectTick((n) => n + 1);
@@ -158,7 +159,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                         id: `sys-${Date.now()}`,
                         sender: "__system__",
                         content: data.content as string,
-                        timestamp: data.timestamp as string ?? new Date().toISOString(),
+                        timestamp: (data.timestamp as string) ?? new Date().toISOString(),
                     };
                     setMessages((prev) => [...prev, sysMsg]);
                     break;
@@ -175,6 +176,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         });
 
         return () => {
+            closedIntentionally = true;
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
@@ -186,21 +188,15 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         };
     }, [token, activeDomain, reconnectTick]);
 
-    const sendMessage = useCallback(
-        (content: string) => {
-            const trimmed = content.trim();
-            if (!trimmed || !wsRef.current) return;
-            wsRef.current.send(JSON.stringify({ type: "message", content: trimmed }));
-        },
-        [],
-    );
+    const sendMessage = useCallback((content: string) => {
+        const trimmed = content.trim();
+        if (!trimmed || !wsRef.current) return;
+        wsRef.current.send(JSON.stringify({ type: "message", content: trimmed }));
+    }, []);
 
-    const sendTyping = useCallback(
-        (active: boolean) => {
-            wsRef.current?.send(JSON.stringify({ type: "typing", active }));
-        },
-        [],
-    );
+    const sendTyping = useCallback((active: boolean) => {
+        wsRef.current?.send(JSON.stringify({ type: "typing", active }));
+    }, []);
 
     const loadMore = useCallback(() => {
         if (isLoading || !hasMore || !wsRef.current || messages.length === 0) return;
@@ -212,18 +208,13 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     // Include own domain in online users for display
     useEffect(() => {
         if (isConnected) {
-            setOnlineUsers((prev) =>
-                prev.includes(currentDomain) ? prev : [...prev, currentDomain],
-            );
+            setOnlineUsers((prev) => (prev.includes(currentDomain) ? prev : [...prev, currentDomain]));
         }
     }, [isConnected, currentDomain]);
 
-    const switchIdentity = useCallback(
-        (domain: string) => {
-            wsRef.current?.send(JSON.stringify({ type: "switch-identity", domain }));
-        },
-        [],
-    );
+    const switchIdentity = useCallback((domain: string) => {
+        wsRef.current?.send(JSON.stringify({ type: "switch-identity", domain }));
+    }, []);
 
     return {
         messages,
