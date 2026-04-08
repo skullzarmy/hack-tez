@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, useLayoutEffect } from "react";
 import { MessageCircle, Users, Loader2, Menu, AlertTriangle } from "lucide-react";
 import IdentitySelector from "./IdentitySelector";
 import MessageBubble from "./MessageBubble";
@@ -6,8 +6,19 @@ import MessageInput from "./MessageInput";
 import ChatSidebar from "./ChatSidebar";
 import DMView from "./DMView";
 import NewDMModal from "./NewDMModal";
+import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
 import { useChat } from "../../hooks/useChat";
 import { useDMList } from "../../hooks/useDMList";
+import {
+    getChatNotificationSoundCandidates,
+    loadChatNotificationSettings,
+    saveChatNotificationSettings,
+    shouldPlayChatNotification,
+} from "../../lib/chatNotifications";
+import type {
+    ChatNotificationEvent,
+    ChatNotificationSettings,
+} from "../../lib/chatNotifications";
 
 const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
 const HIDDEN_DMS_STORAGE_KEY = "hack-tez-hidden-dms";
@@ -31,12 +42,68 @@ interface PendingDMSelection {
     ownDomain: string;
 }
 
+interface DMConversation {
+    roomId: string;
+    ownDomain: string;
+    peerDomain: string;
+    lastMessage: string | null;
+    lastMessageAt: string | null;
+    unreadCount: number;
+}
+
 export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain }: ChatLayoutProps) {
     const [activeView, setActiveView] = useState<ActiveView>({ type: "global" });
     const [pendingDM, setPendingDM] = useState<PendingDMSelection | null>(null);
     const [showNewDM, setShowNewDM] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [hiddenDMs, setHiddenDMs] = useState<string[]>([]);
+    const [notificationSettings, setNotificationSettings] = useState<ChatNotificationSettings>(() =>
+        loadChatNotificationSettings(),
+    );
+    const [notificationSoundUrl, setNotificationSoundUrl] = useState<string | null>(null);
+
+    const activeViewRef = useRef<ActiveView>(activeView);
+    const currentDomainRef = useRef(activeDomain);
+    const conversationsRef = useRef<DMConversation[]>([]);
+    const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+    const refreshDMsRef = useRef<() => void>(() => {});
+
+    useEffect(() => {
+        activeViewRef.current = activeView;
+    }, [activeView]);
+
+    const playNotificationSound = useCallback(() => {
+        const audio = notificationAudioRef.current;
+        if (!audio) return;
+        audio.currentTime = 0;
+        void audio.play().catch(() => {
+            // Autoplay can be blocked until user gesture.
+        });
+    }, []);
+
+    const handleIncomingMessage = useCallback(
+        (event: ChatNotificationEvent) => {
+            if (event.source === "dm") {
+                refreshDMsRef.current();
+            }
+
+            const knownDMRoomIds = new Set(conversationsRef.current.map((conv) => conv.roomId));
+            const isDocumentHidden = typeof document === "undefined" ? true : document.hidden;
+
+            const shouldPlay = shouldPlayChatNotification({
+                settings: notificationSettings,
+                event,
+                activeView: activeViewRef.current,
+                currentDomain: currentDomainRef.current,
+                knownDMRoomIds,
+                isDocumentHidden,
+            });
+
+            if (!shouldPlay) return;
+            playNotificationSound();
+        },
+        [notificationSettings, playNotificationSound],
+    );
 
     const {
         messages,
@@ -50,9 +117,139 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         sendTyping,
         activeDomain: currentDomain,
         switchIdentity,
-    } = useChat({ token, activeDomain, onIdentitySwitched: onSwitchDomain });
+    } = useChat({
+        token,
+        activeDomain,
+        onIdentitySwitched: onSwitchDomain,
+        onIncomingMessage: handleIncomingMessage,
+    });
 
     const { conversations, totalUnread, refresh: refreshDMs } = useDMList({ token, activeDomain: currentDomain });
+
+    useEffect(() => {
+        refreshDMsRef.current = refreshDMs;
+    }, [refreshDMs]);
+
+    useEffect(() => {
+        currentDomainRef.current = currentDomain;
+    }, [currentDomain]);
+
+    useEffect(() => {
+        conversationsRef.current = conversations;
+    }, [conversations]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function resolveNotificationSound() {
+            if (typeof document === "undefined") return;
+            const audio = document.createElement("audio");
+
+            for (const candidate of getChatNotificationSoundCandidates()) {
+                if (audio.canPlayType(candidate.mime) === "") continue;
+
+                try {
+                    const response = await fetch(candidate.url, {
+                        method: "HEAD",
+                        cache: "force-cache",
+                    });
+
+                    if (response.ok) {
+                        if (!cancelled) setNotificationSoundUrl(candidate.url);
+                        return;
+                    }
+                } catch {
+                    // Try the next source.
+                }
+            }
+
+            if (!cancelled) {
+                setNotificationSoundUrl("/chatnotification.mp3");
+            }
+        }
+
+        void resolveNotificationSound();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!notificationSoundUrl) {
+            notificationAudioRef.current = null;
+            return;
+        }
+
+        const audio = new Audio(notificationSoundUrl);
+        audio.preload = "auto";
+        notificationAudioRef.current = audio;
+
+        return () => {
+            audio.pause();
+            notificationAudioRef.current = null;
+        };
+    }, [notificationSoundUrl]);
+
+    const updateNotificationSettings = useCallback(
+        (updater: (prev: ChatNotificationSettings) => ChatNotificationSettings) => {
+            setNotificationSettings((prev) => {
+                const next = updater(prev);
+                saveChatNotificationSettings(next);
+                return next;
+            });
+        },
+        [],
+    );
+
+    const toggleGlobalNotifications = useCallback(() => {
+        updateNotificationSettings((prev) => ({
+            ...prev,
+            globalEnabled: !prev.globalEnabled,
+        }));
+    }, [updateNotificationSettings]);
+
+    const toggleMuteForegroundConversation = useCallback(() => {
+        updateNotificationSettings((prev) => ({
+            ...prev,
+            muteForegroundConversation: !prev.muteForegroundConversation,
+        }));
+    }, [updateNotificationSettings]);
+
+    const toggleMuteNewDMs = useCallback(() => {
+        updateNotificationSettings((prev) => ({
+            ...prev,
+            muteNewDMs: !prev.muteNewDMs,
+        }));
+    }, [updateNotificationSettings]);
+
+    const toggleMuteGlobalChannel = useCallback(() => {
+        updateNotificationSettings((prev) => {
+            const id = "global";
+            const muted = prev.mutedChannelIds.includes(id)
+                ? prev.mutedChannelIds.filter((channelId) => channelId !== id)
+                : [...prev.mutedChannelIds, id];
+            return { ...prev, mutedChannelIds: muted };
+        });
+    }, [updateNotificationSettings]);
+
+    const toggleMuteActiveDM = useCallback(() => {
+        if (activeView.type !== "dm" || !activeView.roomId) return;
+        const roomId = activeView.roomId;
+        updateNotificationSettings((prev) => {
+            const muted = prev.mutedDMRoomIds.includes(roomId)
+                ? prev.mutedDMRoomIds.filter((id) => id !== roomId)
+                : [...prev.mutedDMRoomIds, roomId];
+            return { ...prev, mutedDMRoomIds: muted };
+        });
+    }, [activeView, updateNotificationSettings]);
+
+    const isGlobalChannelMuted = notificationSettings.mutedChannelIds.includes("global");
+    const isActiveDMMuted = Boolean(
+        activeView.type === "dm" &&
+            activeView.roomId &&
+            notificationSettings.mutedDMRoomIds.includes(activeView.roomId),
+    );
 
     useEffect(() => {
         try {
@@ -99,14 +296,23 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         }
     }, [hasMore, isLoading, loadMore]);
 
-    // Auto-scroll on new messages (only if near bottom)
+    // Reset pin-to-bottom state when entering global view.
     useEffect(() => {
-        if (shouldAutoScrollRef.current) {
-            const behavior = isInitialLoadRef.current ? "instant" as const : "smooth" as const;
-            messagesEndRef.current?.scrollIntoView({ behavior });
-            isInitialLoadRef.current = false;
-        }
-    }, [messages.length]);
+        if (activeView.type !== "global") return;
+        shouldAutoScrollRef.current = true;
+        isInitialLoadRef.current = true;
+    }, [activeView.type]);
+
+    // Pin to latest before paint to avoid initial top->bottom visible motion.
+    useLayoutEffect(() => {
+        if (activeView.type !== "global") return;
+        if (messages.length === 0 && isInitialLoadRef.current) return;
+        if (!shouldAutoScrollRef.current) return;
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        container.scrollTop = container.scrollHeight;
+        isInitialLoadRef.current = false;
+    }, [activeView.type, messages.length]);
 
     // Close mobile sidebar on Escape
     useEffect(() => {
@@ -217,11 +423,21 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
             {/* Conditional: Global Chat or DM View */}
             {activeView.type === "dm" && activeView.roomId && activeView.peerDomain ? (
                 <DMView
+                    key={`${activeView.roomId}:${activeView.peerDomain}`}
                     token={token}
                     activeDomain={currentDomain}
                     roomId={activeView.roomId}
                     peerDomain={activeView.peerDomain}
                     onBack={handleDMBack}
+                    onIncomingMessage={handleIncomingMessage}
+                    notificationSettings={notificationSettings}
+                    isGlobalChannelMuted={isGlobalChannelMuted}
+                    isActiveDMMuted={isActiveDMMuted}
+                    onToggleGlobalEnabled={toggleGlobalNotifications}
+                    onToggleMuteForegroundConversation={toggleMuteForegroundConversation}
+                    onToggleMuteNewDMs={toggleMuteNewDMs}
+                    onToggleMuteGlobalChannel={toggleMuteGlobalChannel}
+                    onToggleMuteActiveDM={toggleMuteActiveDM}
                 />
             ) : (
                 /* Main global chat area */
@@ -262,17 +478,30 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                             <span
                             className="flex items-center text-xs uppercase tracking-wide gap-1"
                                 style={{ color: "var(--fg-3, #888)", letterSpacing: "0.08em" }}
-                                aria-label={`${onlineUsers.length} users online`}
+                                title={`${onlineUsers.length} users online`}
                             >
                                 <Users size={12} aria-hidden="true" />
                                 {onlineUsers.length}
                             </span>
                         </div>
-                        <IdentitySelector
-                            domains={domains}
-                            activeDomain={currentDomain}
-                            onSwitch={switchIdentity}
-                        />
+                        <div className="flex items-center gap-1.5">
+                            <IdentitySelector
+                                domains={domains}
+                                activeDomain={currentDomain}
+                                onSwitch={switchIdentity}
+                            />
+                            <ChatNotificationSettingsMenu
+                                settings={notificationSettings}
+                                isGlobalChannelMuted={isGlobalChannelMuted}
+                                isActiveDMMuted={isActiveDMMuted}
+                                hasActiveDM={activeView.type === "dm"}
+                                onToggleGlobalEnabled={toggleGlobalNotifications}
+                                onToggleMuteForegroundConversation={toggleMuteForegroundConversation}
+                                onToggleMuteNewDMs={toggleMuteNewDMs}
+                                onToggleMuteGlobalChannel={toggleMuteGlobalChannel}
+                                onToggleMuteActiveDM={toggleMuteActiveDM}
+                            />
+                        </div>
                     </header>
 
                     {/* Reconnecting banner */}
@@ -304,31 +533,10 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     >
                         {/* Load more indicator */}
                         {isLoading && (
-                            <div className="flex justify-center py-2" aria-label="Loading older messages">
+                            <div className="flex justify-center py-2">
                                 <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-3, #888)" }} />
                             </div>
                         )}
-                        {hasMore && !isLoading && (
-                            <button
-                                type="button"
-                                onClick={loadMore}
-                                className="text-xs self-center uppercase tracking-widest font-bold focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2"
-                                style={{
-                                    color: "var(--accent, #00ffc8)",
-                                    background: "transparent",
-                                    fontFamily: "var(--font-mono)",
-                                    cursor: "pointer",
-                                    minHeight: "44px",
-                                    border: "1px solid var(--border-2, #333)",
-                                    outlineColor: "var(--accent, #00ffc8)",
-                                    letterSpacing: "0.1em",
-                                    fontSize: "10px",
-                                }}
-                            >
-                                ↑ Load older messages
-                            </button>
-                        )}
-
                         {/* Empty state */}
                         {messages.length === 0 && !isLoading && (
                             <div className="flex-1 flex items-center justify-center px-4">

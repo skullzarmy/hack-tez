@@ -22,7 +22,6 @@ import {
     renderFrames,
     renderSingleFrame,
 } from "../../src/lib/hackatar/index.ts";
-
 // ---------------------------------------------------------------------------
 // Network config (mirrors src/config/tezos.ts without Vite import.meta.env)
 // ---------------------------------------------------------------------------
@@ -848,9 +847,8 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
+    const route = ctx.params?.["route"] ?? "";
     const net = getNetwork();
-    const { params } = ctx;
-    const route = params["route"] ?? "";
     const segments = route.split("/").filter(Boolean);
     const [resource, param] = segments;
 

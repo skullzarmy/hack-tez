@@ -22,6 +22,9 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
     const url = e.request.url;
 
+    // Never intercept non-GET requests (e.g. POST uploads).
+    if (e.request.method !== "GET") return;
+
     // Skip non-http(s) requests (chrome-extension, etc.)
     if (!url.startsWith("http")) return;
 
@@ -37,7 +40,7 @@ self.addEventListener("fetch", (e) => {
             fetch(e.request)
                 .then((res) => {
                     // Update the cache with the fresh response
-                    if (res && res.ok) {
+                    if (res?.ok) {
                         const clone = res.clone();
                         caches.open(CACHE).then((c) => c.put("/", clone));
                     }

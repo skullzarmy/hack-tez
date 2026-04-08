@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PartySocket from "partysocket";
+import type { ChatNotificationEvent } from "../lib/chatNotifications";
 
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST ?? "localhost:1999";
 
@@ -15,6 +16,7 @@ interface UseDMConfig {
     activeDomain: string;
     roomId: string;
     peerDomain: string;
+    onIncomingMessage?: (event: ChatNotificationEvent) => void;
 }
 
 interface UseDMReturn {
@@ -42,6 +44,8 @@ export function useDM(config: UseDMConfig): UseDMReturn {
     const wsRef = useRef<PartySocket | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const prevRoomKeyRef = useRef<string>("");
+    const onIncomingMessageRef = useRef(config.onIncomingMessage);
+    onIncomingMessageRef.current = config.onIncomingMessage;
     const roomKey = `${roomId}|${peerDomain}`;
 
     useEffect(() => {
@@ -98,10 +102,19 @@ export function useDM(config: UseDMConfig): UseDMReturn {
                         content: data.content as string,
                         timestamp: data.timestamp as string,
                     };
+                    let isNewMessage = false;
                     setMessages((prev) => {
                         if (prev.some((m) => m.id === msg.id)) return prev;
+                        isNewMessage = true;
                         return [...prev, msg];
                     });
+                    if (isNewMessage && msg.sender === peerDomain) {
+                        onIncomingMessageRef.current?.({
+                            source: "dm",
+                            senderDomain: msg.sender,
+                            roomId,
+                        });
+                    }
                     break;
                 }
                 case "history": {
