@@ -23,6 +23,7 @@ interface DropdownPos {
     top: number;
     left: number;
     width: number;
+    maxWidth: number;
 }
 
 export default function Select({
@@ -38,7 +39,7 @@ export default function Select({
 }: SelectProps) {
     const [open, setOpen] = useState(false);
     const [focusIndex, setFocusIndex] = useState(-1);
-    const [pos, setPos] = useState<DropdownPos>({ top: 0, left: 0, width: 0 });
+    const [pos, setPos] = useState<DropdownPos>({ top: 0, left: 0, width: 0, maxWidth: 0 });
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
     const uid = useId();
@@ -53,36 +54,42 @@ export default function Select({
         triggerRef.current?.focus();
     }, []);
 
+    const updateDropdownPos = useCallback(() => {
+        if (!triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        const viewportPadding = 8;
+        const availableWidth = Math.max(120, window.innerWidth - viewportPadding * 2);
+        const preferredWidth = variant === "accent" ? Math.max(rect.width, 180) : rect.width;
+        const width = Math.min(preferredWidth, availableWidth);
+        const left = Math.min(
+            Math.max(rect.left, viewportPadding),
+            Math.max(viewportPadding, window.innerWidth - width - viewportPadding),
+        );
+
+        setPos({
+            top: rect.bottom,
+            left,
+            width,
+            maxWidth: availableWidth,
+        });
+    }, [variant]);
+
     // Position the dropdown relative to the trigger
     useLayoutEffect(() => {
-        if (!open || !triggerRef.current) return;
-        const rect = triggerRef.current.getBoundingClientRect();
-        setPos({
-            top: rect.bottom + window.scrollY,
-            left: rect.left + window.scrollX,
-            width: rect.width,
-        });
-    }, [open]);
+        if (!open) return;
+        updateDropdownPos();
+    }, [open, updateDropdownPos]);
 
     // Reposition on scroll/resize while open
     useEffect(() => {
         if (!open) return;
-        function reposition() {
-            if (!triggerRef.current) return;
-            const rect = triggerRef.current.getBoundingClientRect();
-            setPos({
-                top: rect.bottom + window.scrollY,
-                left: rect.left + window.scrollX,
-                width: rect.width,
-            });
-        }
-        window.addEventListener("scroll", reposition, true);
-        window.addEventListener("resize", reposition);
+        window.addEventListener("scroll", updateDropdownPos, true);
+        window.addEventListener("resize", updateDropdownPos);
         return () => {
-            window.removeEventListener("scroll", reposition, true);
-            window.removeEventListener("resize", reposition);
+            window.removeEventListener("scroll", updateDropdownPos, true);
+            window.removeEventListener("resize", updateDropdownPos);
         };
-    }, [open]);
+    }, [open, updateDropdownPos]);
 
     // Close on outside click
     useEffect(() => {
@@ -192,6 +199,8 @@ export default function Select({
                   color: "var(--bg, #000)",
                   padding: "0.35rem 0.5rem",
                   minHeight: "44px",
+                  maxWidth: "min(48vw, 190px)",
+                  boxSizing: "border-box",
                   whiteSpace: "nowrap",
               }
             : {
@@ -213,13 +222,12 @@ export default function Select({
                   whiteSpace: "nowrap",
               };
 
-    const dropdownMinWidth = variant === "accent" ? 180 : pos.width;
-
     const dropdownStyle: React.CSSProperties = {
-        position: "absolute",
+        position: "fixed",
         top: pos.top + 2,
         left: pos.left,
-        minWidth: dropdownMinWidth,
+        width: pos.width,
+        maxWidth: pos.maxWidth,
         zIndex: 9999,
         background: "var(--bg-2, #111)",
         border: "1px solid var(--border, #333)",
@@ -269,7 +277,13 @@ export default function Select({
                             }}
                         >
                             <span>{opt.label}</span>
-                            {isSelected && <Check size={12} style={{ flexShrink: 0, marginLeft: "0.5rem", color: "var(--accent, #00ffc8)" }} aria-hidden="true" />}
+                            {isSelected && (
+                                <Check
+                                    size={12}
+                                    style={{ flexShrink: 0, marginLeft: "0.5rem", color: "var(--accent, #00ffc8)" }}
+                                    aria-hidden="true"
+                                />
+                            )}
                         </li>
                     );
                 })}
@@ -303,7 +317,9 @@ export default function Select({
                 onKeyDown={handleKeyDown}
                 style={{ ...triggerStyle, outline: "none" }}
             >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{displayLabel}</span>
+                <span style={{ display: "block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {displayLabel}
+                </span>
                 <ChevronDown
                     size={variant === "accent" ? 10 : 12}
                     style={{
