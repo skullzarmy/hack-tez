@@ -840,9 +840,6 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: Request, ctx: Context): Promise<Response> {
-    const { params } = ctx;
-    const route = params["route"] ?? "";
-
     if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
@@ -850,6 +847,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
+    const route = ctx.params?.["route"] ?? "";
     const net = getNetwork();
     const segments = route.split("/").filter(Boolean);
     const [resource, param] = segments;
