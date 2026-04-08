@@ -224,98 +224,98 @@ export default function ChatSidebar({
                     const isActive = activeView.type === "dm" && activeView.roomId === conv.roomId;
                     const isConfirmingHide = confirmHideRoomId === conv.roomId;
                     return (
-                        <button
+                        <div
                             key={conv.roomId}
-                            type="button"
-                            onClick={() => onSelectDM(conv.roomId, conv.peerDomain, conv.ownDomain)}
-                            className="flex flex-col text-left w-full min-w-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2 gap-0.5"
+                            className="flex items-stretch w-full min-w-0"
                             style={{
                                 background: isActive ? "rgba(0, 255, 200, 0.06)" : "transparent",
                                 borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
-                                cursor: "pointer",
-                                borderTop: "none",
-                                borderRight: "none",
-                                borderBottom: "none",
-                                minHeight: "52px",
-                                outlineColor: "var(--accent, #00ffc8)",
                             }}
-                            aria-current={isActive ? "page" : undefined}
                         >
-                            <div className="flex items-center justify-between w-full min-w-0 gap-2">
-                                <span
-                                    className="text-[11px] font-bold truncate min-w-0 flex-1"
-                                    style={{
-                                        color: isActive ? "var(--accent, #00ffc8)" : "var(--fg, #eee)",
-                                        fontFamily: "var(--font-mono)",
-                                    }}
-                                >
-                                    {conv.peerDomain}
-                                </span>
-                                <span className="flex items-center gap-1.5 shrink-0">
-                                    {conv.lastMessageAt && (
-                                        <span
-                                            className="text-xs"
-                                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "10px" }}
-                                        >
-                                            {formatRelativeShort(conv.lastMessageAt)}
-                                        </span>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (isConfirmingHide) {
-                                                onHideDM(conv.roomId);
-                                                setConfirmHideRoomId(null);
-                                                return;
-                                            }
-                                            setConfirmHideRoomId(conv.roomId);
-                                        }}
-                                        className="inline-flex items-center justify-center"
+                            <button
+                                type="button"
+                                onClick={() => onSelectDM(conv.roomId, conv.peerDomain, conv.ownDomain)}
+                                className="flex flex-col flex-1 min-w-0 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2 gap-0.5"
+                                style={{
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                    border: "none",
+                                    minHeight: "52px",
+                                    outlineColor: "var(--accent, #00ffc8)",
+                                }}
+                                aria-current={isActive ? "page" : undefined}
+                            >
+                                <div className="flex items-center justify-between w-full min-w-0 gap-2">
+                                    <span
+                                        className="text-[11px] font-bold truncate min-w-0 flex-1"
                                         style={{
-                                            width: "24px",
-                                            height: "24px",
-                                            border: "none",
-                                            background: "transparent",
-                                            color: isConfirmingHide ? "var(--warn, #ffd166)" : "var(--fg-3, #888)",
-                                            cursor: "pointer",
+                                            color: isActive ? "var(--accent, #00ffc8)" : "var(--fg, #eee)",
                                             fontFamily: "var(--font-mono)",
-                                            fontSize: "10px",
-                                            fontWeight: 700,
-                                            textTransform: "uppercase",
-                                            letterSpacing: "0.08em",
                                         }}
-                                        aria-label={isConfirmingHide ? `Confirm hide DM with ${conv.peerDomain}` : `Hide DM with ${conv.peerDomain}`}
-                                        title={isConfirmingHide ? "Click again to confirm" : "Hide DM"}
                                     >
-                                        {isConfirmingHide ? <Check size={12} aria-hidden="true" /> : <Archive size={12} aria-hidden="true" />}
-                                    </button>
-                                    {conv.unreadCount > 0 && (
-                                        <span
-                                            className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
-                                            style={{
-                                                background: "var(--accent, #00ffc8)",
-                                                color: "var(--bg, #000)",
-                                                minWidth: "16px",
-                                            }}
-                                        >
-                                            {conv.unreadCount}
-                                            <span className="sr-only">
-                                                {` unread message${conv.unreadCount === 1 ? "" : "s"}`}
+                                        {conv.peerDomain}
+                                    </span>
+                                    <span className="flex items-center gap-1.5 shrink-0">
+                                        {conv.lastMessageAt && (
+                                            <span
+                                                className="text-xs"
+                                                style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "10px" }}
+                                            >
+                                                {formatRelativeShort(conv.lastMessageAt)}
                                             </span>
-                                        </span>
-                                    )}
-                                </span>
-                            </div>
-                            {conv.lastMessage && (
-                                <span
-                                    className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
-                                    style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)" }}
-                                >
-                                    {truncate(conv.lastMessage, 34)}
-                                </span>
-                            )}
-                        </button>
+                                        )}
+                                        {conv.unreadCount > 0 && (
+                                            <span
+                                                className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
+                                                style={{
+                                                    background: "var(--accent, #00ffc8)",
+                                                    color: "var(--bg, #000)",
+                                                    minWidth: "16px",
+                                                }}
+                                            >
+                                                {conv.unreadCount}
+                                                <span className="sr-only">
+                                                    {` unread message${conv.unreadCount === 1 ? "" : "s"}`}
+                                                </span>
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                                {conv.lastMessage && (
+                                    <span
+                                        className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
+                                        style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)" }}
+                                    >
+                                        {truncate(conv.lastMessage, 34)}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (isConfirmingHide) {
+                                        onHideDM(conv.roomId);
+                                        setConfirmHideRoomId(null);
+                                        return;
+                                    }
+                                    setConfirmHideRoomId(conv.roomId);
+                                }}
+                                className="inline-flex items-center justify-center shrink-0 self-center"
+                                style={{
+                                    width: "32px",
+                                    height: "32px",
+                                    marginRight: "8px",
+                                    border: "none",
+                                    background: "transparent",
+                                    color: isConfirmingHide ? "var(--warn, #ffd166)" : "var(--fg-3, #888)",
+                                    cursor: "pointer",
+                                }}
+                                aria-label={isConfirmingHide ? `Confirm hide DM with ${conv.peerDomain}` : `Hide DM with ${conv.peerDomain}`}
+                                title={isConfirmingHide ? "Click again to confirm" : "Hide DM"}
+                            >
+                                {isConfirmingHide ? <Check size={12} aria-hidden="true" /> : <Archive size={12} aria-hidden="true" />}
+                            </button>
+                        </div>
                     );
                 })}
             </div>
