@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PartySocket from "partysocket";
+import type { ChatNotificationEvent } from "../lib/chatNotifications";
 
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST ?? "localhost:1999";
 
@@ -14,6 +15,7 @@ interface UseChatConfig {
     token: string;
     activeDomain: string;
     onIdentitySwitched?: (domain: string) => void;
+    onIncomingMessage?: (event: ChatNotificationEvent) => void;
 }
 
 interface UseChatReturn {
@@ -43,8 +45,12 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     const wsRef = useRef<PartySocket | null>(null);
     const historyLoadedRef = useRef(false);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const currentDomainRef = useRef(activeDomain);
     const onSwitchRef = useRef(config.onIdentitySwitched);
+    const onIncomingMessageRef = useRef(config.onIncomingMessage);
     onSwitchRef.current = config.onIdentitySwitched;
+    onIncomingMessageRef.current = config.onIncomingMessage;
+    currentDomainRef.current = currentDomain;
 
     // Sync local identity when parent session identity changes.
     useEffect(() => {
@@ -95,10 +101,18 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                         content: data.content as string,
                         timestamp: data.timestamp as string,
                     };
+                    let isNewMessage = false;
                     setMessages((prev) => {
                         if (prev.some((m) => m.id === msg.id)) return prev;
+                        isNewMessage = true;
                         return [...prev, msg];
                     });
+                    if (isNewMessage && msg.sender !== currentDomainRef.current) {
+                        onIncomingMessageRef.current?.({
+                            source: "global",
+                            senderDomain: msg.sender,
+                        });
+                    }
                     break;
                 }
                 case "history": {

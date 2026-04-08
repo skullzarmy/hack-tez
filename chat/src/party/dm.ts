@@ -228,7 +228,7 @@ export default class DMRoom implements Server {
   private async handleHistory(sender: Connection, before?: string) {
     const roomId = this.room.id;
     try {
-      const params = new URLSearchParams({ roomId, limit: "50" });
+      const params = new URLSearchParams({ roomId, limit: "20" });
       if (before) params.set("before", before);
 
       const resp = await this.workerFetch(`/internal/history?${params.toString()}`);
