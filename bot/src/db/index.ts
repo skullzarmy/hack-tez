@@ -35,55 +35,59 @@ db.exec(`
 // ── Poll state ────────────────────────────────────────────────────────────────
 
 export function getPollCursor(key: "last_claim_id" | "last_commit_id"): number {
-    const row = db
-        .query<{ value: string }, [string]>("SELECT value FROM poll_state WHERE key = ?")
-        .get(key);
+    const row = db.query<{ value: string }, [string]>("SELECT value FROM poll_state WHERE key = ?").get(key);
     return row ? parseInt(row.value, 10) : 0;
 }
 
 export function setPollCursor(key: "last_claim_id" | "last_commit_id", value: number): void {
     db.query(
-        "INSERT INTO poll_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        "INSERT INTO poll_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     ).run(key, String(value));
+}
+
+export function hasPollCursor(key: "last_claim_id" | "last_commit_id"): boolean {
+    const row = db.query<{ key: string }, [string]>("SELECT key FROM poll_state WHERE key = ?").get(key);
+    return Boolean(row);
 }
 
 // ── Subscription queries ──────────────────────────────────────────────────────
 
 /** Create or return existing subscription (all alerts on by default). */
-export function upsertSubscription(
-    chatId: number,
-    userId: number,
-    subdomain: string | null
-): Subscription {
-    db.query(`
+export function upsertSubscription(chatId: number, userId: number, subdomain: string | null): Subscription {
+    db.query(
+        `
         INSERT INTO subscriptions (chat_id, user_id, subdomain)
         VALUES (?, ?, ?)
         ON CONFLICT (chat_id, subdomain) DO UPDATE SET
             updated_at = unixepoch()
-    `).run(chatId, userId, subdomain);
+    `,
+    ).run(chatId, userId, subdomain);
 
-    return getSubscription(chatId, subdomain)!;
+    const row = getSubscription(chatId, subdomain);
+    if (row === null) {
+        throw new Error("Failed to upsert subscription");
+    }
+    return row;
 }
 
 export function getSubscription(chatId: number, subdomain: string | null): Subscription | null {
     return db
-        .query<Subscription, [number, string | null]>(
-            "SELECT * FROM subscriptions WHERE chat_id = ? AND subdomain IS ?"
-        )
+        .query<
+            Subscription,
+            [number, string | null]
+        >("SELECT * FROM subscriptions WHERE chat_id = ? AND subdomain IS ?")
         .get(chatId, subdomain);
 }
 
 export function deleteSubscription(chatId: number, subdomain: string | null): boolean {
-    const info = db
-        .query("DELETE FROM subscriptions WHERE chat_id = ? AND subdomain IS ?")
-        .run(chatId, subdomain);
+    const info = db.query("DELETE FROM subscriptions WHERE chat_id = ? AND subdomain IS ?").run(chatId, subdomain);
     return info.changes > 0;
 }
 
 export function setAlertFlags(
     chatId: number,
     subdomain: string | null,
-    patch: { claims_enabled?: 0 | 1; commits_enabled?: 0 | 1 }
+    patch: { claims_enabled?: 0 | 1; commits_enabled?: 0 | 1 },
 ): boolean {
     const parts: string[] = [];
     const params: (number | string | null)[] = [];
@@ -102,9 +106,7 @@ export function setAlertFlags(
     params.push(chatId, subdomain);
 
     const info = db
-        .query(
-            `UPDATE subscriptions SET ${parts.join(", ")} WHERE chat_id = ? AND subdomain IS ?`
-        )
+        .query(`UPDATE subscriptions SET ${parts.join(", ")} WHERE chat_id = ? AND subdomain IS ?`)
         .run(...(params as (string | number | null)[]));
     return info.changes > 0;
 }
@@ -112,18 +114,17 @@ export function setAlertFlags(
 /** All subscriptions for a chat (ordered: global first, then by subdomain). */
 export function listSubscriptions(chatId: number): Subscription[] {
     return db
-        .query<Subscription, [number]>(
-            "SELECT * FROM subscriptions WHERE chat_id = ? ORDER BY subdomain IS NOT NULL, subdomain"
-        )
+        .query<
+            Subscription,
+            [number]
+        >("SELECT * FROM subscriptions WHERE chat_id = ? ORDER BY subdomain IS NOT NULL, subdomain")
         .all(chatId);
 }
 
 /** All subscriptions in the system (admin view). */
 export function listAllSubscriptions(): Subscription[] {
     return db
-        .query<Subscription, []>(
-            "SELECT * FROM subscriptions ORDER BY chat_id, subdomain IS NOT NULL, subdomain"
-        )
+        .query<Subscription, []>("SELECT * FROM subscriptions ORDER BY chat_id, subdomain IS NOT NULL, subdomain")
         .all();
 }
 
@@ -137,7 +138,7 @@ export function findClaimRecipients(label: string): Subscription[] {
             `SELECT * FROM subscriptions
              WHERE claims_enabled = 1
                AND (subdomain IS NULL OR subdomain = ?)
-             ORDER BY chat_id`
+             ORDER BY chat_id`,
         )
         .all(label);
 }
@@ -145,8 +146,9 @@ export function findClaimRecipients(label: string): Subscription[] {
 /** Find all chats that should receive commit alerts (global subscribers only). */
 export function findCommitRecipients(): Subscription[] {
     return db
-        .query<Subscription, []>(
-            "SELECT * FROM subscriptions WHERE commits_enabled = 1 AND subdomain IS NULL ORDER BY chat_id"
-        )
+        .query<
+            Subscription,
+            []
+        >("SELECT * FROM subscriptions WHERE commits_enabled = 1 AND subdomain IS NULL ORDER BY chat_id")
         .all();
 }

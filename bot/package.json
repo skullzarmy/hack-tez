@@ -6,6 +6,8 @@
     "type": "module",
     "scripts": {
         "start": "bun run src/index.ts",
+        "bootstrap": "bun run src/index.ts --bootstrap-latest",
+        "start:cold": "bun run src/index.ts --allow-cold-start",
         "dev": "bun --watch run src/index.ts",
         "typecheck": "tsc --noEmit"
     },

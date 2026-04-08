@@ -6,6 +6,23 @@ const CONTRACT = NETWORK.registrarAddress;
 
 const DEFAULT_LIMIT = 50;
 
+async function fetchLatestOpId(entrypoint: "register" | "commit"): Promise<number> {
+    const url = new URL(`${BASE}/v1/operations/transactions`);
+    url.searchParams.set("target", CONTRACT);
+    url.searchParams.set("entrypoint", entrypoint);
+    url.searchParams.set("status", "applied");
+    url.searchParams.set("sort.desc", "id");
+    url.searchParams.set("limit", "1");
+
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+        throw new Error(`TzKT error ${res.status}: ${await res.text()}`);
+    }
+
+    const ops = (await res.json()) as TzktOperation[];
+    return ops.length > 0 ? ops[0].id : 0;
+}
+
 async function fetchOps(entrypoint: string, afterId: number): Promise<TzktOperation[]> {
     const url = new URL(`${BASE}/v1/operations/transactions`);
     url.searchParams.set("target", CONTRACT);
@@ -28,6 +45,14 @@ export async function fetchNewClaims(afterId: number): Promise<TzktOperation[]> 
 
 export async function fetchNewCommits(afterId: number): Promise<TzktOperation[]> {
     return fetchOps("commit", afterId);
+}
+
+export async function fetchLatestClaimId(): Promise<number> {
+    return fetchLatestOpId("register");
+}
+
+export async function fetchLatestCommitId(): Promise<number> {
+    return fetchLatestOpId("commit");
 }
 
 /** Decode a hex-encoded bytes string to UTF-8 (handles optional 0x prefix). */
