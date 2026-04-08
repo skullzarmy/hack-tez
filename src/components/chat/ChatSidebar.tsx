@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Hash, MessageSquare, Plus, Users, X } from "lucide-react";
+import { Hash, MessageSquare, Plus, Users, X, Archive, RotateCcw } from "lucide-react";
 
 interface DMConversation {
     roomId: string;
@@ -22,6 +22,9 @@ interface ChatSidebarProps {
     conversations: DMConversation[];
     onSelectGlobal: () => void;
     onSelectDM: (roomId: string, peerDomain: string, ownDomain: string) => void;
+    onHideDM: (roomId: string) => void;
+    onClearHidden: () => void;
+    hiddenCount: number;
     onNewDM: () => void;
     totalUnread: number;
     isOpen: boolean;
@@ -51,6 +54,9 @@ export default function ChatSidebar({
     conversations,
     onSelectGlobal,
     onSelectDM,
+    onHideDM,
+    onClearHidden,
+    hiddenCount,
     onNewDM,
     totalUnread,
     isOpen,
@@ -175,6 +181,27 @@ export default function ChatSidebar({
                 </button>
             </div>
 
+            {hiddenCount > 0 && (
+                <div className="px-4 pb-2">
+                    <button
+                        type="button"
+                        onClick={onClearHidden}
+                        className="inline-flex items-center text-[10px] font-bold uppercase tracking-widest gap-1"
+                        style={{
+                            color: "var(--fg-3, #888)",
+                            fontFamily: "var(--font-mono)",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            minHeight: "32px",
+                        }}
+                    >
+                        <RotateCcw size={12} aria-hidden="true" />
+                        Show hidden ({hiddenCount})
+                    </button>
+                </div>
+            )}
+
             <div className="flex flex-col overflow-y-auto flex-1 min-h-0 px-3">
                 {conversations.length === 0 && (
                     <div
@@ -224,6 +251,26 @@ export default function ChatSidebar({
                                             {formatRelativeShort(conv.lastMessageAt)}
                                         </span>
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onHideDM(conv.roomId);
+                                        }}
+                                        className="inline-flex items-center justify-center"
+                                        style={{
+                                            width: "24px",
+                                            height: "24px",
+                                            border: "none",
+                                            background: "transparent",
+                                            color: "var(--fg-3, #888)",
+                                            cursor: "pointer",
+                                        }}
+                                        aria-label={`Hide DM with ${conv.peerDomain}`}
+                                        title="Hide DM"
+                                    >
+                                        <Archive size={12} aria-hidden="true" />
+                                    </button>
                                     {conv.unreadCount > 0 && (
                                         <span
                                             className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"

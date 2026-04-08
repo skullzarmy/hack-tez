@@ -99,6 +99,35 @@ function computeDmRoomId(domainA: string, domainB: string): string {
   return `dm:${sorted[0]}+${sorted[1]}`;
 }
 
+function getNetworkTld(env: Env): "tez" | "gho" {
+  return env.TEZOS_NETWORK === "mainnet" ? "tez" : "gho";
+}
+
+function normalizeDmTargetDomain(input: string, tld: "tez" | "gho"): { ok: true; domain: string } | { ok: false; error: string } {
+  const raw = input.trim().toLowerCase();
+  if (!raw) return { ok: false, error: "targetDomain is required" };
+  if (raw.length > 80) return { ok: false, error: "Domain is too long" };
+
+  const labelPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+  // Full form: label.hack.<tld>
+  const fullMatch = raw.match(new RegExp(`^([a-z0-9][a-z0-9-]{1,61}[a-z0-9])\\.hack\\.${tld}$`));
+  if (fullMatch) {
+    return { ok: true, domain: raw };
+  }
+
+  // Label-only form
+  if (raw.includes(".")) {
+    return { ok: false, error: `Domain must be a label or end with .hack.${tld}` };
+  }
+
+  if (raw.length < 3 || raw.length > 63 || !labelPattern.test(raw)) {
+    return { ok: false, error: "Invalid label format" };
+  }
+
+  return { ok: true, domain: `${raw}.hack.${tld}` };
+}
+
 interface AuthRequestBody {
   address: string;
   publicKey: string;
@@ -267,11 +296,18 @@ async function handleDmCreate(request: Request, env: Env): Promise<Response> {
     return errorResponse(request, "targetDomain is required", "INVALID_BODY", 400);
   }
 
-  if (targetDomain === user.activeDomain) {
+  const normalized = normalizeDmTargetDomain(targetDomain, getNetworkTld(env));
+  if (!normalized.ok) {
+    return errorResponse(request, normalized.error, "INVALID_DOMAIN", 400);
+  }
+
+  const normalizedTargetDomain = normalized.domain;
+
+  if (normalizedTargetDomain === user.activeDomain) {
     return errorResponse(request, "Cannot DM yourself", "SELF_DM", 400);
   }
 
-  const roomId = computeDmRoomId(user.activeDomain, targetDomain);
+  const roomId = computeDmRoomId(user.activeDomain, normalizedTargetDomain);
 
   try {
     await env.DB
@@ -286,10 +322,10 @@ async function handleDmCreate(request: Request, env: Env): Promise<Response> {
 
     await env.DB
       .prepare("INSERT OR IGNORE INTO chat_room_members (room_id, domain) VALUES (?, ?)")
-      .bind(roomId, targetDomain)
+      .bind(roomId, normalizedTargetDomain)
       .run();
 
-    return corsResponse(request, JSON.stringify({ roomId, targetDomain }));
+    return corsResponse(request, JSON.stringify({ roomId, targetDomain: normalizedTargetDomain }));
   } catch {
     return errorResponse(request, "Failed to create DM room", "DM_CREATE_ERROR", 500);
   }

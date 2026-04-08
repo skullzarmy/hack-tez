@@ -10,6 +10,7 @@ import { useChat } from "../../hooks/useChat";
 import { useDMList } from "../../hooks/useDMList";
 
 const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
+const HIDDEN_DMS_STORAGE_KEY = "hack-tez-hidden-dms";
 
 interface ChatLayoutProps {
     token: string;
@@ -24,10 +25,18 @@ interface ActiveView {
     peerDomain?: string;
 }
 
+interface PendingDMSelection {
+    roomId: string;
+    peerDomain: string;
+    ownDomain: string;
+}
+
 export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain }: ChatLayoutProps) {
     const [activeView, setActiveView] = useState<ActiveView>({ type: "global" });
+    const [pendingDM, setPendingDM] = useState<PendingDMSelection | null>(null);
     const [showNewDM, setShowNewDM] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [hiddenDMs, setHiddenDMs] = useState<string[]>([]);
 
     const {
         messages,
@@ -44,6 +53,33 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     } = useChat({ token, activeDomain, onIdentitySwitched: onSwitchDomain });
 
     const { conversations, totalUnread, refresh: refreshDMs } = useDMList({ token, activeDomain: currentDomain });
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(HIDDEN_DMS_STORAGE_KEY);
+            if (!raw) {
+                setHiddenDMs([]);
+                return;
+            }
+            const parsed = JSON.parse(raw) as unknown;
+            if (Array.isArray(parsed)) {
+                setHiddenDMs(parsed.filter((v): v is string => typeof v === "string"));
+            }
+        } catch {
+            setHiddenDMs([]);
+        }
+    }, []);
+
+    const persistHiddenDMs = useCallback((value: string[]) => {
+        setHiddenDMs(value);
+        try {
+            localStorage.setItem(HIDDEN_DMS_STORAGE_KEY, JSON.stringify(value));
+        } catch {
+            // Ignore storage failures.
+        }
+    }, []);
+
+    const visibleConversations = conversations.filter((conv) => !hiddenDMs.includes(conv.roomId) || conv.unreadCount > 0);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -93,10 +129,21 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const handleSelectDM = useCallback((roomId: string, peerDomain: string, ownDomain: string) => {
         if (ownDomain !== currentDomain) {
             switchIdentity(ownDomain);
+            setPendingDM({ roomId, peerDomain, ownDomain });
+            setSidebarOpen(false);
+            return;
         }
         setActiveView({ type: "dm", roomId, peerDomain });
+        setPendingDM(null);
         setSidebarOpen(false);
     }, [currentDomain, switchIdentity]);
+
+    useEffect(() => {
+        if (!pendingDM) return;
+        if (pendingDM.ownDomain !== currentDomain) return;
+        setActiveView({ type: "dm", roomId: pendingDM.roomId, peerDomain: pendingDM.peerDomain });
+        setPendingDM(null);
+    }, [pendingDM, currentDomain]);
 
     const handleStartDM = useCallback(async (targetDomain: string) => {
         setShowNewDM(false);
@@ -120,9 +167,23 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     }, [token, currentDomain, refreshDMs]);
 
     const handleDMBack = useCallback(() => {
+        setPendingDM(null);
         setActiveView({ type: "global" });
         refreshDMs();
     }, [refreshDMs]);
+
+    const handleHideDM = useCallback((roomId: string) => {
+        if (!hiddenDMs.includes(roomId)) {
+            persistHiddenDMs([...hiddenDMs, roomId]);
+        }
+        if (activeView.type === "dm" && activeView.roomId === roomId) {
+            setActiveView({ type: "global" });
+        }
+    }, [hiddenDMs, persistHiddenDMs, activeView]);
+
+    const handleClearHiddenDMs = useCallback(() => {
+        persistHiddenDMs([]);
+    }, [persistHiddenDMs]);
 
     return (
         <div
@@ -141,9 +202,12 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
             <ChatSidebar
                 onlineUsers={onlineUsers}
                 activeView={activeView}
-                conversations={conversations}
+                conversations={visibleConversations}
                 onSelectGlobal={handleSelectGlobal}
                 onSelectDM={handleSelectDM}
+                onHideDM={handleHideDM}
+                onClearHidden={handleClearHiddenDMs}
+                hiddenCount={hiddenDMs.length}
                 onNewDM={() => setShowNewDM(true)}
                 totalUnread={totalUnread}
                 isOpen={sidebarOpen}

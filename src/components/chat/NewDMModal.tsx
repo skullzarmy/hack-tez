@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { X, Search, MessageSquare } from "lucide-react";
+import config from "../../config/tezos";
 
 interface NewDMModalProps {
     onlineUsers: string[];
@@ -13,6 +14,31 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
     const dialogRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
+    const normalizeManualTarget = useCallback((input: string): { valid: boolean; domain?: string; error?: string } => {
+        const raw = input.trim().toLowerCase();
+        if (!raw) return { valid: false, error: "Enter a domain" };
+        if (raw.length > 80) return { valid: false, error: "Domain is too long" };
+
+        const tld = config.tld;
+        const labelPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+        const fullMatch = raw.match(new RegExp(`^([a-z0-9][a-z0-9-]{1,61}[a-z0-9])\\.hack\\.${tld}$`));
+        if (fullMatch) {
+            return { valid: true, domain: raw };
+        }
+
+        if (raw.includes(".")) {
+            return { valid: false, error: `Use a label or label.hack.${tld}` };
+        }
+
+        if (raw.length < 3 || raw.length > 63 || !labelPattern.test(raw)) {
+            return { valid: false, error: "Use 3-63 lowercase letters, numbers, or hyphens" };
+        }
+
+        return { valid: true, domain: `${raw}.hack.${tld}` };
+    }, []);
+
+    const manualTarget = normalizeManualTarget(search);
+
     const filteredUsers = useMemo(() => {
         const others = onlineUsers.filter((d) => d !== activeDomain);
         if (!search.trim()) return others;
@@ -20,12 +46,13 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
         return others.filter((d) => d.toLowerCase().includes(q));
     }, [onlineUsers, activeDomain, search]);
 
-    const canSendManual = search.trim().length > 0
-        && search.trim() !== activeDomain
-        && !filteredUsers.includes(search.trim());
+    const canSendManual = !!manualTarget.valid
+        && !!manualTarget.domain
+        && manualTarget.domain !== activeDomain
+        && !filteredUsers.includes(manualTarget.domain);
 
     function handleManualSend() {
-        const domain = search.trim();
+        const domain = manualTarget.domain;
         if (domain && domain !== activeDomain) {
             onStartDM(domain);
         }
@@ -215,9 +242,18 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                                 className="text-xs"
                                 style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
                             >
-                                Message <span style={{ color: "var(--accent, #00ffc8)", fontWeight: 700 }}>{search.trim()}</span>
+                                Message <span style={{ color: "var(--accent, #00ffc8)", fontWeight: 700 }}>{manualTarget.domain}</span>
                             </span>
                         </button>
+                    )}
+
+                    {search.trim() && !canSendManual && !filteredUsers.length && !manualTarget.valid && (
+                        <div
+                            className="text-center text-xs px-5 py-3"
+                            style={{ color: "var(--warn, #ffd166)", fontFamily: "var(--font-mono)" }}
+                        >
+                            {manualTarget.error}
+                        </div>
                     )}
 
                     {filteredUsers.length === 0 && !canSendManual && (
