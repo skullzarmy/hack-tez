@@ -111,7 +111,7 @@ function normalizeDmTargetDomain(input: string, tld: "tez" | "gho"): { ok: true;
   const labelPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
   // Full form: label.hack.<tld>
-  const fullMatch = raw.match(new RegExp(`^([a-z0-9][a-z0-9-]{1,61}[a-z0-9])\\.hack\\.${tld}$`));
+  const fullMatch = raw.match(new RegExp(`^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\\.hack\\.${tld}$`));
   if (fullMatch) {
     return { ok: true, domain: raw };
   }
@@ -121,7 +121,7 @@ function normalizeDmTargetDomain(input: string, tld: "tez" | "gho"): { ok: true;
     return { ok: false, error: `Domain must be a label or end with .hack.${tld}` };
   }
 
-  if (raw.length < 3 || raw.length > 63 || !labelPattern.test(raw)) {
+  if (raw.length < 1 || raw.length > 63 || !labelPattern.test(raw)) {
     return { ok: false, error: "Invalid label format" };
   }
 

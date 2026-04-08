@@ -21,7 +21,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
 
         const tld = config.tld;
         const labelPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-        const fullMatch = raw.match(new RegExp(`^([a-z0-9][a-z0-9-]{1,61}[a-z0-9])\\.hack\\.${tld}$`));
+        const fullMatch = raw.match(new RegExp(`^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\\.hack\\.${tld}$`));
         if (fullMatch) {
             return { valid: true, domain: raw };
         }
@@ -30,8 +30,8 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
             return { valid: false, error: `Use a label or label.hack.${tld}` };
         }
 
-        if (raw.length < 3 || raw.length > 63 || !labelPattern.test(raw)) {
-            return { valid: false, error: "Use 3-63 lowercase letters, numbers, or hyphens" };
+        if (raw.length < 1 || raw.length > 63 || !labelPattern.test(raw)) {
+            return { valid: false, error: "Use 1-63 lowercase letters, numbers, or hyphens" };
         }
 
         return { valid: true, domain: `${raw}.hack.${tld}` };

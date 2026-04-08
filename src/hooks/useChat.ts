@@ -38,18 +38,13 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     const [hasMore, setHasMore] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
+    const [reconnectTick, setReconnectTick] = useState(0);
     const [currentDomain, setCurrentDomain] = useState(activeDomain);
     const wsRef = useRef<PartySocket | null>(null);
     const historyLoadedRef = useRef(false);
-    const tokenRef = useRef(token);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const onSwitchRef = useRef(config.onIdentitySwitched);
     onSwitchRef.current = config.onIdentitySwitched;
-
-    // Keep token ref current for reconnects without triggering effect
-    useEffect(() => { tokenRef.current = token; }, [token]);
-
-    // Stable connection key — only changes on first auth, not refreshes
-    const [connectionKey] = useState(() => token);
 
     // Sync local identity when parent session identity changes.
     useEffect(() => {
@@ -60,18 +55,28 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         const ws = new PartySocket({
             host: PARTYKIT_HOST,
             room: "global",
-            query: { token: tokenRef.current, activeDomain },
+            query: { token, activeDomain, rt: String(reconnectTick) },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             // Always load history on connect/reconnect, dedup handled by ID
             ws.send(JSON.stringify({ type: "history" }));
         });
 
         ws.addEventListener("close", () => {
             setIsConnected(false);
+            if (!reconnectTimerRef.current) {
+                reconnectTimerRef.current = setTimeout(() => {
+                    reconnectTimerRef.current = null;
+                    setReconnectTick((n) => n + 1);
+                }, 1500);
+            }
         });
 
         ws.addEventListener("message", (event) => {
@@ -156,12 +161,16 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         });
 
         return () => {
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             ws.close();
             wsRef.current = null;
             setIsConnected(false);
             historyLoadedRef.current = false;
         };
-    }, [connectionKey, activeDomain]);
+    }, [token, activeDomain, reconnectTick]);
 
     const sendMessage = useCallback(
         (content: string) => {

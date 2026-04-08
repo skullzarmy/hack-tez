@@ -38,29 +38,48 @@ export function useDM(config: UseDMConfig): UseDMReturn {
     const [hasMore, setHasMore] = useState(false);
     const [peerTyping, setPeerTyping] = useState(false);
     const [peerOnline, setPeerOnline] = useState(false);
+    const [reconnectTick, setReconnectTick] = useState(0);
     const wsRef = useRef<PartySocket | null>(null);
-    const tokenRef = useRef(token);
-
-    // Keep token ref current for reconnects
-    useEffect(() => { tokenRef.current = token; }, [token]);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const prevRoomKeyRef = useRef<string>("");
+    const roomKey = `${roomId}|${peerDomain}`;
 
     useEffect(() => {
+        if (prevRoomKeyRef.current !== roomKey) {
+            prevRoomKeyRef.current = roomKey;
+            setMessages([]);
+            setHasMore(false);
+            setIsLoading(false);
+            setPeerTyping(false);
+            setPeerOnline(false);
+        }
+
         const ws = new PartySocket({
             host: PARTYKIT_HOST,
             party: "dm",
             room: roomId,
-            query: { token: tokenRef.current, activeDomain },
+            query: { token, activeDomain, rt: String(reconnectTick) },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             // Always load history on connect/reconnect, dedup handled by ID
             ws.send(JSON.stringify({ type: "history" }));
         });
 
         ws.addEventListener("close", () => {
             setIsConnected(false);
+            if (!reconnectTimerRef.current) {
+                reconnectTimerRef.current = setTimeout(() => {
+                    reconnectTimerRef.current = null;
+                    setReconnectTick((n) => n + 1);
+                }, 1500);
+            }
         });
 
         ws.addEventListener("message", (event) => {
@@ -131,15 +150,15 @@ export function useDM(config: UseDMConfig): UseDMReturn {
         });
 
         return () => {
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             ws.close();
             wsRef.current = null;
             setIsConnected(false);
-            setMessages([]);
-            setHasMore(false);
-            setPeerTyping(false);
-            setPeerOnline(false);
         };
-    }, [roomId, peerDomain, activeDomain]);
+    }, [roomId, peerDomain, roomKey, token, activeDomain, reconnectTick]);
 
     const sendMessage = useCallback(
         (content: string) => {
