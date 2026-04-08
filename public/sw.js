@@ -4,17 +4,13 @@ const SHELL = ["/", "/manage", "/site.webmanifest", "/favicon.svg", "/favicon.ic
 const SKIP_CACHE = ["tzkt.io", "tezos.domains", "api.", "rpc.", "walletbeacon", "matrix.papers"];
 
 self.addEventListener("install", (e) => {
-    e.waitUntil(
-        caches.open(CACHE).then((c) => c.addAll(SHELL))
-    );
+    e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
     self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
     e.waitUntil(
-        caches.keys().then((keys) =>
-            Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-        )
+        caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
     );
     self.clients.claim();
 });
@@ -46,7 +42,7 @@ self.addEventListener("fetch", (e) => {
                     }
                     return res;
                 })
-                .catch(() => caches.match("/").then((cached) => cached || caches.match(e.request)))
+                .catch(() => caches.match("/").then((cached) => cached || caches.match(e.request))),
         );
         return;
     }
@@ -56,11 +52,11 @@ self.addEventListener("fetch", (e) => {
         caches.match(e.request).then((cached) => {
             if (cached) return cached;
             return fetch(e.request).then((res) => {
-                if (!res || !res.ok || res.type !== "basic") return res;
+                if (!res || !res.ok || res.status === 206 || res.type !== "basic") return res;
                 const clone = res.clone();
                 caches.open(CACHE).then((c) => c.put(e.request, clone));
                 return res;
             });
-        })
+        }),
     );
 });
