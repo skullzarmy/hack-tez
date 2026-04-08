@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { Hash, MessageSquare, Plus, Users, X, Archive, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Hash, MessageSquare, Plus, Users, X, Archive, RotateCcw, Check } from "lucide-react";
 
 interface DMConversation {
     roomId: string;
@@ -63,6 +63,7 @@ export default function ChatSidebar({
     onClose,
 }: ChatSidebarProps) {
     const closeButtonRef = useRef<HTMLButtonElement>(null);
+    const [confirmHideRoomId, setConfirmHideRoomId] = useState<string | null>(null);
 
     // Focus close button when mobile drawer opens
     useEffect(() => {
@@ -70,6 +71,14 @@ export default function ChatSidebar({
             closeButtonRef.current?.focus();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!confirmHideRoomId) return;
+        const timeout = setTimeout(() => {
+            setConfirmHideRoomId(null);
+        }, 3000);
+        return () => clearTimeout(timeout);
+    }, [confirmHideRoomId]);
 
     const sidebarContent = (
         <>
@@ -213,12 +222,13 @@ export default function ChatSidebar({
                 )}
                 {conversations.map((conv) => {
                     const isActive = activeView.type === "dm" && activeView.roomId === conv.roomId;
+                    const isConfirmingHide = confirmHideRoomId === conv.roomId;
                     return (
                         <button
                             key={conv.roomId}
                             type="button"
                             onClick={() => onSelectDM(conv.roomId, conv.peerDomain, conv.ownDomain)}
-                            className="flex flex-col text-left w-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2.5 gap-0.5"
+                            className="flex flex-col text-left w-full min-w-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 px-4 py-2 gap-0.5"
                             style={{
                                 background: isActive ? "rgba(0, 255, 200, 0.06)" : "transparent",
                                 borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
@@ -226,23 +236,22 @@ export default function ChatSidebar({
                                 borderTop: "none",
                                 borderRight: "none",
                                 borderBottom: "none",
-                                minHeight: "48px",
+                                minHeight: "52px",
                                 outlineColor: "var(--accent, #00ffc8)",
                             }}
                             aria-current={isActive ? "page" : undefined}
                         >
-                            <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center justify-between w-full min-w-0 gap-2">
                                 <span
-                                    className="text-xs font-bold truncate"
+                                    className="text-[11px] font-bold truncate min-w-0 flex-1"
                                     style={{
                                         color: isActive ? "var(--accent, #00ffc8)" : "var(--fg, #eee)",
                                         fontFamily: "var(--font-mono)",
-                                        maxWidth: "140px",
                                     }}
                                 >
                                     {conv.peerDomain}
                                 </span>
-                                <span className="flex items-center gap-1.5">
+                                <span className="flex items-center gap-1.5 shrink-0">
                                     {conv.lastMessageAt && (
                                         <span
                                             className="text-xs"
@@ -255,7 +264,12 @@ export default function ChatSidebar({
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            onHideDM(conv.roomId);
+                                            if (isConfirmingHide) {
+                                                onHideDM(conv.roomId);
+                                                setConfirmHideRoomId(null);
+                                                return;
+                                            }
+                                            setConfirmHideRoomId(conv.roomId);
                                         }}
                                         className="inline-flex items-center justify-center"
                                         style={{
@@ -263,13 +277,18 @@ export default function ChatSidebar({
                                             height: "24px",
                                             border: "none",
                                             background: "transparent",
-                                            color: "var(--fg-3, #888)",
+                                            color: isConfirmingHide ? "var(--warn, #ffd166)" : "var(--fg-3, #888)",
                                             cursor: "pointer",
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: "10px",
+                                            fontWeight: 700,
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.08em",
                                         }}
-                                        aria-label={`Hide DM with ${conv.peerDomain}`}
-                                        title="Hide DM"
+                                        aria-label={isConfirmingHide ? `Confirm hide DM with ${conv.peerDomain}` : `Hide DM with ${conv.peerDomain}`}
+                                        title={isConfirmingHide ? "Click again to confirm" : "Hide DM"}
                                     >
-                                        <Archive size={12} aria-hidden="true" />
+                                        {isConfirmingHide ? <Check size={12} aria-hidden="true" /> : <Archive size={12} aria-hidden="true" />}
                                     </button>
                                     {conv.unreadCount > 0 && (
                                         <span
@@ -290,8 +309,8 @@ export default function ChatSidebar({
                             </div>
                             {conv.lastMessage && (
                                 <span
-                                    className="text-xs truncate w-full block"
-                                    style={{ color: "var(--fg-3, #888)", fontSize: "11px" }}
+                                    className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
+                                    style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)" }}
                                 >
                                     {truncate(conv.lastMessage, 34)}
                                 </span>
