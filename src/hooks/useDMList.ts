@@ -57,9 +57,29 @@ export function useDMList(config: UseDMListConfig): UseDMListReturn {
 
     // Poll every 30 seconds
     useEffect(() => {
-        intervalRef.current = setInterval(fetchConversations, 30_000);
+        intervalRef.current = setInterval(fetchConversations, 5_000);
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
+        };
+    }, [fetchConversations]);
+
+    useEffect(() => {
+        function handleWindowFocus() {
+            void fetchConversations();
+        }
+
+        function handleVisibilityChange() {
+            if (document.visibilityState === "visible") {
+                void fetchConversations();
+            }
+        }
+
+        window.addEventListener("focus", handleWindowFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener("focus", handleWindowFocus);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, [fetchConversations]);
 
