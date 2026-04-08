@@ -22,7 +22,6 @@ import {
     renderFrames,
     renderSingleFrame,
 } from "../../src/lib/hackatar/index.ts";
-
 // ---------------------------------------------------------------------------
 // Network config (mirrors src/config/tezos.ts without Vite import.meta.env)
 // ---------------------------------------------------------------------------
@@ -841,6 +840,9 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: Request, ctx: Context): Promise<Response> {
+    const { params } = ctx;
+    const route = params["route"] ?? "";
+
     if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
@@ -849,8 +851,6 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     }
 
     const net = getNetwork();
-    const { params } = ctx;
-    const route = params["route"] ?? "";
     const segments = route.split("/").filter(Boolean);
     const [resource, param] = segments;
 
