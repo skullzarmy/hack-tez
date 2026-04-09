@@ -452,19 +452,21 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
     useEffect(() => {
         let cancelled = false;
 
+        const hackatarUrl = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
         const image = new Image();
+        image.crossOrigin = "anonymous";
         image.onload = () => {
             if (!cancelled) setAvatarImage(image);
         };
         image.onerror = () => {
-            if (avatarUrl && image.src !== `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`) {
-                image.src = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+            if (avatarUrl && image.src !== hackatarUrl) {
+                image.src = hackatarUrl;
                 return;
             }
             if (!cancelled) setAvatarImage(null);
         };
 
-        image.src = avatarUrl ?? `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+        image.src = avatarUrl ?? hackatarUrl;
         return () => {
             cancelled = true;
         };
@@ -490,27 +492,35 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
             setMessage("Image copy is not supported in this browser.");
             return;
         }
-        canvasRef.current.toBlob(async (blob) => {
-            if (!blob) {
-                setMessage("Could not prepare image for clipboard.");
-                return;
-            }
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                setMessage("Image copied to clipboard.");
-            } catch {
-                setMessage("Clipboard copy failed.");
-            }
-        }, "image/png");
+        try {
+            canvasRef.current.toBlob(async (blob) => {
+                if (!blob) {
+                    setMessage("Could not prepare image for clipboard.");
+                    return;
+                }
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                    setMessage("Image copied to clipboard.");
+                } catch {
+                    setMessage("Clipboard copy failed.");
+                }
+            }, "image/png");
+        } catch {
+            setMessage("Export blocked by avatar host. Using fallback avatar may fix this.");
+        }
     }
 
     function handleDownload() {
         if (!canvasRef.current) return;
-        const link = document.createElement("a");
-        link.href = canvasRef.current.toDataURL("image/png");
-        link.download = `${label}-share-card.png`;
-        link.click();
-        setMessage("PNG downloaded.");
+        try {
+            const link = document.createElement("a");
+            link.href = canvasRef.current.toDataURL("image/png");
+            link.download = `${label}-share-card.png`;
+            link.click();
+            setMessage("PNG downloaded.");
+        } catch {
+            setMessage("Download blocked by avatar host. Using fallback avatar may fix this.");
+        }
     }
 
     function handleShareX() {
