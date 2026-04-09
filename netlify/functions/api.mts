@@ -845,6 +845,74 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
     });
 }
 
+async function handleAvatar(label: string, reqUrl: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+    const fullName = `${label}.hack.${net.tld}`;
+    const result = await tedGql<{
+        domain: {
+            data: Array<{ key: string; value: unknown }>;
+        } | null;
+    }>(
+        net.domainsGraphql,
+        `query GetAvatar($name: String!) {
+          domain(name: $name) {
+            data { key value }
+          }
+        }`,
+        { name: fullName },
+    );
+
+    if (!result.domain) {
+        return err("Domain not registered", "NOT_FOUND", 404);
+    }
+
+    const data = result.domain.data ?? [];
+    const profile = parseProfileFromData(data);
+    const gravatar = data.find((entry) => entry.key === "gravatar:hash")?.value;
+
+    let sourceUrl: string | null = null;
+    if (profile.picture?.startsWith("ipfs://")) {
+        const cid = profile.picture.replace("ipfs://", "");
+        sourceUrl = `https://ipfs.fileship.xyz/ipfs/${cid}`;
+    } else if (profile.picture?.startsWith("https://")) {
+        sourceUrl = profile.picture;
+    } else if (typeof gravatar === "string" && gravatar.trim().length > 0) {
+        sourceUrl = `https://www.gravatar.com/avatar/${gravatar}?s=400&d=identicon`;
+    }
+
+    if (!sourceUrl) {
+        const staticHackatarUrl = new URL(reqUrl);
+        staticHackatarUrl.searchParams.set("static", "1");
+        return await handleHackatar(label, staticHackatarUrl, net);
+    }
+
+    try {
+        const upstream = await fetch(sourceUrl, {
+            headers: { Accept: "image/*" },
+            redirect: "follow",
+        });
+        if (!upstream.ok) throw new Error(`Avatar upstream returned ${upstream.status}`);
+
+        const contentType = upstream.headers.get("Content-Type")?.toLowerCase() ?? "";
+        if (!contentType.startsWith("image/")) throw new Error("Avatar upstream did not return an image");
+
+        const bytes = await upstream.arrayBuffer();
+        return new Response(bytes, {
+            headers: {
+                "Content-Type": contentType,
+                "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+                ...CORS_HEADERS,
+            },
+        });
+    } catch {
+        const staticHackatarUrl = new URL(reqUrl);
+        staticHackatarUrl.searchParams.set("static", "1");
+        return await handleHackatar(label, staticHackatarUrl, net);
+    }
+}
+
 async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
     const labelErr = validateLabel(label);
     if (labelErr) return err(labelErr, "INVALID_INPUT");
@@ -947,6 +1015,8 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         if (resource === "activity") return await handleActivity(new URL(req.url), net);
         if (resource === "hackatar" && param)
             return await handleHackatar(decodeURIComponent(param), new URL(req.url), net);
+        if (resource === "avatar" && param)
+            return await handleAvatar(decodeURIComponent(param), new URL(req.url), net);
         if (resource === "share-card" && param) return await handleShareCard(decodeURIComponent(param), new URL(req.url), net);
 
         return json(
@@ -964,6 +1034,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                     `/api/v1/config`,
                     `/api/v1/activity?limit=30`,
                     `/api/v1/hackatar/:label`,
+                    `/api/v1/avatar/:label`,
                     `/api/v1/share-card/:label`,
                 ],
                 docs: "/developers",
