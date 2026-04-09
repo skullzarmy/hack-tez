@@ -15,10 +15,7 @@ import {
     saveChatNotificationSettings,
     shouldPlayChatNotification,
 } from "../../lib/chatNotifications";
-import type {
-    ChatNotificationEvent,
-    ChatNotificationSettings,
-} from "../../lib/chatNotifications";
+import type { ChatNotificationEvent, ChatNotificationSettings } from "../../lib/chatNotifications";
 
 const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
 const HIDDEN_DMS_STORAGE_KEY = "hack-tez-hidden-dms";
@@ -247,8 +244,8 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const isGlobalChannelMuted = notificationSettings.mutedChannelIds.includes("global");
     const isActiveDMMuted = Boolean(
         activeView.type === "dm" &&
-            activeView.roomId &&
-            notificationSettings.mutedDMRoomIds.includes(activeView.roomId),
+        activeView.roomId &&
+        notificationSettings.mutedDMRoomIds.includes(activeView.roomId),
     );
 
     useEffect(() => {
@@ -276,7 +273,9 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         }
     }, []);
 
-    const visibleConversations = conversations.filter((conv) => !hiddenDMs.includes(conv.roomId) || conv.unreadCount > 0);
+    const visibleConversations = conversations.filter(
+        (conv) => !hiddenDMs.includes(conv.roomId) || conv.unreadCount > 0,
+    );
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -332,17 +331,20 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         setSidebarOpen(false);
     }, []);
 
-    const handleSelectDM = useCallback((roomId: string, peerDomain: string, ownDomain: string) => {
-        if (ownDomain !== currentDomain) {
-            switchIdentity(ownDomain);
-            setPendingDM({ roomId, peerDomain, ownDomain });
+    const handleSelectDM = useCallback(
+        (roomId: string, peerDomain: string, ownDomain: string) => {
+            if (ownDomain !== currentDomain) {
+                switchIdentity(ownDomain);
+                setPendingDM({ roomId, peerDomain, ownDomain });
+                setSidebarOpen(false);
+                return;
+            }
+            setActiveView({ type: "dm", roomId, peerDomain });
+            setPendingDM(null);
             setSidebarOpen(false);
-            return;
-        }
-        setActiveView({ type: "dm", roomId, peerDomain });
-        setPendingDM(null);
-        setSidebarOpen(false);
-    }, [currentDomain, switchIdentity]);
+        },
+        [currentDomain, switchIdentity],
+    );
 
     useEffect(() => {
         if (!pendingDM) return;
@@ -351,26 +353,29 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         setPendingDM(null);
     }, [pendingDM, currentDomain]);
 
-    const handleStartDM = useCallback(async (targetDomain: string) => {
-        setShowNewDM(false);
-        try {
-            const res = await fetch(`${HACKCHAT_URL}/dm/create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                    "X-Active-Domain": currentDomain,
-                },
-                body: JSON.stringify({ targetDomain }),
-            });
-            if (!res.ok) return;
-            const data = (await res.json()) as { roomId: string; targetDomain: string };
-            setActiveView({ type: "dm", roomId: data.roomId, peerDomain: data.targetDomain });
-            refreshDMs();
-        } catch {
-            // Silently fail
-        }
-    }, [token, currentDomain, refreshDMs]);
+    const handleStartDM = useCallback(
+        async (targetDomain: string) => {
+            setShowNewDM(false);
+            try {
+                const res = await fetch(`${HACKCHAT_URL}/dm/create`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                        "X-Active-Domain": currentDomain,
+                    },
+                    body: JSON.stringify({ targetDomain }),
+                });
+                if (!res.ok) return;
+                const data = (await res.json()) as { roomId: string; targetDomain: string };
+                setActiveView({ type: "dm", roomId: data.roomId, peerDomain: data.targetDomain });
+                refreshDMs();
+            } catch {
+                // Silently fail
+            }
+        },
+        [token, currentDomain, refreshDMs],
+    );
 
     const handleDMBack = useCallback(() => {
         setPendingDM(null);
@@ -378,14 +383,17 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         refreshDMs();
     }, [refreshDMs]);
 
-    const handleHideDM = useCallback((roomId: string) => {
-        if (!hiddenDMs.includes(roomId)) {
-            persistHiddenDMs([...hiddenDMs, roomId]);
-        }
-        if (activeView.type === "dm" && activeView.roomId === roomId) {
-            setActiveView({ type: "global" });
-        }
-    }, [hiddenDMs, persistHiddenDMs, activeView]);
+    const handleHideDM = useCallback(
+        (roomId: string) => {
+            if (!hiddenDMs.includes(roomId)) {
+                persistHiddenDMs([...hiddenDMs, roomId]);
+            }
+            if (activeView.type === "dm" && activeView.roomId === roomId) {
+                setActiveView({ type: "global" });
+            }
+        },
+        [hiddenDMs, persistHiddenDMs, activeView],
+    );
 
     const handleClearHiddenDMs = useCallback(() => {
         persistHiddenDMs([]);
@@ -476,7 +484,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 hackchat
                             </span>
                             <span
-                            className="flex items-center text-xs uppercase tracking-wide gap-1"
+                                className="flex items-center text-xs uppercase tracking-wide gap-1"
                                 style={{ color: "var(--fg-3, #888)", letterSpacing: "0.08em" }}
                                 title={`${onlineUsers.length} users online`}
                             >
@@ -591,11 +599,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     )}
 
                     {/* Message input */}
-                    <MessageInput
-                        onSend={sendMessage}
-                        onTyping={sendTyping}
-                        disabled={!isConnected}
-                    />
+                    <MessageInput onSend={sendMessage} onTyping={sendTyping} disabled={!isConnected} />
                 </div>
             )}
 

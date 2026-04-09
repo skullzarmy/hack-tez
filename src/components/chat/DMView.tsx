@@ -4,10 +4,7 @@ import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
 import { useDM } from "../../hooks/useDM";
-import type {
-    ChatNotificationEvent,
-    ChatNotificationSettings,
-} from "../../lib/chatNotifications";
+import type { ChatNotificationEvent, ChatNotificationSettings } from "../../lib/chatNotifications";
 
 interface DMViewProps {
     token: string;
@@ -130,7 +127,11 @@ export default function DMView({
                         </span>
                         <span
                             className="text-[10px] uppercase tracking-widest"
-                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}
+                            style={{
+                                color: "var(--fg-3, #888)",
+                                fontFamily: "var(--font-mono)",
+                                letterSpacing: "0.12em",
+                            }}
                         >
                             {peerOnline ? "online" : "offline"}
                         </span>
@@ -236,11 +237,7 @@ export default function DMView({
             )}
 
             {/* Message input */}
-            <MessageInput
-                onSend={sendMessage}
-                onTyping={sendTyping}
-                disabled={!isConnected}
-            />
+            <MessageInput onSend={sendMessage} onTyping={sendTyping} disabled={!isConnected} />
         </div>
     );
 }

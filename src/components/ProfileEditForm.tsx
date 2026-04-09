@@ -95,7 +95,9 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
 
     return (
         <div>
-            <label style={LABEL_STYLE}>Skills ({skills.length}/10)</label>
+            <div id="profile-skills-label" style={LABEL_STYLE}>
+                Skills ({skills.length}/10)
+            </div>
             <div
                 style={{
                     ...INPUT_BASE,
@@ -160,6 +162,7 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
                             }
                         }}
                         placeholder={skills.length === 0 ? "Type a skill, press Enter…" : ""}
+                        aria-labelledby="profile-skills-label"
                         style={{
                             background: "none",
                             border: "none",
@@ -180,13 +183,7 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
 
 // ── Avatar Upload ────────────────────────────────────────────────────
 
-const ALLOWED_IMAGE_TYPES = [
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "image/svg+xml",
-];
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
 const ACCEPT_STRING = ALLOWED_IMAGE_TYPES.join(",");
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB
 
@@ -219,30 +216,32 @@ function AvatarUpload({
             }
             return;
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingFile]);
 
-    const displayUrl = preview
-        ?? (currentUri ? ipfsUriToGatewayUrl(currentUri) : null);
+    const displayUrl = preview ?? (currentUri ? ipfsUriToGatewayUrl(currentUri) : null);
 
-    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setError(null);
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const handleFileSelect = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            setError(null);
+            const file = e.target.files?.[0];
+            if (!file) return;
 
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            setError("Unsupported format. Use JPEG, PNG, GIF, WebP, or SVG.");
-            return;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-            setError("File too large. Max 4 MB.");
-            return;
-        }
+            if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                setError("Unsupported format. Use JPEG, PNG, GIF, WebP, or SVG.");
+                return;
+            }
+            if (file.size > MAX_FILE_SIZE) {
+                setError("File too large. Max 4 MB.");
+                return;
+            }
 
-        if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
-        setPreview(URL.createObjectURL(file));
-        onFileSelected(file);
-    }, [preview, onFileSelected]);
+            if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+            setPreview(URL.createObjectURL(file));
+            onFileSelected(file);
+        },
+        [preview, onFileSelected],
+    );
 
     return (
         <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
@@ -274,8 +273,11 @@ function AvatarUpload({
 
             {/* Controls */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
-                <label style={LABEL_STYLE}>Avatar</label>
+                <label htmlFor="profile-avatar-upload" style={LABEL_STYLE}>
+                    Avatar
+                </label>
                 <input
+                    id="profile-avatar-upload"
                     ref={fileRef}
                     type="file"
                     accept={ACCEPT_STRING}
@@ -308,9 +310,7 @@ function AvatarUpload({
                         ✓ {pendingFile.name} — will be uploaded on save
                     </span>
                 )}
-                {error && (
-                    <span style={{ fontSize: "0.65rem", color: "var(--err)" }}>{error}</span>
-                )}
+                {error && <span style={{ fontSize: "0.65rem", color: "var(--err)" }}>{error}</span>}
                 <span style={{ fontSize: "0.6rem", color: "var(--fg-3)", opacity: 0.7 }}>
                     JPEG, PNG, GIF, WebP, or SVG · Max 4 MB
                 </span>
@@ -335,37 +335,43 @@ function ProjectLogoUpload({
     const fileRef = useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const pendingUrl = useMemo(
-        () => pendingFile ? URL.createObjectURL(pendingFile) : null,
-        [pendingFile],
+    const pendingUrl = useMemo(() => (pendingFile ? URL.createObjectURL(pendingFile) : null), [pendingFile]);
+    useEffect(
+        () => () => {
+            if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+        },
+        [pendingUrl],
     );
-    useEffect(() => () => { if (pendingUrl) URL.revokeObjectURL(pendingUrl); }, [pendingUrl]);
 
-    const displayUrl = pendingUrl
-        ?? (currentUri
-            ? (currentUri.startsWith("ipfs://") ? ipfsUriToGatewayUrl(currentUri) : currentUri)
-            : null);
+    const displayUrl =
+        pendingUrl ??
+        (currentUri ? (currentUri.startsWith("ipfs://") ? ipfsUriToGatewayUrl(currentUri) : currentUri) : null);
 
-    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setError(null);
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const handleFileSelect = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            setError(null);
+            const file = e.target.files?.[0];
+            if (!file) return;
 
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            setError("Unsupported format");
-            return;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-            setError("Max 4 MB");
-            return;
-        }
+            if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                setError("Unsupported format");
+                return;
+            }
+            if (file.size > MAX_FILE_SIZE) {
+                setError("Max 4 MB");
+                return;
+            }
 
-        onFileSelected(file);
-    }, [onFileSelected]);
+            onFileSelected(file);
+        },
+        [onFileSelected],
+    );
 
     return (
         <div>
-            <label style={LABEL_STYLE}>Logo</label>
+            <label htmlFor={`project-logo-upload-${index}`} style={LABEL_STYLE}>
+                Logo
+            </label>
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
                 {/* Preview */}
                 <div
@@ -397,6 +403,7 @@ function ProjectLogoUpload({
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
                         <input
+                            id={`project-logo-upload-${index}`}
                             ref={fileRef}
                             type="file"
                             accept={ACCEPT_STRING}
@@ -435,13 +442,9 @@ function ProjectLogoUpload({
                         />
                     </div>
                     {pendingFile && (
-                        <span style={{ fontSize: "0.6rem", color: "var(--ok)" }}>
-                            ✓ will be uploaded on save
-                        </span>
+                        <span style={{ fontSize: "0.6rem", color: "var(--ok)" }}>✓ will be uploaded on save</span>
                     )}
-                    {error && (
-                        <span style={{ fontSize: "0.6rem", color: "var(--err)" }}>{error}</span>
-                    )}
+                    {error && <span style={{ fontSize: "0.6rem", color: "var(--err)" }}>{error}</span>}
                 </div>
             </div>
         </div>
@@ -514,7 +517,9 @@ function ProjectEditor({
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label htmlFor={`project-${index}-name`} style={LABEL_STYLE}>Name *</label>
+                    <label htmlFor={`project-${index}-name`} style={LABEL_STYLE}>
+                        Name *
+                    </label>
                     <input
                         id={`project-${index}-name`}
                         type="text"
@@ -527,7 +532,9 @@ function ProjectEditor({
                     />
                 </div>
                 <div>
-                    <label htmlFor={`project-${index}-status`} style={LABEL_STYLE}>Status</label>
+                    <label htmlFor={`project-${index}-status`} style={LABEL_STYLE}>
+                        Status
+                    </label>
                     <Select
                         id={`project-${index}-status`}
                         options={PROJECT_STATUS_OPTIONS}
@@ -539,7 +546,9 @@ function ProjectEditor({
             </div>
 
             <div>
-                <label htmlFor={`project-${index}-desc`} style={LABEL_STYLE}>Description * ({(project.desc ?? "").length}/120)</label>
+                <label htmlFor={`project-${index}-desc`} style={LABEL_STYLE}>
+                    Description * ({(project.desc ?? "").length}/120)
+                </label>
                 <textarea
                     id={`project-${index}-desc`}
                     value={project.desc}
@@ -554,7 +563,9 @@ function ProjectEditor({
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label htmlFor={`project-${index}-url`} style={LABEL_STYLE}>Website URL</label>
+                    <label htmlFor={`project-${index}-url`} style={LABEL_STYLE}>
+                        Website URL
+                    </label>
                     <input
                         id={`project-${index}-url`}
                         type="url"
@@ -565,7 +576,9 @@ function ProjectEditor({
                     />
                 </div>
                 <div>
-                    <label htmlFor={`project-${index}-repo`} style={LABEL_STYLE}>Repo URL</label>
+                    <label htmlFor={`project-${index}-repo`} style={LABEL_STYLE}>
+                        Repo URL
+                    </label>
                     <input
                         id={`project-${index}-repo`}
                         type="url"
@@ -579,7 +592,9 @@ function ProjectEditor({
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label htmlFor={`project-${index}-env`} style={LABEL_STYLE}>Environment</label>
+                    <label htmlFor={`project-${index}-env`} style={LABEL_STYLE}>
+                        Environment
+                    </label>
                     <Select
                         id={`project-${index}-env`}
                         options={ENVIRONMENT_OPTIONS}
@@ -589,7 +604,9 @@ function ProjectEditor({
                     />
                 </div>
                 <div>
-                    <label htmlFor={`project-${index}-address`} style={LABEL_STYLE}>Address</label>
+                    <label htmlFor={`project-${index}-address`} style={LABEL_STYLE}>
+                        Address
+                    </label>
                     <input
                         id={`project-${index}-address`}
                         type="text"
@@ -656,11 +673,16 @@ function profilesEqual(a: HackProfile, b: HackProfile): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function generateProjectKey(): string {
+    return `project-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 // ── Main Hook ────────────────────────────────────────────────────────
 
 export interface ProfileEditState {
     editing: boolean;
     form: HackProfile;
+    projectKeys: string[];
     submitting: boolean;
     submitError: string | null;
     submitSuccess: boolean;
@@ -691,6 +713,7 @@ export function useProfileEdit(
     const { address: walletAddress, client } = useTezos();
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState<HackProfile>({});
+    const [projectKeys, setProjectKeys] = useState<string[]>([]);
     const [snapshot, setSnapshot] = useState<HackProfile>({});
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -701,11 +724,8 @@ export function useProfileEdit(
     const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
     const [pendingLogos, setPendingLogos] = useState<Record<number, File>>({});
 
-    const hasChanges = editing && (
-        !profilesEqual(form, snapshot) ||
-        pendingAvatar !== null ||
-        Object.keys(pendingLogos).length > 0
-    );
+    const hasChanges =
+        editing && (!profilesEqual(form, snapshot) || pendingAvatar !== null || Object.keys(pendingLogos).length > 0);
 
     // Enter edit mode from ?edit=true
     useEffect(() => {
@@ -714,6 +734,7 @@ export function useProfileEdit(
             if (isOwner) {
                 const copy = snapshotProfile(record.profile);
                 setForm(copy);
+                setProjectKeys((copy.projects ?? []).map(() => generateProjectKey()));
                 setSnapshot(snapshotProfile(record.profile));
                 setEditing(true);
                 setSubmitError(null);
@@ -748,6 +769,7 @@ export function useProfileEdit(
     function enterEditMode(profile: HackProfile) {
         const copy = snapshotProfile(profile);
         setForm(copy);
+        setProjectKeys((copy.projects ?? []).map(() => generateProjectKey()));
         setSnapshot(snapshotProfile(profile));
         setEditing(true);
         setSubmitError(null);
@@ -761,6 +783,7 @@ export function useProfileEdit(
     function exitEditMode() {
         setEditing(false);
         setForm({});
+        setProjectKeys([]);
         setSnapshot({});
         setSubmitError(null);
         setStaleWarning(false);
@@ -787,6 +810,11 @@ export function useProfileEdit(
             projects.splice(index, 1);
             return { ...prev, projects: projects.length > 0 ? projects : undefined };
         });
+        setProjectKeys((prev) => {
+            const next = [...prev];
+            next.splice(index, 1);
+            return next;
+        });
         // Clean up pending logo for removed project, shift higher indices down
         setPendingLogos((prev) => {
             const next: Record<number, File> = {};
@@ -808,7 +836,17 @@ export function useProfileEdit(
             ...prev,
             projects: [...(prev.projects ?? []), emptyProject()],
         }));
+        setProjectKeys((prev) => [...prev, generateProjectKey()]);
     }
+
+    useEffect(() => {
+        const projectCount = form.projects?.length ?? 0;
+        setProjectKeys((prev) => {
+            if (prev.length === projectCount) return prev;
+            if (prev.length > projectCount) return prev.slice(0, projectCount);
+            return [...prev, ...Array.from({ length: projectCount - prev.length }, () => generateProjectKey())];
+        });
+    }, [form.projects]);
 
     async function handleSubmit() {
         if (!client || !record) return;
@@ -913,7 +951,9 @@ export function useProfileEdit(
                     if (wrote.picture && wrote.picture !== got.picture) mismatches.push("avatar");
                     if (wrote.name && wrote.name !== got.name) mismatches.push("name");
                     if (mismatches.length > 0) {
-                        setSaveStatus(`⚠ Some changes may not have saved (${mismatches.join(", ")}). Another update may have overwritten yours.`);
+                        setSaveStatus(
+                            `⚠ Some changes may not have saved (${mismatches.join(", ")}). Another update may have overwritten yours.`,
+                        );
                         await new Promise((r) => setTimeout(r, 6000));
                     }
                 }
@@ -940,6 +980,7 @@ export function useProfileEdit(
     return {
         editing,
         form,
+        projectKeys,
         submitting,
         submitError,
         submitSuccess,
@@ -966,6 +1007,7 @@ export function useProfileEdit(
 export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
     const {
         form,
+        projectKeys,
         submitting,
         submitError,
         staleWarning,
@@ -987,7 +1029,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             {/* ── Bio ─────────────────────────────────────────── */}
             <div style={SECTION_STYLE}>
                 <div>
-                    <label htmlFor="profile-bio" style={LABEL_STYLE}>Bio ({(form.bio ?? "").length}/160)</label>
+                    <label htmlFor="profile-bio" style={LABEL_STYLE}>
+                        Bio ({(form.bio ?? "").length}/160)
+                    </label>
                     <textarea
                         id="profile-bio"
                         value={form.bio ?? ""}
@@ -1003,7 +1047,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             {/* ── Location + Status ───────────────────────────── */}
             <div style={{ ...SECTION_STYLE, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                    <label htmlFor="profile-location" style={LABEL_STYLE}>Location ({(form.location ?? "").length}/60)</label>
+                    <label htmlFor="profile-location" style={LABEL_STYLE}>
+                        Location ({(form.location ?? "").length}/60)
+                    </label>
                     <input
                         id="profile-location"
                         type="text"
@@ -1015,7 +1061,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                     />
                 </div>
                 <div>
-                    <label htmlFor="profile-status" style={LABEL_STYLE}>Status</label>
+                    <label htmlFor="profile-status" style={LABEL_STYLE}>
+                        Status
+                    </label>
                     <Select
                         id="profile-status"
                         options={STATUS_OPTIONS}
@@ -1032,7 +1080,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             <div style={SECTION_STYLE}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
-                        <label htmlFor="profile-github" style={LABEL_STYLE}>GitHub</label>
+                        <label htmlFor="profile-github" style={LABEL_STYLE}>
+                            GitHub
+                        </label>
                         <input
                             id="profile-github"
                             type="text"
@@ -1046,7 +1096,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                         />
                     </div>
                     <div>
-                        <label htmlFor="profile-twitter" style={LABEL_STYLE}>Twitter / X</label>
+                        <label htmlFor="profile-twitter" style={LABEL_STYLE}>
+                            Twitter / X
+                        </label>
                         <input
                             id="profile-twitter"
                             type="text"
@@ -1061,7 +1113,9 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                     </div>
                 </div>
                 <div>
-                    <label htmlFor="profile-website" style={LABEL_STYLE}>Website</label>
+                    <label htmlFor="profile-website" style={LABEL_STYLE}>
+                        Website
+                    </label>
                     <input
                         id="profile-website"
                         type="url"
@@ -1082,12 +1136,20 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
             </div>
 
             {/* ── Projects ────────────────────────────────────── */}
-            <div style={SECTION_STYLE}>
-                <label style={LABEL_STYLE}>Projects</label>
+            <fieldset
+                style={{
+                    ...SECTION_STYLE,
+                    border: "none",
+                    margin: 0,
+                    padding: 0,
+                    minInlineSize: 0,
+                }}
+            >
+                <legend style={LABEL_STYLE}>Projects</legend>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                     {(form.projects ?? []).map((project, i) => (
                         <ProjectEditor
-                            key={i}
+                            key={projectKeys[i]}
                             project={project}
                             index={i}
                             onChange={(p) => updateProject(i, p)}
@@ -1116,15 +1178,11 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                 >
                     + Add Project
                 </button>
-            </div>
+            </fieldset>
 
             {/* ── Avatar Upload ─────────────────────────────── */}
             <div style={{ ...SECTION_STYLE, marginBottom: "1rem" }}>
-                <AvatarUpload
-                    currentUri={form.picture}
-                    pendingFile={pendingAvatar}
-                    onFileSelected={setPendingAvatar}
-                />
+                <AvatarUpload currentUri={form.picture} pendingFile={pendingAvatar} onFileSelected={setPendingAvatar} />
             </div>
 
             {/* ── Stale data warning ──────────────────────────── */}
@@ -1218,7 +1276,11 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                         fontFamily: "var(--font)",
                     }}
                 >
-                    {submitting ? "Saving…" : (pendingAvatar || Object.keys(pendingLogos).length > 0 ? "Upload & Save" : "Save")}
+                    {submitting
+                        ? "Saving…"
+                        : pendingAvatar || Object.keys(pendingLogos).length > 0
+                          ? "Upload & Save"
+                          : "Save"}
                 </button>
                 <button
                     type="button"

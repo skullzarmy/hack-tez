@@ -13,6 +13,7 @@
  */
 import type { Config, Context } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
+import pinHandler from "./pin.mts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
 import {
@@ -185,7 +186,10 @@ function parseProfileFromData(data: Array<{ key: string; value: unknown }>): Hac
                     if (Array.isArray(value)) {
                         const items = value.filter(
                             (v): v is ProfileProject =>
-                                typeof v === "object" && v !== null && typeof v.name === "string" && typeof v.desc === "string",
+                                typeof v === "object" &&
+                                v !== null &&
+                                typeof v.name === "string" &&
+                                typeof v.desc === "string",
                         );
                         if (items.length > 0) profile.projects = items;
                     }
@@ -469,10 +473,7 @@ const registrationHashesCache = new Map<
     string,
     { expiresAt: number; value: Map<string, { hash: string; timestamp: string }> }
 >();
-const registrationHashesInflight = new Map<
-    string,
-    Promise<Map<string, { hash: string; timestamp: string }>>
->();
+const registrationHashesInflight = new Map<string, Promise<Map<string, { hash: string; timestamp: string }>>>();
 
 async function getAllRegistrationHashes(
     net: ReturnType<typeof getNetwork>,
@@ -582,14 +583,16 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
         const label = d.name.replace(`.${parent}`, "");
         if (label.includes(".")) return [];
         const reg = regHashes.get(label);
-        return [{
-            name: d.name,
-            label,
-            owner: d.owner,
-            address: d.address,
-            registeredAt: reg?.timestamp ?? null,
-            opHash: reg?.hash ?? null,
-        }];
+        return [
+            {
+                name: d.name,
+                label,
+                owner: d.owner,
+                address: d.address,
+                registeredAt: reg?.timestamp ?? null,
+                opHash: reg?.hash ?? null,
+            },
+        ];
     });
 
     return json(
@@ -645,10 +648,7 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
     await Promise.all(
         registrars.map(async (addr) => {
             const base =
-                `${net.tzktApi}/v1/operations/transactions` +
-                `?target=${addr}` +
-                `&status=applied` +
-                `&sort.desc=id`;
+                `${net.tzktApi}/v1/operations/transactions` + `?target=${addr}` + `&status=applied` + `&sort.desc=id`;
             try {
                 const [claimRes, commitRes] = await Promise.all([
                     fetch(`${base}&entrypoint=register&limit=${limit}`),
@@ -702,7 +702,10 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
 async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Response> {
     if (!net.registrarAddress) {
         return json(
-            { data: { minCommitAgeSec: 0, maxCommitAgeSec: 0, maxPerWallet: 1, paused: true, registrarAddress: "" }, network: net.name },
+            {
+                data: { minCommitAgeSec: 0, maxCommitAgeSec: 0, maxPerWallet: 1, paused: true, registrarAddress: "" },
+                network: net.name,
+            },
             200,
             { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
         );
@@ -843,14 +846,21 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
+
+    const route = ctx.params?.["route"] ?? "";
+    const segments = route.split("/").filter(Boolean);
+    const [resource, param] = segments;
+
+    // Keep pin uploads addressable at /api/v1/pin even when this catch-all route matches first.
+    if (req.method === "POST" && resource === "pin") {
+        return pinHandler(req, ctx);
+    }
+
     if (req.method !== "GET") {
         return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
-    const route = ctx.params?.["route"] ?? "";
     const net = getNetwork();
-    const segments = route.split("/").filter(Boolean);
-    const [resource, param] = segments;
 
     try {
         if (resource === "domains") return await handleDomains(new URL(req.url), net);
@@ -861,7 +871,8 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         if (resource === "resolve" && param) return await handleResolve(decodeURIComponent(param), net);
         if (resource === "config") return await handleConfig(net);
         if (resource === "activity") return await handleActivity(new URL(req.url), net);
-        if (resource === "hackatar" && param) return await handleHackatar(decodeURIComponent(param), new URL(req.url), net);
+        if (resource === "hackatar" && param)
+            return await handleHackatar(decodeURIComponent(param), new URL(req.url), net);
 
         return json(
             {

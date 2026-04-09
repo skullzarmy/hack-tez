@@ -46,10 +46,11 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
         return others.filter((d) => d.toLowerCase().includes(q));
     }, [onlineUsers, activeDomain, search]);
 
-    const canSendManual = !!manualTarget.valid
-        && !!manualTarget.domain
-        && manualTarget.domain !== activeDomain
-        && !filteredUsers.includes(manualTarget.domain);
+    const canSendManual =
+        !!manualTarget.valid &&
+        !!manualTarget.domain &&
+        manualTarget.domain !== activeDomain &&
+        !filteredUsers.includes(manualTarget.domain);
 
     function handleManualSend() {
         const domain = manualTarget.domain;
@@ -242,7 +243,10 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                                 className="text-xs"
                                 style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
                             >
-                                Message <span style={{ color: "var(--accent, #00ffc8)", fontWeight: 700 }}>{manualTarget.domain}</span>
+                                Message{" "}
+                                <span style={{ color: "var(--accent, #00ffc8)", fontWeight: 700 }}>
+                                    {manualTarget.domain}
+                                </span>
                             </span>
                         </button>
                     )}
@@ -259,7 +263,12 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                     {filteredUsers.length === 0 && !canSendManual && (
                         <div
                             className="text-center text-xs uppercase tracking-widest px-5 py-6"
-                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
+                            style={{
+                                color: "var(--fg-3, #888)",
+                                fontFamily: "var(--font-mono)",
+                                letterSpacing: "0.1em",
+                                fontSize: "10px",
+                            }}
                         >
                             {search ? "No matching users online" : "No other users online"}
                         </div>

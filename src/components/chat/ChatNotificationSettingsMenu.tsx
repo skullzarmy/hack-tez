@@ -1,10 +1,5 @@
 import { Settings2 } from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Switch } from "../ui/switch";
 import type { ChatNotificationSettings } from "../../lib/chatNotifications";
 
@@ -29,14 +24,7 @@ interface SettingRowProps {
     disabled?: boolean;
 }
 
-function SettingRow({
-    id,
-    title,
-    description,
-    checked,
-    onCheckedChange,
-    disabled = false,
-}: SettingRowProps) {
+function SettingRow({ id, title, description, checked, onCheckedChange, disabled = false }: SettingRowProps) {
     return (
         <div
             className="flex items-start justify-between gap-3 px-2 py-2"

@@ -83,7 +83,8 @@ export default function ChatSidebar({
     const sidebarContent = (
         <>
             {/* Mobile close button */}
-            <div className="flex md:hidden items-center justify-between shrink-0 px-5"
+            <div
+                className="flex md:hidden items-center justify-between shrink-0 px-5"
                 style={{ borderBottom: "1px solid var(--border-2, #333)", minHeight: "56px" }}
             >
                 <span
@@ -215,7 +216,12 @@ export default function ChatSidebar({
                 {conversations.length === 0 && (
                     <div
                         className="text-xs uppercase tracking-widest p-4"
-                        style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", fontSize: "10px" }}
+                        style={{
+                            color: "var(--fg-3, #888)",
+                            fontFamily: "var(--font-mono)",
+                            letterSpacing: "0.1em",
+                            fontSize: "10px",
+                        }}
                     >
                         No conversations yet
                     </div>
@@ -259,7 +265,11 @@ export default function ChatSidebar({
                                         {conv.lastMessageAt && (
                                             <span
                                                 className="text-xs"
-                                                style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "10px" }}
+                                                style={{
+                                                    color: "var(--fg-3, #888)",
+                                                    fontFamily: "var(--font-mono)",
+                                                    fontSize: "10px",
+                                                }}
                                             >
                                                 {formatRelativeShort(conv.lastMessageAt)}
                                             </span>
@@ -310,10 +320,18 @@ export default function ChatSidebar({
                                     color: isConfirmingHide ? "var(--warn, #ffd166)" : "var(--fg-3, #888)",
                                     cursor: "pointer",
                                 }}
-                                aria-label={isConfirmingHide ? `Confirm hide DM with ${conv.peerDomain}` : `Hide DM with ${conv.peerDomain}`}
+                                aria-label={
+                                    isConfirmingHide
+                                        ? `Confirm hide DM with ${conv.peerDomain}`
+                                        : `Hide DM with ${conv.peerDomain}`
+                                }
                                 title={isConfirmingHide ? "Click again to confirm" : "Hide DM"}
                             >
-                                {isConfirmingHide ? <Check size={12} aria-hidden="true" /> : <Archive size={12} aria-hidden="true" />}
+                                {isConfirmingHide ? (
+                                    <Check size={12} aria-hidden="true" />
+                                ) : (
+                                    <Archive size={12} aria-hidden="true" />
+                                )}
                             </button>
                         </div>
                     );

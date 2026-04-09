@@ -51,9 +51,4 @@ const DropdownMenuSeparator = React.forwardRef<
     );
 });
 
-export {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuSeparator,
-};
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator };
