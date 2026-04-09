@@ -589,6 +589,7 @@ export default function Profile() {
                                 label={label}
                                 fullName={fullName}
                                 displayName={displayName}
+                                avatarUrl={avatar.type === "image" ? avatar.url : null}
                                 bio={profile.bio}
                                 status={profile.status}
                             />

@@ -17,6 +17,7 @@ interface ProfileShareStudioProps {
     label: string;
     fullName: string;
     displayName: string;
+    avatarUrl?: string | null;
     bio?: string;
     status?: string;
 }
@@ -415,7 +416,7 @@ function drawCard(
     ctx.fillText(profileUrl, contentRight, panelY + panelHeight - panelInset - 16);
 }
 
-export function ProfileShareStudio({ label, fullName, displayName, bio, status }: ProfileShareStudioProps) {
+export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bio, status }: ProfileShareStudioProps) {
     const [open, setOpen] = useState(false);
     const [state, setState] = useState<ProfileShareState>(() =>
         getDefaultProfileShareState({
@@ -450,18 +451,24 @@ export function ProfileShareStudio({ label, fullName, displayName, bio, status }
 
     useEffect(() => {
         let cancelled = false;
+
         const image = new Image();
         image.onload = () => {
             if (!cancelled) setAvatarImage(image);
         };
         image.onerror = () => {
+            if (avatarUrl && image.src !== `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`) {
+                image.src = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+                return;
+            }
             if (!cancelled) setAvatarImage(null);
         };
-        image.src = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+
+        image.src = avatarUrl ?? `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
         return () => {
             cancelled = true;
         };
-    }, [label]);
+    }, [avatarUrl, label]);
 
     useEffect(() => {
         if (!open || !canvasRef.current) return;
