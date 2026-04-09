@@ -34,16 +34,12 @@ function resolveAvatarUrl(
     label: string,
 ): { type: "image"; url: string } | { type: "hackatar"; label: string } {
     if (profile.picture) {
-        if (profile.picture.startsWith("ipfs://")) {
-            const cid = profile.picture.replace("ipfs://", "");
-            return { type: "image", url: `https://ipfs.fileship.xyz/ipfs/${cid}` };
-        }
-        if (profile.picture.startsWith("https://")) {
-            return { type: "image", url: profile.picture };
+        if (profile.picture.startsWith("ipfs://") || profile.picture.startsWith("https://")) {
+            return { type: "image", url: `/api/v1/avatar/${encodeURIComponent(label)}` };
         }
     }
     if (gravatar) {
-        return { type: "image", url: `https://www.gravatar.com/avatar/${gravatar}?s=200&d=identicon` };
+        return { type: "image", url: `/api/v1/avatar/${encodeURIComponent(label)}` };
     }
     // Server resolves label → opHash → deterministic hackatar
     return { type: "hackatar", label };
@@ -589,6 +585,7 @@ export default function Profile() {
                                 label={label}
                                 fullName={fullName}
                                 displayName={displayName}
+                                avatarUrl={avatar.type === "image" ? avatar.url : null}
                                 bio={profile.bio}
                                 status={profile.status}
                             />

@@ -17,6 +17,7 @@ interface ProfileShareStudioProps {
     label: string;
     fullName: string;
     displayName: string;
+    avatarUrl?: string | null;
     bio?: string;
     status?: string;
 }
@@ -424,7 +425,7 @@ function drawCard(
     ctx.fillText(profileUrl, contentRight, panelY + panelHeight - panelInset - 16);
 }
 
-export function ProfileShareStudio({ label, fullName, displayName, bio, status }: ProfileShareStudioProps) {
+export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bio, status }: ProfileShareStudioProps) {
     const [open, setOpen] = useState(false);
     const [state, setState] = useState<ProfileShareState>(() =>
         getDefaultProfileShareState({
@@ -459,18 +460,25 @@ export function ProfileShareStudio({ label, fullName, displayName, bio, status }
 
     useEffect(() => {
         let cancelled = false;
+
+        const hackatarUrl = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
         const image = new Image();
         image.onload = () => {
             if (!cancelled) setAvatarImage(image);
         };
         image.onerror = () => {
+            if (avatarUrl && image.src !== hackatarUrl) {
+                image.src = hackatarUrl;
+                return;
+            }
             if (!cancelled) setAvatarImage(null);
         };
-        image.src = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+
+        image.src = avatarUrl ?? hackatarUrl;
         return () => {
             cancelled = true;
         };
-    }, [label]);
+    }, [avatarUrl, label]);
 
     useEffect(() => {
         if (!open || !canvasRef.current) return;
@@ -486,33 +494,89 @@ export function ProfileShareStudio({ label, fullName, displayName, bio, status }
         return () => window.clearTimeout(timer);
     }, [message]);
 
+    async function loadLocalHackatarImage(): Promise<HTMLImageElement | null> {
+        return await new Promise((resolve) => {
+            const fallback = new Image();
+            fallback.onload = () => resolve(fallback);
+            fallback.onerror = () => resolve(null);
+            fallback.src = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+        });
+    }
+
+    function redrawPreview(overrideAvatarImage: HTMLImageElement | null = avatarImage) {
+        if (!canvasRef.current) return;
+        drawCard(canvasRef.current, state, fullName, profileUrl, statusLabel, overrideAvatarImage);
+    }
+
     async function handleCopyImage() {
         if (!canvasRef.current) return;
         if (!("ClipboardItem" in window) || !navigator.clipboard?.write) {
             setMessage("Image copy is not supported in this browser.");
             return;
         }
-        canvasRef.current.toBlob(async (blob) => {
-            if (!blob) {
-                setMessage("Could not prepare image for clipboard.");
+
+        const tryClipboardWrite = async () => {
+            canvasRef.current?.toBlob(async (blob) => {
+                if (!blob) {
+                    setMessage("Could not prepare image for clipboard.");
+                    return;
+                }
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                    setMessage("Image copied to clipboard.");
+                } catch {
+                    setMessage("Clipboard copy failed.");
+                }
+            }, "image/png");
+        };
+
+        try {
+            await tryClipboardWrite();
+        } catch {
+            const fallback = await loadLocalHackatarImage();
+            if (!fallback) {
+                setMessage("Clipboard copy failed.");
                 return;
             }
+            redrawPreview(fallback);
             try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                setMessage("Image copied to clipboard.");
+                await tryClipboardWrite();
+                setMessage("Image copied (fallback avatar due to host restrictions).");
             } catch {
                 setMessage("Clipboard copy failed.");
+            } finally {
+                redrawPreview();
             }
-        }, "image/png");
+        }
     }
 
-    function handleDownload() {
+    async function handleDownload() {
         if (!canvasRef.current) return;
-        const link = document.createElement("a");
-        link.href = canvasRef.current.toDataURL("image/png");
-        link.download = `${label}-share-card.png`;
-        link.click();
-        setMessage("PNG downloaded.");
+        try {
+            const link = document.createElement("a");
+            link.href = canvasRef.current.toDataURL("image/png");
+            link.download = `${label}-share-card.png`;
+            link.click();
+            setMessage("PNG downloaded.");
+        } catch {
+            const fallback = await loadLocalHackatarImage();
+            if (!fallback) {
+                setMessage("Download failed.");
+                return;
+            }
+            redrawPreview(fallback);
+            try {
+                const link = document.createElement("a");
+                link.href = canvasRef.current.toDataURL("image/png");
+                link.download = `${label}-share-card.png`;
+                link.click();
+                setMessage("PNG downloaded (fallback avatar due to host restrictions).");
+            } catch {
+                setMessage("Download failed.");
+            } finally {
+                redrawPreview();
+            }
+        }
     }
 
     function handleShareX() {
