@@ -12,10 +12,18 @@
  *   GET /api/v1/hackatar/:label     — generated avatar GIF (?static=1 for single frame)
  */
 import type { Config, Context } from "@netlify/functions";
+import { Resvg } from "@resvg/resvg-js";
 import { getStore } from "@netlify/blobs";
 import pinHandler from "./pin.mts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
+import {
+    buildProfileShareSvg,
+    formatShareStatus,
+    getDefaultProfileShareState,
+    getProfileShareUrl,
+    PROFILE_SHARE_SIZES,
+} from "../../src/lib/profileShare.ts";
 import {
     seedFromHash,
     createPrng,
@@ -542,14 +550,13 @@ async function getAllRegistrationHashes(
 }
 
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
 
 /** GET /api/v1/domains?limit=50 — list all hack.tez registrations */
 async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
     const parent = `hack.${net.tld}`;
 
     const rawLimit = parseInt(url.searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
-    if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
+    if (Number.isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
     const limit = Math.min(rawLimit, 50); // TED GraphQL caps first at 50
 
     const [data, regHashes] = await Promise.all([
@@ -629,7 +636,7 @@ async function handleActivity(url: URL, net: ReturnType<typeof getNetwork>): Pro
     }
 
     const rawLimit = parseInt(url.searchParams.get("limit") ?? "30", 10);
-    if (isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
+    if (Number.isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
     const limit = Math.min(rawLimit, 100);
 
     // Fan out queries to all registrar contracts (current + legacy).
@@ -838,6 +845,73 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
     });
 }
 
+async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+    const fullName = `${label}.hack.${net.tld}`;
+    const result = await tedGql<{
+        domain: {
+            name: string;
+            owner: string;
+            address: string | null;
+            data: Array<{ key: string; value: unknown }>;
+        } | null;
+    }>(
+        net.domainsGraphql,
+        `query GetShareCard($name: String!) {
+          domain(name: $name) {
+            name
+            owner
+            address
+            data { key value }
+          }
+        }`,
+        { name: fullName },
+    );
+
+    if (!result.domain) {
+        return err("Domain not registered", "NOT_FOUND", 404);
+    }
+
+    const profile = parseProfileFromData(result.domain.data ?? []);
+    const displayName = profile.name || profile.nickname || label;
+    const siteUrl = reqUrl.origin;
+    const defaults = getDefaultProfileShareState({
+        label,
+        tld: net.tld,
+        fullName,
+        displayName,
+        bio: profile.bio,
+        status: profile.status,
+        siteUrl,
+    });
+    const profileUrl = getProfileShareUrl(label, siteUrl);
+    const svg = buildProfileShareSvg({
+        ...PROFILE_SHARE_SIZES.og,
+        preset: defaults.preset,
+        title: defaults.title,
+        subtitle: defaults.subtitle,
+        cta: defaults.cta,
+        fullName,
+        profileUrl,
+        statusLabel: formatShareStatus(profile.status),
+    });
+    const pngData = new Resvg(svg, {
+        fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
+    })
+        .render()
+        .asPng();
+
+    return new Response(pngData, {
+        headers: {
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=86400",
+            ...CORS_HEADERS,
+        },
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -873,6 +947,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         if (resource === "activity") return await handleActivity(new URL(req.url), net);
         if (resource === "hackatar" && param)
             return await handleHackatar(decodeURIComponent(param), new URL(req.url), net);
+        if (resource === "share-card" && param) return await handleShareCard(decodeURIComponent(param), new URL(req.url), net);
 
         return json(
             {
@@ -889,6 +964,7 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
                     `/api/v1/config`,
                     `/api/v1/activity?limit=30`,
                     `/api/v1/hackatar/:label`,
+                    `/api/v1/share-card/:label`,
                 ],
                 docs: "/developers",
             },
