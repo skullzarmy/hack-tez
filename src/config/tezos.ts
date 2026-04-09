@@ -31,6 +31,8 @@ interface NetworkConfig {
     /** TED NameRegistry.CheckAddress — the single hardcoded TED anchor per network.
      *  All other TED addresses are resolved from this at runtime. */
     tedCheckAddress: string;
+    /** Optional: hardcoded UpdateRecord proxy to bypass stale TED trusted_senders */
+    mainnetUpdateRecordProxy?: string;
 }
 
 const configs: Record<TezosNetwork, NetworkConfig> = {
@@ -63,6 +65,8 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
         tedAppUrl: "https://app.tezos.domains",
         tedCheckAddress: "KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ",
+        /** Hardcoded mainnet UpdateRecord proxy — TED trusted_senders list has stale entries */
+        mainnetUpdateRecordProxy: "KT1Ln4t64RdCG1bK8zkH6Xi4nNQVxz7qNgyj",
     },
 };
 
@@ -117,7 +121,7 @@ async function discover(): Promise<TedContracts> {
     const nrStorage: { trusted_senders?: string[] } = await nrRes.json();
     const senders = nrStorage.trusted_senders ?? [];
 
-    // Step 3: Match trusted_senders by entrypoint name — take the FIRST match, not the last
+    // Step 3: Match trusted_senders by entrypoint name — take the FIRST match
     let setChildRecord = "";
     let updateRecord = "";
 
@@ -139,6 +143,11 @@ async function discover(): Promise<TedContracts> {
         } catch {
             continue;
         }
+    }
+
+    // For mainnet, use the hardcoded UpdateRecord proxy to bypass stale TED trusted_senders
+    if (config.mainnetUpdateRecordProxy) {
+        updateRecord = config.mainnetUpdateRecordProxy;
     }
 
     return { nameRegistry, setChildRecord, updateRecord };
