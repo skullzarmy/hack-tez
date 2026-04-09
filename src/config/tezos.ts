@@ -117,26 +117,28 @@ async function discover(): Promise<TedContracts> {
     const nrStorage: { trusted_senders?: string[] } = await nrRes.json();
     const senders = nrStorage.trusted_senders ?? [];
 
-    // Step 3: Match trusted_senders by entrypoint name
+    // Step 3: Match trusted_senders by entrypoint name — take the FIRST match, not the last
     let setChildRecord = "";
     let updateRecord = "";
 
-    const results = await Promise.all(
-        senders.map(async (addr) => {
-            try {
-                const res = await fetch(`${config.tzktApi}/v1/contracts/${addr}/entrypoints`);
-                if (!res.ok) return { addr, eps: [] as string[] };
-                const eps: Array<{ name: string }> = await res.json();
-                return { addr, eps: eps.map((e) => e.name) };
-            } catch {
-                return { addr, eps: [] as string[] };
-            }
-        }),
-    );
+    for (const addr of senders) {
+        try {
+            const res = await fetch(`${config.tzktApi}/v1/contracts/${addr}/entrypoints`);
+            if (!res.ok) continue;
+            const eps: Array<{ name: string }> = await res.json();
+            const epNames = eps.map((e) => e.name);
 
-    for (const { addr, eps } of results) {
-        if (eps.includes("set_child_record")) setChildRecord = addr;
-        if (eps.includes("update_record")) updateRecord = addr;
+            if (!setChildRecord && epNames.includes("set_child_record")) {
+                setChildRecord = addr;
+            }
+            if (!updateRecord && epNames.includes("update_record")) {
+                updateRecord = addr;
+            }
+
+            if (setChildRecord && updateRecord) break;
+        } catch {
+            continue;
+        }
     }
 
     return { nameRegistry, setChildRecord, updateRecord };
