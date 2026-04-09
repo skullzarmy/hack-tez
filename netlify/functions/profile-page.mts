@@ -126,9 +126,11 @@ export default async function handler(req: Request, context: { params?: Record<s
             });
         }
         const payload = (await response.json()) as ProfileApiResponse;
-        const displayName = payload.data?.profile.name || payload.data?.profile.nickname || payload.data?.name || `${label}.hack.tez`;
-        const bio = payload.data?.profile.bio?.trim() || `Own ${payload.data?.name ?? `${label}.hack.tez`} on Tezos.`;
-        const title = `${displayName} | hack.tez`;
+        const tld = (process.env.VITE_TEZOS_NETWORK ?? "ghostnet") === "mainnet" ? "tez" : "gho";
+        const fullName = payload.data?.name ?? `${label}.hack.${tld}`;
+        const displayName = payload.data?.profile.name || payload.data?.profile.nickname || fullName;
+        const bio = payload.data?.profile.bio?.trim() || `Own ${fullName} on Tezos.`;
+        const title = `${displayName} | hack.${tld}`;
         const html = setMetadata(template, {
             title,
             description: bio,
