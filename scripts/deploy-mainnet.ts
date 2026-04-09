@@ -37,6 +37,7 @@ const RPC_URL = "https://rpc.tzkt.io/mainnet";
 const TZKT_API = "https://api.tzkt.io";
 const TED_GRAPHQL = "https://api.tezos.domains/graphql";
 const TED_CHECK_ADDRESS = "KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ";
+const TED_SET_CHILD_RECORD_PROXY = "KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd";
 const PARENT_NAME_HEX = "6861636b2e74657a"; // "hack.tez"
 const PARENT_SUFFIX = ".hack.tez";
 const PAGE_SIZE = 50;
@@ -73,7 +74,7 @@ interface SetRegistrationCountContract {
 }
 
 async function resolveTedContracts(): Promise<TedResolvedContracts> {
-    console.log("\n🔎 Resolving TED contracts dynamically...");
+    console.log("\n🔎 Resolving TED NameRegistry from CheckAddress...");
     const checkRes = await fetch(`${TZKT_API}/v1/contracts/${TED_CHECK_ADDRESS}/storage`);
     if (!checkRes.ok) {
         throw new Error(`Failed to fetch TED CheckAddress storage: HTTP ${checkRes.status}`);
@@ -84,34 +85,9 @@ async function resolveTedContracts(): Promise<TedResolvedContracts> {
         throw new Error("TED NameRegistry not found in CheckAddress storage");
     }
 
-    const nrRes = await fetch(`${TZKT_API}/v1/contracts/${nameRegistry}/storage`);
-    if (!nrRes.ok) {
-        throw new Error(`Failed to fetch NameRegistry storage: HTTP ${nrRes.status}`);
-    }
-    const nrStorage = (await nrRes.json()) as { trusted_senders?: string[] };
-    const trustedSenders = nrStorage.trusted_senders ?? [];
-    if (trustedSenders.length === 0) {
-        throw new Error("NameRegistry trusted_senders is empty; cannot resolve set_child_record");
-    }
-
-    let setChildRecord = "";
-    for (const sender of trustedSenders) {
-        const epRes = await fetch(`${TZKT_API}/v1/contracts/${sender}/entrypoints`);
-        if (!epRes.ok) continue;
-        const eps = (await epRes.json()) as Array<{ name: string }>;
-        if (eps.some((ep) => ep.name === "set_child_record")) {
-            setChildRecord = sender;
-            break;
-        }
-    }
-
-    if (!setChildRecord) {
-        throw new Error("Unable to resolve TED set_child_record contract from trusted_senders");
-    }
-
     console.log(`  ✅ NameRegistry:   ${nameRegistry}`);
-    console.log(`  ✅ SetChildRecord: ${setChildRecord}`);
-    return { nameRegistry, setChildRecord };
+    console.log(`  ✅ SetChildRecord: ${TED_SET_CHILD_RECORD_PROXY}`);
+    return { nameRegistry, setChildRecord: TED_SET_CHILD_RECORD_PROXY };
 }
 
 async function fetchAllHackTezDomains(): Promise<{
@@ -254,7 +230,7 @@ async function main() {
     console.log(`\n📝 Initial storage:`);
     console.log(`  admin_address:  ${storage.admin_address}`);
     console.log(`  name_registry:  ${storage.name_registry}`);
-    console.log(`  name_registry source: TED trusted_senders (dynamic)`);
+    console.log(`  name_registry source: TED SetChildRecord proxy (stable)`);
     console.log(`  parent_name:    hack.tez (${storage.parent_name})`);
     console.log(`  min_commit_age: ${storage.min_commit_age}s`);
     console.log(`  max_commit_age: ${storage.max_commit_age}s`);
