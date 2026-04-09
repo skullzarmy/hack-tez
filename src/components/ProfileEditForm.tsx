@@ -326,11 +326,13 @@ function ProjectLogoUpload({
     onLogoChange,
     onFileSelected,
     pendingFile,
+    index,
 }: {
     currentUri: string | undefined;
     onLogoChange: (value: string) => void;
     onFileSelected: (file: File) => void;
     pendingFile: File | undefined;
+    index: number;
 }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
@@ -623,6 +625,7 @@ function ProjectEditor({
                 onLogoChange={(val) => update("logo", val)}
                 onFileSelected={onLogoFileSelected}
                 pendingFile={pendingLogo}
+                index={index}
             />
         </div>
     );
