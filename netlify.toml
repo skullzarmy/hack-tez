@@ -8,6 +8,7 @@
 [functions]
   node_bundler = "esbuild"
   directory = "netlify/functions"
+  included_files = ["dist/index.html"]
 
 # SPA routing — all paths serve index.html
 [[redirects]]
