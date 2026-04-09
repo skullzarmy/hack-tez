@@ -454,7 +454,6 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
 
         const hackatarUrl = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
         const image = new Image();
-        image.crossOrigin = "anonymous";
         image.onload = () => {
             if (!cancelled) setAvatarImage(image);
         };
@@ -486,14 +485,29 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
         return () => window.clearTimeout(timer);
     }, [message]);
 
+    async function loadLocalHackatarImage(): Promise<HTMLImageElement | null> {
+        return await new Promise((resolve) => {
+            const fallback = new Image();
+            fallback.onload = () => resolve(fallback);
+            fallback.onerror = () => resolve(null);
+            fallback.src = `/api/v1/hackatar/${encodeURIComponent(label)}?static=1`;
+        });
+    }
+
+    function redrawPreview(overrideAvatarImage: HTMLImageElement | null = avatarImage) {
+        if (!canvasRef.current) return;
+        drawCard(canvasRef.current, state, fullName, profileUrl, statusLabel, overrideAvatarImage);
+    }
+
     async function handleCopyImage() {
         if (!canvasRef.current) return;
         if (!("ClipboardItem" in window) || !navigator.clipboard?.write) {
             setMessage("Image copy is not supported in this browser.");
             return;
         }
-        try {
-            canvasRef.current.toBlob(async (blob) => {
+
+        const tryClipboardWrite = async () => {
+            canvasRef.current?.toBlob(async (blob) => {
                 if (!blob) {
                     setMessage("Could not prepare image for clipboard.");
                     return;
@@ -505,12 +519,29 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                     setMessage("Clipboard copy failed.");
                 }
             }, "image/png");
+        };
+
+        try {
+            await tryClipboardWrite();
         } catch {
-            setMessage("Export blocked by avatar host. Using fallback avatar may fix this.");
+            const fallback = await loadLocalHackatarImage();
+            if (!fallback) {
+                setMessage("Clipboard copy failed.");
+                return;
+            }
+            redrawPreview(fallback);
+            try {
+                await tryClipboardWrite();
+                setMessage("Image copied (fallback avatar due to host restrictions).");
+            } catch {
+                setMessage("Clipboard copy failed.");
+            } finally {
+                redrawPreview();
+            }
         }
     }
 
-    function handleDownload() {
+    async function handleDownload() {
         if (!canvasRef.current) return;
         try {
             const link = document.createElement("a");
@@ -519,7 +550,23 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
             link.click();
             setMessage("PNG downloaded.");
         } catch {
-            setMessage("Download blocked by avatar host. Using fallback avatar may fix this.");
+            const fallback = await loadLocalHackatarImage();
+            if (!fallback) {
+                setMessage("Download failed.");
+                return;
+            }
+            redrawPreview(fallback);
+            try {
+                const link = document.createElement("a");
+                link.href = canvasRef.current.toDataURL("image/png");
+                link.download = `${label}-share-card.png`;
+                link.click();
+                setMessage("PNG downloaded (fallback avatar due to host restrictions).");
+            } catch {
+                setMessage("Download failed.");
+            } finally {
+                redrawPreview();
+            }
         }
     }
 
