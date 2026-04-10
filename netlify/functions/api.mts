@@ -20,11 +20,11 @@ import pinHandler from "./pin.mts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
 import {
-    buildProfileShareSvg,
     formatShareStatus,
     getDefaultProfileShareState,
     getProfileShareUrl,
     PROFILE_SHARE_SIZES,
+    PROFILE_SHARE_PRESETS,
 } from "../../src/lib/profileShare.ts";
 import {
     seedFromHash,
@@ -33,6 +33,7 @@ import {
     renderFrames,
     renderSingleFrame,
 } from "../../src/lib/hackatar/index.ts";
+import { textToPath } from "./textToPath.ts";
 // ---------------------------------------------------------------------------
 // Network config (mirrors src/config/tezos.ts without Vite import.meta.env)
 // ---------------------------------------------------------------------------
@@ -110,9 +111,224 @@ function normalizeLabel(nameOrLabel: string, tld: "tez" | "gho"): string {
     return value;
 }
 
-// Font paths for Resvg. Netlify Functions (AWS Lambda) run at /var/task.
-// included_files from netlify.toml are bundled at their project-relative paths.
+// Directory reference for path resolution
 const _fnDir = dirname(fileURLToPath(import.meta.url));
+
+// ---------------------------------------------------------------------------
+// Share card SVG builder using vector paths (no font rendering required)
+// ---------------------------------------------------------------------------
+
+import type { ProfileShareSvgOptions } from "../../src/lib/profileShare.ts";
+
+function escapeXml(value: string): string {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function truncateSvgWord(word: string, maxChars: number): string {
+    if (word.length <= maxChars) return word;
+    if (maxChars <= 1) return "…";
+    return `${word.slice(0, maxChars - 1)}…`;
+}
+
+function wrapSvgText(text: string, maxChars: number, maxLines: number): string[] {
+    if (maxChars <= 0 || maxLines <= 0) return [];
+    const words = text
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => truncateSvgWord(word, maxChars));
+    if (words.length === 0) return [];
+    const lines: string[] = [];
+    let current = "";
+    let consumedWords = 0;
+    for (const word of words) {
+        const next = current ? `${current} ${word}` : word;
+        if (next.length <= maxChars) {
+            current = next;
+            consumedWords += 1;
+            continue;
+        }
+        if (current) {
+            lines.push(current);
+            if (lines.length === maxLines) break;
+        }
+        current = word;
+        consumedWords += 1;
+    }
+    if (lines.length < maxLines && current) lines.push(current);
+    const didOverflow = consumedWords < words.length;
+    if (didOverflow && lines.length > 0) {
+        const lastIndex = Math.min(lines.length, maxLines) - 1;
+        const last = lines[lastIndex] ?? "";
+        if (last.endsWith("…")) {
+            lines[lastIndex] = last;
+        } else if (last.length > 1) {
+            lines[lastIndex] = `${last.slice(0, Math.max(1, last.length - 1))}…`;
+        } else {
+            lines[lastIndex] = "…";
+        }
+    }
+    return lines.slice(0, maxLines);
+}
+
+function buildProfileShareSvgWithPaths(options: ProfileShareSvgOptions): string {
+    const palette = PROFILE_SHARE_PRESETS[options.preset];
+    const isWide = options.width > options.height;
+    const titleLines = wrapSvgText(options.title, isWide ? 22 : 20, isWide ? 2 : 3);
+    const subtitleLines = wrapSvgText(options.subtitle, isWide ? 44 : 30, 3);
+    const accentTwo = options.preset === "scanline-glitch" ? "#59f4ff" : palette.accent;
+    const status = options.statusLabel ? escapeXml(options.statusLabel.toUpperCase()) : null;
+    const statusLine = status ? `// ${status}` : null;
+    const frameX = 56;
+    const frameY = 56;
+    const frameWidth = options.width - frameX * 2;
+    const frameHeight = options.height - frameY * 2;
+    const titleY = statusLine ? 246 : 212;
+    const subtitleY = titleY + (isWide ? 184 : 238);
+    const ctaY = options.height - 118;
+    const fullNameY = options.height - 78;
+
+    // Convert all text to vector paths
+    const headerPath = textToPath({
+        text: "HACK.TEZ PROFILE",
+        x: options.width - 96,
+        y: 114,
+        fontSize: 19,
+        fill: palette.text,
+        fillOpacity: 0.54,
+        fontWeight: 400,
+        letterSpacing: 1.2,
+        textAnchor: "end",
+    });
+
+    const statusPath = statusLine
+        ? textToPath({
+              text: statusLine,
+              x: 110,
+              y: 156,
+              fontSize: 22,
+              fill: palette.accent,
+              fontWeight: 700,
+              letterSpacing: 0.9,
+              textAnchor: "start",
+          })
+        : "";
+
+    // Title lines (multiple with line height)
+    const titlePaths = titleLines
+        .map((line, index) =>
+            textToPath({
+                text: line,
+                x: 110,
+                y: titleY + index * 86,
+                fontSize: 72,
+                fill: palette.text,
+                fontWeight: 700,
+                letterSpacing: -1.9,
+                textAnchor: "start",
+            }),
+        )
+        .join("\n    ");
+
+    // Subtitle lines
+    const subtitlePaths = subtitleLines
+        .map((line, index) =>
+            textToPath({
+                text: line,
+                x: 110,
+                y: subtitleY + index * 38,
+                fontSize: 31,
+                fill: palette.muted,
+                fontWeight: 400,
+                textAnchor: "start",
+            }),
+        )
+        .join("\n    ");
+
+    const ctaPath = textToPath({
+        text: options.cta,
+        x: 110,
+        y: ctaY,
+        fontSize: 30,
+        fill: palette.accent,
+        fontWeight: 700,
+        textAnchor: "start",
+    });
+
+    const fullNamePath = textToPath({
+        text: `// ${options.fullName}`,
+        x: 110,
+        y: fullNameY,
+        fontSize: 24,
+        fill: palette.text,
+        fillOpacity: 0.72,
+        fontWeight: 400,
+        textAnchor: "start",
+    });
+
+    const profileUrlPath = textToPath({
+        text: options.profileUrl,
+        x: options.width - 96,
+        y: fullNameY,
+        fontSize: 21,
+        fill: palette.text,
+        fillOpacity: 0.52,
+        fontWeight: 400,
+        textAnchor: "end",
+    });
+
+    return `
+<svg width="${options.width}" height="${options.height}" viewBox="0 0 ${options.width} ${options.height}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="${options.width}" y2="${options.height}" gradientUnits="userSpaceOnUse">
+      <stop stop-color="${palette.background}"/>
+      <stop offset="1" stop-color="${palette.panel}"/>
+    </linearGradient>
+    <radialGradient id="orb-a" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(${options.width - 240} 104) rotate(90) scale(220 310)">
+      <stop stop-color="${palette.accent}" stop-opacity="0.48"/>
+      <stop offset="1" stop-color="${palette.accent}" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orb-b" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(120 ${options.height - 110}) rotate(90) scale(140 210)">
+      <stop stop-color="${accentTwo}" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="${accentTwo}" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="${frameX}" y1="${frameY}" x2="${options.width - frameX}" y2="${options.height - frameY}" gradientUnits="userSpaceOnUse">
+      <stop stop-color="${palette.panel}" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="${palette.background}" stop-opacity="0.74"/>
+    </linearGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M28 0H0V28" stroke="${palette.muted}" stroke-opacity="0.1"/>
+    </pattern>
+    <pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.1" fill="${palette.muted}" fill-opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect width="${options.width}" height="${options.height}" fill="url(#bg)"/>
+  <rect width="${options.width}" height="${options.height}" fill="url(#dots)"/>
+  <rect width="${options.width}" height="${options.height}" fill="url(#orb-a)"/>
+  <rect width="${options.width}" height="${options.height}" fill="url(#orb-b)"/>
+  <rect width="${options.width}" height="${options.height}" fill="url(#grid)"/>
+  <path d="M0 0H${options.width}" stroke="${palette.accent}" stroke-opacity="0.42" stroke-width="10"/>
+  <path d="M${options.width - 250} 0V${options.height}" stroke="${accentTwo}" stroke-opacity="0.22" stroke-width="2"/>
+  <path d="M${options.width - 312} 0V${options.height}" stroke="${palette.accent}" stroke-opacity="0.16" stroke-width="2"/>
+  <rect x="${frameX}" y="${frameY}" width="${frameWidth}" height="${frameHeight}" rx="30" fill="url(#panel)" stroke="${palette.muted}" stroke-opacity="0.28"/>
+  <rect x="${frameX + 18}" y="${frameY + 18}" width="${frameWidth - 36}" height="${frameHeight - 36}" rx="22" stroke="${palette.muted}" stroke-opacity="0.18"/>
+  <rect x="${frameX + 26}" y="${frameY + 24}" width="8" height="${frameHeight - 48}" rx="4" fill="${palette.accent}" fill-opacity="0.82"/>
+  ${headerPath}
+  ${statusPath}
+  ${titlePaths}
+  ${subtitlePaths}
+  <path d="M110 ${ctaY - 22}H${options.width - 110}" stroke="${palette.muted}" stroke-opacity="0.24" stroke-width="2"/>
+  ${ctaPath}
+  ${fullNamePath}
+  ${profileUrlPath}
+</svg>`;
+}
 
 async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<string, unknown>): Promise<T> {
     const res = await fetch(graphqlUrl, {
@@ -972,7 +1188,7 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
         siteUrl,
     });
     const profileUrl = getProfileShareUrl(normalizedLabel, siteUrl);
-    const svg = buildProfileShareSvg({
+    const svg = buildProfileShareSvgWithPaths({
         ...PROFILE_SHARE_SIZES.og,
         preset: defaults.preset,
         title: defaults.title,
@@ -982,26 +1198,21 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
         profileUrl,
         statusLabel: formatShareStatus(profile.status),
     });
-    const textNodeCount = (svg.match(/<text\b/g) ?? []).length;
-    // Fonts are now embedded in SVG via @font-face with base64 data URIs - no external font loading needed
+    // With vector paths, no font rendering needed - count paths instead
+    const pathNodeCount = (svg.match(/<path\b/g) ?? []).length;
 
-    console.info("[share-card] render", {
+    console.info("[share-card] render (vector paths)", {
         version: SHARE_CARD_DEBUG_VERSION,
         label: normalizedLabel,
         network: net.name,
-        textNodeCount,
-        fontsEmbedded: true,
+        pathNodeCount,
         cwd: process.cwd(),
         fnDir: _fnDir,
     });
 
+    // No font loading needed - text is pre-converted to vector paths
     const pngData = new Resvg(svg, {
         fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
-        font: {
-            // Fonts embedded in SVG via @font-face - no fontFiles needed
-            defaultFontFamily: "Space Mono",
-            loadSystemFonts: false,
-        },
     })
         .render()
         .asPng();
@@ -1013,8 +1224,8 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
             "Cache-Control": "no-store, max-age=0",
             "X-Share-Card-Version": SHARE_CARD_DEBUG_VERSION,
             "X-Share-Card-Label": normalizedLabel,
-            "X-Share-Card-Text-Nodes": String(textNodeCount),
-            "X-Share-Card-Fonts": "embedded-base64",
+            "X-Share-Card-Path-Count": String(pathNodeCount),
+            "X-Share-Card-Mode": "vector-paths",
             ...CORS_HEADERS,
         },
     });

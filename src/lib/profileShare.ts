@@ -1,5 +1,3 @@
-import { SPACE_MONO_400_BASE64, SPACE_MONO_700_BASE64 } from "./shareCardFonts";
-
 export type ProfileSharePreset = "circuit-hero" | "scanline-glitch" | "mono-poster";
 export type ProfileShareFormat = "og" | "portrait" | "square";
 
@@ -195,20 +193,6 @@ export function buildProfileShareSvg(options: ProfileShareSvgOptions): string {
     return `
 <svg width="${options.width}" height="${options.height}" viewBox="0 0 ${options.width} ${options.height}" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <style type="text/css">
-      @font-face {
-        font-family: 'Space Mono';
-        font-weight: 400;
-        font-style: normal;
-        src: url('data:font/woff;base64,${SPACE_MONO_400_BASE64}') format('woff');
-      }
-      @font-face {
-        font-family: 'Space Mono';
-        font-weight: 700;
-        font-style: normal;
-        src: url('data:font/woff;base64,${SPACE_MONO_700_BASE64}') format('woff');
-      }
-    </style>
         <linearGradient id="bg" x1="0" y1="0" x2="${options.width}" y2="${options.height}" gradientUnits="userSpaceOnUse">
       <stop stop-color="${palette.background}"/>
       <stop offset="1" stop-color="${palette.panel}"/>
