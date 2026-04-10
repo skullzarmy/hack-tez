@@ -14,10 +14,8 @@
 import type { Config, Context } from "@netlify/functions";
 import { Resvg } from "@resvg/resvg-js";
 import { getStore } from "@netlify/blobs";
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import pinHandler from "./pin.mts";
+import { SHARE_CARD_FONT_BUFFERS } from "./shareCardFonts.ts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
 import {
@@ -108,36 +106,6 @@ function normalizeLabel(nameOrLabel: string, tld: "tez" | "gho"): string {
     if (value.endsWith(suffix)) return value.slice(0, -suffix.length);
     return value;
 }
-
-// Resolve fonts relative to this module file — works in both local dev and Lambda
-const _fnDir = dirname(fileURLToPath(import.meta.url));
-
-function tryLoadFont(...candidates: string[]): Uint8Array | null {
-    for (const p of candidates) {
-        try {
-            if (existsSync(p)) return new Uint8Array(readFileSync(p));
-        } catch { /* skip */ }
-    }
-    return null;
-}
-
-const _fontRegular = tryLoadFont(
-    resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-400-normal.woff"),
-    resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-400-normal.woff2"),
-    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-400-normal.woff"),
-    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-400-normal.woff2"),
-    resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff"),
-    resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2"),
-);
-const _fontBold = tryLoadFont(
-    resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-700-normal.woff"),
-    resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-700-normal.woff2"),
-    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-700-normal.woff"),
-    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-700-normal.woff2"),
-    resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff"),
-    resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2"),
-);
-const SHARE_CARD_FONT_BUFFERS: Uint8Array[] = [_fontRegular, _fontBold].filter((b): b is Uint8Array => b !== null);
 
 async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<string, unknown>): Promise<T> {
     const res = await fetch(graphqlUrl, {
