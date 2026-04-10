@@ -14,10 +14,8 @@ let font400: opentype.Font | null = null;
 let font700: opentype.Font | null = null;
 
 function getFontPath(weight: 400 | 700): string {
-    const fileName = weight === 400
-        ? "space-mono-latin-400-normal.woff"
-        : "space-mono-latin-700-normal.woff";
-    
+    const fileName = weight === 400 ? "space-mono-latin-400-normal.woff" : "space-mono-latin-700-normal.woff";
+
     const candidates = [
         `/var/task/node_modules/@fontsource/space-mono/files/${fileName}`,
         resolve(_fnDir, `../../node_modules/@fontsource/space-mono/files/${fileName}`),
@@ -36,10 +34,10 @@ function getFont(weight: 400 | 700): opentype.Font {
 
     const path = getFontPath(weight);
     const font = opentype.loadSync(path);
-    
+
     if (weight === 400) font400 = font;
     else font700 = font;
-    
+
     return font;
 }
 
@@ -72,7 +70,7 @@ export function textToPath(opts: TextToPathOptions): string {
     } = opts;
 
     const font = getFont(fontWeight);
-    
+
     // Calculate text width for text-anchor positioning
     let totalWidth = 0;
     for (let i = 0; i < text.length; i++) {
@@ -110,7 +108,7 @@ export function textToPath(opts: TextToPathOptions): string {
 
     const combinedPath = pathDatas.join(" ");
     const opacity = fillOpacity !== 1 ? ` fill-opacity="${fillOpacity}"` : "";
-    
+
     return `<path d="${combinedPath}" fill="${fill}"${opacity}/>`;
 }
 
@@ -119,9 +117,11 @@ export function textToPath(opts: TextToPathOptions): string {
  */
 export function textSpansToPath(opts: TextToPathOptions & { lines: string[]; lineHeight: number }): string {
     const { lines, lineHeight, ...baseOpts } = opts;
-    
-    return lines.map((line, index) => {
-        const lineY = baseOpts.y + (index * lineHeight);
-        return textToPath({ ...baseOpts, text: line, y: lineY });
-    }).join("\n    ");
+
+    return lines
+        .map((line, index) => {
+            const lineY = baseOpts.y + index * lineHeight;
+            return textToPath({ ...baseOpts, text: line, y: lineY });
+        })
+        .join("\n    ");
 }
