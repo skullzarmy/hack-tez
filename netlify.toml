@@ -8,7 +8,12 @@
 [functions]
   node_bundler = "esbuild"
   directory = "netlify/functions"
-  included_files = ["dist/index.html"]
+  included_files = [
+    "dist/index.html",
+    "dist/assets/fonts/*",
+    "node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2",
+    "node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2",
+  ]
 
 # SPA routing — all paths serve index.html
 [[redirects]]

@@ -14,6 +14,8 @@
 import type { Config, Context } from "@netlify/functions";
 import { Resvg } from "@resvg/resvg-js";
 import { getStore } from "@netlify/blobs";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import pinHandler from "./pin.mts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
@@ -98,6 +100,26 @@ function validateLabel(label: string): string | null {
     if (!LABEL_RE.test(label)) return "Label must be lowercase alphanumeric with hyphens";
     return null;
 }
+
+function normalizeLabel(nameOrLabel: string, tld: "tez" | "gho"): string {
+    const value = nameOrLabel.trim().toLowerCase();
+    const suffix = `.hack.${tld}`;
+    if (value.endsWith(suffix)) return value.slice(0, -suffix.length);
+    return value;
+}
+
+const SHARE_CARD_FONT_CANDIDATES = [
+    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-400-normal.woff2"),
+    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-700-normal.woff2"),
+    resolve(process.cwd(), "node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2"),
+    resolve(process.cwd(), "node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2"),
+];
+
+function getShareCardFontFiles(): string[] {
+    return SHARE_CARD_FONT_CANDIDATES.filter((filePath) => existsSync(filePath));
+}
+
+const SHARE_CARD_FONT_FILES = getShareCardFontFiles();
 
 async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<string, unknown>): Promise<T> {
     const res = await fetch(graphqlUrl, {
@@ -846,10 +868,11 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
 }
 
 async function handleAvatar(label: string, reqUrl: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
-    const labelErr = validateLabel(label);
+    const normalizedLabel = normalizeLabel(label, net.tld);
+    const labelErr = validateLabel(normalizedLabel);
     if (labelErr) return err(labelErr, "INVALID_INPUT");
 
-    const fullName = `${label}.hack.${net.tld}`;
+    const fullName = `${normalizedLabel}.hack.${net.tld}`;
     const result = await tedGql<{
         domain: {
             data: Array<{ key: string; value: unknown }>;
@@ -885,7 +908,7 @@ async function handleAvatar(label: string, reqUrl: URL, net: ReturnType<typeof g
     if (!sourceUrl) {
         const staticHackatarUrl = new URL(reqUrl);
         staticHackatarUrl.searchParams.set("static", "1");
-        return await handleHackatar(label, staticHackatarUrl, net);
+        return await handleHackatar(normalizedLabel, staticHackatarUrl, net);
     }
 
     try {
@@ -909,15 +932,16 @@ async function handleAvatar(label: string, reqUrl: URL, net: ReturnType<typeof g
     } catch {
         const staticHackatarUrl = new URL(reqUrl);
         staticHackatarUrl.searchParams.set("static", "1");
-        return await handleHackatar(label, staticHackatarUrl, net);
+        return await handleHackatar(normalizedLabel, staticHackatarUrl, net);
     }
 }
 
 async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
-    const labelErr = validateLabel(label);
+    const normalizedLabel = normalizeLabel(label, net.tld);
+    const labelErr = validateLabel(normalizedLabel);
     if (labelErr) return err(labelErr, "INVALID_INPUT");
 
-    const fullName = `${label}.hack.${net.tld}`;
+    const fullName = `${normalizedLabel}.hack.${net.tld}`;
     const result = await tedGql<{
         domain: {
             name: string;
@@ -946,7 +970,7 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
     const displayName = profile.name || profile.nickname || label;
     const siteUrl = reqUrl.origin;
     const defaults = getDefaultProfileShareState({
-        label,
+        label: normalizedLabel,
         tld: net.tld,
         fullName,
         displayName,
@@ -954,7 +978,7 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
         status: profile.status,
         siteUrl,
     });
-    const profileUrl = getProfileShareUrl(label, siteUrl);
+    const profileUrl = getProfileShareUrl(normalizedLabel, siteUrl);
     const svg = buildProfileShareSvg({
         ...PROFILE_SHARE_SIZES.og,
         preset: defaults.preset,
@@ -967,6 +991,11 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
     });
     const pngData = new Resvg(svg, {
         fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
+        font: {
+            fontFiles: SHARE_CARD_FONT_FILES,
+            defaultFontFamily: "Space Mono",
+            loadSystemFonts: true,
+        },
     })
         .render()
         .asPng();

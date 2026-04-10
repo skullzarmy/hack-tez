@@ -14,6 +14,13 @@ interface ProfileApiResponse {
     };
 }
 
+function toProfileLabel(raw: string, tld: "tez" | "gho"): string {
+    const value = raw.trim().toLowerCase();
+    const suffix = `.hack.${tld}`;
+    if (value.endsWith(suffix)) return value.slice(0, -suffix.length);
+    return value;
+}
+
 let cachedTemplate: string | null = null;
 
 function loadTemplate(reqUrl: URL): string {
@@ -132,7 +139,9 @@ export default async function handler(
         }
     }
 
-    const label = context.params?.subdomain?.trim().toLowerCase();
+    const tld = (process.env.VITE_TEZOS_NETWORK ?? "ghostnet") === "mainnet" ? "tez" : "gho";
+    const rawSubdomain = context.params?.subdomain?.trim().toLowerCase();
+    const label = rawSubdomain ? toProfileLabel(rawSubdomain, tld) : "";
     const template = loadTemplate(reqUrl);
     if (!label) {
         return new Response(template, { headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -153,7 +162,6 @@ export default async function handler(
             });
         }
         const payload = (await response.json()) as ProfileApiResponse;
-        const tld = (process.env.VITE_TEZOS_NETWORK ?? "ghostnet") === "mainnet" ? "tez" : "gho";
         const fullName = payload.data?.name ?? `${label}.hack.${tld}`;
         const displayName = payload.data?.profile.name || payload.data?.profile.nickname || fullName;
         const bio = payload.data?.profile.bio?.trim() || `Own ${fullName} on Tezos.`;

@@ -201,11 +201,11 @@ export function buildProfileShareSvg(options: ProfileShareSvgOptions): string {
   <circle cx="${options.width - 176}" cy="132" r="42" fill="${palette.accent}" fill-opacity="0.18" stroke="${palette.accent}" stroke-opacity="0.7"/>
   <circle cx="${options.width - 176}" cy="132" r="10" fill="${palette.accent}"/>
   <rect x="96" y="96" width="${options.width - 192}" height="${options.height - 192}" rx="28" fill="${palette.panel}" fill-opacity="0.78" stroke="${palette.muted}" stroke-opacity="0.15"/>
-    ${statusLine ? `<text x="96" y="134" fill="${palette.accent}" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" font-weight="700" letter-spacing="0.5">${statusLine}</text>` : ""}
-    <text x="96" y="${statusLine ? 198 : 168}" fill="${palette.text}" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="74" font-weight="700" letter-spacing="-2">${titleSpans}</text>
-    <text x="96" y="${statusLine ? 358 : 328}" fill="${palette.muted}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32">${subtitleSpans}</text>
-  <text x="96" y="${options.height - 126}" fill="${palette.accent}" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="28" font-weight="700">${escapeXml(options.cta)}</text>
-  <text x="96" y="${options.height - 78}" fill="${palette.text}" fill-opacity="0.68" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="26">// ${escapeXml(options.fullName)}</text>
-  <text x="${options.width - 96}" y="${options.height - 78}" text-anchor="end" fill="${palette.text}" fill-opacity="0.46" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22">${escapeXml(options.profileUrl)}</text>
+        ${statusLine ? `<text x="96" y="134" fill="${palette.accent}" font-family="'Space Mono', monospace" font-size="24" font-weight="700" letter-spacing="0.5">${statusLine}</text>` : ""}
+        <text x="96" y="${statusLine ? 198 : 168}" fill="${palette.text}" font-family="'Space Mono', monospace" font-size="74" font-weight="700" letter-spacing="-2">${titleSpans}</text>
+        <text x="96" y="${statusLine ? 358 : 328}" fill="${palette.muted}" font-family="'Space Mono', monospace" font-size="32">${subtitleSpans}</text>
+    <text x="96" y="${options.height - 126}" fill="${palette.accent}" font-family="'Space Mono', monospace" font-size="28" font-weight="700">${escapeXml(options.cta)}</text>
+    <text x="96" y="${options.height - 78}" fill="${palette.text}" fill-opacity="0.68" font-family="'Space Mono', monospace" font-size="26">// ${escapeXml(options.fullName)}</text>
+    <text x="${options.width - 96}" y="${options.height - 78}" text-anchor="end" fill="${palette.text}" fill-opacity="0.46" font-family="'Space Mono', monospace" font-size="22">${escapeXml(options.profileUrl)}</text>
 </svg>`;
 }
