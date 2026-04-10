@@ -227,13 +227,13 @@ export function buildProfileShareSvg(options: ProfileShareSvgOptions): string {
     <rect x="${frameX}" y="${frameY}" width="${frameWidth}" height="${frameHeight}" rx="30" fill="url(#panel)" stroke="${palette.muted}" stroke-opacity="0.28"/>
     <rect x="${frameX + 18}" y="${frameY + 18}" width="${frameWidth - 36}" height="${frameHeight - 36}" rx="22" stroke="${palette.muted}" stroke-opacity="0.18"/>
     <rect x="${frameX + 26}" y="${frameY + 24}" width="8" height="${frameHeight - 48}" rx="4" fill="${palette.accent}" fill-opacity="0.82"/>
-    <text x="${options.width - 96}" y="114" text-anchor="end" fill="${palette.text}" fill-opacity="0.54" font-size="19" letter-spacing="1.2">HACK.TEZ PROFILE</text>
-    ${statusLine ? `<text x="110" y="156" fill="${palette.accent}" font-size="22" font-weight="700" letter-spacing="0.9">${statusLine}</text>` : ""}
-    <text x="110" y="${titleY}" fill="${palette.text}" font-size="72" font-weight="700" letter-spacing="-1.9">${titleSpans}</text>
-    <text x="110" y="${subtitleY}" fill="${palette.muted}" font-size="31">${subtitleSpans}</text>
+    <text x="${options.width - 96}" y="114" text-anchor="end" fill="${palette.text}" fill-opacity="0.54" font-size="19" font-family="'Space Mono', monospace" letter-spacing="1.2">HACK.TEZ PROFILE</text>
+    ${statusLine ? `<text x="110" y="156" fill="${palette.accent}" font-size="22" font-family="'Space Mono', monospace" font-weight="700" letter-spacing="0.9">${statusLine}</text>` : ""}
+    <text x="110" y="${titleY}" fill="${palette.text}" font-size="72" font-family="'Space Mono', monospace" font-weight="700" letter-spacing="-1.9">${titleSpans}</text>
+    <text x="110" y="${subtitleY}" fill="${palette.muted}" font-size="31" font-family="'Space Mono', monospace">${subtitleSpans}</text>
     <path d="M110 ${ctaY - 22}H${options.width - 110}" stroke="${palette.muted}" stroke-opacity="0.24" stroke-width="2"/>
-    <text x="110" y="${ctaY}" fill="${palette.accent}" font-size="30" font-weight="700">${escapeXml(options.cta)}</text>
-    <text x="110" y="${fullNameY}" fill="${palette.text}" fill-opacity="0.72" font-size="24">// ${escapeXml(options.fullName)}</text>
-    <text x="${options.width - 96}" y="${fullNameY}" text-anchor="end" fill="${palette.text}" fill-opacity="0.52" font-size="21">${escapeXml(options.profileUrl)}</text>
+    <text x="110" y="${ctaY}" fill="${palette.accent}" font-size="30" font-family="'Space Mono', monospace" font-weight="700">${escapeXml(options.cta)}</text>
+    <text x="110" y="${fullNameY}" fill="${palette.text}" fill-opacity="0.72" font-size="24" font-family="'Space Mono', monospace">// ${escapeXml(options.fullName)}</text>
+    <text x="${options.width - 96}" y="${fullNameY}" text-anchor="end" fill="${palette.text}" fill-opacity="0.52" font-size="21" font-family="'Space Mono', monospace">${escapeXml(options.profileUrl)}</text>
 </svg>`;
 }
