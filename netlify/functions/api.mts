@@ -14,8 +14,10 @@
 import type { Config, Context } from "@netlify/functions";
 import { Resvg } from "@resvg/resvg-js";
 import { getStore } from "@netlify/blobs";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import pinHandler from "./pin.mts";
-import { SHARE_CARD_FONT_BUFFERS } from "./shareCardFonts.ts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
 import {
@@ -75,6 +77,8 @@ const CORS_HEADERS = {
     "Access-Control-Allow-Headers": "Content-Type",
 };
 
+const SHARE_CARD_DEBUG_VERSION = "share-card-debug-2026-04-10-v1";
+
 function json(body: unknown, status = 200, extra?: HeadersInit): Response {
     return new Response(JSON.stringify(body), {
         status,
@@ -105,6 +109,34 @@ function normalizeLabel(nameOrLabel: string, tld: "tez" | "gho"): string {
     const suffix = `.hack.${tld}`;
     if (value.endsWith(suffix)) return value.slice(0, -suffix.length);
     return value;
+}
+
+// Font paths for Resvg. Netlify Functions (AWS Lambda) run at /var/task.
+// included_files from netlify.toml are bundled at their project-relative paths.
+const _fnDir = dirname(fileURLToPath(import.meta.url));
+
+// Build font file paths at runtime - check existence when handler runs, not at import time.
+function getShareCardFontFiles(): string[] {
+    const fontFileNames = [
+        "space-mono-latin-400-normal.woff",
+        "space-mono-latin-700-normal.woff",
+    ];
+    const baseCandidates = [
+        // Lambda: /var/task is working directory, included_files are project-relative from there
+        "/var/task/node_modules/@fontsource/space-mono/files",
+        // Local dev: relative to this module file
+        resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files"),
+        // Fallback: process.cwd() based (works in some runtimes)
+        resolve(process.cwd(), "node_modules/@fontsource/space-mono/files"),
+    ];
+
+    for (const base of baseCandidates) {
+        const files = fontFileNames.map((f) => resolve(base, f));
+        if (files.every((f) => existsSync(f))) {
+            return files;
+        }
+    }
+    return [];
 }
 
 async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<string, unknown>): Promise<T> {
@@ -975,10 +1007,26 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
         profileUrl,
         statusLabel: formatShareStatus(profile.status),
     });
+    const textNodeCount = (svg.match(/<text\b/g) ?? []).length;
+
+    // Resolve font files at runtime (not import time) for Lambda cold-start compatibility
+    const fontFiles = getShareCardFontFiles();
+
+    console.info("[share-card] render", {
+        version: SHARE_CARD_DEBUG_VERSION,
+        label: normalizedLabel,
+        network: net.name,
+        textNodeCount,
+        fontFilesFound: fontFiles.length,
+        fontFiles,
+        cwd: process.cwd(),
+        fnDir: _fnDir,
+    });
+
     const pngData = new Resvg(svg, {
         fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
         font: {
-            fontBuffers: SHARE_CARD_FONT_BUFFERS,
+            fontFiles,
             defaultFontFamily: "Space Mono",
             loadSystemFonts: true,
         },
@@ -989,7 +1037,13 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
     return new Response(pngData, {
         headers: {
             "Content-Type": "image/png",
-            "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=86400",
+            // Temporary debug mode: force function execution on every request.
+            "Cache-Control": "no-store, max-age=0",
+            "X-Share-Card-Version": SHARE_CARD_DEBUG_VERSION,
+            "X-Share-Card-Label": normalizedLabel,
+            "X-Share-Card-Text-Nodes": String(textNodeCount),
+            "X-Share-Card-Font-Count": String(fontFiles.length),
+            "X-Share-Card-Fonts": fontFiles.map((f) => f.split("/").pop()).join(",") || "none",
             ...CORS_HEADERS,
         },
     });
