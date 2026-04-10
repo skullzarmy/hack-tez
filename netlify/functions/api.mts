@@ -980,7 +980,7 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
         font: {
             fontBuffers: SHARE_CARD_FONT_BUFFERS,
             defaultFontFamily: "Space Mono",
-            loadSystemFonts: false,
+            loadSystemFonts: true,
         },
     })
         .render()
