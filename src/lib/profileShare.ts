@@ -97,7 +97,7 @@ export function getDefaultProfileShareState(seed: ProfileShareSeed): ProfileShar
         format: "og",
         title,
         subtitle,
-        cta: `${seed.fullName} on hack.tez`,
+        cta: `${seed.fullName} on ${new URL(seed.siteUrl).hostname}`,
         circuitDensity: 58,
         circuitGlow: 62,
         glitchIntensity: 44,
@@ -120,28 +120,51 @@ function escapeXml(value: string): string {
         .replaceAll("'", "&#39;");
 }
 
+function truncateSvgWord(word: string, maxChars: number): string {
+    if (word.length <= maxChars) return word;
+    if (maxChars <= 1) return "…";
+    return `${word.slice(0, maxChars - 1)}…`;
+}
+
 function wrapSvgText(text: string, maxChars: number, maxLines: number): string[] {
-    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (maxChars <= 0 || maxLines <= 0) return [];
+    const words = text
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => truncateSvgWord(word, maxChars));
     if (words.length === 0) return [];
     const lines: string[] = [];
     let current = "";
+    let consumedWords = 0;
     for (const word of words) {
         const next = current ? `${current} ${word}` : word;
         if (next.length <= maxChars) {
             current = next;
+            consumedWords += 1;
             continue;
         }
-        if (current) lines.push(current);
+        if (current) {
+            lines.push(current);
+            if (lines.length === maxLines) break;
+        }
         current = word;
-        if (lines.length === maxLines) break;
+        consumedWords += 1;
     }
     if (lines.length < maxLines && current) lines.push(current);
-    if (lines.length > maxLines) return lines.slice(0, maxLines);
-    if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
-        const last = lines[maxLines - 1] ?? "";
-        lines[maxLines - 1] = last.length > 1 ? `${last.slice(0, Math.max(1, last.length - 1))}…` : "…";
+    const didOverflow = consumedWords < words.length;
+    if (didOverflow && lines.length > 0) {
+        const lastIndex = Math.min(lines.length, maxLines) - 1;
+        const last = lines[lastIndex] ?? "";
+        if (last.endsWith("…")) {
+            lines[lastIndex] = last;
+        } else if (last.length > 1) {
+            lines[lastIndex] = `${last.slice(0, Math.max(1, last.length - 1))}…`;
+        } else {
+            lines[lastIndex] = "…";
+        }
     }
-    return lines;
+    return lines.slice(0, maxLines);
 }
 
 export function buildProfileShareSvg(options: ProfileShareSvgOptions): string {

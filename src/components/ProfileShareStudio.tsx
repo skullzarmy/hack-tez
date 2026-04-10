@@ -118,22 +118,31 @@ function invertHexColor(hex: string): string {
 function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
     const words = text.trim().split(/\s+/).filter(Boolean);
     if (words.length === 0) return [];
+    const ellipsisWidth = ctx.measureText("…").width;
     const lines: string[] = [];
     let current = "";
     for (const word of words) {
-        const next = current ? `${current} ${word}` : word;
+        // Truncate a single word that already exceeds maxWidth
+        let safeWord = word;
+        if (ctx.measureText(safeWord).width > maxWidth) {
+            while (safeWord.length > 1 && ctx.measureText(safeWord).width + ellipsisWidth > maxWidth) {
+                safeWord = safeWord.slice(0, -1);
+            }
+            safeWord = `${safeWord}…`;
+        }
+        const next = current ? `${current} ${safeWord}` : safeWord;
         if (ctx.measureText(next).width <= maxWidth) {
             current = next;
             continue;
         }
         if (current) lines.push(current);
-        current = word;
+        current = safeWord;
         if (lines.length === maxLines) break;
     }
     if (lines.length < maxLines && current) lines.push(current);
     if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
         let last = lines[maxLines - 1] ?? "";
-        while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) {
+        while (last.length > 1 && ctx.measureText(last).width + ellipsisWidth > maxWidth) {
             last = last.slice(0, -1);
         }
         lines[maxLines - 1] = `${last}…`;
