@@ -122,13 +122,19 @@ function tryLoadFont(...candidates: string[]): Uint8Array | null {
 }
 
 const _fontRegular = tryLoadFont(
+    resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-400-normal.woff"),
     resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-400-normal.woff2"),
+    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-400-normal.woff"),
     resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-400-normal.woff2"),
+    resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff"),
     resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2"),
 );
 const _fontBold = tryLoadFont(
+    resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-700-normal.woff"),
     resolve(_fnDir, "../../dist/assets/fonts/space-mono-latin-700-normal.woff2"),
+    resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-700-normal.woff"),
     resolve(process.cwd(), "dist/assets/fonts/space-mono-latin-700-normal.woff2"),
+    resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff"),
     resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2"),
 );
 const SHARE_CARD_FONT_BUFFERS: Uint8Array[] = [_fontRegular, _fontBold].filter((b): b is Uint8Array => b !== null);

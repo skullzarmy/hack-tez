@@ -11,7 +11,9 @@
   included_files = [
     "dist/index.html",
     "dist/assets/fonts/*",
+    "node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff",
     "node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2",
+    "node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff",
     "node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2",
   ]
 
