@@ -44,7 +44,17 @@ self.addEventListener("fetch", (e) => {
                     }
                     return res;
                 })
-                .catch(() => caches.match(e.request)),
+                .catch(() =>
+                    caches.match(e.request).then(
+                        (cached) =>
+                            cached ||
+                            new Response("Service unavailable", {
+                                status: 503,
+                                statusText: "Service Unavailable",
+                                headers: { "Content-Type": "text/plain; charset=utf-8" },
+                            }),
+                    ),
+                ),
         );
         return;
     }
