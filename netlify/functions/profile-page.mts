@@ -61,26 +61,53 @@ function setMetadata(html: string, values: { title: string; description: string;
         `<meta name="description" content="${escapeHtml(values.description)}" />`,
     );
     next = replaceTag(next, /<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${values.url}" />`);
-    next = replaceTag(next, /<meta property="og:url" content="[^"]*" \/>/, `<meta property="og:url" content="${values.url}" />`);
-    next = replaceTag(next, /<meta property="og:title" content="[^"]*" \/>/, `<meta property="og:title" content="${escapeHtml(values.title)}" />`);
+    next = replaceTag(
+        next,
+        /<meta property="og:url" content="[^"]*" \/>/,
+        `<meta property="og:url" content="${values.url}" />`,
+    );
+    next = replaceTag(
+        next,
+        /<meta property="og:title" content="[^"]*" \/>/,
+        `<meta property="og:title" content="${escapeHtml(values.title)}" />`,
+    );
     next = replaceTag(
         next,
         /<meta property="og:description" content="[^"]*" \/>/,
         `<meta property="og:description" content="${escapeHtml(values.description)}" />`,
     );
-    next = replaceTag(next, /<meta property="og:image" content="[^"]*" \/>/, `<meta property="og:image" content="${values.image}" />`);
-    next = replaceTag(next, /<meta name="twitter:url" content="[^"]*" \/>/, `<meta name="twitter:url" content="${values.url}" />`);
-    next = replaceTag(next, /<meta name="twitter:title" content="[^"]*" \/>/, `<meta name="twitter:title" content="${escapeHtml(values.title)}" />`);
+    next = replaceTag(
+        next,
+        /<meta property="og:image" content="[^"]*" \/>/,
+        `<meta property="og:image" content="${values.image}" />`,
+    );
+    next = replaceTag(
+        next,
+        /<meta name="twitter:url" content="[^"]*" \/>/,
+        `<meta name="twitter:url" content="${values.url}" />`,
+    );
+    next = replaceTag(
+        next,
+        /<meta name="twitter:title" content="[^"]*" \/>/,
+        `<meta name="twitter:title" content="${escapeHtml(values.title)}" />`,
+    );
     next = replaceTag(
         next,
         /<meta name="twitter:description" content="[^"]*" \/>/,
         `<meta name="twitter:description" content="${escapeHtml(values.description)}" />`,
     );
-    next = replaceTag(next, /<meta name="twitter:image" content="[^"]*" \/>/, `<meta name="twitter:image" content="${values.image}" />`);
+    next = replaceTag(
+        next,
+        /<meta name="twitter:image" content="[^"]*" \/>/,
+        `<meta name="twitter:image" content="${values.image}" />`,
+    );
     return next;
 }
 
-export default async function handler(req: Request, context: { params?: Record<string, string | undefined> }): Promise<Response> {
+export default async function handler(
+    req: Request,
+    context: { params?: Record<string, string | undefined> },
+): Promise<Response> {
     const reqUrl = new URL(req.url);
     const isLocalHost = reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
     const isNetlifyDev = process.env.NETLIFY_DEV === "true";
@@ -126,7 +153,8 @@ export default async function handler(req: Request, context: { params?: Record<s
             });
         }
         const payload = (await response.json()) as ProfileApiResponse;
-        const displayName = payload.data?.profile.name || payload.data?.profile.nickname || payload.data?.name || `${label}.hack.tez`;
+        const displayName =
+            payload.data?.profile.name || payload.data?.profile.nickname || payload.data?.name || `${label}.hack.tez`;
         const bio = payload.data?.profile.bio?.trim() || `Own ${payload.data?.name ?? `${label}.hack.tez`} on Tezos.`;
         const title = `${displayName} | hack.tez`;
         const html = setMetadata(template, {

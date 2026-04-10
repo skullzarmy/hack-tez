@@ -1015,9 +1015,9 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         if (resource === "activity") return await handleActivity(new URL(req.url), net);
         if (resource === "hackatar" && param)
             return await handleHackatar(decodeURIComponent(param), new URL(req.url), net);
-        if (resource === "avatar" && param)
-            return await handleAvatar(decodeURIComponent(param), new URL(req.url), net);
-        if (resource === "share-card" && param) return await handleShareCard(decodeURIComponent(param), new URL(req.url), net);
+        if (resource === "avatar" && param) return await handleAvatar(decodeURIComponent(param), new URL(req.url), net);
+        if (resource === "share-card" && param)
+            return await handleShareCard(decodeURIComponent(param), new URL(req.url), net);
 
         return json(
             {

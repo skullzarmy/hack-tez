@@ -642,11 +642,7 @@ export default function Profile() {
                                     />
                                 )}
                                 {websiteUrl && (
-                                    <LinkIcon
-                                        href={websiteUrl}
-                                        label="Website"
-                                        icon={<Globe size={14} />}
-                                    />
+                                    <LinkIcon href={websiteUrl} label="Website" icon={<Globe size={14} />} />
                                 )}
                             </div>
                         )}
