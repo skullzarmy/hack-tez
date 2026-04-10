@@ -14,8 +14,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { Resvg } from "@resvg/resvg-js";
 import { getStore } from "@netlify/blobs";
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import pinHandler from "./pin.mts";
 // @ts-expect-error — gifenc is CJS, no proper ESM types
@@ -114,30 +113,6 @@ function normalizeLabel(nameOrLabel: string, tld: "tez" | "gho"): string {
 // Font paths for Resvg. Netlify Functions (AWS Lambda) run at /var/task.
 // included_files from netlify.toml are bundled at their project-relative paths.
 const _fnDir = dirname(fileURLToPath(import.meta.url));
-
-// Build font file paths at runtime - check existence when handler runs, not at import time.
-function getShareCardFontFiles(): string[] {
-    const fontFileNames = [
-        "space-mono-latin-400-normal.woff",
-        "space-mono-latin-700-normal.woff",
-    ];
-    const baseCandidates = [
-        // Lambda: /var/task is working directory, included_files are project-relative from there
-        "/var/task/node_modules/@fontsource/space-mono/files",
-        // Local dev: relative to this module file
-        resolve(_fnDir, "../../node_modules/@fontsource/space-mono/files"),
-        // Fallback: process.cwd() based (works in some runtimes)
-        resolve(process.cwd(), "node_modules/@fontsource/space-mono/files"),
-    ];
-
-    for (const base of baseCandidates) {
-        const files = fontFileNames.map((f) => resolve(base, f));
-        if (files.every((f) => existsSync(f))) {
-            return files;
-        }
-    }
-    return [];
-}
 
 async function tedGql<T>(graphqlUrl: string, query: string, variables: Record<string, unknown>): Promise<T> {
     const res = await fetch(graphqlUrl, {
@@ -1008,17 +983,14 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
         statusLabel: formatShareStatus(profile.status),
     });
     const textNodeCount = (svg.match(/<text\b/g) ?? []).length;
-
-    // Resolve font files at runtime (not import time) for Lambda cold-start compatibility
-    const fontFiles = getShareCardFontFiles();
+    // Fonts are now embedded in SVG via @font-face with base64 data URIs - no external font loading needed
 
     console.info("[share-card] render", {
         version: SHARE_CARD_DEBUG_VERSION,
         label: normalizedLabel,
         network: net.name,
         textNodeCount,
-        fontFilesFound: fontFiles.length,
-        fontFiles,
+        fontsEmbedded: true,
         cwd: process.cwd(),
         fnDir: _fnDir,
     });
@@ -1026,9 +998,9 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
     const pngData = new Resvg(svg, {
         fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
         font: {
-            fontFiles,
+            // Fonts embedded in SVG via @font-face - no fontFiles needed
             defaultFontFamily: "Space Mono",
-            loadSystemFonts: true,
+            loadSystemFonts: false,
         },
     })
         .render()
@@ -1042,8 +1014,7 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
             "X-Share-Card-Version": SHARE_CARD_DEBUG_VERSION,
             "X-Share-Card-Label": normalizedLabel,
             "X-Share-Card-Text-Nodes": String(textNodeCount),
-            "X-Share-Card-Font-Count": String(fontFiles.length),
-            "X-Share-Card-Fonts": fontFiles.map((f) => f.split("/").pop()).join(",") || "none",
+            "X-Share-Card-Fonts": "embedded-base64",
             ...CORS_HEADERS,
         },
     });

@@ -1,3 +1,5 @@
+import { SPACE_MONO_400_BASE64, SPACE_MONO_700_BASE64 } from "./shareCardFonts";
+
 export type ProfileSharePreset = "circuit-hero" | "scanline-glitch" | "mono-poster";
 export type ProfileShareFormat = "og" | "portrait" | "square";
 
@@ -169,30 +171,44 @@ function wrapSvgText(text: string, maxChars: number, maxLines: number): string[]
 
 export function buildProfileShareSvg(options: ProfileShareSvgOptions): string {
     const palette = PROFILE_SHARE_PRESETS[options.preset];
-        const isWide = options.width > options.height;
-        const titleLines = wrapSvgText(options.title, isWide ? 22 : 20, isWide ? 2 : 3);
-        const subtitleLines = wrapSvgText(options.subtitle, isWide ? 44 : 30, 3);
+    const isWide = options.width > options.height;
+    const titleLines = wrapSvgText(options.title, isWide ? 22 : 20, isWide ? 2 : 3);
+    const subtitleLines = wrapSvgText(options.subtitle, isWide ? 44 : 30, 3);
     const accentTwo = options.preset === "scanline-glitch" ? "#59f4ff" : palette.accent;
     const status = options.statusLabel ? escapeXml(options.statusLabel.toUpperCase()) : null;
     const statusLine = status ? `// ${status}` : null;
-        const frameX = 56;
-        const frameY = 56;
-        const frameWidth = options.width - frameX * 2;
-        const frameHeight = options.height - frameY * 2;
-        const titleY = statusLine ? 246 : 212;
-        const subtitleY = titleY + (isWide ? 184 : 238);
-        const ctaY = options.height - 118;
-        const fullNameY = options.height - 78;
+    const frameX = 56;
+    const frameY = 56;
+    const frameWidth = options.width - frameX * 2;
+    const frameHeight = options.height - frameY * 2;
+    const titleY = statusLine ? 246 : 212;
+    const subtitleY = titleY + (isWide ? 184 : 238);
+    const ctaY = options.height - 118;
+    const fullNameY = options.height - 78;
     const titleSpans = titleLines
-                .map((line, index) => `<tspan x="110" dy="${index === 0 ? 0 : 86}">${escapeXml(line)}</tspan>`)
+        .map((line, index) => `<tspan x="110" dy="${index === 0 ? 0 : 86}">${escapeXml(line)}</tspan>`)
         .join("");
     const subtitleSpans = subtitleLines
-                .map((line, index) => `<tspan x="110" dy="${index === 0 ? 0 : 38}">${escapeXml(line)}</tspan>`)
+        .map((line, index) => `<tspan x="110" dy="${index === 0 ? 0 : 38}">${escapeXml(line)}</tspan>`)
         .join("");
 
     return `
 <svg width="${options.width}" height="${options.height}" viewBox="0 0 ${options.width} ${options.height}" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    <style type="text/css">
+      @font-face {
+        font-family: 'Space Mono';
+        font-weight: 400;
+        font-style: normal;
+        src: url('data:font/woff;base64,${SPACE_MONO_400_BASE64}') format('woff');
+      }
+      @font-face {
+        font-family: 'Space Mono';
+        font-weight: 700;
+        font-style: normal;
+        src: url('data:font/woff;base64,${SPACE_MONO_700_BASE64}') format('woff');
+      }
+    </style>
         <linearGradient id="bg" x1="0" y1="0" x2="${options.width}" y2="${options.height}" gradientUnits="userSpaceOnUse">
       <stop stop-color="${palette.background}"/>
       <stop offset="1" stop-color="${palette.panel}"/>
@@ -227,13 +243,13 @@ export function buildProfileShareSvg(options: ProfileShareSvgOptions): string {
     <rect x="${frameX}" y="${frameY}" width="${frameWidth}" height="${frameHeight}" rx="30" fill="url(#panel)" stroke="${palette.muted}" stroke-opacity="0.28"/>
     <rect x="${frameX + 18}" y="${frameY + 18}" width="${frameWidth - 36}" height="${frameHeight - 36}" rx="22" stroke="${palette.muted}" stroke-opacity="0.18"/>
     <rect x="${frameX + 26}" y="${frameY + 24}" width="8" height="${frameHeight - 48}" rx="4" fill="${palette.accent}" fill-opacity="0.82"/>
-    <text x="${options.width - 96}" y="114" text-anchor="end" fill="${palette.text}" fill-opacity="0.54" font-size="19" font-family="'Space Mono', monospace" letter-spacing="1.2">HACK.TEZ PROFILE</text>
-    ${statusLine ? `<text x="110" y="156" fill="${palette.accent}" font-size="22" font-family="'Space Mono', monospace" font-weight="700" letter-spacing="0.9">${statusLine}</text>` : ""}
-    <text x="110" y="${titleY}" fill="${palette.text}" font-size="72" font-family="'Space Mono', monospace" font-weight="700" letter-spacing="-1.9">${titleSpans}</text>
-    <text x="110" y="${subtitleY}" fill="${palette.muted}" font-size="31" font-family="'Space Mono', monospace">${subtitleSpans}</text>
+    <text x="${options.width - 96}" y="114" text-anchor="end" fill="${palette.text}" fill-opacity="0.54" font-size="19" font-family="Space Mono" letter-spacing="1.2">HACK.TEZ PROFILE</text>
+    ${statusLine ? `<text x="110" y="156" fill="${palette.accent}" font-size="22" font-family="Space Mono" font-weight="700" letter-spacing="0.9">${statusLine}</text>` : ""}
+    <text x="110" y="${titleY}" fill="${palette.text}" font-size="72" font-family="Space Mono" font-weight="700" letter-spacing="-1.9">${titleSpans}</text>
+    <text x="110" y="${subtitleY}" fill="${palette.muted}" font-size="31" font-family="Space Mono">${subtitleSpans}</text>
     <path d="M110 ${ctaY - 22}H${options.width - 110}" stroke="${palette.muted}" stroke-opacity="0.24" stroke-width="2"/>
-    <text x="110" y="${ctaY}" fill="${palette.accent}" font-size="30" font-family="'Space Mono', monospace" font-weight="700">${escapeXml(options.cta)}</text>
-    <text x="110" y="${fullNameY}" fill="${palette.text}" fill-opacity="0.72" font-size="24" font-family="'Space Mono', monospace">// ${escapeXml(options.fullName)}</text>
-    <text x="${options.width - 96}" y="${fullNameY}" text-anchor="end" fill="${palette.text}" fill-opacity="0.52" font-size="21" font-family="'Space Mono', monospace">${escapeXml(options.profileUrl)}</text>
+    <text x="110" y="${ctaY}" fill="${palette.accent}" font-size="30" font-family="Space Mono" font-weight="700">${escapeXml(options.cta)}</text>
+    <text x="110" y="${fullNameY}" fill="${palette.text}" fill-opacity="0.72" font-size="24" font-family="Space Mono">// ${escapeXml(options.fullName)}</text>
+    <text x="${options.width - 96}" y="${fullNameY}" text-anchor="end" fill="${palette.text}" fill-opacity="0.52" font-size="21" font-family="Space Mono">${escapeXml(options.profileUrl)}</text>
 </svg>`;
 }
