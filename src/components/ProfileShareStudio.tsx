@@ -74,7 +74,14 @@ const CHECKBOX_STYLE: React.CSSProperties = {
     cursor: "pointer",
 };
 
-function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+function drawRoundedRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
     ctx.arcTo(x + width, y, x + width, y + height, radius);
@@ -99,10 +106,7 @@ function seededUnit(seed: number, salt: number): number {
 
 function invertHexColor(hex: string): string {
     if (!hex.startsWith("#") || (hex.length !== 7 && hex.length !== 4)) return hex;
-    const normalized =
-        hex.length === 4
-            ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-            : hex;
+    const normalized = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
     const red = 255 - Number.parseInt(normalized.slice(1, 3), 16);
     const green = 255 - Number.parseInt(normalized.slice(3, 5), 16);
     const blue = 255 - Number.parseInt(normalized.slice(5, 7), 16);
@@ -111,12 +115,7 @@ function invertHexColor(hex: string): string {
         .padStart(2, "0")}`;
 }
 
-function wrapCanvasText(
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    maxWidth: number,
-    maxLines: number,
-): string[] {
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
     const words = text.trim().split(/\s+/).filter(Boolean);
     if (words.length === 0) return [];
     const ellipsisWidth = ctx.measureText("…").width;
@@ -233,7 +232,10 @@ function drawPattern(
             const bandCount = Math.round((isGlitchPreset ? 5 : 2) + glitch * (isGlitchPreset ? 12 : 8));
             for (let index = 0; index < bandCount; index += 1) {
                 const y = Math.round(seededUnit(seed, 521 + index * 3) * (height - 20));
-                const bandHeight = Math.max(4, Math.round(height * (0.008 + seededUnit(seed, 607 + index * 5) * 0.028)));
+                const bandHeight = Math.max(
+                    4,
+                    Math.round(height * (0.008 + seededUnit(seed, 607 + index * 5) * 0.028)),
+                );
                 const maxShift = Math.round((isGlitchPreset ? 18 : 10) + glitch * (isGlitchPreset ? 54 : 34));
                 const direction = seededUnit(seed, 683 + index * 7) > 0.5 ? 1 : -1;
                 const shift = direction * Math.round((0.25 + seededUnit(seed, 727 + index * 11) * 0.75) * maxShift);
@@ -247,7 +249,10 @@ function drawPattern(
             const splitPx = Math.max(1, Math.round((isGlitchPreset ? 2 : 1) + glitch * 6));
             for (let index = 0; index < splitBands; index += 1) {
                 const y = Math.round(seededUnit(seed, 811 + index * 13) * (height - 16));
-                const bandHeight = Math.max(3, Math.round(height * (0.006 + seededUnit(seed, 877 + index * 17) * 0.016)));
+                const bandHeight = Math.max(
+                    3,
+                    Math.round(height * (0.006 + seededUnit(seed, 877 + index * 17) * 0.016)),
+                );
                 ctx.save();
                 ctx.globalCompositeOperation = "lighter";
                 ctx.globalAlpha = isMonoPreset ? 0.08 : 0.18 + glitch * 0.18;
@@ -268,7 +273,11 @@ function drawPattern(
         const pulseWidth = Math.max(40, Math.round(width * (0.14 + seededUnit(seed, 991 + index * 23) * 0.5)));
         const x = Math.round(seededUnit(seed, 1069 + index * 29) * (width - pulseWidth));
         const alpha = (0.08 + glitch * 0.22).toFixed(3);
-        ctx.fillStyle = isMonoPreset ? `${text}${Math.round((0.08 + glitch * 0.18) * 255).toString(16).padStart(2, "0")}` : `rgba(89,244,255,${alpha})`;
+        ctx.fillStyle = isMonoPreset
+            ? `${text}${Math.round((0.08 + glitch * 0.18) * 255)
+                  .toString(16)
+                  .padStart(2, "0")}`
+            : `rgba(89,244,255,${alpha})`;
         ctx.fillRect(x, y, pulseWidth, 2);
     }
 
@@ -284,7 +293,14 @@ function drawPattern(
     }
 
     if (glow > 0.36) {
-        const bloom = ctx.createRadialGradient(width * 0.26, height * 0.24, 0, width * 0.26, height * 0.24, width * 0.6);
+        const bloom = ctx.createRadialGradient(
+            width * 0.26,
+            height * 0.24,
+            0,
+            width * 0.26,
+            height * 0.24,
+            width * 0.6,
+        );
         bloom.addColorStop(0, `${accent}${(12 + Math.round(glow * 16)).toString(16).padStart(2, "0")}`);
         bloom.addColorStop(1, "transparent");
         ctx.fillStyle = bloom;
@@ -640,9 +656,27 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
             </div>
 
             {open && (
-                <div style={{ marginTop: "0.9rem", display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "flex-start" }}>
-                    <div style={{ flex: "1 1 320px", minWidth: "280px", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.9rem" }}>
+                <div
+                    style={{
+                        marginTop: "0.9rem",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "1rem",
+                        alignItems: "flex-start",
+                    }}
+                >
+                    <div
+                        style={{
+                            flex: "1 1 320px",
+                            minWidth: "280px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.8rem",
+                        }}
+                    >
+                        <div
+                            style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.9rem" }}
+                        >
                             <div>
                                 <label htmlFor="share-preset" style={FIELD_LABEL}>
                                     Preset
@@ -679,7 +713,10 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                                     id="share-format"
                                     value={state.format}
                                     onChange={(event) =>
-                                        setState((current) => ({ ...current, format: event.target.value as ProfileShareFormat }))
+                                        setState((current) => ({
+                                            ...current,
+                                            format: event.target.value as ProfileShareFormat,
+                                        }))
                                     }
                                     style={INPUT_STYLE}
                                 >
@@ -692,7 +729,15 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
 
                         <div>
                             {state.preset === "mono-poster" ? (
-                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--fg-2)", fontSize: "0.75rem" }}>
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "0.5rem",
+                                        color: "var(--fg-2)",
+                                        fontSize: "0.75rem",
+                                    }}
+                                >
                                     <input
                                         type="checkbox"
                                         checked={state.monoInvert}
@@ -729,7 +774,13 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                             )}
                         </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.75rem" }}>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                                gap: "0.75rem",
+                            }}
+                        >
                             <div>
                                 <label htmlFor="share-circuit-density" style={FIELD_LABEL}>
                                     Pattern {state.circuitDensity}
@@ -741,7 +792,10 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                                     max={100}
                                     value={state.circuitDensity}
                                     onChange={(event) =>
-                                        setState((current) => ({ ...current, circuitDensity: Number(event.target.value) }))
+                                        setState((current) => ({
+                                            ...current,
+                                            circuitDensity: Number(event.target.value),
+                                        }))
                                     }
                                     style={RANGE_STYLE}
                                 />
@@ -773,7 +827,10 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                                     max={100}
                                     value={state.glitchIntensity}
                                     onChange={(event) =>
-                                        setState((current) => ({ ...current, glitchIntensity: Number(event.target.value) }))
+                                        setState((current) => ({
+                                            ...current,
+                                            glitchIntensity: Number(event.target.value),
+                                        }))
                                     }
                                     style={RANGE_STYLE}
                                 />
@@ -806,7 +863,9 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                                 id="share-subtitle"
                                 maxLength={180}
                                 value={state.subtitle}
-                                onChange={(event) => setState((current) => ({ ...current, subtitle: event.target.value }))}
+                                onChange={(event) =>
+                                    setState((current) => ({ ...current, subtitle: event.target.value }))
+                                }
                                 rows={4}
                                 style={{ ...INPUT_STYLE, resize: "vertical", minHeight: "6.5rem" }}
                             />
@@ -843,7 +902,10 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                         </div>
 
                         {message && (
-                            <div aria-live="polite" style={{ color: "var(--fg-2)", fontSize: "0.72rem", letterSpacing: "0.02em" }}>
+                            <div
+                                aria-live="polite"
+                                style={{ color: "var(--fg-2)", fontSize: "0.72rem", letterSpacing: "0.02em" }}
+                            >
                                 {message}
                             </div>
                         )}
@@ -873,7 +935,14 @@ export function ProfileShareStudio({ label, fullName, displayName, avatarUrl, bi
                                     background: PROFILE_SHARE_PRESETS[state.preset].background,
                                 }}
                             />
-                            <div style={{ color: "var(--fg-3)", fontSize: "0.65rem", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+                            <div
+                                style={{
+                                    color: "var(--fg-3)",
+                                    fontSize: "0.65rem",
+                                    fontFamily: "var(--font-mono)",
+                                    letterSpacing: "0.06em",
+                                }}
+                            >
                                 Preview {width}x{height}
                             </div>
                         </div>
