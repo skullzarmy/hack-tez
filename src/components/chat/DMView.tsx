@@ -146,7 +146,6 @@ export default function DMView({
                         isGlobalChannelMuted={isGlobalChannelMuted}
                         isActiveDMMuted={isActiveDMMuted}
                         hasActiveDM={true}
-                        token={token}
                         onToggleGlobalEnabled={onToggleGlobalEnabled}
                         onToggleMuteForegroundConversation={onToggleMuteForegroundConversation}
                         onToggleMuteNewDMs={onToggleMuteNewDMs}

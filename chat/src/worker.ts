@@ -17,7 +17,7 @@ interface Env {
 interface JwtPayload {
   address: string;
   domains: string[];
-  activeDomain: string;
+  activeDomain: string | null;
 }
 
 // Per-isolate rate limiting for auth endpoint.
@@ -89,7 +89,7 @@ async function verifyJwt(request: Request, env: Env): Promise<JwtPayload | null>
 
     // Allow identity override via X-Active-Domain header (must be in JWT's domains)
     const domainOverride = request.headers.get("X-Active-Domain");
-    if (domainOverride && claims.domains.includes(domainOverride)) {
+    if (domainOverride && claims.domains?.includes(domainOverride)) {
       claims.activeDomain = domainOverride;
     }
 
@@ -97,6 +97,19 @@ async function verifyJwt(request: Request, env: Env): Promise<JwtPayload | null>
   } catch {
     return null;
   }
+}
+
+/** Guard: returns 403 if the user has no hack.tez domain (JWT with empty domains). */
+function requireDomain(request: Request, user: JwtPayload): Response | null {
+  if (!user.activeDomain) {
+    return errorResponse(request, "A hack.tez domain is required for this action", "NO_DOMAIN", 403);
+  }
+  return null;
+}
+
+/** Get activeDomain after requireDomain guard has passed (non-null assertion). */
+function getDomain(user: JwtPayload): string {
+  return user.activeDomain!;
 }
 
 function computeDmRoomId(domainA: string, domainB: string): string {
@@ -228,11 +241,7 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
     return errorResponse(request, "Failed to query domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
 
-  if (domains.length === 0) {
-    return errorResponse(request, "No hack.tez domain found for this wallet", "NO_DOMAIN", 403);
-  }
-
-  const activeDomain = domains[0];
+  const activeDomain = domains.length > 0 ? domains[0] : null;
 
   // Issue JWT
   const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
@@ -258,12 +267,10 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
     return errorResponse(request, "Failed to verify domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
 
-  if (domains.length === 0) {
-    return errorResponse(request, "No hack.tez domain found — ownership may have changed", "NO_DOMAIN", 403);
-  }
-
-  // Keep current active domain if still owned, otherwise pick first
-  const activeDomain = domains.includes(user.activeDomain) ? user.activeDomain : domains[0];
+  // Keep current active domain if still owned, otherwise pick first or null
+  const activeDomain = user.activeDomain && domains.includes(user.activeDomain)
+    ? user.activeDomain
+    : domains.length > 0 ? domains[0] : null;
 
   const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
   const token = await new SignJWT({ address: user.address, domains, activeDomain })
@@ -278,6 +285,8 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
 async function handleHistory(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   const url = new URL(request.url);
   const before = url.searchParams.get("before") ?? undefined;
@@ -315,6 +324,8 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
 async function handleDmCreate(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   let body: unknown;
   try {
@@ -340,7 +351,7 @@ async function handleDmCreate(request: Request, env: Env): Promise<Response> {
     return errorResponse(request, "Cannot DM yourself", "SELF_DM", 400);
   }
 
-  const roomId = computeDmRoomId(user.activeDomain, normalizedTargetDomain);
+  const roomId = computeDmRoomId(getDomain(user), normalizedTargetDomain);
 
   try {
     await env.DB
@@ -438,6 +449,8 @@ async function handleDmList(request: Request, env: Env): Promise<Response> {
 async function handleDmHistory(request: Request, env: Env, roomId: string): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   // Verify user is a member of this room
   const memberResult = await env.DB
@@ -602,6 +615,8 @@ async function handlePushVapidKey(request: Request, env: Env): Promise<Response>
 async function handlePushSubscribe(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   let body: unknown;
   try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
@@ -641,6 +656,8 @@ async function handlePushSubscribe(request: Request, env: Env): Promise<Response
 async function handlePushUnsubscribe(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   let body: unknown;
   try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
@@ -667,6 +684,8 @@ async function handlePushUnsubscribe(request: Request, env: Env): Promise<Respon
 async function handlePushGetPreferences(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   const row = await env.DB
     .prepare("SELECT push_enabled, push_dms, push_mentions, push_broadcasts, quiet_start, quiet_end FROM push_preferences WHERE domain = ?")
@@ -696,6 +715,8 @@ async function handlePushGetPreferences(request: Request, env: Env): Promise<Res
 async function handlePushUpdatePreferences(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   let body: unknown;
   try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
@@ -767,12 +788,12 @@ async function handleAdminBroadcast(request: Request, env: Env): Promise<Respons
       url: url ?? "/chat",
       tag: "broadcast",
       renotify: true,
-    }, user.activeDomain);
+    }, getDomain(user));
 
     // Record broadcast (push_broadcasts table is the audit trail)
     await env.DB
       .prepare("INSERT INTO push_broadcasts (title, body, url, admin_domain, sent_count, failed_count) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(title, broadcastBody, url, user.activeDomain, result.sent, result.failed)
+      .bind(title, broadcastBody, url, getDomain(user), result.sent, result.failed)
       .run();
 
     return corsResponse(request, JSON.stringify({ ok: true, sent: result.sent, failed: result.failed }));

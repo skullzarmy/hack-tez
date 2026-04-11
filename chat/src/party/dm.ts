@@ -8,7 +8,7 @@ const MSG_RATE_MAX = 10;
 interface TokenPayload {
     address: string;
     domains: string[];
-    activeDomain: string;
+    activeDomain: string | null;
 }
 
 interface HistoryResponse {

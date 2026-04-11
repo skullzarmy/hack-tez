@@ -1,5 +1,6 @@
 import config, { siteUrl } from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
+import PushSubscribeButton from "./PushSubscribeButton";
 
 export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord }) {
     const label = subdomain.name.replace(`.hack.${config.tld}`, "");
@@ -49,6 +50,7 @@ export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord 
                 >
                     Manage on Tezos Domains ↗
                 </a>
+                <PushSubscribeButton />
             </div>
         </div>
     );

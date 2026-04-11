@@ -3,6 +3,7 @@ import { useSubdomains } from "../hooks/useSubdomains";
 import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 import SubdomainManager from "./SubdomainManager";
+import PushSubscribeButton from "./PushSubscribeButton";
 
 const TED_APP_URL = config.tedAppUrl;
 
@@ -134,9 +135,12 @@ export default function Dashboard() {
                 >
                     You own your subdomains on Tezos Domains. Manage them directly on TED.
                 </p>
-                <button onClick={refresh} className="btn btn-ghost btn-sm" aria-label="Refresh subdomain list">
-                    ↻ Refresh
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                    <PushSubscribeButton />
+                    <button onClick={refresh} className="btn btn-ghost btn-sm" aria-label="Refresh subdomain list">
+                        ↻ Refresh
+                    </button>
+                </div>
             </div>
 
             {topLevel.length === 0 ? (

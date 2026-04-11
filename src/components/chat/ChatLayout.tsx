@@ -612,7 +612,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 isGlobalChannelMuted={isGlobalChannelMuted}
                                 isActiveDMMuted={isActiveDMMuted}
                                 hasActiveDM={activeView.type === "dm"}
-                                token={token}
                                 onToggleGlobalEnabled={toggleGlobalNotifications}
                                 onToggleMuteForegroundConversation={toggleMuteForegroundConversation}
                                 onToggleMuteNewDMs={toggleMuteNewDMs}

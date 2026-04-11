@@ -12,13 +12,13 @@ import {
     updatePushPreferences,
 } from "../../lib/pushSubscription";
 import type { PushPreferences, PushPermissionState } from "../../lib/pushSubscription";
+import { useTezos } from "../../context/TezosContext";
 
 interface ChatNotificationSettingsMenuProps {
     settings: ChatNotificationSettings;
     isGlobalChannelMuted: boolean;
     isActiveDMMuted: boolean;
     hasActiveDM: boolean;
-    token: string;
     onToggleGlobalEnabled: () => void;
     onToggleMuteForegroundConversation: () => void;
     onToggleMuteNewDMs: () => void;
@@ -82,26 +82,28 @@ export default function ChatNotificationSettingsMenu({
     isGlobalChannelMuted,
     isActiveDMMuted,
     hasActiveDM,
-    token,
     onToggleGlobalEnabled,
     onToggleMuteForegroundConversation,
     onToggleMuteNewDMs,
     onToggleMuteGlobalChannel,
     onToggleMuteActiveDM,
 }: ChatNotificationSettingsMenuProps) {
+    const { token } = useTezos();
     const [pushPermission, setPushPermission] = useState<PushPermissionState>(getPushPermissionState);
     const [pushSubscribed, setPushSubscribed] = useState(false);
     const [pushPrefs, setPushPrefs] = useState<PushPreferences | null>(null);
     const [pushLoading, setPushLoading] = useState(false);
     const [deviceCount, setDeviceCount] = useState(0);
+    const authToken = token ?? "";
 
     // Load push state on mount
     useEffect(() => {
+        if (!authToken) return;
         let cancelled = false;
         async function load() {
             const [subscribed, prefsRes] = await Promise.all([
                 isPushSubscribed(),
-                getPushPreferences(token),
+                getPushPreferences(authToken),
             ]);
             if (cancelled) return;
             setPushSubscribed(subscribed);
@@ -114,7 +116,7 @@ export default function ChatNotificationSettingsMenu({
             try {
                 const { hackchatUrl } = await import("../../config/tezos");
                 const res = await fetch(`${hackchatUrl}/push/preferences`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: { Authorization: `Bearer ${authToken}` },
                 });
                 if (res.ok) {
                     const data = await res.json();
@@ -125,19 +127,19 @@ export default function ChatNotificationSettingsMenu({
         void loadDeviceCount();
 
         return () => { cancelled = true; };
-    }, [token]);
+    }, [authToken]);
 
     const handleTogglePush = useCallback(async () => {
         setPushLoading(true);
         try {
             if (pushSubscribed) {
-                const ok = await unsubscribeFromPush(token);
+                const ok = await unsubscribeFromPush(authToken);
                 if (ok) {
                     setPushSubscribed(false);
                     setDeviceCount((c) => Math.max(0, c - 1));
                 }
             } else {
-                const ok = await subscribeToPush(token);
+                const ok = await subscribeToPush(authToken);
                 if (ok) {
                     setPushSubscribed(true);
                     setPushPermission("granted");
@@ -149,14 +151,14 @@ export default function ChatNotificationSettingsMenu({
         } finally {
             setPushLoading(false);
         }
-    }, [pushSubscribed, token]);
+    }, [pushSubscribed, authToken]);
 
     const handleTogglePushPref = useCallback(async (key: keyof PushPreferences, value: boolean) => {
         if (!pushPrefs) return;
         const updated = { ...pushPrefs, [key]: value };
         setPushPrefs(updated);
-        await updatePushPreferences(token, { [key]: value });
-    }, [pushPrefs, token]);
+        await updatePushPreferences(authToken, { [key]: value });
+    }, [pushPrefs, authToken]);
 
     return (
         <DropdownMenu>
