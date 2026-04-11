@@ -72,7 +72,7 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
     }
 
     const Icon = subscribed ? BellRing : Bell;
-    const label = subscribed ? "Notifications on" : "Enable notifications";
+    const label = subscribed ? "This device subscribed" : "Notify this device";
 
     return (
         <button
@@ -80,7 +80,7 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
             style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.7rem", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s", ...style }}
             onClick={() => void handleToggle()}
             disabled={loading || !checked}
-            title={subscribed ? "Unsubscribe from push notifications" : "Get notified of DMs, mentions, and announcements"}
+            title={subscribed ? "Unsubscribe this device from push notifications" : "Get notified of DMs, mentions, and announcements on this device"}
         >
             <Icon size={14} /> {label}
         </button>
