@@ -12,7 +12,7 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuContent = React.forwardRef<
     React.ElementRef<typeof DropdownMenuPrimitive.Content>,
     React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(function DropdownMenuContent({ className, sideOffset = 8, ...props }, ref) {
+>(function DropdownMenuContent({ className, sideOffset = 8, style, ...props }, ref) {
     return (
         <DropdownMenuPortal>
             <DropdownMenuPrimitive.Content
@@ -27,6 +27,7 @@ const DropdownMenuContent = React.forwardRef<
                     boxShadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
                     padding: "0.5rem",
                     zIndex: 1000,
+                    ...style,
                 }}
                 {...props}
             />
