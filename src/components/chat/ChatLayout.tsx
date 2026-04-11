@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, useLayoutEffect, useMemo } from "react";
-import { MessageCircle, Users, Loader2, Menu, AlertTriangle } from "lucide-react";
+import { MessageCircle, Users, Loader2, Menu, AlertTriangle, Megaphone } from "lucide-react";
 import IdentitySelector from "./IdentitySelector";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -10,6 +10,7 @@ import DeleteMessageModal from "./DeleteMessageModal";
 import BanUserModal from "./BanUserModal";
 import BanBanner from "./BanBanner";
 import ProfilePopout from "./ProfilePopout";
+import AdminBroadcastPanel from "./AdminBroadcastPanel";
 import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
 import { useChat } from "../../hooks/useChat";
 import type { BanInfo } from "../../hooks/useChat";
@@ -68,6 +69,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     // Admin state
     const [deleteModal, setDeleteModal] = useState<{ messageId: string; senderDomain: string } | null>(null);
     const [banModal, setBanModal] = useState<{ domain: string } | null>(null);
+    const [broadcastPanel, setBroadcastPanel] = useState(false);
     const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
     const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string | null } | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -240,6 +242,39 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
             notificationAudioRef.current = null;
         };
     }, [notificationSoundUrl]);
+
+    // Deep link from push notification clicks
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const dmRoom = params.get("dm");
+        if (dmRoom) {
+            // Extract peer domain from room ID (dm:domainA+domainB)
+            const parts = dmRoom.replace(/^dm:/, "").split("+");
+            const peer = parts.find((d) => d !== currentDomain) ?? parts[0];
+            if (peer) {
+                setActiveView({ type: "dm", roomId: dmRoom, peerDomain: peer });
+            }
+            // Clean up URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete("dm");
+            window.history.replaceState({}, "", url.pathname);
+        }
+
+        // Listen for push-navigate messages from service worker
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === "push-navigate" && event.data.url) {
+                const navUrl = new URL(event.data.url, window.location.origin);
+                const navDm = navUrl.searchParams.get("dm");
+                if (navDm) {
+                    const navParts = navDm.replace(/^dm:/, "").split("+");
+                    const navPeer = navParts.find((d) => d !== currentDomain) ?? navParts[0];
+                    if (navPeer) setActiveView({ type: "dm", roomId: navDm, peerDomain: navPeer });
+                }
+            }
+        };
+        navigator.serviceWorker?.addEventListener("message", handler);
+        return () => { navigator.serviceWorker?.removeEventListener("message", handler); };
+    }, [currentDomain]);
 
     const updateNotificationSettings = useCallback(
         (updater: (prev: ChatNotificationSettings) => ChatNotificationSettings) => {
@@ -548,6 +583,25 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                             </span>
                         </div>
                         <div className="flex items-center gap-1.5">
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => setBroadcastPanel(true)}
+                                    title="Admin Broadcast"
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "var(--fg-2, rgba(255,255,255,0.6))",
+                                        cursor: "pointer",
+                                        padding: "6px",
+                                        borderRadius: "6px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <Megaphone size={16} />
+                                </button>
+                            )}
                             <IdentitySelector
                                 domains={domains}
                                 activeDomain={currentDomain}
@@ -558,6 +612,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 isGlobalChannelMuted={isGlobalChannelMuted}
                                 isActiveDMMuted={isActiveDMMuted}
                                 hasActiveDM={activeView.type === "dm"}
+                                token={token}
                                 onToggleGlobalEnabled={toggleGlobalNotifications}
                                 onToggleMuteForegroundConversation={toggleMuteForegroundConversation}
                                 onToggleMuteNewDMs={toggleMuteNewDMs}
@@ -763,6 +818,14 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     anchorRect={profilePopout.anchorRect}
                     onClose={() => setProfilePopout(null)}
                     onStartDM={(peerDomain) => handleStartDM(peerDomain)}
+                />
+            )}
+
+            {/* Admin: Broadcast Panel */}
+            {broadcastPanel && (
+                <AdminBroadcastPanel
+                    token={token}
+                    onClose={() => setBroadcastPanel(false)}
                 />
             )}
         </div>

@@ -4,3 +4,4 @@ node_modules/
 dist/
 wrangler.jsonc
 partykit.json
+.vapid-keys.json

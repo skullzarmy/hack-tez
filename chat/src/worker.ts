@@ -1,6 +1,7 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { SignJWT, jwtVerify } from "jose";
 import { verifyTezosSignature, getOwnedDomains } from "./auth/verify.js";
+import { sendPushToUser, sendPushBroadcast, detectMentions } from "./push.js";
 
 interface Env {
   DB: D1Database;
@@ -8,6 +9,9 @@ interface Env {
   TEZOS_NETWORK?: string;
   INTERNAL_SECRET?: string;
   KLIPY_API_KEY?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
 interface JwtPayload {
@@ -515,11 +519,295 @@ async function handleInternalStoreMessage(request: Request, env: Env): Promise<R
       .prepare("INSERT INTO chat_messages (id, room_id, sender_domain, content, media, reply_to) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(id, roomId, senderDomain, content, media, replyTo)
       .run();
+
+    // Fire-and-forget push notifications (don't block the response)
+    if (env.VAPID_PRIVATE_KEY) {
+      dispatchPushNotifications(env, id, roomId, senderDomain, content, media).catch(
+        (err) => console.error("Push dispatch error:", err),
+      );
+    }
+
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (err) {
     console.error("Internal store error:", err);
     return new Response(JSON.stringify({ error: "Store failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
+}
+
+// --- Push notification dispatch (called after message storage) ---
+
+async function dispatchPushNotifications(
+  env: Env,
+  messageId: string,
+  roomId: string,
+  senderDomain: string,
+  content: string | null,
+  media: string | null,
+): Promise<void> {
+  const tld = getNetworkTld(env);
+  const preview = content
+    ? content.length > 100 ? content.slice(0, 97) + "…" : content
+    : media ? "Sent an image" : "Sent a message";
+
+  if (roomId.startsWith("dm:")) {
+    // DM: notify the other participant
+    const members = await env.DB
+      .prepare("SELECT domain FROM chat_room_members WHERE room_id = ?")
+      .bind(roomId)
+      .all<{ domain: string }>();
+
+    const recipients = (members.results ?? [])
+      .map((m) => m.domain)
+      .filter((d) => d !== senderDomain);
+
+    await Promise.all(
+      recipients.map((domain) =>
+        sendPushToUser(env, domain, {
+          title: senderDomain,
+          body: preview,
+          tag: `dm:${roomId}`,
+          url: `/chat?dm=${encodeURIComponent(roomId)}`,
+          renotify: true,
+        }, "dms"),
+      ),
+    );
+  } else if (roomId === "global" && content) {
+    // Global: check for @mentions
+    const mentioned = detectMentions(content, tld);
+    const uniqueRecipients = mentioned.filter((d) => d !== senderDomain);
+
+    await Promise.all(
+      uniqueRecipients.map((domain) =>
+        sendPushToUser(env, domain, {
+          title: `Mentioned by ${senderDomain}`,
+          body: preview,
+          tag: `mention:${messageId}`,
+          url: "/chat",
+        }, "mentions"),
+      ),
+    );
+  }
+}
+
+// --- Push subscription & preference endpoints ---
+
+async function handlePushVapidKey(request: Request, env: Env): Promise<Response> {
+  const publicKey = env.VAPID_PUBLIC_KEY;
+  if (!publicKey) {
+    return errorResponse(request, "Push not configured", "PUSH_NOT_CONFIGURED", 503);
+  }
+  return corsResponse(request, JSON.stringify({ publicKey }));
+}
+
+async function handlePushSubscribe(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+
+  let body: unknown;
+  try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
+
+  const b = body as Record<string, unknown>;
+  const endpoint = b.endpoint as string;
+  const p256dh = b.p256dh as string;
+  const auth = b.auth as string;
+  const userAgent = (b.userAgent as string) || null;
+
+  if (!endpoint || !p256dh || !auth) {
+    return errorResponse(request, "Missing subscription fields", "BAD_REQUEST", 400);
+  }
+
+  try {
+    // Upsert: if endpoint already exists, update the domain (could be re-subscribing)
+    await env.DB
+      .prepare(`INSERT INTO push_subscriptions (domain, endpoint, p256dh, auth, user_agent)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET domain = excluded.domain, p256dh = excluded.p256dh, auth = excluded.auth, user_agent = excluded.user_agent`)
+      .bind(user.activeDomain, endpoint, p256dh, auth, userAgent)
+      .run();
+
+    // Ensure preferences row exists
+    await env.DB
+      .prepare("INSERT OR IGNORE INTO push_preferences (domain) VALUES (?)")
+      .bind(user.activeDomain)
+      .run();
+
+    return corsResponse(request, JSON.stringify({ ok: true }));
+  } catch (err) {
+    console.error("Push subscribe error:", err);
+    return errorResponse(request, "Subscribe failed", "INTERNAL_ERROR", 500);
+  }
+}
+
+async function handlePushUnsubscribe(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+
+  let body: unknown;
+  try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
+
+  const b = body as Record<string, unknown>;
+  const endpoint = b.endpoint as string;
+
+  if (!endpoint) {
+    return errorResponse(request, "Missing endpoint", "BAD_REQUEST", 400);
+  }
+
+  try {
+    await env.DB
+      .prepare("DELETE FROM push_subscriptions WHERE endpoint = ? AND domain = ?")
+      .bind(endpoint, user.activeDomain)
+      .run();
+    return corsResponse(request, JSON.stringify({ ok: true }));
+  } catch (err) {
+    console.error("Push unsubscribe error:", err);
+    return errorResponse(request, "Unsubscribe failed", "INTERNAL_ERROR", 500);
+  }
+}
+
+async function handlePushGetPreferences(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+
+  const row = await env.DB
+    .prepare("SELECT push_enabled, push_dms, push_mentions, push_broadcasts, quiet_start, quiet_end FROM push_preferences WHERE domain = ?")
+    .bind(user.activeDomain)
+    .first<Record<string, unknown>>();
+
+  const prefs = row
+    ? {
+        pushEnabled: !!row.push_enabled,
+        pushDms: !!row.push_dms,
+        pushMentions: !!row.push_mentions,
+        pushBroadcasts: !!row.push_broadcasts,
+        quietStart: row.quiet_start ?? null,
+        quietEnd: row.quiet_end ?? null,
+      }
+    : { pushEnabled: true, pushDms: true, pushMentions: true, pushBroadcasts: true, quietStart: null, quietEnd: null };
+
+  // Also get subscription count for this domain
+  const subCount = await env.DB
+    .prepare("SELECT COUNT(*) as count FROM push_subscriptions WHERE domain = ?")
+    .bind(user.activeDomain)
+    .first<{ count: number }>();
+
+  return corsResponse(request, JSON.stringify({ preferences: prefs, deviceCount: subCount?.count ?? 0 }));
+}
+
+async function handlePushUpdatePreferences(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+
+  let body: unknown;
+  try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
+
+  const b = body as Record<string, unknown>;
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+
+  if (typeof b.pushEnabled === "boolean") { sets.push("push_enabled = ?"); vals.push(b.pushEnabled ? 1 : 0); }
+  if (typeof b.pushDms === "boolean") { sets.push("push_dms = ?"); vals.push(b.pushDms ? 1 : 0); }
+  if (typeof b.pushMentions === "boolean") { sets.push("push_mentions = ?"); vals.push(b.pushMentions ? 1 : 0); }
+  if (typeof b.pushBroadcasts === "boolean") { sets.push("push_broadcasts = ?"); vals.push(b.pushBroadcasts ? 1 : 0); }
+  if (b.quietStart !== undefined) { sets.push("quiet_start = ?"); vals.push(b.quietStart ?? null); }
+  if (b.quietEnd !== undefined) { sets.push("quiet_end = ?"); vals.push(b.quietEnd ?? null); }
+
+  if (sets.length === 0) return errorResponse(request, "No fields to update", "BAD_REQUEST", 400);
+
+  sets.push("updated_at = datetime('now')");
+
+  try {
+    // Ensure row exists first
+    await env.DB.prepare("INSERT OR IGNORE INTO push_preferences (domain) VALUES (?)").bind(user.activeDomain).run();
+    await env.DB
+      .prepare(`UPDATE push_preferences SET ${sets.join(", ")} WHERE domain = ?`)
+      .bind(...vals, user.activeDomain)
+      .run();
+    return corsResponse(request, JSON.stringify({ ok: true }));
+  } catch (err) {
+    console.error("Push preferences update error:", err);
+    return errorResponse(request, "Update failed", "INTERNAL_ERROR", 500);
+  }
+}
+
+async function handleAdminBroadcast(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+  if (!isAdmin(user, env)) return errorResponse(request, "Admin access required", "FORBIDDEN", 403);
+
+  let body: unknown;
+  try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
+
+  const b = body as Record<string, unknown>;
+  const title = b.title as string;
+  const broadcastBody = b.body as string;
+  const url = (b.url as string) || null;
+
+  // Require wallet signature for broadcast (defense in depth)
+  const signature = b.signature as string;
+  const publicKey = b.publicKey as string;
+  const nonce = b.nonce as string;
+  const timestamp = b.timestamp as number;
+
+  if (!title || !broadcastBody) {
+    return errorResponse(request, "Title and body required", "BAD_REQUEST", 400);
+  }
+  if (!signature || !publicKey || !nonce || !timestamp) {
+    return errorResponse(request, "Wallet signature required for broadcasts", "BAD_REQUEST", 400);
+  }
+
+  // Verify signature using existing auth verification
+  const sigValid = await verifyTezosSignature({ address: user.address, publicKey, signature, timestamp, nonce });
+  if (!sigValid) return errorResponse(request, "Invalid signature", "INVALID_SIGNATURE", 403);
+
+  try {
+    // Send push to all subscribers
+    const result = await sendPushBroadcast(env, {
+      title: `📢 ${title}`,
+      body: broadcastBody,
+      url: url ?? "/chat",
+      tag: "broadcast",
+      renotify: true,
+    }, user.activeDomain);
+
+    // Record broadcast (push_broadcasts table is the audit trail)
+    await env.DB
+      .prepare("INSERT INTO push_broadcasts (title, body, url, admin_domain, sent_count, failed_count) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(title, broadcastBody, url, user.activeDomain, result.sent, result.failed)
+      .run();
+
+    return corsResponse(request, JSON.stringify({ ok: true, sent: result.sent, failed: result.failed }));
+  } catch (err) {
+    console.error("Broadcast error:", err);
+    return errorResponse(request, "Broadcast failed", "INTERNAL_ERROR", 500);
+  }
+}
+
+async function handleAdminBroadcastList(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
+  if (!isAdmin(user, env)) return errorResponse(request, "Admin access required", "FORBIDDEN", 403);
+
+  const url = new URL(request.url);
+  const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20"), 100);
+  const offset = parseInt(url.searchParams.get("offset") ?? "0");
+
+  const rows = await env.DB
+    .prepare("SELECT id, title, body, url, admin_domain, sent_count, failed_count, created_at FROM push_broadcasts ORDER BY created_at DESC LIMIT ? OFFSET ?")
+    .bind(limit, offset)
+    .all<Record<string, unknown>>();
+
+  return corsResponse(request, JSON.stringify({
+    broadcasts: (rows.results ?? []).map((r) => ({
+      id: r.id,
+      title: r.title,
+      body: r.body,
+      url: r.url,
+      adminDomain: r.admin_domain,
+      sentCount: r.sent_count,
+      failedCount: r.failed_count,
+      createdAt: r.created_at,
+    })),
+  }));
 }
 
 async function handleInternalHistory(request: Request, env: Env): Promise<Response> {
@@ -1519,6 +1807,35 @@ export default {
       if (!targetDomain) return errorResponse(request, "Domain required", "MISSING_DOMAIN", 400);
       if (request.method === "DELETE") return handleAdminUnban(request, env, targetDomain);
       return handleAdminUpdateBan(request, env, targetDomain);
+    }
+
+    if (path === "/admin/broadcast" && request.method === "POST") {
+      return handleAdminBroadcast(request, env);
+    }
+
+    if (path === "/admin/broadcasts" && request.method === "GET") {
+      return handleAdminBroadcastList(request, env);
+    }
+
+    // --- Push notification endpoints ---
+    if (path === "/push/vapid-key" && request.method === "GET") {
+      return handlePushVapidKey(request, env);
+    }
+
+    if (path === "/push/subscribe" && request.method === "POST") {
+      return handlePushSubscribe(request, env);
+    }
+
+    if (path === "/push/subscribe" && request.method === "DELETE") {
+      return handlePushUnsubscribe(request, env);
+    }
+
+    if (path === "/push/preferences" && request.method === "GET") {
+      return handlePushGetPreferences(request, env);
+    }
+
+    if (path === "/push/preferences" && request.method === "PUT") {
+      return handlePushUpdatePreferences(request, env);
     }
 
     if (path === "/auth" && request.method === "POST") {
