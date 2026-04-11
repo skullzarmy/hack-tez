@@ -55,7 +55,7 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
         }
     }, [subscribed, token]);
 
-    if (!checked || permission === "unsupported") return null;
+    if (permission === "unsupported") return null;
 
     if (permission === "denied") {
         return (
@@ -75,7 +75,7 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
             className={className ?? "btn btn-ghost btn-sm"}
             style={{ fontSize: "0.7rem", ...style }}
             onClick={() => void handleToggle()}
-            disabled={loading}
+            disabled={loading || !checked}
             title={subscribed ? "Unsubscribe from push notifications" : "Get notified of DMs, mentions, and announcements"}
         >
             {loading ? "…" : subscribed ? "🔔 Notifications on" : "🔔 Enable notifications"}
