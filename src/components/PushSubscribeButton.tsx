@@ -70,15 +70,17 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
         );
     }
 
+    const label = subscribed ? "🔔 Notifications on" : "🔔 Enable notifications";
+
     return (
         <button
             className={className ?? "btn btn-ghost btn-sm"}
-            style={{ fontSize: "0.7rem", ...style }}
+            style={{ fontSize: "0.7rem", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s", ...style }}
             onClick={() => void handleToggle()}
             disabled={loading || !checked}
             title={subscribed ? "Unsubscribe from push notifications" : "Get notified of DMs, mentions, and announcements"}
         >
-            {loading ? "…" : subscribed ? "🔔 Notifications on" : "🔔 Enable notifications"}
+            {label}
         </button>
     );
 }
