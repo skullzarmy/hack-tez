@@ -7,6 +7,7 @@ import {
 } from "../lib/pushSubscription";
 import type { PushPermissionState } from "../lib/pushSubscription";
 import { useTezos } from "../context/TezosContext";
+import { Bell, BellOff, BellRing } from "lucide-react";
 
 interface PushSubscribeButtonProps {
     className?: string;
@@ -61,26 +62,27 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
         return (
             <button
                 className={className ?? "btn btn-ghost btn-sm"}
-                style={{ opacity: 0.5, cursor: "not-allowed", fontSize: "0.7rem", ...style }}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", opacity: 0.5, cursor: "not-allowed", fontSize: "0.7rem", ...style }}
                 disabled
                 title="Push notifications are blocked. Enable them in your browser settings."
             >
-                🔕 Notifications blocked
+                <BellOff size={14} /> Notifications blocked
             </button>
         );
     }
 
-    const label = subscribed ? "🔔 Notifications on" : "🔔 Enable notifications";
+    const Icon = subscribed ? BellRing : Bell;
+    const label = subscribed ? "Notifications on" : "Enable notifications";
 
     return (
         <button
             className={className ?? "btn btn-ghost btn-sm"}
-            style={{ fontSize: "0.7rem", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s", ...style }}
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.7rem", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s", ...style }}
             onClick={() => void handleToggle()}
             disabled={loading || !checked}
             title={subscribed ? "Unsubscribe from push notifications" : "Get notified of DMs, mentions, and announcements"}
         >
-            {label}
+            <Icon size={14} /> {label}
         </button>
     );
 }
