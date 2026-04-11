@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useSubdomains } from "../hooks/useSubdomains";
 import config from "../config/tezos";
@@ -62,6 +63,13 @@ function SubdomainCard({ domain, onMutate }: { domain: SubdomainRecord; onMutate
 export default function Dashboard() {
     const { address } = useTezos();
     const { subdomains, loading, error, refresh } = useSubdomains(address);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await refresh();
+        setRefreshing(false);
+    }, [refresh]);
 
     // Only show direct hack.tez subdomains (level 3), not sub-subdomains
     const topLevel = subdomains.filter((d) => d.name.split(".").length === 3);
@@ -137,8 +145,14 @@ export default function Dashboard() {
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <PushSubscribeButton />
-                    <button onClick={refresh} className="btn btn-ghost btn-sm" aria-label="Refresh subdomain list">
-                        ↻ Refresh
+                    <button
+                        onClick={() => void handleRefresh()}
+                        className="btn btn-ghost btn-sm"
+                        aria-label="Refresh subdomain list"
+                        disabled={refreshing}
+                        style={{ transition: "opacity 0.15s", opacity: refreshing ? 0.5 : 1 }}
+                    >
+                        <span style={{ display: "inline-block", animation: refreshing ? "spin 0.6s linear infinite" : "none" }}>↻</span> Refresh
                     </button>
                 </div>
             </div>
