@@ -1,13 +1,40 @@
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import DOMPurify from "dompurify";
+import { MoreVertical, Trash2, Ban, Pencil, Reply } from "lucide-react";
+import type { MediaAttachment, ReactionCount } from "../../hooks/useChat";
+import { ipfsUriToGatewayUrl } from "../../lib/pin";
+import ChatAvatar from "./ChatAvatar";
+import LinkPreview from "./LinkPreview";
 
 interface MessageBubbleProps {
     id: string;
     sender: string;
-    content: string;
+    content: string | null;
     timestamp: string;
     isOwn: boolean;
+    deleted?: boolean;
+    deletedBy?: string;
+    deleteReason?: string;
+    media?: MediaAttachment;
+    replyTo?: string;
+    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean };
+    editedAt?: string;
+    reactions?: ReactionCount[];
+    activeDomain?: string;
+    /** Whether to show the avatar and sender name (true for first message in a group) */
+    showHeader?: boolean;
+    isAdmin?: boolean;
+    onAdminDelete?: (messageId: string) => void;
+    onAdminBan?: (domain: string) => void;
+    onReact?: (messageId: string, emoji: string) => void;
+    onReply?: (messageId: string) => void;
+    onEdit?: (messageId: string) => void;
+    isEditing?: boolean;
+    onEditSave?: (messageId: string, newContent: string) => void;
+    onEditCancel?: () => void;
+    onShowProfile?: (domain: string, anchorRect: DOMRect) => void;
+    chatToken?: string;
 }
 
 function formatRelativeTime(iso: string): string {
@@ -23,14 +50,70 @@ function formatRelativeTime(iso: string): string {
 }
 
 const URL_REGEX = /https?:\/\/[^\s<>)"']+/g;
+const MENTION_REGEX = /@([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)/g;
 
 /** Strip ALL HTML tags, then apply our safe markdown-like formatting. */
-function formatContent(raw: string): ReactNode[] {
+function formatContent(raw: string, onMentionClick?: (label: string) => void): ReactNode[] {
     const clean = DOMPurify.sanitize(raw, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
     const parts: ReactNode[] = [];
     let key = 0;
 
     const segments = clean.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+
+    /** Render plain text with URL and @mention detection */
+    function renderPlainText(text: string) {
+        // Split on URLs first, then handle mentions in the non-URL parts
+        const urlParts = text.split(URL_REGEX);
+        const urls = text.match(URL_REGEX) ?? [];
+        for (let i = 0; i < urlParts.length; i++) {
+            if (urlParts[i]) {
+                // Detect @mentions in plain text
+                const mentionParts = urlParts[i].split(MENTION_REGEX);
+                for (let j = 0; j < mentionParts.length; j++) {
+                    if (j % 2 === 1) {
+                        // Odd indices are captured mention labels
+                        const label = mentionParts[j];
+                        parts.push(
+                            <button
+                                key={key++}
+                                type="button"
+                                onClick={() => onMentionClick?.(label)}
+                                style={{
+                                    color: "var(--accent, #00ffc8)",
+                                    fontWeight: 700,
+                                    background: "rgba(0, 255, 200, 0.08)",
+                                    padding: "0 2px",
+                                    border: "none",
+                                    cursor: onMentionClick ? "pointer" : "default",
+                                    fontFamily: "inherit",
+                                    fontSize: "inherit",
+                                    lineHeight: "inherit",
+                                }}
+                            >
+                                @{label}
+                            </button>,
+                        );
+                    } else if (mentionParts[j]) {
+                        parts.push(mentionParts[j]);
+                    }
+                }
+            }
+            if (urls[i]) {
+                parts.push(
+                    <a
+                        key={key++}
+                        href={urls[i]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                        style={{ color: "var(--accent, #00ffc8)", outlineColor: "var(--accent, #00ffc8)" }}
+                    >
+                        {urls[i]}
+                    </a>,
+                );
+            }
+        }
+    }
 
     for (const seg of segments) {
         if (seg.startsWith("**") && seg.endsWith("**")) {
@@ -60,25 +143,7 @@ function formatContent(raw: string): ReactNode[] {
                 </code>,
             );
         } else {
-            const urlParts = seg.split(URL_REGEX);
-            const urls = seg.match(URL_REGEX) ?? [];
-            for (let i = 0; i < urlParts.length; i++) {
-                if (urlParts[i]) parts.push(urlParts[i]);
-                if (urls[i]) {
-                    parts.push(
-                        <a
-                            key={key++}
-                            href={urls[i]}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                            style={{ color: "var(--accent, #00ffc8)", outlineColor: "var(--accent, #00ffc8)" }}
-                        >
-                            {urls[i]}
-                        </a>,
-                    );
-                }
-            }
+            renderPlainText(seg);
         }
     }
 
@@ -106,24 +171,22 @@ function SystemMessage({ content, timestamp }: { content: string; timestamp: str
     );
 }
 
-export default function MessageBubble({ sender, content, timestamp, isOwn }: MessageBubbleProps) {
-    if (sender === "__system__") {
-        return <SystemMessage content={content} timestamp={timestamp} />;
-    }
 
-    const formattedContent = useMemo(() => formatContent(content), [content]);
+
+function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
+    sender: string; timestamp: string; deleteReason?: string; isOwn: boolean;
+}) {
     const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
-
     return (
         <div
             role="article"
-            aria-label={`Message from ${sender}`}
+            aria-label={`Removed message from ${sender}`}
             className={`flex flex-col max-w-[95%] md:max-w-[80%] gap-1 ${isOwn ? "self-end items-end" : "self-start items-start"}`}
         >
             <span
                 className="text-xs font-bold uppercase tracking-widest px-1"
                 style={{
-                    color: isOwn ? "var(--accent, #00ffc8)" : "var(--fg-2, rgba(255,255,255,0.6))",
+                    color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "10px",
                     letterSpacing: "0.12em",
@@ -131,23 +194,18 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
             >
                 {sender}
             </span>
-
             <div
-                className="text-sm break-words px-4 py-2.5"
+                className="text-sm px-4 py-2.5 italic"
                 style={{
-                    background: isOwn
-                        ? "rgba(0, 255, 200, 0.08)"
-                        : "var(--bg-2, #0a0a0a)",
-                    borderLeft: isOwn
-                        ? "2px solid var(--accent, #00ffc8)"
-                        : "2px solid var(--border-2, #333)",
-                    fontFamily: "var(--font)",
-                    lineHeight: "1.6",
+                    background: "rgba(255,255,255,0.02)",
+                    borderLeft: "2px solid var(--border, rgba(255,255,255,0.1))",
+                    color: "var(--fg-3, #888)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "12px",
                 }}
             >
-                {formattedContent}
+                [message removed by moderator{deleteReason ? `: ${deleteReason}` : ""}]
             </div>
-
             <span
                 className="text-xs uppercase tracking-wide px-1"
                 style={{
@@ -158,6 +216,683 @@ export default function MessageBubble({ sender, content, timestamp, isOwn }: Mes
             >
                 {relativeTime}
             </span>
+        </div>
+    );
+}
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "🚀", "👀"];
+
+function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (messageId: string, emoji: string) => void }) {
+    return (
+        <div
+            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+            style={{
+                display: "inline-flex",
+                gap: "2px",
+                background: "var(--bg-1, #111)",
+                border: "1px solid var(--border-2, #333)",
+                padding: "2px 4px",
+                position: "absolute",
+                bottom: "-22px",
+                right: 0,
+                zIndex: 40,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            }}
+        >
+            {QUICK_REACTIONS.map((emoji) => (
+                <button
+                    key={emoji}
+                    type="button"
+                    onClick={(e) => { onReact(messageId, emoji); (e.currentTarget as HTMLButtonElement).blur(); }}
+                    style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        padding: "2px 3px",
+                        lineHeight: 1,
+                    }}
+                    aria-label={`React with ${emoji}`}
+                >
+                    {emoji}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function ReactionPills({
+    reactions,
+    messageId,
+    activeDomain,
+    onReact,
+}: {
+    reactions: ReactionCount[];
+    messageId: string;
+    activeDomain?: string;
+    onReact?: (messageId: string, emoji: string) => void;
+}) {
+    const [hoveredEmoji, setHoveredEmoji] = useState<string | null>(null);
+
+    if (reactions.length === 0) return null;
+
+    return (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "1px" }}>
+            {reactions.map((r) => {
+                const isMine = activeDomain ? r.domains.includes(activeDomain) : false;
+                return (
+                    <div key={r.emoji} style={{ position: "relative", display: "inline-flex" }}>
+                        <button
+                            type="button"
+                            onClick={() => onReact?.(messageId, r.emoji)}
+                            onMouseEnter={() => setHoveredEmoji(r.emoji)}
+                            onMouseLeave={() => setHoveredEmoji(null)}
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                padding: "2px 6px",
+                                fontSize: "12px",
+                                background: isMine ? "rgba(0, 255, 200, 0.12)" : "rgba(255,255,255,0.05)",
+                                border: isMine ? "1px solid rgba(0, 255, 200, 0.3)" : "1px solid var(--border, rgba(255,255,255,0.1))",
+                                cursor: "pointer",
+                                color: "var(--fg-2, rgba(255,255,255,0.6))",
+                                fontFamily: "var(--font-mono)",
+                            }}
+                            aria-label={`${r.emoji} ${r.count} reaction${r.count !== 1 ? "s" : ""}`}
+                        >
+                            <span>{r.emoji}</span>
+                            <span style={{ fontSize: "10px" }}>{r.count}</span>
+                        </button>
+                        {hoveredEmoji === r.emoji && r.domains.length > 0 && (
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    bottom: "100%",
+                                    left: "50%",
+                                    transform: "translateX(-50%)",
+                                    marginBottom: "4px",
+                                    padding: "4px 8px",
+                                    background: "var(--bg-1, #111)",
+                                    border: "1px solid var(--border-2, #333)",
+                                    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                                    fontSize: "10px",
+                                    fontFamily: "var(--font-mono)",
+                                    color: "var(--fg-2, rgba(255,255,255,0.7))",
+                                    whiteSpace: "nowrap",
+                                    zIndex: 50,
+                                    maxWidth: "200px",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                }}
+                            >
+                                {r.domains.slice(0, 10).join(", ")}
+                                {r.domains.length > 10 && ` +${r.domains.length - 10}`}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: string; content: string | null; deleted?: boolean } }) {
+    const truncated = replyContext.deleted
+        ? "[deleted]"
+        : (replyContext.content ?? "").slice(0, 100) + ((replyContext.content?.length ?? 0) > 100 ? "…" : "");
+    return (
+        <div
+            style={{
+                padding: "4px 10px",
+                marginBottom: "4px",
+                borderLeft: "2px solid var(--fg-3, #888)",
+                background: "rgba(255,255,255,0.03)",
+                fontSize: "11px",
+                fontFamily: "var(--font-mono)",
+                color: "var(--fg-3, #888)",
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+            }}
+        >
+            <span style={{ fontWeight: 600, marginRight: "6px" }}>{replyContext.sender}</span>
+            {truncated}
+        </div>
+    );
+}
+
+function MediaRenderer({ media }: { media: MediaAttachment }) {
+    const [expanded, setExpanded] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+
+    if (loadError) {
+        return (
+            <div
+                style={{
+                    padding: "8px 12px",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid var(--border, rgba(255,255,255,0.1))",
+                    color: "var(--fg-3, #888)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "11px",
+                }}
+            >
+                [media failed to load]
+            </div>
+        );
+    }
+
+    const displayUrl = ipfsUriToGatewayUrl(media.url);
+
+    const thumbnailUrl = media.thumbnailUrl ?? displayUrl;
+
+    return (
+        <div style={{ marginTop: "4px", maxWidth: "min(320px, calc(100vw - 80px))" }}>
+            <img
+                src={expanded ? displayUrl : thumbnailUrl}
+                alt={media.alt ?? (media.type === "gif" ? "GIF" : "Image")}
+                onClick={() => setExpanded((v) => !v)}
+                onError={() => setLoadError(true)}
+                loading="lazy"
+                style={{
+                    maxWidth: expanded ? "min(480px, calc(100vw - 40px))" : "min(320px, calc(100vw - 80px))",
+                    maxHeight: expanded ? "480px" : "200px",
+                    objectFit: "contain",
+                    cursor: "pointer",
+                    border: "1px solid var(--border, rgba(255,255,255,0.1))",
+                    display: "block",
+                }}
+            />
+            {media.provider && (
+                <span
+                    style={{
+                        fontSize: "11px",
+                        fontFamily: "var(--font-mono)",
+                        color: "var(--fg-3, #888)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                    }}
+                >
+                    via {media.provider}
+                </span>
+            )}
+        </div>
+    );
+}
+
+function MessageActions({
+    id,
+    sender,
+    isOwn,
+    isAdmin,
+    onReact,
+    onReply,
+    onEdit,
+    onAdminDelete,
+    onAdminBan,
+}: {
+    id: string;
+    sender: string;
+    isOwn: boolean;
+    isAdmin?: boolean;
+    onReact?: (messageId: string, emoji: string) => void;
+    onReply?: (messageId: string) => void;
+    onEdit?: (messageId: string) => void;
+    onAdminDelete?: (messageId: string) => void;
+    onAdminBan?: (domain: string) => void;
+}) {
+    const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!showMenu) return;
+        function handleClick(e: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
+        }
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [showMenu]);
+
+    const hasActions = onReact || onReply || (isOwn && onEdit) || (isAdmin && (onAdminDelete || onAdminBan));
+    if (!hasActions) return null;
+
+    return (
+        <div ref={menuRef} style={{ position: "relative", display: "inline-flex" }}>
+            <button
+                type="button"
+                onClick={() => setShowMenu((o) => !o)}
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+                style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--fg-3, #888)",
+                    padding: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                }}
+                aria-label="Message actions"
+            >
+                <MoreVertical size={14} />
+            </button>
+            {showMenu && (
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "100%",
+                        right: 0,
+                        zIndex: 50,
+                        minWidth: "160px",
+                        background: "var(--bg-1, #111)",
+                        border: "1px solid var(--border-2, #333)",
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                    }}
+                >
+                    {onReply && (
+                        <ActionButton icon={<Reply size={13} />} label="Reply" onClick={() => { setShowMenu(false); onReply(id); }} />
+                    )}
+                    {isOwn && onEdit && (
+                        <ActionButton icon={<Pencil size={13} />} label="Edit" onClick={() => { setShowMenu(false); onEdit(id); }} />
+                    )}
+                    {isAdmin && onAdminDelete && (
+                        <ActionButton icon={<Trash2 size={13} />} label="Delete message" color="#ff6b6b" onClick={() => { setShowMenu(false); onAdminDelete(id); }} />
+                    )}
+                    {isAdmin && onAdminBan && (
+                        <ActionButton icon={<Ban size={13} />} label="Ban user" color="#ff6b6b" onClick={() => { setShowMenu(false); onAdminBan(sender); }} />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ActionButton({ icon, label, color, onClick }: { icon: ReactNode; label: string; color?: string; onClick: () => void }) {
+    const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+        e.currentTarget.style.background = color ? `${color}11` : "rgba(255,255,255,0.05)";
+    }, [color]);
+    const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+        e.currentTarget.style.background = "transparent";
+    }, []);
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 12px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: color ?? "var(--fg-1, #fff)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "12px",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+            }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+        >
+            {icon}
+            {label}
+        </button>
+    );
+}
+
+function InlineEdit({ content, onSave, onCancel }: { content: string; onSave: (text: string) => void; onCancel: () => void }) {
+    const [value, setValue] = useState(content);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        const ta = textareaRef.current;
+        if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }
+    }, []);
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (value.trim()) onSave(value.trim());
+        } else if (e.key === "Escape") {
+            onCancel();
+        }
+    };
+
+    return (
+        <div style={{
+            padding: "6px 12px",
+            background: "rgba(0, 255, 200, 0.08)",
+            borderLeft: "2px solid var(--accent, #00ffc8)",
+        }}>
+            <textarea
+                ref={textareaRef}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={Math.min(6, Math.max(2, value.split("\n").length))}
+                style={{
+                    width: "100%",
+                    background: "var(--bg-1, #111)",
+                    color: "var(--fg, #eee)",
+                    border: "1px solid var(--accent, #00ffc8)",
+                    fontFamily: "var(--font)",
+                    fontSize: "14px",
+                    lineHeight: "1.6",
+                    padding: "6px 8px",
+                    resize: "vertical",
+                }}
+                aria-label="Edit message"
+            />
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px", justifyContent: "flex-end" }}>
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    style={{
+                        background: "transparent",
+                        border: "1px solid var(--border-2, #333)",
+                        color: "var(--fg-3, #888)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "10px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        padding: "4px 12px",
+                        cursor: "pointer",
+                    }}
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { if (value.trim()) onSave(value.trim()); }}
+                    style={{
+                        background: "var(--accent, #00ffc8)",
+                        border: "none",
+                        color: "#000",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        padding: "4px 12px",
+                        cursor: "pointer",
+                    }}
+                >
+                    Save
+                </button>
+            </div>
+            <div style={{ fontSize: "10px", color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", marginTop: "4px" }}>
+                Enter to save · Escape to cancel · Shift+Enter for new line
+            </div>
+        </div>
+    );
+}
+
+export default function MessageBubble({
+    id,
+    sender,
+    content,
+    timestamp,
+    isOwn,
+    deleted,
+    deleteReason,
+    media,
+    replyContext,
+    editedAt,
+    reactions,
+    activeDomain,
+    showHeader = true,
+    isAdmin,
+    onAdminDelete,
+    onAdminBan,
+    onReact,
+    onReply,
+    onEdit,
+    isEditing,
+    onEditSave,
+    onEditCancel,
+    onShowProfile,
+    chatToken,
+}: MessageBubbleProps) {
+    if (sender === "__system__") {
+        return <SystemMessage content={content ?? ""} timestamp={timestamp} />;
+    }
+
+    if (deleted) {
+        return <DeletedMessage sender={sender} timestamp={timestamp} deleteReason={deleteReason} isOwn={isOwn} />;
+    }
+
+    const handleMentionClick = useCallback((label: string) => {
+        if (!onShowProfile) return;
+        // Build a synthetic anchor rect from the clicked element (fall back to center of viewport)
+        const rect = new DOMRect(window.innerWidth / 2 - 130, window.innerHeight / 3, 0, 0);
+        // Try to find the domain with TLD
+        const tld = sender.split(".").slice(1).join(".");
+        onShowProfile(`${label}.${tld}`, rect);
+    }, [onShowProfile, sender]);
+
+    const formattedContent = useMemo(() => content ? formatContent(content, handleMentionClick) : [], [content, handleMentionClick]);
+    const contentUrls = useMemo(() => content ? Array.from(new Set(content.match(URL_REGEX) ?? [])).slice(0, 3) : [], [content]);
+    const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
+    const senderLabel = useMemo(() => sender.split(".")[0], [sender]);
+
+    // Own messages: right-aligned, no avatar
+    if (isOwn) {
+        return (
+            <div
+                role="article"
+                aria-label={`Message from ${sender}`}
+                style={{ position: "relative", outline: "2px solid transparent" }}
+                className="group flex flex-col max-w-[95%] md:max-w-[80%] gap-1 self-end items-end focus-visible:outline-[var(--accent,#00ffc8)]"
+                tabIndex={0}
+            >
+
+                {showHeader && (
+                    <div className="flex items-center gap-2">
+                        <span
+                            className="text-xs font-bold uppercase tracking-widest px-1"
+                            style={{
+                                color: "var(--accent, #00ffc8)",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: "10px",
+                                letterSpacing: "0.12em",
+                            }}
+                        >
+                            {sender}
+                        </span>
+                        <MessageActions
+                            id={id}
+                            sender={sender}
+                            isOwn={isOwn}
+                            isAdmin={isAdmin}
+                            onEdit={onEdit}
+                            onAdminDelete={onAdminDelete}
+                            onAdminBan={onAdminBan}
+                        />
+                    </div>
+                )}
+
+                {replyContext && <ReplyPreview replyContext={replyContext} />}
+
+                {isEditing && onEditSave && onEditCancel ? (
+                    <InlineEdit
+                        content={content ?? ""}
+                        onSave={(text) => onEditSave(id, text)}
+                        onCancel={onEditCancel}
+                    />
+                ) : (
+                    <div
+                        className="text-sm break-words"
+                        style={{
+                            position: "relative",
+                            padding: "6px 12px",
+                            background: "rgba(0, 255, 200, 0.08)",
+                            borderLeft: "2px solid var(--accent, #00ffc8)",
+                            fontFamily: "var(--font)",
+                            lineHeight: "1.6",
+                        }}
+                    >
+                        {formattedContent.length > 0 && formattedContent}
+                        {media && <MediaRenderer media={media} />}
+                        {reactions && reactions.length > 0 && (
+                            <ReactionPills reactions={reactions} messageId={id} activeDomain={activeDomain} onReact={onReact} />
+                        )}
+                    </div>
+                )}
+
+                {chatToken && contentUrls.map((u) => (
+                    <LinkPreview key={u} url={u} token={chatToken} />
+                ))}
+
+                <div className="flex items-center gap-2" style={{ paddingLeft: "2px", paddingRight: "2px" }}>
+                    <span
+                        className="text-xs uppercase tracking-wide"
+                        style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "10px" }}
+                    >
+                        {relativeTime}
+                    </span>
+                    {editedAt && (
+                        <span
+                            className="text-xs italic"
+                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "9px" }}
+                            title={`Edited ${new Date(editedAt).toLocaleString()}`}
+                        >
+                            (edited)
+                        </span>
+                    )}
+                    {!showHeader && (
+                        <MessageActions
+                            id={id}
+                            sender={sender}
+                            isOwn={isOwn}
+                            isAdmin={isAdmin}
+                            onEdit={onEdit}
+                            onAdminDelete={onAdminDelete}
+                            onAdminBan={onAdminBan}
+                        />
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Other users: avatar on left, content on right
+    return (
+        <div
+            role="article"
+            aria-label={`Message from ${sender}`}
+            style={{ position: "relative", gap: "8px", outline: "2px solid transparent" }}
+            className="group flex max-w-[95%] md:max-w-[80%] self-start focus-visible:outline-[var(--accent,#00ffc8)]"
+            tabIndex={0}
+        >
+            {/* Avatar column — fixed width for alignment */}
+            <div style={{ width: "28px", flexShrink: 0, paddingTop: showHeader ? "0" : "2px" }}>
+                {showHeader && (
+                    <button
+                        type="button"
+                        onClick={(e) => onShowProfile?.(sender, e.currentTarget.getBoundingClientRect())}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                        aria-label={`View profile for ${sender}`}
+                    >
+                        <ChatAvatar label={senderLabel} size={28} hoverAnimate borderRadius="4px" />
+                    </button>
+                )}
+            </div>
+
+            {/* Content column */}
+            <div className="flex flex-col gap-1" style={{ flex: "1 1 0", minWidth: 0 }}>
+                {showHeader && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={(e) => onShowProfile?.(sender, e.currentTarget.getBoundingClientRect())}
+                            className="text-xs font-bold uppercase tracking-widest"
+                            style={{
+                                color: "var(--fg-2, rgba(255,255,255,0.6))",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: "10px",
+                                letterSpacing: "0.12em",
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: 0,
+                            }}
+                        >
+                            {sender}
+                        </button>
+                        <MessageActions
+                            id={id}
+                            sender={sender}
+                            isOwn={isOwn}
+                            isAdmin={isAdmin}
+                            onReact={onReact}
+                            onReply={onReply}
+                            onEdit={onEdit}
+                            onAdminDelete={onAdminDelete}
+                            onAdminBan={onAdminBan}
+                        />
+                    </div>
+                )}
+
+                {replyContext && <ReplyPreview replyContext={replyContext} />}
+
+                <div
+                    className="text-sm break-words"
+                    style={{
+                        position: "relative",
+                        padding: "6px 12px",
+                        background: "var(--bg-2, #0a0a0a)",
+                        borderLeft: "2px solid var(--border-2, #333)",
+                        fontFamily: "var(--font)",
+                        lineHeight: "1.6",
+                    }}
+                >
+                    {formattedContent.length > 0 && formattedContent}
+                    {media && <MediaRenderer media={media} />}
+                    {reactions && reactions.length > 0 && (
+                        <ReactionPills reactions={reactions} messageId={id} activeDomain={activeDomain} onReact={onReact} />
+                    )}
+                    {onReact && <QuickReactBar messageId={id} onReact={onReact} />}
+                </div>
+
+                {chatToken && contentUrls.map((u) => (
+                    <LinkPreview key={u} url={u} token={chatToken} />
+                ))}
+
+                <div className="flex items-center gap-2">
+                    <span
+                        className="text-xs uppercase tracking-wide"
+                        style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "10px" }}
+                    >
+                        {relativeTime}
+                    </span>
+                    {editedAt && (
+                        <span
+                            className="text-xs italic"
+                            style={{ color: "var(--fg-3, #888)", fontFamily: "var(--font-mono)", fontSize: "9px" }}
+                            title={`Edited ${new Date(editedAt).toLocaleString()}`}
+                        >
+                            (edited)
+                        </span>
+                    )}
+                    {!showHeader && (
+                        <MessageActions
+                            id={id}
+                            sender={sender}
+                            isOwn={isOwn}
+                            isAdmin={isAdmin}
+                            onReact={onReact}
+                            onReply={onReply}
+                            onEdit={onEdit}
+                            onAdminDelete={onAdminDelete}
+                            onAdminBan={onAdminBan}
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

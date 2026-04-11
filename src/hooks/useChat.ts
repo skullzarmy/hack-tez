@@ -1,14 +1,45 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PartySocket from "partysocket";
 import type { ChatNotificationEvent } from "../lib/chatNotifications";
+import { partykitHost } from "../config/tezos";
 
-const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST ?? "localhost:1999";
+interface MediaAttachment {
+    type: "gif" | "image";
+    url: string;
+    width?: number;
+    height?: number;
+    alt?: string;
+    thumbnailUrl?: string;
+    provider?: string;
+}
+
+interface ReactionCount {
+    emoji: string;
+    count: number;
+    domains: string[];
+}
 
 interface ChatMessage {
     id: string;
     sender: string;
-    content: string;
+    content: string | null;
     timestamp: string;
+    deleted?: boolean;
+    deletedBy?: string;
+    deleteReason?: string;
+    media?: MediaAttachment;
+    replyTo?: string;
+    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean };
+    editedAt?: string;
+    reactions?: ReactionCount[];
+}
+
+interface BanInfo {
+    type: "soft" | "hard";
+    scope: "global" | "platform";
+    reason: string;
+    adminDomain: string;
+    expiresAt: string | null;
 }
 
 interface UseChatConfig {
@@ -16,12 +47,13 @@ interface UseChatConfig {
     activeDomain: string;
     onIdentitySwitched?: (domain: string) => void;
     onIncomingMessage?: (event: ChatNotificationEvent) => void;
+    onBanned?: (ban: BanInfo) => void;
 }
 
 interface UseChatReturn {
     messages: ChatMessage[];
     isConnected: boolean;
-    sendMessage: (content: string) => void;
+    sendMessage: (content: string, media?: MediaAttachment, replyTo?: string) => void;
     isLoading: boolean;
     loadMore: () => void;
     hasMore: boolean;
@@ -30,7 +62,25 @@ interface UseChatReturn {
     sendTyping: (active: boolean) => void;
     activeDomain: string;
     switchIdentity: (domain: string) => void;
+    // Edit + react
+    editMessage: (messageId: string, content: string) => void;
+    reactToMessage: (messageId: string, emoji: string) => void;
+    // Admin commands
+    adminDeleteMessage: (messageId: string, reason: string, visible: boolean) => void;
+    adminBanUser: (opts: {
+        domain: string;
+        banType: "soft" | "hard";
+        scope: "global" | "platform";
+        reason: string;
+        duration?: number;
+        notes?: string;
+        banWallet?: boolean;
+    }) => void;
+    adminUnbanUser: (domain: string, reason?: string) => void;
+    reconnect: () => void;
 }
+
+export type { ChatMessage, BanInfo, MediaAttachment, ReactionCount };
 
 export function useChat(config: UseChatConfig): UseChatReturn {
     const { token, activeDomain } = config;
@@ -46,10 +96,13 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     const historyLoadedRef = useRef(false);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentDomainRef = useRef(activeDomain);
+    const bannedRef = useRef(false);
     const onSwitchRef = useRef(config.onIdentitySwitched);
     const onIncomingMessageRef = useRef(config.onIncomingMessage);
+    const onBannedRef = useRef(config.onBanned);
     onSwitchRef.current = config.onIdentitySwitched;
     onIncomingMessageRef.current = config.onIncomingMessage;
+    onBannedRef.current = config.onBanned;
     currentDomainRef.current = currentDomain;
 
     // Sync local identity when parent session identity changes.
@@ -60,7 +113,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     useEffect(() => {
         let closedIntentionally = false;
         const ws = new PartySocket({
-            host: PARTYKIT_HOST,
+            host: partykitHost,
             room: "global",
             query: { token, activeDomain, rt: String(reconnectTick) },
         });
@@ -76,9 +129,14 @@ export function useChat(config: UseChatConfig): UseChatReturn {
             ws.send(JSON.stringify({ type: "history" }));
         });
 
-        ws.addEventListener("close", () => {
+        ws.addEventListener("close", (event) => {
             setIsConnected(false);
-            if (!closedIntentionally && !reconnectTimerRef.current) {
+            // Don't auto-reconnect if banned (server close 4010) — wait for ban expiry
+            const isBanClose = event.code === 4010;
+            if (isBanClose) {
+                bannedRef.current = true;
+            }
+            if (!closedIntentionally && !bannedRef.current && !reconnectTimerRef.current) {
                 reconnectTimerRef.current = setTimeout(() => {
                     reconnectTimerRef.current = null;
                     setReconnectTick((n) => n + 1);
@@ -99,8 +157,14 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                     const msg: ChatMessage = {
                         id: data.id as string,
                         sender: data.sender as string,
-                        content: data.content as string,
+                        content: data.content as string | null,
                         timestamp: data.timestamp as string,
+                        deleted: (data.deleted as boolean) ?? false,
+                        deletedBy: data.deletedBy as string | undefined,
+                        deleteReason: data.deleteReason as string | undefined,
+                        media: data.media as MediaAttachment | undefined,
+                        replyTo: data.replyTo as string | undefined,
+                        editedAt: data.editedAt as string | undefined,
                     };
                     let isNewMessage = false;
                     setMessages((prev) => {
@@ -109,9 +173,14 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                         return [...prev, msg];
                     });
                     if (isNewMessage && msg.sender !== currentDomainRef.current) {
+                        // Check if message mentions the current user
+                        const myLabel = currentDomainRef.current.split(".")[0];
+                        const mentionPattern = new RegExp(`@${myLabel}\\b`, "i");
+                        const mentionsMe = Boolean(msg.content && mentionPattern.test(msg.content));
                         onIncomingMessageRef.current?.({
                             source: "global",
                             senderDomain: msg.sender,
+                            mentionsMe,
                         });
                     }
                     break;
@@ -170,8 +239,99 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                     onSwitchRef.current?.(newDomain);
                     break;
                 }
-                case "error":
+
+                // Moderation events
+                case "message-deleted": {
+                    const messageId = data.messageId as string;
+                    const visible = data.visible as boolean;
+                    const deletedBy = data.deletedBy as string;
+                    const reason = data.reason as string;
+                    setMessages((prev) =>
+                        prev.map((m) => {
+                            if (m.id !== messageId) return m;
+                            if (!visible) {
+                                // Hide entirely — mark so we can filter
+                                return { ...m, content: null, deleted: true, deletedBy, deleteReason: reason, _hidden: true } as ChatMessage & { _hidden: boolean };
+                            }
+                            return { ...m, content: null, deleted: true, deletedBy, deleteReason: reason };
+                        }).filter((m) => !(m as ChatMessage & { _hidden?: boolean })._hidden),
+                    );
                     break;
+                }
+
+                // Edit + reaction events
+                case "message-edited": {
+                    const editedId = data.messageId as string;
+                    const editedContent = data.content as string;
+                    const editedAt = data.editedAt as string;
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === editedId ? { ...m, content: editedContent, editedAt } : m,
+                        ),
+                    );
+                    break;
+                }
+                case "reaction-update": {
+                    const reactMsgId = data.messageId as string;
+                    const reactEmoji = data.emoji as string;
+                    const reactDomain = data.domain as string;
+                    const reactAction = data.action as "add" | "remove";
+                    setMessages((prev) =>
+                        prev.map((m) => {
+                            if (m.id !== reactMsgId) return m;
+                            const existing = m.reactions ?? [];
+                            if (reactAction === "add") {
+                                const idx = existing.findIndex((r) => r.emoji === reactEmoji);
+                                if (idx >= 0) {
+                                    const updated = [...existing];
+                                    const entry = updated[idx];
+                                    if (!entry.domains.includes(reactDomain)) {
+                                        updated[idx] = { ...entry, count: entry.count + 1, domains: [...entry.domains, reactDomain] };
+                                    }
+                                    return { ...m, reactions: updated };
+                                }
+                                return { ...m, reactions: [...existing, { emoji: reactEmoji, count: 1, domains: [reactDomain] }] };
+                            } else {
+                                const updated = existing.map((r) => {
+                                    if (r.emoji !== reactEmoji) return r;
+                                    return { ...r, count: r.count - 1, domains: r.domains.filter((d) => d !== reactDomain) };
+                                }).filter((r) => r.count > 0);
+                                return { ...m, reactions: updated.length > 0 ? updated : undefined };
+                            }
+                        }),
+                    );
+                    break;
+                }
+
+                case "user-banned": {
+                    const bannedDomain = data.domain as string;
+                    const sysMsg: ChatMessage = {
+                        id: `sys-ban-${Date.now()}`,
+                        sender: "__system__",
+                        content: `${bannedDomain} has been banned. Reason: ${data.reason as string}`,
+                        timestamp: (data.timestamp as string) ?? new Date().toISOString(),
+                    };
+                    setMessages((prev) => [...prev, sysMsg]);
+                    break;
+                }
+                case "user-unbanned": {
+                    const unbannedDomain = data.domain as string;
+                    const sysMsg: ChatMessage = {
+                        id: `sys-unban-${Date.now()}`,
+                        sender: "__system__",
+                        content: `${unbannedDomain} has been unbanned.`,
+                        timestamp: (data.timestamp as string) ?? new Date().toISOString(),
+                    };
+                    setMessages((prev) => [...prev, sysMsg]);
+                    break;
+                }
+                case "error": {
+                    // Handle ban error specifically
+                    if (data.code === "BANNED" && data.ban) {
+                        onBannedRef.current?.(data.ban as BanInfo);
+                    }
+                    break;
+                }
             }
         });
 
@@ -188,10 +348,14 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         };
     }, [token, activeDomain, reconnectTick]);
 
-    const sendMessage = useCallback((content: string) => {
+    const sendMessage = useCallback((content: string, media?: MediaAttachment, replyTo?: string) => {
         const trimmed = content.trim();
-        if (!trimmed || !wsRef.current) return;
-        wsRef.current.send(JSON.stringify({ type: "message", content: trimmed }));
+        if (!trimmed && !media) return;
+        if (!wsRef.current) return;
+        const msg: Record<string, unknown> = { type: "message", content: trimmed };
+        if (media) msg.media = media;
+        if (replyTo) msg.replyTo = replyTo;
+        wsRef.current.send(JSON.stringify(msg));
     }, []);
 
     const sendTyping = useCallback((active: boolean) => {
@@ -216,6 +380,41 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         wsRef.current?.send(JSON.stringify({ type: "switch-identity", domain }));
     }, []);
 
+    // Edit + react
+    const editMessage = useCallback((messageId: string, content: string) => {
+        wsRef.current?.send(JSON.stringify({ type: "edit-message", messageId, content }));
+    }, []);
+
+    const reactToMessage = useCallback((messageId: string, emoji: string) => {
+        wsRef.current?.send(JSON.stringify({ type: "react", messageId, emoji }));
+    }, []);
+
+    // Admin commands
+    const adminDeleteMessage = useCallback((messageId: string, reason: string, visible: boolean) => {
+        wsRef.current?.send(JSON.stringify({
+            type: "admin:delete-message", messageId, reason, visible,
+        }));
+    }, []);
+
+    const adminBanUser = useCallback((opts: {
+        domain: string; banType: "soft" | "hard"; scope: "global" | "platform";
+        reason: string; duration?: number; notes?: string; banWallet?: boolean;
+    }) => {
+        wsRef.current?.send(JSON.stringify({ type: "admin:ban-user", ...opts }));
+    }, []);
+
+    const adminUnbanUser = useCallback((domain: string, reason?: string) => {
+        wsRef.current?.send(JSON.stringify({
+            type: "admin:unban-user", domain, reason: reason ?? "Unbanned by admin",
+        }));
+    }, []);
+
+    // Force reconnect (used after ban expiry)
+    const reconnect = useCallback(() => {
+        bannedRef.current = false;
+        setReconnectTick((n) => n + 1);
+    }, []);
+
     return {
         messages,
         isConnected,
@@ -228,5 +427,11 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         sendTyping,
         activeDomain: currentDomain,
         switchIdentity,
+        editMessage,
+        reactToMessage,
+        adminDeleteMessage,
+        adminBanUser,
+        adminUnbanUser,
+        reconnect,
     };
 }

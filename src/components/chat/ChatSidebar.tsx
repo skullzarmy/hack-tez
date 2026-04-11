@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Hash, MessageSquare, Plus, Users, X, Archive, RotateCcw, Check } from "lucide-react";
+import ChatAvatar from "./ChatAvatar";
 
 interface DMConversation {
     roomId: string;
@@ -27,6 +28,7 @@ interface ChatSidebarProps {
     hiddenCount: number;
     onNewDM: () => void;
     totalUnread: number;
+    globalMentionCount?: number;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -59,6 +61,7 @@ export default function ChatSidebar({
     hiddenCount,
     onNewDM,
     totalUnread,
+    globalMentionCount = 0,
     isOpen,
     onClose,
 }: ChatSidebarProps) {
@@ -141,6 +144,20 @@ export default function ChatSidebar({
                 >
                     <Hash size={14} aria-hidden="true" />
                     global
+                    {globalMentionCount > 0 && (
+                        <span
+                            className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
+                            style={{
+                                background: activeView.type === "global" ? "var(--bg, #000)" : "var(--accent, #00ffc8)",
+                                color: activeView.type === "global" ? "var(--accent, #00ffc8)" : "var(--bg, #000)",
+                                minWidth: "16px",
+                                marginLeft: "auto",
+                            }}
+                        >
+                            @{globalMentionCount}
+                            <span className="sr-only">{` mention${globalMentionCount === 1 ? "" : "s"}`}</span>
+                        </span>
+                    )}
                 </button>
             </div>
 
@@ -360,10 +377,11 @@ export default function ChatSidebar({
                         className="flex items-center text-xs gap-2"
                         style={{ fontFamily: "var(--font-mono)", minHeight: "28px" }}
                     >
-                        <span
-                            className="inline-block w-1.5 h-1.5 shrink-0"
-                            style={{ background: "var(--accent, #00ffc8)" }}
-                            aria-hidden="true"
+                        <ChatAvatar
+                            label={d.split(".")[0]}
+                            size={20}
+                            hoverAnimate
+                            borderRadius="3px"
                         />
                         <span className="truncate" style={{ color: "var(--fg-2, rgba(255,255,255,0.6))" }}>
                             {d}

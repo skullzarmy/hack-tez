@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, useLayoutEffect } from "react";
+import { useRef, useEffect, useCallback, useState, useLayoutEffect, useMemo } from "react";
 import { MessageCircle, Users, Loader2, Menu, AlertTriangle } from "lucide-react";
 import IdentitySelector from "./IdentitySelector";
 import MessageBubble from "./MessageBubble";
@@ -6,8 +6,13 @@ import MessageInput from "./MessageInput";
 import ChatSidebar from "./ChatSidebar";
 import DMView from "./DMView";
 import NewDMModal from "./NewDMModal";
+import DeleteMessageModal from "./DeleteMessageModal";
+import BanUserModal from "./BanUserModal";
+import BanBanner from "./BanBanner";
+import ProfilePopout from "./ProfilePopout";
 import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
 import { useChat } from "../../hooks/useChat";
+import type { BanInfo } from "../../hooks/useChat";
 import { useDMList } from "../../hooks/useDMList";
 import {
     getChatNotificationSoundCandidates,
@@ -16,8 +21,8 @@ import {
     shouldPlayChatNotification,
 } from "../../lib/chatNotifications";
 import type { ChatNotificationEvent, ChatNotificationSettings } from "../../lib/chatNotifications";
+import { hackchatUrl } from "../../config/tezos";
 
-const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
 const HIDDEN_DMS_STORAGE_KEY = "hack-tez-hidden-dms";
 
 interface ChatLayoutProps {
@@ -25,6 +30,7 @@ interface ChatLayoutProps {
     domains: string[];
     activeDomain: string;
     onSwitchDomain: (domain: string) => void;
+    onPinImage?: (file: File) => Promise<{ url: string; width: number; height: number } | null>;
 }
 
 interface ActiveView {
@@ -48,7 +54,7 @@ interface DMConversation {
     unreadCount: number;
 }
 
-export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain }: ChatLayoutProps) {
+export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain, onPinImage }: ChatLayoutProps) {
     const [activeView, setActiveView] = useState<ActiveView>({ type: "global" });
     const [pendingDM, setPendingDM] = useState<PendingDMSelection | null>(null);
     const [showNewDM, setShowNewDM] = useState(false);
@@ -58,6 +64,15 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         loadChatNotificationSettings(),
     );
     const [notificationSoundUrl, setNotificationSoundUrl] = useState<string | null>(null);
+
+    // Admin state
+    const [deleteModal, setDeleteModal] = useState<{ messageId: string; senderDomain: string } | null>(null);
+    const [banModal, setBanModal] = useState<{ domain: string } | null>(null);
+    const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
+    const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string | null } | null>(null);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [profilePopout, setProfilePopout] = useState<{ domain: string; anchorRect: DOMRect } | null>(null);
+    const [globalMentionCount, setGlobalMentionCount] = useState(0);
 
     const activeViewRef = useRef<ActiveView>(activeView);
     const currentDomainRef = useRef(activeDomain);
@@ -84,6 +99,15 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 refreshDMsRef.current();
             }
 
+            // Track mention badge when not viewing global
+            if (event.mentionsMe && event.source === "global") {
+                const viewingGlobal = activeViewRef.current.type === "global";
+                const isDocHidden = typeof document === "undefined" ? true : document.hidden;
+                if (!viewingGlobal || isDocHidden) {
+                    setGlobalMentionCount((c) => c + 1);
+                }
+            }
+
             const knownDMRoomIds = new Set(conversationsRef.current.map((conv) => conv.roomId));
             const isDocumentHidden = typeof document === "undefined" ? true : document.hidden;
 
@@ -102,6 +126,10 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         [notificationSettings, playNotificationSound],
     );
 
+    const handleBanned = useCallback((ban: BanInfo) => {
+        setBanInfo(ban);
+    }, []);
+
     const {
         messages,
         isConnected,
@@ -114,12 +142,37 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         sendTyping,
         activeDomain: currentDomain,
         switchIdentity,
+        editMessage,
+        reactToMessage,
+        adminDeleteMessage,
+        adminBanUser,
+        reconnect,
     } = useChat({
         token,
         activeDomain,
         onIdentitySwitched: onSwitchDomain,
         onIncomingMessage: handleIncomingMessage,
+        onBanned: handleBanned,
     });
+
+    // Admin tools only active when speaking AS admin identity
+    const isAdmin = useMemo(() => /^admin\.hack\.(tez|gho)$/.test(currentDomain), [currentDomain]);
+
+    // Combine online users with all unique senders from message history for @mention candidates
+    const mentionCandidates = useMemo(() => {
+        const senders = new Set(onlineUsers);
+        for (const m of messages) {
+            if (m.sender && m.sender !== "__system__" && m.sender !== currentDomain) {
+                senders.add(m.sender);
+            }
+        }
+        return Array.from(senders);
+    }, [onlineUsers, messages, currentDomain]);
+
+    const handleBanExpired = useCallback(() => {
+        setBanInfo(null);
+        reconnect();
+    }, [reconnect]);
 
     const { conversations, totalUnread, refresh: refreshDMs } = useDMList({ token, activeDomain: currentDomain });
 
@@ -328,6 +381,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
 
     const handleSelectGlobal = useCallback(() => {
         setActiveView({ type: "global" });
+        setGlobalMentionCount(0);
         setSidebarOpen(false);
     }, []);
 
@@ -357,7 +411,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         async (targetDomain: string) => {
             setShowNewDM(false);
             try {
-                const res = await fetch(`${HACKCHAT_URL}/dm/create`, {
+                const res = await fetch(`${hackchatUrl}/dm/create`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -424,6 +478,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 hiddenCount={hiddenDMs.length}
                 onNewDM={() => setShowNewDM(true)}
                 totalUnread={totalUnread}
+                globalMentionCount={globalMentionCount}
                 isOpen={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
             />
@@ -513,7 +568,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     </header>
 
                     {/* Reconnecting banner */}
-                    {!isConnected && (
+                    {!isConnected && !banInfo && (
                         <div
                             role="alert"
                             className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0 px-4 py-2 gap-2"
@@ -528,6 +583,11 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                             <AlertTriangle size={14} aria-hidden="true" />
                             Reconnecting…
                         </div>
+                    )}
+
+                    {/* Banned banner */}
+                    {banInfo && (
+                        <BanBanner ban={banInfo} onExpired={handleBanExpired} />
                     )}
 
                     {/* Message list */}
@@ -567,7 +627,13 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                         )}
 
                         {/* Messages */}
-                        {messages.map((msg) => (
+                        {messages.map((msg, idx) => {
+                            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                            const showHeader = !prevMsg
+                                || prevMsg.sender !== msg.sender
+                                || prevMsg.sender === "__system__"
+                                || prevMsg.deleted === true;
+                            return (
                             <MessageBubble
                                 key={msg.id}
                                 id={msg.id}
@@ -575,8 +641,41 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 content={msg.content}
                                 timestamp={msg.timestamp}
                                 isOwn={msg.sender === currentDomain}
+                                deleted={msg.deleted}
+                                deletedBy={msg.deletedBy}
+                                deleteReason={msg.deleteReason}
+                                media={msg.media}
+                                replyTo={msg.replyTo}
+                                replyContext={msg.replyContext}
+                                editedAt={msg.editedAt}
+                                reactions={msg.reactions}
+                                activeDomain={currentDomain}
+                                showHeader={showHeader}
+                                isAdmin={isAdmin}
+                                onReact={reactToMessage}
+                                onReply={(messageId) => {
+                                    const target = messages.find((m) => m.id === messageId);
+                                    if (target) setReplyTarget({ id: target.id, sender: target.sender, content: target.content });
+                                }}
+                                onEdit={(messageId) => {
+                                    setEditingMessageId(messageId);
+                                }}
+                                isEditing={editingMessageId === msg.id}
+                                onEditSave={(messageId, newContent) => {
+                                    editMessage(messageId, newContent);
+                                    setEditingMessageId(null);
+                                }}
+                                onEditCancel={() => setEditingMessageId(null)}
+                                onAdminDelete={(messageId) => {
+                                    const target = messages.find((m) => m.id === messageId);
+                                    if (target) setDeleteModal({ messageId, senderDomain: target.sender });
+                                }}
+                                onAdminBan={(domain) => setBanModal({ domain })}
+                                onShowProfile={(domain, rect) => setProfilePopout({ domain, anchorRect: rect })}
+                                chatToken={token}
                             />
-                        ))}
+                            );
+                        })}
                         <div ref={messagesEndRef} />
                     </div>
 
@@ -599,7 +698,32 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     )}
 
                     {/* Message input */}
-                    <MessageInput onSend={sendMessage} onTyping={sendTyping} disabled={!isConnected} />
+                    <MessageInput
+                        onSend={(content, media) => {
+                            const mediaAttachment = media ? {
+                                type: media.type,
+                                url: media.url,
+                                thumbnailUrl: media.preview,
+                                width: media.width,
+                                height: media.height,
+                                alt: media.title,
+                                ...(media.type === "gif" ? { provider: "KLIPY" as const } : {}),
+                            } : undefined;
+                            sendMessage(content, mediaAttachment, replyTarget?.id);
+                            setReplyTarget(null);
+                        }}
+                        onTyping={sendTyping}
+                        disabled={!isConnected || !!banInfo}
+                        replyTarget={replyTarget}
+                        onCancelReply={() => setReplyTarget(null)}
+                        token={token}
+                        gifEnabled
+                        onImageUpload={onPinImage ? async (file) => {
+                            const result = await onPinImage(file);
+                            return result;
+                        } : undefined}
+                        mentionCandidates={mentionCandidates}
+                    />
                 </div>
             )}
 
@@ -610,6 +734,35 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     activeDomain={currentDomain}
                     onStartDM={handleStartDM}
                     onClose={() => setShowNewDM(false)}
+                />
+            )}
+
+            {/* Admin: Delete Message Modal */}
+            {deleteModal && (
+                <DeleteMessageModal
+                    messageId={deleteModal.messageId}
+                    senderDomain={deleteModal.senderDomain}
+                    onConfirm={adminDeleteMessage}
+                    onClose={() => setDeleteModal(null)}
+                />
+            )}
+
+            {/* Admin: Ban User Modal */}
+            {banModal && (
+                <BanUserModal
+                    domain={banModal.domain}
+                    onConfirm={adminBanUser}
+                    onClose={() => setBanModal(null)}
+                />
+            )}
+
+            {/* Profile Popout */}
+            {profilePopout && (
+                <ProfilePopout
+                    domain={profilePopout.domain}
+                    anchorRect={profilePopout.anchorRect}
+                    onClose={() => setProfilePopout(null)}
+                    onStartDM={(peerDomain) => handleStartDM(peerDomain)}
                 />
             )}
         </div>

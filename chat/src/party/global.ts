@@ -19,8 +19,35 @@ interface RateEntry {
 // Ownership re-verification interval (15 minutes)
 const REVERIFY_INTERVAL_MS = 15 * 60 * 1000;
 
+// Ban cache TTL (2 minutes)
+const BAN_CACHE_TTL_MS = 2 * 60 * 1000;
+
+interface BanInfo {
+  type: "soft" | "hard";
+  scope: "global" | "platform";
+  reason: string;
+  adminDomain: string;
+  expiresAt: string | null;
+}
+
+interface BanCacheEntry {
+  banned: boolean;
+  ban?: BanInfo;
+  checkedAt: number;
+}
+
+interface MediaAttachment {
+  type: "gif" | "image";
+  url: string;
+  width?: number;
+  height?: number;
+  alt?: string;
+  thumbnailUrl?: string;
+  provider?: string;
+}
+
 interface HistoryResponse {
-  messages: Array<{ id: string; sender: string; content: string; timestamp: string }>;
+  messages: Array<{ id: string; sender: string; content: string | null; timestamp: string; deleted?: boolean; media?: MediaAttachment; replyTo?: string; editedAt?: string }>;
   hasMore: boolean;
 }
 
@@ -38,6 +65,7 @@ export default class GlobalRoom implements Server {
   readonly room: Party;
   private msgRateMap = new Map<string, RateEntry>();
   private reverifyTimer: ReturnType<typeof setInterval> | null = null;
+  private banCache = new Map<string, BanCacheEntry>();
 
   constructor(room: Party) {
     this.room = room;
@@ -61,6 +89,10 @@ export default class GlobalRoom implements Server {
     return net === "mainnet" ? "mainnet" : "ghostnet";
   }
 
+  private getNetworkTld(): "tez" | "gho" {
+    return this.getNetwork() === "mainnet" ? "tez" : "gho";
+  }
+
   private getDomain(conn: Connection): string | null {
     const state = conn.state as Record<string, unknown> | null;
     return (state?.domain as string) ?? null;
@@ -74,6 +106,13 @@ export default class GlobalRoom implements Server {
   private getDomains(conn: Connection): string[] {
     const state = conn.state as Record<string, unknown> | null;
     return (state?.domains as string[]) ?? [];
+  }
+
+  private isAdminConn(conn: Connection): boolean {
+    const activeDomain = this.getDomain(conn);
+    if (!activeDomain) return false;
+    const adminDomain = `admin.hack.${this.getNetworkTld()}`;
+    return activeDomain === adminDomain;
   }
 
   private getOnlineDomains(): string[] {
@@ -157,6 +196,37 @@ export default class GlobalRoom implements Server {
     return resp;
   }
 
+  /** Check ban status via Worker (with local cache) */
+  private async checkBan(domain: string, address: string): Promise<{ banned: boolean; ban?: BanInfo }> {
+    const cacheKey = `${domain}:${address}`;
+    const cached = this.banCache.get(cacheKey);
+    if (cached && Date.now() - cached.checkedAt < BAN_CACHE_TTL_MS) {
+      return { banned: cached.banned, ban: cached.ban };
+    }
+
+    try {
+      const params = new URLSearchParams({ domain, address, context: "global" });
+      const resp = await this.workerFetch(`/internal/ban-check?${params.toString()}`);
+      if (!resp.ok) return { banned: false };
+
+      const data = await resp.json() as { banned: boolean; ban?: BanInfo };
+      this.banCache.set(cacheKey, { ...data, checkedAt: Date.now() });
+      return data;
+    } catch (err) {
+      console.error("Ban check error:", err);
+      return { banned: false };
+    }
+  }
+
+  /** Invalidate ban cache for a domain (after ban/unban) */
+  private invalidateBanCache(domain: string): void {
+    for (const key of this.banCache.keys()) {
+      if (key.startsWith(`${domain}:`)) {
+        this.banCache.delete(key);
+      }
+    }
+  }
+
   async onConnect(conn: Connection) {
     this.ensureReverifyTimer();
 
@@ -185,6 +255,19 @@ export default class GlobalRoom implements Server {
     const effectiveDomain = requestedDomain && payload.domains.includes(requestedDomain)
       ? requestedDomain
       : payload.activeDomain;
+
+    // Check ban status before allowing connection
+    const banResult = await this.checkBan(effectiveDomain, payload.address);
+    if (banResult.banned && banResult.ban) {
+      sendJson(conn, {
+        type: "error",
+        code: "BANNED",
+        message: `You are banned from global chat. Reason: ${banResult.ban.reason}`,
+        ban: banResult.ban,
+      });
+      conn.close(4010, "Banned");
+      return;
+    }
 
     conn.setState({
       domain: effectiveDomain,
@@ -216,7 +299,20 @@ export default class GlobalRoom implements Server {
     }
 
     switch (parsed.type) {
-      case "message":
+      case "message": {
+        // Re-check ban before allowing message
+        const address = this.getAddress(sender);
+        const banResult = await this.checkBan(domain, address ?? "");
+        if (banResult.banned) {
+          sendJson(sender, {
+            type: "error",
+            code: "BANNED",
+            message: `You are banned. Reason: ${banResult.ban?.reason}`,
+            ban: banResult.ban,
+          });
+          sender.close(4010, "Banned");
+          return;
+        }
         if (!this.checkMessageRate(sender.id)) {
           sendJson(sender, {
             type: "error",
@@ -225,8 +321,9 @@ export default class GlobalRoom implements Server {
           });
           return;
         }
-        await this.handleChatMessage(sender, domain, parsed.content as string);
+        await this.handleChatMessage(sender, domain, parsed.content as string, parsed.media as MediaAttachment | undefined, parsed.replyTo as string | undefined);
         break;
+      }
       case "typing":
         this.handleTyping(sender, domain, parsed.active as boolean);
         break;
@@ -238,35 +335,76 @@ export default class GlobalRoom implements Server {
         break;
       case "read":
         break;
+
+      // Edit + react
+      case "edit-message":
+        await this.handleEditMessage(sender, domain, parsed);
+        break;
+      case "react":
+        await this.handleReaction(sender, domain, parsed);
+        break;
+
+      // Admin commands
+      case "admin:delete-message":
+        await this.handleAdminDelete(sender, parsed);
+        break;
+      case "admin:ban-user":
+        await this.handleAdminBan(sender, parsed);
+        break;
+      case "admin:unban-user":
+        await this.handleAdminUnban(sender, parsed);
+        break;
+
       default:
         sendJson(sender, { type: "error", code: "UNKNOWN_TYPE", message: "Unknown message type" });
     }
   }
 
-  private async handleChatMessage(sender: Connection, domain: string, content: string) {
+  private async handleChatMessage(sender: Connection, domain: string, content: string, media?: MediaAttachment, replyTo?: string) {
     if (!content || typeof content !== "string") {
-      sendJson(sender, { type: "error", code: "EMPTY_MESSAGE", message: "Message content required" });
+      // Allow empty content if media is present
+      if (!media) {
+        sendJson(sender, { type: "error", code: "EMPTY_MESSAGE", message: "Message content required" });
+        return;
+      }
+    }
+
+    const trimmed = (content ?? "").trim();
+    if (!media && (trimmed.length === 0 || trimmed.length > 4000)) {
+      sendJson(sender, { type: "error", code: "INVALID_LENGTH", message: "Message must be 1-4000 characters" });
+      return;
+    }
+    if (trimmed.length > 4000) {
+      sendJson(sender, { type: "error", code: "INVALID_LENGTH", message: "Message must be at most 4000 characters" });
       return;
     }
 
-    const trimmed = content.trim();
-    if (trimmed.length === 0 || trimmed.length > 2000) {
-      sendJson(sender, { type: "error", code: "INVALID_LENGTH", message: "Message must be 1-2000 characters" });
-      return;
+    // Validate media if present
+    if (media) {
+      if (!media.type || !media.url) {
+        sendJson(sender, { type: "error", code: "INVALID_MEDIA", message: "Media requires type and url" });
+        return;
+      }
+      if (media.type !== "gif" && media.type !== "image") {
+        sendJson(sender, { type: "error", code: "INVALID_MEDIA", message: "Media type must be gif or image" });
+        return;
+      }
     }
 
     const id = generateId();
     const timestamp = new Date().toISOString();
 
+    const broadcastMsg: Record<string, unknown> = { type: "message", id, sender: domain, content: trimmed || null, timestamp };
+    if (media) broadcastMsg.media = media;
+    if (replyTo) broadcastMsg.replyTo = replyTo;
+
     // Broadcast to all connections
-    this.room.broadcast(
-      JSON.stringify({ type: "message", id, sender: domain, content: trimmed, timestamp }),
-    );
+    this.room.broadcast(JSON.stringify(broadcastMsg));
 
     // Persist via Worker API (fire-and-forget)
     this.workerFetch("/internal/store-message", {
       method: "POST",
-      body: JSON.stringify({ id, roomId: "global", senderDomain: domain, content: trimmed }),
+      body: JSON.stringify({ id, roomId: "global", senderDomain: domain, content: trimmed || "", media, replyTo }),
     }).catch((err) => console.error("Worker persist error:", err));
   }
 
@@ -321,6 +459,79 @@ export default class GlobalRoom implements Server {
     sendJson(sender, { type: "identity-switched", domain: newDomain });
   }
 
+  private async handleEditMessage(sender: Connection, domain: string, data: Record<string, unknown>) {
+    const messageId = data.messageId as string;
+    const content = data.content as string;
+
+    if (!messageId || !content) {
+      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "messageId and content required" });
+      return;
+    }
+
+    try {
+      const resp = await this.workerFetch("/internal/edit-message", {
+        method: "POST",
+        body: JSON.stringify({ messageId, senderDomain: domain, content }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json() as { error: string };
+        sendJson(sender, { type: "error", code: "EDIT_FAILED", message: err.error });
+        return;
+      }
+
+      const result = await resp.json() as { ok: boolean; editedAt: string };
+
+      this.room.broadcast(JSON.stringify({
+        type: "message-edited",
+        messageId,
+        content: content.trim(),
+        editedAt: result.editedAt,
+        sender: domain,
+      }));
+    } catch (err) {
+      console.error("Edit message error:", err);
+      sendJson(sender, { type: "error", code: "EDIT_FAILED", message: "Failed to edit message" });
+    }
+  }
+
+  private async handleReaction(sender: Connection, domain: string, data: Record<string, unknown>) {
+    const messageId = data.messageId as string;
+    const emoji = data.emoji as string;
+
+    if (!messageId || !emoji) {
+      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "messageId and emoji required" });
+      return;
+    }
+
+    try {
+      const resp = await this.workerFetch("/internal/react", {
+        method: "POST",
+        body: JSON.stringify({ messageId, domain, emoji }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json() as { error: string };
+        sendJson(sender, { type: "error", code: "REACT_FAILED", message: err.error });
+        return;
+      }
+
+      const result = await resp.json() as { ok: boolean; action: "add" | "remove"; reactions: Array<{ emoji: string; count: number }> };
+
+      this.room.broadcast(JSON.stringify({
+        type: "reaction-update",
+        messageId,
+        emoji,
+        domain,
+        action: result.action,
+        reactions: result.reactions,
+      }));
+    } catch (err) {
+      console.error("Reaction error:", err);
+      sendJson(sender, { type: "error", code: "REACT_FAILED", message: "Failed to react" });
+    }
+  }
+
   private async handleHistory(sender: Connection, before?: string) {
     try {
       const params = new URLSearchParams({ roomId: "global", limit: "50" });
@@ -334,6 +545,193 @@ export default class GlobalRoom implements Server {
     } catch (err) {
       console.error("Worker history error:", err);
       sendJson(sender, { type: "error", code: "HISTORY_FAILED", message: "Failed to load history" });
+    }
+  }
+
+  // --- Admin command handlers ---
+
+  private async handleAdminDelete(sender: Connection, data: Record<string, unknown>) {
+    if (!this.isAdminConn(sender)) {
+      sendJson(sender, { type: "error", code: "FORBIDDEN", message: "Admin access required" });
+      return;
+    }
+
+    const messageId = data.messageId as string;
+    const reason = data.reason as string;
+    const visible = data.visible !== false;
+    const adminDomain = this.getDomain(sender);
+
+    if (!messageId || !reason || !adminDomain) {
+      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "messageId and reason required" });
+      return;
+    }
+
+    try {
+      const resp = await this.workerFetch("/internal/delete-message", {
+        method: "POST",
+        body: JSON.stringify({ messageId, adminDomain, reason, visible }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json() as { error: string };
+        sendJson(sender, { type: "error", code: "DELETE_FAILED", message: err.error });
+        return;
+      }
+
+      const result = await resp.json() as { ok: boolean; targetDomain: string };
+
+      // Broadcast deletion to all connected clients
+      this.room.broadcast(JSON.stringify({
+        type: "message-deleted",
+        messageId,
+        deletedBy: adminDomain,
+        reason,
+        visible,
+        timestamp: new Date().toISOString(),
+      }));
+
+      // Confirm to admin
+      sendJson(sender, { type: "admin:delete-confirmed", messageId, targetDomain: result.targetDomain });
+    } catch (err) {
+      console.error("Admin delete error:", err);
+      sendJson(sender, { type: "error", code: "DELETE_FAILED", message: "Failed to delete message" });
+    }
+  }
+
+  private async handleAdminBan(sender: Connection, data: Record<string, unknown>) {
+    if (!this.isAdminConn(sender)) {
+      sendJson(sender, { type: "error", code: "FORBIDDEN", message: "Admin access required" });
+      return;
+    }
+
+    const targetDomain = data.domain as string;
+    const type = data.banType as string;
+    const scope = (data.scope as string) || "global";
+    const reason = data.reason as string;
+    const duration = data.duration as number | undefined;
+    const notes = (data.notes as string) || undefined;
+    const banWallet = data.banWallet as boolean | undefined;
+    const adminDomain = this.getDomain(sender);
+
+    if (!targetDomain || !type || !reason || !adminDomain) {
+      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "domain, banType, and reason required" });
+      return;
+    }
+
+    // Look up the target's wallet address if banWallet is requested
+    let address: string | undefined;
+    if (banWallet) {
+      for (const conn of this.room.getConnections()) {
+        if (this.getDomain(conn) === targetDomain) {
+          address = this.getAddress(conn) ?? undefined;
+          break;
+        }
+      }
+    }
+
+    try {
+      const resp = await this.workerFetch("/internal/ban", {
+        method: "POST",
+        body: JSON.stringify({
+          domain: targetDomain, type, scope, reason, adminDomain,
+          duration, notes, address,
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json() as { error: string };
+        sendJson(sender, { type: "error", code: "BAN_FAILED", message: err.error });
+        return;
+      }
+
+      const result = await resp.json() as { ok: boolean; ban: Record<string, unknown> };
+
+      // Invalidate cache
+      this.invalidateBanCache(targetDomain);
+
+      // Broadcast ban to all connections
+      this.room.broadcast(JSON.stringify({
+        type: "user-banned",
+        domain: targetDomain,
+        banType: type,
+        scope,
+        reason,
+        adminDomain,
+        expiresAt: result.ban.expiresAt ?? null,
+        timestamp: new Date().toISOString(),
+      }));
+
+      // Force-disconnect the banned user
+      for (const conn of this.room.getConnections()) {
+        if (this.getDomain(conn) === targetDomain) {
+          sendJson(conn, {
+            type: "error",
+            code: "BANNED",
+            message: `You have been banned from global chat. Reason: ${reason}`,
+            ban: { type, scope, reason, adminDomain, expiresAt: result.ban.expiresAt ?? null },
+          });
+          conn.close(4010, "Banned");
+        }
+        // If wallet ban, also disconnect other domains on the same wallet
+        if (address && this.getAddress(conn) === address && this.getDomain(conn) !== targetDomain) {
+          sendJson(conn, {
+            type: "error",
+            code: "BANNED",
+            message: `Your wallet has been banned from global chat. Reason: ${reason}`,
+            ban: { type, scope, reason, adminDomain, expiresAt: result.ban.expiresAt ?? null },
+          });
+          conn.close(4010, "Banned (wallet)");
+        }
+      }
+
+      sendJson(sender, { type: "admin:ban-confirmed", domain: targetDomain, ban: result.ban });
+    } catch (err) {
+      console.error("Admin ban error:", err);
+      sendJson(sender, { type: "error", code: "BAN_FAILED", message: "Failed to ban user" });
+    }
+  }
+
+  private async handleAdminUnban(sender: Connection, data: Record<string, unknown>) {
+    if (!this.isAdminConn(sender)) {
+      sendJson(sender, { type: "error", code: "FORBIDDEN", message: "Admin access required" });
+      return;
+    }
+
+    const targetDomain = data.domain as string;
+    const reason = (data.reason as string) || "Unbanned by admin";
+    const adminDomain = this.getDomain(sender);
+
+    if (!targetDomain || !adminDomain) {
+      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "domain required" });
+      return;
+    }
+
+    try {
+      const resp = await this.workerFetch("/internal/unban", {
+        method: "POST",
+        body: JSON.stringify({ domain: targetDomain, adminDomain, reason }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json() as { error: string };
+        sendJson(sender, { type: "error", code: "UNBAN_FAILED", message: err.error });
+        return;
+      }
+
+      this.invalidateBanCache(targetDomain);
+
+      this.room.broadcast(JSON.stringify({
+        type: "user-unbanned",
+        domain: targetDomain,
+        reason,
+        adminDomain,
+        timestamp: new Date().toISOString(),
+      }));
+
+      sendJson(sender, { type: "admin:unban-confirmed", domain: targetDomain });
+    } catch (err) {
+      console.error("Admin unban error:", err);
+      sendJson(sender, { type: "error", code: "UNBAN_FAILED", message: "Failed to unban user" });
     }
   }
 

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PartySocket from "partysocket";
 import type { ChatNotificationEvent } from "../lib/chatNotifications";
-
-const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST ?? "localhost:1999";
+import { partykitHost } from "../config/tezos";
 
 interface ChatMessage {
     id: string;
@@ -60,7 +59,7 @@ export function useDM(config: UseDMConfig): UseDMReturn {
 
         let closedIntentionally = false;
         const ws = new PartySocket({
-            host: PARTYKIT_HOST,
+            host: partykitHost,
             party: "dm",
             room: roomId,
             query: { token, activeDomain, rt: String(reconnectTick) },

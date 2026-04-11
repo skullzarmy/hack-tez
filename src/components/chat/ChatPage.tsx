@@ -3,10 +3,11 @@ import { MessageCircle } from "lucide-react";
 import { useTezos } from "../../context/TezosContext";
 import ChatAuth from "./ChatAuth";
 import ChatLayout from "./ChatLayout";
+import { pinFile } from "../../lib/pin";
+import { hackchatUrl } from "../../config/tezos";
 
 const IDENTITY_STORAGE_KEY = "hack-tez-chat-identity";
 const SESSION_STORAGE_KEY = "hack-tez-chat-session";
-const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
 const REFRESH_LEAD_MS = 60 * 60 * 1000; // refresh 1 hour before expiry
 
 interface ChatSession {
@@ -83,6 +84,24 @@ export default function ChatPage() {
         setSession(null);
     }, []);
 
+    // Clear session when wallet disconnects or address changes
+    const prevAddressRef = useRef(address);
+    useEffect(() => {
+        const prev = prevAddressRef.current;
+        prevAddressRef.current = address;
+
+        // Wallet disconnected
+        if (!address && prev) {
+            clearSession();
+            return;
+        }
+
+        // Different wallet connected — old session is invalid
+        if (address && prev && address !== prev) {
+            clearSession();
+        }
+    }, [address, clearSession]);
+
     const updateSession = useCallback((s: ChatSession) => {
         setSession(s);
         saveSession(s);
@@ -102,7 +121,7 @@ export default function ChatPage() {
                         clearSession();
                         return;
                     }
-                    const res = await fetch(`${HACKCHAT_URL}/auth/refresh`, {
+                    const res = await fetch(`${hackchatUrl}/auth/refresh`, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -212,7 +231,7 @@ export default function ChatPage() {
                     try {
                         const current = loadSession();
                         if (!current) return;
-                        const res = await fetch(`${HACKCHAT_URL}/auth/refresh`, {
+                        const res = await fetch(`${hackchatUrl}/auth/refresh`, {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
@@ -233,6 +252,21 @@ export default function ChatPage() {
                         // Silent refresh failure; existing session remains active.
                     }
                 })();
+            }}
+            onPinImage={async (file) => {
+                try {
+                    const { gatewayUrl } = await pinFile(file, client);
+                    // Read image dimensions
+                    const dims = await new Promise<{ width: number; height: number }>((resolve) => {
+                        const img = new Image();
+                        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                        img.onerror = () => resolve({ width: 0, height: 0 });
+                        img.src = URL.createObjectURL(file);
+                    });
+                    return { url: gatewayUrl, width: dims.width, height: dims.height };
+                } catch {
+                    return null;
+                }
             }}
         />
     );

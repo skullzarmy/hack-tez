@@ -22,7 +22,7 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
                     fontFamily: "var(--font-mono)",
                     minHeight: "28px",
                     letterSpacing: "0.12em",
-                    maxWidth: "120px",
+                    maxWidth: "clamp(60px, 20vw, 120px)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",

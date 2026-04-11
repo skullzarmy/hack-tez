@@ -3,7 +3,7 @@ import { ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
 import type { DAppClient } from "@tezos-x/octez.connect-sdk";
 import { signMessage } from "../../lib/signing";
 
-const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
+import { hackchatUrl } from "../../config/tezos";
 
 interface ChatAuthProps {
     address: string;
@@ -35,7 +35,7 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
             setSigning(false);
             setSubmitting(true);
 
-            const res = await fetch(`${HACKCHAT_URL}/auth`, {
+            const res = await fetch(`${hackchatUrl}/auth`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ address, publicKey, signature, timestamp, nonce }),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const HACKCHAT_URL = import.meta.env.VITE_HACKCHAT_URL ?? "http://localhost:8787";
+import { hackchatUrl } from "../config/tezos";
 
 interface DMConversation {
     roomId: string;
@@ -31,7 +31,7 @@ export function useDMList(config: UseDMListConfig): UseDMListReturn {
 
     const fetchConversations = useCallback(async () => {
         try {
-            const res = await fetch(`${HACKCHAT_URL}/dm/list`, {
+            const res = await fetch(`${hackchatUrl}/dm/list`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "X-Active-Domain": activeDomain,

@@ -118,6 +118,25 @@ export default class DMRoom implements Server {
             return;
         }
 
+        // Check platform-scoped bans (global-scoped bans don't affect DMs)
+        try {
+            const params = new URLSearchParams({ domain: effectiveDomain, address: payload.address, context: "dm" });
+            const banResp = await this.workerFetch(`/internal/ban-check?${params.toString()}`);
+            if (banResp.ok) {
+                const banData = await banResp.json() as { banned: boolean; ban?: { reason: string } };
+                if (banData.banned) {
+                    sendJson(conn, {
+                        type: "error", code: "BANNED",
+                        message: `You are banned from the platform. Reason: ${banData.ban?.reason}`,
+                    });
+                    conn.close(4010, "Banned (platform)");
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error("DM ban check error:", err);
+        }
+
         conn.setState({
             domain: effectiveDomain,
             address: payload.address,

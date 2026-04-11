@@ -13,6 +13,7 @@ export interface ChatNotificationEvent {
     senderDomain: string;
     roomId?: string;
     channelId?: string;
+    mentionsMe?: boolean;
 }
 
 export interface ActiveChatView {
@@ -97,6 +98,9 @@ export function shouldPlayChatNotification({
 }: ShouldPlayChatNotificationArgs): boolean {
     if (!settings.globalEnabled) return false;
     if (event.senderDomain === currentDomain) return false;
+
+    // Mentions always notify — skip mute checks
+    if (event.mentionsMe) return true;
 
     if (event.source === "global" && settings.mutedChannelIds.includes("global")) {
         return false;

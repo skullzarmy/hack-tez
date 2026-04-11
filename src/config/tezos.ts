@@ -19,6 +19,13 @@ const network = (import.meta.env.VITE_TEZOS_NETWORK || "ghostnet") as TezosNetwo
 export const siteUrl: string =
     (import.meta.env.VITE_SITE_URL || "").trim().replace(/\/+$/, "") || "https://hacktez.com";
 
+/** hackchat worker URL — used by all chat components for API requests */
+export const hackchatUrl: string =
+    (import.meta.env.VITE_HACKCHAT_URL || "").trim().replace(/\/+$/, "") || "http://localhost:8787";
+
+export const partykitHost: string =
+    (import.meta.env.VITE_PARTYKIT_HOST || "").trim() || "localhost:1999";
+
 interface NetworkConfig {
     name: TezosNetwork;
     tld: string;
