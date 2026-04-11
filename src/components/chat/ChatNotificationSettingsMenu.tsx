@@ -181,7 +181,13 @@ export default function ChatNotificationSettingsMenu({
                     <Settings2 size={16} aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="bottom" style={{ maxHeight: "calc(100dvh - 70px)", overflowY: "auto" }}>
+            <DropdownMenuContent
+                align="end"
+                side="bottom"
+                avoidCollisions
+                collisionPadding={8}
+                style={{ maxHeight: "var(--radix-dropdown-menu-content-available-height, calc(100dvh - 80px))", overflowY: "auto" }}
+            >
                 <div className="px-2 pt-1 pb-2">
                     <div
                         className="text-[10px] font-bold uppercase tracking-widest"
