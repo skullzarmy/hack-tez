@@ -127,7 +127,7 @@ export default function Dashboard() {
                 </p>
             </header>
             <div
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}
+                style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "2rem" }}
             >
                 <p
                     className="text-subtle"
@@ -135,7 +135,7 @@ export default function Dashboard() {
                 >
                     You own your subdomains on Tezos Domains. Manage them directly on TED.
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <PushSubscribeButton />
                     <button onClick={refresh} className="btn btn-ghost btn-sm" aria-label="Refresh subdomain list">
                         ↻ Refresh
