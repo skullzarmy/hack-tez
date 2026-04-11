@@ -555,6 +555,40 @@ async function handleInternalHistory(request: Request, env: Env): Promise<Respon
     const hasMore = rows.length > limit;
     const messages = rows.slice(0, limit).map(formatMessageRow);
 
+    // Enrich messages with reactions
+    const msgIds = messages.map((m) => (m as Record<string, unknown>).id as string).filter(Boolean);
+    if (msgIds.length > 0) {
+      const placeholders = msgIds.map(() => "?").join(",");
+      const reactResult = await env.DB
+        .prepare(`SELECT message_id, emoji, domain FROM chat_reactions WHERE message_id IN (${placeholders}) ORDER BY created_at ASC`)
+        .bind(...msgIds)
+        .all();
+
+      // Group reactions by message_id → emoji
+      const reactionMap = new Map<string, Map<string, string[]>>();
+      for (const r of reactResult.results) {
+        const mid = r.message_id as string;
+        const emoji = r.emoji as string;
+        const domain = r.domain as string;
+        if (!reactionMap.has(mid)) reactionMap.set(mid, new Map());
+        const emojiMap = reactionMap.get(mid)!;
+        if (!emojiMap.has(emoji)) emojiMap.set(emoji, []);
+        emojiMap.get(emoji)!.push(domain);
+      }
+
+      for (const msg of messages) {
+        const mid = (msg as Record<string, unknown>).id as string;
+        const emojiMap = reactionMap.get(mid);
+        if (emojiMap) {
+          (msg as Record<string, unknown>).reactions = Array.from(emojiMap.entries()).map(([emoji, domains]) => ({
+            emoji,
+            count: domains.length,
+            domains,
+          }));
+        }
+      }
+    }
+
     return new Response(JSON.stringify({ messages, hasMore }), {
       headers: { "Content-Type": "application/json" },
     });
