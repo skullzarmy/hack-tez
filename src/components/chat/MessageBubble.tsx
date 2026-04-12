@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
-import { MoreVertical, Trash2, Ban, Pencil, Reply } from "lucide-react";
+import { MoreVertical, Trash2, Ban, Pencil, Reply, SmilePlus } from "lucide-react";
 import type { MediaAttachment, ReactionCount } from "../../hooks/useChat";
 import { ipfsUriToGatewayUrl } from "../../lib/pin";
 import ChatAvatar from "./ChatAvatar";
 import LinkPreview from "./LinkPreview";
+
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 
 interface MessageBubbleProps {
     id: string;
@@ -254,6 +256,20 @@ function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "🚀", "👀"];
 
 function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (messageId: string, emoji: string) => void }) {
+    const [showPicker, setShowPicker] = useState(false);
+    const pickerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!showPicker) return;
+        function handleClick(e: MouseEvent) {
+            if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+                setShowPicker(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [showPicker]);
+
     return (
         <div
             className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
@@ -288,6 +304,42 @@ function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (me
                     {emoji}
                 </button>
             ))}
+            <div ref={pickerRef} style={{ position: "relative", display: "inline-flex" }}>
+                <button
+                    type="button"
+                    onClick={() => setShowPicker((v) => !v)}
+                    style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "2px 3px",
+                        lineHeight: 1,
+                        display: "inline-flex",
+                        alignItems: "center",
+                    }}
+                    aria-label="More reactions"
+                >
+                    <SmilePlus size={14} style={{ color: "var(--fg-3, #888)" }} />
+                </button>
+                {showPicker && (
+                    <div style={{ position: "absolute", bottom: "28px", right: 0, zIndex: 50 }}>
+                        <Suspense fallback={<div style={{ width: 350, height: 400, background: "var(--bg-1, #111)", border: "1px solid var(--border-2, #333)" }} />}>
+                            <EmojiPicker
+                                onEmojiClick={(emojiData) => {
+                                    onReact(messageId, emojiData.emoji);
+                                    setShowPicker(false);
+                                }}
+                                theme={"dark" as import("emoji-picker-react").Theme}
+                                width={350}
+                                height={400}
+                                searchPlaceholder="Search emoji…"
+                                previewConfig={{ showPreview: false }}
+                                lazyLoadEmojis
+                            />
+                        </Suspense>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
