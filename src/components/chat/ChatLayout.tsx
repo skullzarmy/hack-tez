@@ -528,6 +528,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     peerDomain={activeView.peerDomain}
                     onBack={handleDMBack}
                     onIncomingMessage={handleIncomingMessage}
+                    hasMultipleDomains={domains.length > 1}
                     notificationSettings={notificationSettings}
                     isGlobalChannelMuted={isGlobalChannelMuted}
                     isActiveDMMuted={isActiveDMMuted}

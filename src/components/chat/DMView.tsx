@@ -16,6 +16,7 @@ interface DMViewProps {
     notificationSettings: ChatNotificationSettings;
     isGlobalChannelMuted: boolean;
     isActiveDMMuted: boolean;
+    hasMultipleDomains?: boolean;
     onToggleGlobalEnabled: () => void;
     onToggleMuteForegroundConversation: () => void;
     onToggleMuteNewDMs: () => void;
@@ -33,6 +34,7 @@ export default function DMView({
     notificationSettings,
     isGlobalChannelMuted,
     isActiveDMMuted,
+    hasMultipleDomains,
     onToggleGlobalEnabled,
     onToggleMuteForegroundConversation,
     onToggleMuteNewDMs,
@@ -140,17 +142,19 @@ export default function DMView({
                                 {peerDomain} is {peerOnline ? "online" : "offline"}
                             </span>
                         </div>
-                        <span
-                            style={{
-                                color: "var(--fg-3, #666)",
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "9px",
-                                letterSpacing: "0.08em",
-                                marginLeft: "14px",
-                            }}
-                        >
-                            as {activeDomain}
-                        </span>
+                        {hasMultipleDomains && (
+                            <span
+                                style={{
+                                    color: "var(--fg-3, #666)",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "9px",
+                                    letterSpacing: "0.08em",
+                                    marginLeft: "14px",
+                                }}
+                            >
+                                as {activeDomain}
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5">

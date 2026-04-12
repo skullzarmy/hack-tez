@@ -246,6 +246,7 @@ export default function ChatSidebar({
                 {conversations.map((conv) => {
                     const isActive = activeView.type === "dm" && activeView.roomId === conv.roomId;
                     const isConfirmingHide = confirmHideRoomId === conv.roomId;
+                    const hasMultipleOwn = new Set(conversations.map((c) => c.ownDomain)).size > 1;
                     return (
                         <div
                             key={conv.roomId}
@@ -308,17 +309,19 @@ export default function ChatSidebar({
                                         )}
                                     </span>
                                 </div>
-                                <span
-                                    className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
-                                    style={{
-                                        color: "var(--fg-3, #666)",
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: "9px",
-                                        letterSpacing: "0.06em",
-                                    }}
-                                >
-                                    as {conv.ownDomain}
-                                </span>
+                                {hasMultipleOwn && (
+                                    <span
+                                        className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
+                                        style={{
+                                            color: "var(--fg-3, #666)",
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: "9px",
+                                            letterSpacing: "0.06em",
+                                        }}
+                                    >
+                                        as {conv.ownDomain}
+                                    </span>
+                                )}
                                 {conv.lastMessage && (
                                     <span
                                         className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
