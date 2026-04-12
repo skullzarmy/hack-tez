@@ -309,6 +309,8 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 if (hasSign) {
                     addr = existing.address;
                 } else {
+                    // Clear stale session before re-requesting with SIGN scope
+                    await c.clearActiveAccount();
                     const scopes = [sdk.PermissionScope.OPERATION_REQUEST, sdk.PermissionScope.SIGN];
                     await c.requestPermissions({ scopes });
                     const account = await c.getActiveAccount();
