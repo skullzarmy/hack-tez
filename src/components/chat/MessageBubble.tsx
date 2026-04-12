@@ -42,10 +42,14 @@ function formatRelativeTime(iso: string): string {
     const seconds = Math.floor(diff / 1000);
     if (seconds < 60) return "just now";
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 5) return "1m ago";
-    if (minutes < 15) return "5m ago";
-    if (minutes < 30) return "15m ago";
-    if (minutes < 60) return "30m ago";
+    if (minutes < 2) return "1m ago";
+    if (minutes < 5) return `${minutes}m ago`;
+    if (minutes < 10) return "5m ago";
+    if (minutes < 15) return "10m ago";
+    if (minutes < 20) return "15m ago";
+    if (minutes < 30) return "20m ago";
+    if (minutes < 45) return "30m ago";
+    if (minutes < 60) return "45m ago";
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
