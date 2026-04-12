@@ -8,7 +8,6 @@ import {
     isPushSubscribed,
     subscribeToPush,
     unsubscribeFromPush,
-    getPushPreferences,
     updatePushPreferences,
 } from "../../lib/pushSubscription";
 import type { PushPreferences, PushPermissionState } from "../../lib/pushSubscription";
@@ -101,30 +100,24 @@ export default function ChatNotificationSettingsMenu({
         if (!authToken) return;
         let cancelled = false;
         async function load() {
+            const { hackchatUrl } = await import("../../config/tezos");
             const [subscribed, prefsRes] = await Promise.all([
                 isPushSubscribed(),
-                getPushPreferences(authToken),
+                // Single request for preferences + device count
+                fetch(`${hackchatUrl}/push/preferences`, {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                }).then(async (res) => {
+                    if (!res.ok) return { preferences: null, deviceCount: 0 };
+                    const data = await res.json();
+                    return { preferences: data.preferences ?? null, deviceCount: data.deviceCount ?? 0 };
+                }).catch(() => ({ preferences: null, deviceCount: 0 })),
             ]);
             if (cancelled) return;
             setPushSubscribed(subscribed);
-            setPushPrefs(prefsRes);
+            if (prefsRes.preferences) setPushPrefs(prefsRes.preferences);
+            setDeviceCount(prefsRes.deviceCount);
         }
         void load();
-
-        // Also fetch device count
-        async function loadDeviceCount() {
-            try {
-                const { hackchatUrl } = await import("../../config/tezos");
-                const res = await fetch(`${hackchatUrl}/push/preferences`, {
-                    headers: { Authorization: `Bearer ${authToken}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (!cancelled) setDeviceCount(data.deviceCount ?? 0);
-                }
-            } catch { /* ignore */ }
-        }
-        void loadDeviceCount();
 
         return () => { cancelled = true; };
     }, [authToken]);

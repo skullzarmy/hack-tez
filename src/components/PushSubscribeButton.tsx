@@ -37,13 +37,14 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
     }, []);
 
     const handleToggle = useCallback(async () => {
+        if (!token) return;
         setLoading(true);
         try {
             if (subscribed) {
-                const ok = await unsubscribeFromPush(token ?? "");
+                const ok = await unsubscribeFromPush(token);
                 if (ok) setSubscribed(false);
             } else {
-                const ok = await subscribeToPush(token ?? "");
+                const ok = await subscribeToPush(token);
                 if (ok) {
                     setSubscribed(true);
                     setPermission("granted");
@@ -79,7 +80,7 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
             className={className ?? "btn btn-ghost btn-sm"}
             style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.7rem", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s", ...style }}
             onClick={() => void handleToggle()}
-            disabled={loading || !checked}
+            disabled={loading || !checked || !token}
             title={subscribed ? "Unsubscribe this device from push notifications" : "Get notified of DMs, mentions, and announcements on this device"}
         >
             <Icon size={14} /> {label}

@@ -17,7 +17,12 @@ self.addEventListener("activate", (e) => {
 
 // --- Push notifications ---
 self.addEventListener("push", (e) => {
-    const data = e.data?.json() ?? {};
+    let data = {};
+    try {
+        data = e.data?.json() ?? {};
+    } catch {
+        // Malformed payload — show generic notification
+    }
     const title = data.title || "hackchat";
     const options = {
         body: data.body || "",

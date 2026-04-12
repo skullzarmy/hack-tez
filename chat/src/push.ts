@@ -78,13 +78,13 @@ async function checkPreferences(
   return true;
 }
 
-/** Send a push notification to a single subscription */
+/** Send a push notification to a single subscription. Returns HTTP status or 0 on network error. */
 async function sendToSubscription(
   sub: PushSubscriptionRow,
   payload: PushPayload,
   privateJWK: JsonWebKey,
   subject: string,
-): Promise<boolean> {
+): Promise<number> {
   try {
     const { endpoint, headers, body } = await buildPushHTTPRequest({
       privateJWK,
@@ -105,11 +105,10 @@ async function sendToSubscription(
       body,
     });
 
-    // 201 = success, 410 = subscription expired, 404 = invalid
-    return res.status >= 200 && res.status < 300;
+    return res.status;
   } catch (err) {
     console.error("Push send error:", err);
-    return false;
+    return 0;
   }
 }
 
@@ -139,8 +138,8 @@ export async function sendPushToUser(
 
   await Promise.all(
     subs.results.map(async (sub) => {
-      const success = await sendToSubscription(sub, payload, privateJWK, env.VAPID_SUBJECT ?? "");
-      if (success) {
+      const status = await sendToSubscription(sub, payload, privateJWK, env.VAPID_SUBJECT ?? "");
+      if (status >= 200 && status < 300) {
         sent++;
         // Update last_used timestamp
         await env.DB
@@ -150,7 +149,10 @@ export async function sendPushToUser(
           .catch(() => {});
       } else {
         failed++;
-        expiredIds.push(sub.id);
+        // Only delete on definitive expired/invalid (404/410)
+        if (status === 404 || status === 410) {
+          expiredIds.push(sub.id);
+        }
       }
     }),
   );
@@ -199,11 +201,12 @@ export async function sendPushBroadcast(
 /** Detect @mentions in message content, returns list of full domain names */
 export function detectMentions(content: string, networkTld: string): string[] {
   if (!content) return [];
-  const pattern = /@([\w-]+)(?:\b|$)/g;
+  // Require word boundary before @, match valid TED labels (alphanumeric + internal hyphens)
+  const pattern = /(^|[^a-z0-9._-])@([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?=$|[^a-z0-9-])/gi;
   const mentions = new Set<string>();
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(content)) !== null) {
-    const label = match[1].toLowerCase();
+    const label = match[2].toLowerCase();
     mentions.add(`${label}.hack.${networkTld}`);
   }
   return [...mentions];

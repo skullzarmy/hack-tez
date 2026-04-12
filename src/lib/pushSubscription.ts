@@ -39,7 +39,10 @@ export type PushPermissionState = "prompt" | "granted" | "denied" | "unsupported
 /** Get the current push permission state */
 export function getPushPermissionState(): PushPermissionState {
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return "unsupported";
-    return Notification.permission as PushPermissionState;
+    const perm = Notification.permission;
+    // Browser returns "default" for the not-yet-asked state
+    if (perm === "default") return "prompt";
+    return perm as PushPermissionState;
 }
 
 /** Check if push is currently subscribed */
@@ -94,7 +97,13 @@ export async function subscribeToPush(token: string): Promise<boolean> {
             }),
         });
 
-        return res.ok;
+        if (!res.ok) {
+            // Rollback local subscription if server rejected
+            await subscription.unsubscribe().catch(() => {});
+            return false;
+        }
+
+        return true;
     } catch (err) {
         console.error("Push subscription failed:", err);
         return false;
@@ -115,7 +124,7 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
         await subscription.unsubscribe();
 
         // Remove from server
-        await fetch(`${hackchatUrl}/push/subscribe`, {
+        const res = await fetch(`${hackchatUrl}/push/subscribe`, {
             method: "DELETE",
             headers: {
                 "Content-Type": "application/json",
@@ -123,6 +132,10 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
             },
             body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
+
+        if (!res.ok) {
+            console.warn("Server-side push unsubscribe failed:", res.status);
+        }
 
         return true;
     } catch (err) {

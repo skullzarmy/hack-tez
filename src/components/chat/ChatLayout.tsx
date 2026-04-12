@@ -257,7 +257,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
             // Clean up URL
             const url = new URL(window.location.href);
             url.searchParams.delete("dm");
-            window.history.replaceState({}, "", url.pathname);
+            window.history.replaceState({}, "", url.pathname + url.search + url.hash);
         }
 
         // Listen for push-navigate messages from service worker

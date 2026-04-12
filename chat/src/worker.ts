@@ -1,4 +1,4 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type { D1Database, ExecutionContext } from "@cloudflare/workers-types";
 import { SignJWT, jwtVerify } from "jose";
 import { verifyTezosSignature, getOwnedDomains } from "./auth/verify.js";
 import { sendPushToUser, sendPushBroadcast, detectMentions } from "./push.js";
@@ -503,7 +503,7 @@ function verifyInternalSecret(request: Request, env: Env): boolean {
   return request.headers.get("X-Internal-Secret") === secret;
 }
 
-async function handleInternalStoreMessage(request: Request, env: Env): Promise<Response> {
+async function handleInternalStoreMessage(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (!verifyInternalSecret(request, env)) {
     return new Response("Forbidden", { status: 403 });
   }
@@ -533,10 +533,12 @@ async function handleInternalStoreMessage(request: Request, env: Env): Promise<R
       .bind(id, roomId, senderDomain, content, media, replyTo)
       .run();
 
-    // Fire-and-forget push notifications (don't block the response)
+    // Push notifications via ctx.waitUntil (survives after response is sent)
     if (env.VAPID_PRIVATE_KEY) {
-      dispatchPushNotifications(env, id, roomId, senderDomain, content, media).catch(
-        (err) => console.error("Push dispatch error:", err),
+      ctx.waitUntil(
+        dispatchPushNotifications(env, id, roomId, senderDomain, content, media).catch(
+          (err) => console.error("Push dispatch error:", err),
+        ),
       );
     }
 
@@ -578,7 +580,7 @@ async function dispatchPushNotifications(
         sendPushToUser(env, domain, {
           title: senderDomain,
           body: preview,
-          tag: `dm:${roomId}`,
+          tag: roomId,
           url: `/chat?dm=${encodeURIComponent(roomId)}`,
           renotify: true,
         }, "dms"),
@@ -1763,7 +1765,7 @@ async function handleOgMeta(request: Request, env: Env): Promise<Response> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: getCorsHeaders(request) });
     }
@@ -1778,7 +1780,7 @@ export default {
     // --- Internal API (PartyKit → Worker) ---
     if (path.startsWith("/internal/")) {
       if (path === "/internal/store-message" && request.method === "POST") {
-        return handleInternalStoreMessage(request, env);
+        return handleInternalStoreMessage(request, env, ctx);
       }
       if (path === "/internal/history" && request.method === "GET") {
         return handleInternalHistory(request, env);
