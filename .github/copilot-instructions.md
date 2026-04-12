@@ -4,9 +4,9 @@
 
 hack.tez is a free Tezos subdomain registrar. Users connect a Tezos wallet and claim `name.hack.tez` via a SmartPy smart contract on ghostnet (or mainnet). Subdomains are real Tezos Domains (TED) records — users get full on-chain ownership.
 
-The frontend is a Vite + React + TypeScript SPA hosted on Netlify with server-side Netlify Functions (REST API, IPFS pinning, profile-page SSR). Chat is powered by a separate Cloudflare Workers + PartyKit + D1 stack in the `chat/` directory.
+The frontend is a Vite + React + TypeScript SPA hosted on Netlify with server-side Netlify Functions (REST API, IPFS pinning, profile-page SSR). Chat is powered by a separate Cloudflare Workers + PartyKit + D1 stack in the `chat/` directory. Push notifications use the Web Push API with VAPID, managed by the CF Worker.
 
-**Stack:** TypeScript · React 19 · Vite 8 · Tailwind CSS 4 · Taquito v24 · octez.connect-sdk (Beacon wallet) · Netlify (SPA + Functions v2) · Cloudflare Workers + PartyKit + D1 (chat)
+**Stack:** TypeScript · React 19 · Vite 8 · Tailwind CSS 4 · Taquito v24 · octez.connect-sdk (Beacon wallet) · Netlify (SPA + Functions v2) · Cloudflare Workers + PartyKit + D1 (chat) · Web Push / VAPID (notifications)
 
 **Runtime:** Node.js ≥ 24, npm ≥ 11. SmartPy contract compilation requires Docker and `pip install smartpy-tezos` (v0.24.1).
 
@@ -31,6 +31,24 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 
 **Known warnings (safe to ignore):**
 - Chunk size warnings (>500 kB) — the Tezos SDK bundle is large; this is normal.
+
+## Chat Deployment (hackchat)
+
+The chat system has two components that **must be deployed together** — they share source code (auth, types). Deploying only one can cause runtime errors or WebSocket connection failures.
+
+```bash
+cd chat
+npx tsc --noEmit               # type-check worker (must pass before deploy)
+npx wrangler deploy             # CF Worker (REST API, auth, push)
+npx partykit deploy             # PartyKit (WebSocket rooms)
+```
+
+D1 migrations (when schema changes):
+
+```bash
+cd chat
+npx wrangler d1 migrations apply hackchat --remote
+```
 
 ## TypeScript Conventions
 
@@ -67,7 +85,7 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 │   ├── config/
 │   │   └── tezos.ts              # Network config, contract addresses, TED discovery
 │   ├── context/
-│   │   └── TezosContext.tsx       # Wallet state via octez.connect-sdk (Beacon)
+│   │   └── TezosContext.tsx       # Wallet state + JWT auth via octez.connect-sdk (Beacon)
 │   ├── pages/
 │   │   ├── Home.tsx              # Landing page with search/register flow
 │   │   ├── Hackers.tsx           # Public directory of registered hackers
@@ -85,6 +103,7 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 │   │   ├── ProfileEditForm.tsx   # Profile data editor (bio, links, avatar)
 │   │   ├── ProfileShareStudio.tsx # Share card generator
 │   │   ├── Hackatar.tsx          # <img> component → /api/v1/hackatar/:label
+│   │   ├── PushSubscribeButton.tsx # Push notification subscribe/unsubscribe button
 │   │   ├── ActivityFeedPanel.tsx # Desktop activity feed sidebar
 │   │   ├── ActivityToastQueue.tsx # Mobile activity toasts
 │   │   ├── EligibilityPanel.tsx  # Wallet eligibility check UI
@@ -94,10 +113,10 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 │   │   ├── CircuitBackground.tsx # Decorative background
 │   │   ├── Footer.tsx            # Site footer
 │   │   ├── chat/                 # hackchat components (lazy-loaded)
-│   │   │   ├── ChatPage.tsx      # Chat auth gate (wallet → sign → enter)
-│   │   │   ├── ChatAuth.tsx      # Wallet signature auth flow
+│   │   │   ├── ChatPage.tsx      # Chat entry (wallet → JWT → enter)
 │   │   │   ├── ChatLayout.tsx    # Chat layout (sidebar + messages)
 │   │   │   ├── ChatSidebar.tsx   # Room/DM list sidebar
+│   │   │   ├── ChatNotificationSettingsMenu.tsx # Push + in-app notification settings
 │   │   │   ├── DMView.tsx        # Direct message view
 │   │   │   ├── MessageBubble.tsx # Individual message rendering
 │   │   │   ├── MessageInput.tsx  # Message compose input
@@ -123,6 +142,7 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 │   │   ├── domains.ts            # TED GraphQL queries, label validation, reserved names
 │   │   ├── signing.ts            # Wallet message signing for authenticated requests
 │   │   ├── pin.ts                # Pinata IPFS upload client
+│   │   ├── pushSubscription.ts   # Client-side Web Push subscription management
 │   │   ├── profileShare.ts       # Profile share card generation logic
 │   │   ├── commits.ts            # localStorage commit persistence
 │   │   ├── skills.ts             # Skill metadata + markdown loading
@@ -149,7 +169,8 @@ Both must exit 0. The `tsc -b` step is strict: `noUnusedLocals`, `noUnusedParame
 │
 ├── chat/                          # hackchat — separate CF Workers + PartyKit project
 │   ├── src/
-│   │   ├── worker.ts             # CF Worker: auth endpoint + DM REST API
+│   │   ├── worker.ts             # CF Worker: auth, DM REST API, push dispatch, admin
+│   │   ├── push.ts               # Web Push notification sending (VAPID, per-user prefs)
 │   │   ├── auth/                 # Tezos signature verification + TED ownership check
 │   │   └── party/
 │   │       ├── global.ts         # Global chat room (PartyKit server)
@@ -273,6 +294,10 @@ TED NameRegistry address is discovered at runtime from CheckAddress storage (see
 | `VITE_HACKCHAT_URL` | Frontend | Chat worker URL (default `http://localhost:8787`) |
 | `VITE_PARTYKIT_HOST` | Frontend | PartyKit host (default `localhost:1999`) |
 | `CHAT_JWT_SECRET` | CF Worker + PartyKit | Shared JWT signing secret |
+| `VAPID_PUBLIC_KEY` | CF Worker | VAPID public key for Web Push |
+| `VAPID_PRIVATE_KEY` | CF Worker | VAPID private key for Web Push |
+| `VAPID_SUBJECT` | CF Worker | VAPID subject (mailto: or URL) |
+| `VITE_VAPID_PUBLIC_KEY` | Frontend (optional) | Build-time VAPID key (avoids runtime fetch) |
 
 ## Architecture Decisions (don't reverse these)
 
@@ -280,10 +305,13 @@ TED NameRegistry address is discovered at runtime from CheckAddress storage (see
 - **1 claim per wallet (permanent).** `registrations` big_map tracks claims. Even if TED record is removed, the claim slot is spent. Admin can use `set_registration_count` to grant exceptions.
 - **Commit-reveal flow.** Two transactions: commit (hash), wait ≥ min_commit_age, then register (reveal). Pending commits are stored in `localStorage` under key `hack-tez-pending-commits`.
 - **Wallet SDK is `@tezos-x/octez.connect-sdk`** (Beacon-compatible). Raw Michelson operations via `DAppClient.requestOperation()` — NOT Taquito's `ContractAbstraction`.
+- **JWT issued at wallet connect.** `TezosContext.connect()` requests SIGN scope, signs a challenge, and exchanges it for a JWT from the CF Worker. The JWT is stored in `localStorage` and auto-refreshed. Wallets without domains get a JWT with `activeDomain: null`. JWT refresh happens automatically after domain claims (`refreshToken()` in `PendingCommitsPanel`).
+- **signing.ts must be dynamically imported in TezosContext.** It imports `SigningType` from the wallet SDK which isn't available in Node.js (SSR). Use `const { signMessage } = await import("../lib/signing")` inside `authenticateWallet()`.
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects. The API (`api.mts`) is a pure proxy to TED GraphQL + TzKT — no custom database.
 - **TED contract discovery at runtime.** Only `tedCheckAddress` is hardcoded per network. NameRegistry is resolved from CheckAddress storage. Proxy addresses (SetChildRecord, UpdateRecord) are stable and hardcoded in `src/config/tezos.ts`.
 - **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
 - **JWT is the chat trust boundary.** CF Worker issues JWT after verifying wallet signature + TED domain ownership. PartyKit only accepts connections with valid JWT. Both share `CHAT_JWT_SECRET`.
+- **Push notifications are per-device.** Each browser/device subscribes independently via PushManager. `isPushSubscribed()` checks local state. UI labels say "this device" to clarify scope.
 - **Hackatars are server-generated.** Generative avatars built server-side in `api.mts`, seeded deterministically by salted domain name. Cached immutably in Netlify Blobs. The frontend `<Hackatar>` component uses `<img>` pointing to `/api/v1/hackatar/:label`. Engine lives in `src/lib/hackatar/` (pure JS, no DOM deps).
 - **Pre-rendering for SEO.** Static routes are pre-rendered at build time via `entry-server.tsx` + `scripts/prerender.ts`. Profile pages (`/u/:subdomain`) are SSR'd by `profile-page.mts` for OpenGraph meta tags.
 - **CSS reset must be inside `@layer base`** in `src/index.css`, otherwise it overrides all Tailwind CSS 4 utility classes.

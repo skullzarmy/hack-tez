@@ -119,6 +119,24 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 
 ---
 
+## Chat Deployment (hackchat)
+
+The chat system has two components that **must be deployed together** — they share source code (auth, types). Deploying only one can cause runtime errors or WebSocket connection failures.
+
+```bash
+cd chat
+npx wrangler deploy          # CF Worker (REST API, auth, push)
+npx partykit deploy          # PartyKit (WebSocket rooms)
+```
+
+Worker type-check before deploy:
+
+```bash
+cd chat && npx tsc --noEmit
+```
+
+---
+
 ## Contract Addresses (Ghostnet)
 
 | Contract                 | Address                                |
