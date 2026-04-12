@@ -813,8 +813,10 @@ async function handleAdminBroadcastList(request: Request, env: Env): Promise<Res
   if (!isAdmin(user, env)) return errorResponse(request, "Admin access required", "FORBIDDEN", 403);
 
   const url = new URL(request.url);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20"), 100);
-  const offset = parseInt(url.searchParams.get("offset") ?? "0");
+  const rawLimit = Number(url.searchParams.get("limit") ?? 20);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 100) : 20;
+  const rawOffset = Number(url.searchParams.get("offset") ?? 0);
+  const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
 
   const rows = await env.DB
     .prepare("SELECT id, title, body, url, admin_domain, sent_count, failed_count, created_at FROM push_broadcasts ORDER BY created_at DESC LIMIT ? OFFSET ?")
