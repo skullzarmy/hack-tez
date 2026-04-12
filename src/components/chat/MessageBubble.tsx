@@ -42,11 +42,40 @@ function formatRelativeTime(iso: string): string {
     const seconds = Math.floor(diff / 1000);
     if (seconds < 60) return "just now";
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 5) return "1m ago";
+    if (minutes < 15) return "5m ago";
+    if (minutes < 30) return "15m ago";
+    if (minutes < 60) return "30m ago";
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
+}
+
+// Shared 30s ticker so all timestamps re-evaluate together with one timer
+const tickListeners = new Set<() => void>();
+let tickInterval: ReturnType<typeof setInterval> | null = null;
+
+function subscribeTick(cb: () => void) {
+    tickListeners.add(cb);
+    if (!tickInterval) {
+        tickInterval = setInterval(() => {
+            for (const fn of tickListeners) fn();
+        }, 30_000);
+    }
+    return () => {
+        tickListeners.delete(cb);
+        if (tickListeners.size === 0 && tickInterval) {
+            clearInterval(tickInterval);
+            tickInterval = null;
+        }
+    };
+}
+
+function useRelativeTime(iso: string): string {
+    const [, setTick] = useState(0);
+    useEffect(() => subscribeTick(() => setTick((t) => t + 1)), [iso]);
+    return formatRelativeTime(iso);
 }
 
 const URL_REGEX = /https?:\/\/[^\s<>)"']+/g;
@@ -151,7 +180,7 @@ function formatContent(raw: string, onMentionClick?: (label: string) => void): R
 }
 
 function SystemMessage({ content, timestamp }: { content: string; timestamp: string }) {
-    const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
+    const relativeTime = useRelativeTime(timestamp);
     return (
         <div className="flex items-center py-2 gap-3" role="article" aria-label={`System: ${content}`}>
             <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
@@ -176,7 +205,7 @@ function SystemMessage({ content, timestamp }: { content: string; timestamp: str
 function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
     sender: string; timestamp: string; deleteReason?: string; isOwn: boolean;
 }) {
-    const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
+    const relativeTime = useRelativeTime(timestamp);
     return (
         <div
             role="article"
@@ -676,7 +705,7 @@ export default function MessageBubble({
 
     const formattedContent = useMemo(() => content ? formatContent(content, handleMentionClick) : [], [content, handleMentionClick]);
     const contentUrls = useMemo(() => content ? Array.from(new Set(content.match(URL_REGEX) ?? [])).slice(0, 3) : [], [content]);
-    const relativeTime = useMemo(() => formatRelativeTime(timestamp), [timestamp]);
+    const relativeTime = useRelativeTime(timestamp);
     const senderLabel = useMemo(() => sender.split(".")[0], [sender]);
 
     // Own messages: right-aligned, no avatar
