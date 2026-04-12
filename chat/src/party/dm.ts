@@ -85,6 +85,7 @@ export default class DMRoom implements Server {
     }
 
     async onConnect(conn: Connection) {
+      try {
         const url = new URL(conn.uri, "http://dummy");
         const token = url.searchParams.get("token");
         if (!token) {
@@ -165,9 +166,14 @@ export default class DMRoom implements Server {
         } catch (err) {
             console.error("Worker unread count error:", err);
         }
+      } catch (err) {
+        console.error("DM onConnect error:", err);
+        try { conn.close(1011, "Internal error"); } catch { /* already closed */ }
+      }
     }
 
     async onMessage(message: string, sender: Connection) {
+      try {
         const domain = this.getDomain(sender);
         if (!domain) return;
 
@@ -203,6 +209,12 @@ export default class DMRoom implements Server {
             default:
                 sendJson(sender, { type: "error", code: "UNKNOWN_TYPE", message: "Unknown message type" });
         }
+      } catch (err) {
+        console.error("DM onMessage error:", err);
+        try {
+            sendJson(sender, { type: "error", code: "INTERNAL_ERROR", message: "Something went wrong" });
+        } catch { /* connection may be closed */ }
+      }
     }
 
     private async handleChatMessage(sender: Connection, domain: string, content: string) {

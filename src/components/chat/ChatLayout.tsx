@@ -687,6 +687,12 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 || prevMsg.sender !== msg.sender
                                 || prevMsg.sender === "__system__"
                                 || prevMsg.deleted === true;
+                            const resolvedReplyContext = msg.replyTo
+                                ? msg.replyContext ?? (() => {
+                                    const ref = messages.find((m) => m.id === msg.replyTo);
+                                    return ref ? { id: ref.id, sender: ref.sender, content: ref.content, deleted: ref.deleted } : undefined;
+                                })()
+                                : undefined;
                             return (
                             <MessageBubble
                                 key={msg.id}
@@ -700,7 +706,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                                 deleteReason={msg.deleteReason}
                                 media={msg.media}
                                 replyTo={msg.replyTo}
-                                replyContext={msg.replyContext}
+                                replyContext={resolvedReplyContext}
                                 editedAt={msg.editedAt}
                                 reactions={msg.reactions}
                                 activeDomain={currentDomain}

@@ -228,135 +228,147 @@ export default class GlobalRoom implements Server {
   }
 
   async onConnect(conn: Connection) {
-    this.ensureReverifyTimer();
-
-    const url = new URL(conn.uri, "http://dummy");
-    const token = url.searchParams.get("token");
-    if (!token) {
-      sendJson(conn, { type: "error", code: "AUTH_REQUIRED", message: "Missing token" });
-      conn.close(4001, "Missing token");
-      return;
-    }
-
-    let payload: TokenPayload;
     try {
-      const { payload: claims } = await jwtVerify(token, this.getSecret(), {
-        algorithms: ["HS256"],
+      this.ensureReverifyTimer();
+
+      const url = new URL(conn.uri, "http://dummy");
+      const token = url.searchParams.get("token");
+      if (!token) {
+        sendJson(conn, { type: "error", code: "AUTH_REQUIRED", message: "Missing token" });
+        conn.close(4001, "Missing token");
+        return;
+      }
+
+      let payload: TokenPayload;
+      try {
+        const { payload: claims } = await jwtVerify(token, this.getSecret(), {
+          algorithms: ["HS256"],
+        });
+        payload = claims as unknown as TokenPayload;
+        if (!payload.activeDomain) throw new Error("Missing activeDomain");
+      } catch {
+        sendJson(conn, { type: "error", code: "AUTH_INVALID", message: "Invalid or expired token" });
+        conn.close(4001, "Invalid token");
+        return;
+      }
+
+      const requestedDomain = url.searchParams.get("activeDomain");
+      const effectiveDomain = requestedDomain && payload.domains.includes(requestedDomain)
+        ? requestedDomain
+        : payload.activeDomain;
+
+      // Check ban status before allowing connection
+      const banResult = await this.checkBan(effectiveDomain, payload.address);
+      if (banResult.banned && banResult.ban) {
+        sendJson(conn, {
+          type: "error",
+          code: "BANNED",
+          message: `You are banned from global chat. Reason: ${banResult.ban.reason}`,
+          ban: banResult.ban,
+        });
+        conn.close(4010, "Banned");
+        return;
+      }
+
+      conn.setState({
+        domain: effectiveDomain,
+        address: payload.address,
+        domains: payload.domains,
       });
-      payload = claims as unknown as TokenPayload;
-      if (!payload.activeDomain) throw new Error("Missing activeDomain");
-    } catch {
-      sendJson(conn, { type: "error", code: "AUTH_INVALID", message: "Invalid or expired token" });
-      conn.close(4001, "Invalid token");
-      return;
+
+      const onlineDomains = this.getOnlineDomains();
+      for (const domain of onlineDomains) {
+        sendJson(conn, { type: "presence", domain, status: "online" });
+      }
+
+      this.room.broadcast(
+        JSON.stringify({ type: "presence", domain: effectiveDomain, status: "online" }),
+        [conn.id],
+      );
+    } catch (err) {
+      console.error("onConnect error:", err);
+      try { conn.close(1011, "Internal error"); } catch { /* already closed */ }
     }
-
-    const requestedDomain = url.searchParams.get("activeDomain");
-    const effectiveDomain = requestedDomain && payload.domains.includes(requestedDomain)
-      ? requestedDomain
-      : payload.activeDomain;
-
-    // Check ban status before allowing connection
-    const banResult = await this.checkBan(effectiveDomain, payload.address);
-    if (banResult.banned && banResult.ban) {
-      sendJson(conn, {
-        type: "error",
-        code: "BANNED",
-        message: `You are banned from global chat. Reason: ${banResult.ban.reason}`,
-        ban: banResult.ban,
-      });
-      conn.close(4010, "Banned");
-      return;
-    }
-
-    conn.setState({
-      domain: effectiveDomain,
-      address: payload.address,
-      domains: payload.domains,
-    });
-
-    const onlineDomains = this.getOnlineDomains();
-    for (const domain of onlineDomains) {
-      sendJson(conn, { type: "presence", domain, status: "online" });
-    }
-
-    this.room.broadcast(
-      JSON.stringify({ type: "presence", domain: effectiveDomain, status: "online" }),
-      [conn.id],
-    );
   }
 
   async onMessage(message: string, sender: Connection) {
-    const domain = this.getDomain(sender);
-    if (!domain) return;
-
-    let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(message) as Record<string, unknown>;
-    } catch {
-      sendJson(sender, { type: "error", code: "INVALID_JSON", message: "Invalid JSON" });
-      return;
-    }
+      const domain = this.getDomain(sender);
+      if (!domain) return;
 
-    switch (parsed.type) {
-      case "message": {
-        // Re-check ban before allowing message
-        const address = this.getAddress(sender);
-        const banResult = await this.checkBan(domain, address ?? "");
-        if (banResult.banned) {
-          sendJson(sender, {
-            type: "error",
-            code: "BANNED",
-            message: `You are banned. Reason: ${banResult.ban?.reason}`,
-            ban: banResult.ban,
-          });
-          sender.close(4010, "Banned");
-          return;
-        }
-        if (!this.checkMessageRate(sender.id)) {
-          sendJson(sender, {
-            type: "error",
-            code: "RATE_LIMITED",
-            message: "Slow down! Max 10 messages per 30 seconds.",
-          });
-          return;
-        }
-        await this.handleChatMessage(sender, domain, parsed.content as string, parsed.media as MediaAttachment | undefined, parsed.replyTo as string | undefined);
-        break;
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(message) as Record<string, unknown>;
+      } catch {
+        sendJson(sender, { type: "error", code: "INVALID_JSON", message: "Invalid JSON" });
+        return;
       }
-      case "typing":
-        this.handleTyping(sender, domain, parsed.active as boolean);
-        break;
-      case "switch-identity":
-        this.handleSwitchIdentity(sender, domain, parsed.domain as string);
-        break;
-      case "history":
-        await this.handleHistory(sender, parsed.before as string | undefined);
-        break;
-      case "read":
-        break;
 
-      // Edit + react
-      case "edit-message":
-        await this.handleEditMessage(sender, domain, parsed);
-        break;
-      case "react":
-        await this.handleReaction(sender, domain, parsed);
-        break;
+      switch (parsed.type) {
+        case "message": {
+          // Re-check ban before allowing message
+          const address = this.getAddress(sender);
+          const banResult = await this.checkBan(domain, address ?? "");
+          if (banResult.banned) {
+            sendJson(sender, {
+              type: "error",
+              code: "BANNED",
+              message: `You are banned. Reason: ${banResult.ban?.reason}`,
+              ban: banResult.ban,
+            });
+            sender.close(4010, "Banned");
+            return;
+          }
+          if (!this.checkMessageRate(sender.id)) {
+            sendJson(sender, {
+              type: "error",
+              code: "RATE_LIMITED",
+              message: "Slow down! Max 10 messages per 30 seconds.",
+            });
+            return;
+          }
+          await this.handleChatMessage(sender, domain, parsed.content as string, parsed.media as MediaAttachment | undefined, parsed.replyTo as string | undefined);
+          break;
+        }
+        case "typing":
+          this.handleTyping(sender, domain, parsed.active as boolean);
+          break;
+        case "switch-identity":
+          this.handleSwitchIdentity(sender, domain, parsed.domain as string);
+          break;
+        case "history":
+          await this.handleHistory(sender, parsed.before as string | undefined);
+          break;
+        case "read":
+          break;
 
-      // Admin commands
-      case "admin:delete-message":
-        await this.handleAdminDelete(sender, parsed);
-        break;
-      case "admin:ban-user":
-        await this.handleAdminBan(sender, parsed);
-        break;
-      case "admin:unban-user":
-        await this.handleAdminUnban(sender, parsed);
-        break;
+        // Edit + react
+        case "edit-message":
+          await this.handleEditMessage(sender, domain, parsed);
+          break;
+        case "react":
+          await this.handleReaction(sender, domain, parsed);
+          break;
 
-      default:
-        sendJson(sender, { type: "error", code: "UNKNOWN_TYPE", message: "Unknown message type" });
+        // Admin commands
+        case "admin:delete-message":
+          await this.handleAdminDelete(sender, parsed);
+          break;
+        case "admin:ban-user":
+          await this.handleAdminBan(sender, parsed);
+          break;
+        case "admin:unban-user":
+          await this.handleAdminUnban(sender, parsed);
+          break;
+
+        default:
+          sendJson(sender, { type: "error", code: "UNKNOWN_TYPE", message: "Unknown message type" });
+      }
+    } catch (err) {
+      console.error("onMessage error:", err);
+      try {
+        sendJson(sender, { type: "error", code: "INTERNAL_ERROR", message: "Something went wrong" });
+      } catch { /* connection may be closed */ }
     }
   }
 

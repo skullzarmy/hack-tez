@@ -113,30 +113,43 @@ export default function DMView({
                     >
                         <ArrowLeft size={18} />
                     </button>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className="inline-block w-1.5 h-1.5 shrink-0"
+                                style={{ background: peerOnline ? "var(--accent, #00ffc8)" : "var(--fg-3, #555)" }}
+                                aria-hidden="true"
+                            />
+                            <span
+                                className="text-sm font-bold uppercase tracking-widest"
+                                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}
+                            >
+                                {peerDomain}
+                            </span>
+                            <span
+                                className="text-[10px] uppercase tracking-widest"
+                                style={{
+                                    color: "var(--fg-3, #888)",
+                                    fontFamily: "var(--font-mono)",
+                                    letterSpacing: "0.12em",
+                                }}
+                            >
+                                {peerOnline ? "online" : "offline"}
+                            </span>
+                            <span className="sr-only">
+                                {peerDomain} is {peerOnline ? "online" : "offline"}
+                            </span>
+                        </div>
                         <span
-                            className="inline-block w-1.5 h-1.5 shrink-0"
-                            style={{ background: peerOnline ? "var(--accent, #00ffc8)" : "var(--fg-3, #555)" }}
-                            aria-hidden="true"
-                        />
-                        <span
-                            className="text-sm font-bold uppercase tracking-widest"
-                            style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}
-                        >
-                            {peerDomain}
-                        </span>
-                        <span
-                            className="text-[10px] uppercase tracking-widest"
                             style={{
-                                color: "var(--fg-3, #888)",
+                                color: "var(--fg-3, #666)",
                                 fontFamily: "var(--font-mono)",
-                                letterSpacing: "0.12em",
+                                fontSize: "9px",
+                                letterSpacing: "0.08em",
+                                marginLeft: "14px",
                             }}
                         >
-                            {peerOnline ? "online" : "offline"}
-                        </span>
-                        <span className="sr-only">
-                            {peerDomain} is {peerOnline ? "online" : "offline"}
+                            as {activeDomain}
                         </span>
                     </div>
                 </div>

@@ -308,6 +308,17 @@ export default function ChatSidebar({
                                         )}
                                     </span>
                                 </div>
+                                <span
+                                    className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
+                                    style={{
+                                        color: "var(--fg-3, #666)",
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: "9px",
+                                        letterSpacing: "0.06em",
+                                    }}
+                                >
+                                    as {conv.ownDomain}
+                                </span>
                                 {conv.lastMessage && (
                                     <span
                                         className="text-[10px] leading-tight truncate w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap block"
