@@ -49,7 +49,8 @@ export function getPushPermissionState(): PushPermissionState {
 export async function isPushSubscribed(): Promise<boolean> {
     if (!("serviceWorker" in navigator)) return false;
     try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) return false;
         const sub = await reg.pushManager.getSubscription();
         return !!sub;
     } catch {

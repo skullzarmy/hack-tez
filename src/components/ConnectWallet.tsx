@@ -38,6 +38,7 @@ export default function ConnectWallet() {
                 disabled={connecting || resetting}
                 className="btn btn-primary btn-sm"
                 aria-label="Connect Tezos wallet"
+                data-onboarding="connect-wallet"
             >
                 {connecting ? "Connecting…" : "Connect Wallet"}
             </button>

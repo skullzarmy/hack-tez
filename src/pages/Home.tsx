@@ -1,7 +1,9 @@
 /** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useState, useMemo, lazy, Suspense, useEffect } from "react";
+import { ArrowRight } from "lucide-react";
 import { useTezos } from "../context/TezosContext";
+import { useOnboarding } from "../context/OnboardingContext";
 import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
 import PendingCommitsPanel from "../components/PendingCommitsPanel";
@@ -13,6 +15,8 @@ import { useSubdomains } from "../hooks/useSubdomains";
 import { useRegistrationCount } from "../hooks/useRegistrationCount";
 import type { SubdomainRecord } from "../lib/domains";
 import config from "../config/tezos";
+import ClaimHint from "../components/onboarding/ClaimHint";
+import ProfileArrowHint from "../components/onboarding/ProfileArrowHint";
 
 const CircuitBackground = lazy(() =>
     import("../components/CircuitBackground").then((m) => ({ default: m.CircuitBackground })),
@@ -62,6 +66,8 @@ export default function Home() {
             (c) => c.targetAddress === address && now - c.commitTime < contractConfig.maxCommitAgeSec * 1000,
         );
     }, [address, commitKey, contractConfig.maxCommitAgeSec]);
+
+    const { step: onboardingStep } = useOnboarding();
 
     return (
         <>
@@ -122,6 +128,8 @@ export default function Home() {
 
                     {address && hasSubdomain && <ClaimedView subdomain={displaySubdomain!} />}
 
+                    <ProfileArrowHint />
+
                     {address && hasUsedAllClaims && !hasSubdomain && <ClaimUsedView />}
 
                     {address && !hasSubdomain && !hasUsedAllClaims && (
@@ -137,6 +145,7 @@ export default function Home() {
 
                     {!hasSubdomain && !hasUsedAllClaims && !hasActivePending && !isStatusLoading && (
                         <div className="search-wrap">
+                            {onboardingStep === "claim" && <ClaimHint />}
                             <SubdomainSearch onCommit={() => setCommitKey((k) => k + 1)} />
                             {address && <EligibilityPanel />}
                         </div>
@@ -255,9 +264,9 @@ export default function Home() {
                         <a
                             href="/manifesto"
                             className="footer-link"
-                            style={{ fontSize: "0.8rem", letterSpacing: "0.1em" }}
+                            style={{ fontSize: "0.8rem", letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", gap: "0.35em" }}
                         >
-                            read the manifesto →
+                            read the manifesto <ArrowRight size={14} aria-hidden="true" />
                         </a>
                     </p>
 

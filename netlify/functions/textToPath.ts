@@ -3,11 +3,8 @@
  * This eliminates font rendering issues - text becomes vector paths
  */
 import opentype from "opentype.js";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { existsSync } from "node:fs";
-
-const _fnDir = dirname(fileURLToPath(import.meta.url));
 
 // Cache loaded fonts
 let font400: opentype.Font | null = null;
@@ -18,7 +15,6 @@ function getFontPath(weight: 400 | 700): string {
 
     const candidates = [
         `/var/task/node_modules/@fontsource/space-mono/files/${fileName}`,
-        resolve(_fnDir, `../../node_modules/@fontsource/space-mono/files/${fileName}`),
         resolve(process.cwd(), `node_modules/@fontsource/space-mono/files/${fileName}`),
     ];
 

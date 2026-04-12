@@ -3,7 +3,10 @@
 import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { TezosProvider, useTezos } from "./context/TezosContext";
+import { OnboardingProvider } from "./context/OnboardingContext";
 import ConnectWallet from "./components/ConnectWallet";
+import ConnectHint from "./components/onboarding/ConnectHint";
+import ChatHint from "./components/onboarding/ChatHint";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
 import Hackers from "./pages/Hackers";
@@ -312,6 +315,8 @@ export function AppShell() {
 
             <ActivityLayer />
             <Footer compact={isChat} />
+            <ConnectHint />
+            <ChatHint />
         </div>
     );
 }
@@ -321,7 +326,9 @@ export default function App() {
         <ErrorBoundary>
             <TezosProvider>
                 <BrowserRouter>
-                    <AppShell />
+                    <OnboardingProvider>
+                        <AppShell />
+                    </OnboardingProvider>
                 </BrowserRouter>
             </TezosProvider>
         </ErrorBoundary>

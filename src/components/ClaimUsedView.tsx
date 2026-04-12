@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import config from "../config/tezos";
 
 export default function ClaimUsedView() {
@@ -49,7 +50,7 @@ export default function ClaimUsedView() {
                     className="btn btn-ghost btn-sm"
                     aria-label="Check your subdomains on Tezos Domains (opens in new tab)"
                 >
-                    Check on Tezos Domains ↗
+                    Check on Tezos Domains <ExternalLink size={14} aria-hidden="true" />
                 </a>
                 <a
                     href="https://x.com/fafo_lab"
@@ -58,7 +59,7 @@ export default function ClaimUsedView() {
                     className="btn btn-ghost btn-sm"
                     aria-label="Follow @fafo_lab on X (opens in new tab)"
                 >
-                    Follow @fafo_lab ↗
+                    Follow @fafo_lab <ExternalLink size={14} aria-hidden="true" />
                 </a>
             </div>
         </div>

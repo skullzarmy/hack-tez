@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useParams, Link } from "react-router-dom";
+import { ArrowLeft, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -18,9 +19,9 @@ export default function SkillDetail() {
                 </p>
                 <Link
                     to="/skills"
-                    style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: "var(--fg-muted)" }}
+                    style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: "var(--fg-muted)", display: "inline-flex", alignItems: "center", gap: "0.35em" }}
                 >
-                    ← back to skills
+                    <ArrowLeft size={14} aria-hidden="true" /> back to skills
                 </Link>
             </div>
         );
@@ -51,11 +52,13 @@ export default function SkillDetail() {
                             fontSize: "0.8rem",
                             color: "var(--fg-muted)",
                             textDecoration: "none",
-                            display: "block",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.35em",
                             marginBottom: "0.5rem",
                         }}
                     >
-                        ← skills
+                        <ArrowLeft size={14} aria-hidden="true" /> skills
                     </Link>
                     <h1
                         style={{
@@ -92,7 +95,7 @@ export default function SkillDetail() {
                         transition: "border-color 0.15s",
                     }}
                 >
-                    ↓ {skill.filename}
+                    <Download size={14} aria-hidden="true" /> {skill.filename}
                 </a>
             </div>
 
@@ -113,9 +116,12 @@ export default function SkillDetail() {
                         fontSize: "0.8rem",
                         color: "var(--fg-muted)",
                         textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.35em",
                     }}
                 >
-                    ↓ download {skill.filename}
+                    <Download size={14} aria-hidden="true" /> download {skill.filename}
                 </a>
             </div>
         </div>

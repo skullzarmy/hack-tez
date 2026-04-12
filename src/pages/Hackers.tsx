@@ -6,7 +6,7 @@ import { useHackerProfiles } from "../hooks/useHackerProfiles";
 import type { HackerEntry } from "../hooks/useHackerProfiles";
 import type { BuilderStatus } from "../types/profile";
 import { Hackatar } from "../components/Hackatar";
-import { Globe } from "lucide-react";
+import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -661,9 +661,12 @@ export default function Hackers() {
                                     padding: "0.3rem 0.75rem",
                                     cursor: safePage <= 1 ? "default" : "pointer",
                                     opacity: safePage <= 1 ? 0.4 : 1,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.35em",
                                 }}
                             >
-                                ← prev
+                                <ArrowLeft size={14} aria-hidden="true" /> prev
                             </button>
                             <span>
                                 {safePage} / {totalPages}
@@ -687,9 +690,12 @@ export default function Hackers() {
                                     padding: "0.3rem 0.75rem",
                                     cursor: safePage >= totalPages ? "default" : "pointer",
                                     opacity: safePage >= totalPages ? 0.4 : 1,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.35em",
                                 }}
                             >
-                                next →
+                                next <ArrowRight size={14} aria-hidden="true" />
                             </button>
                         </div>
                     )}

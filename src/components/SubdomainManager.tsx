@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import { useTezos } from "../context/TezosContext";
 import { getSubSubdomains, validateLabel, type SubdomainRecord } from "../lib/domains";
 import { submitCreateSubdomain } from "../lib/contract";
@@ -62,9 +63,12 @@ function SubSubdomainCard({ domain }: { domain: SubdomainRecord }) {
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.25em",
                         }}
                     >
-                        → {domain.address.slice(0, 10)}…{domain.address.slice(-6)}
+                        <ArrowRight size={12} aria-hidden="true" /> {domain.address.slice(0, 10)}…{domain.address.slice(-6)}
                     </div>
                 )}
             </div>
@@ -76,7 +80,7 @@ function SubSubdomainCard({ domain }: { domain: SubdomainRecord }) {
                 style={{ flexShrink: 0 }}
                 aria-label={`Manage ${domain.name} on Tezos Domains`}
             >
-                Manage ↗
+                Manage <ExternalLink size={14} aria-hidden="true" />
             </a>
         </div>
     );

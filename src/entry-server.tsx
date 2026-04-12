@@ -2,6 +2,7 @@ import { renderToPipeableStream } from "react-dom/server";
 import { StaticRouter } from "react-router";
 import { StrictMode } from "react";
 import { TezosProvider } from "./context/TezosContext";
+import { OnboardingProvider } from "./context/OnboardingContext";
 import { AppShell } from "./App";
 import { Writable } from "node:stream";
 
@@ -18,7 +19,9 @@ export function render(url: string): Promise<string> {
             <StrictMode>
                 <StaticRouter location={url}>
                     <TezosProvider>
-                        <AppShell />
+                        <OnboardingProvider>
+                            <AppShell />
+                        </OnboardingProvider>
                     </TezosProvider>
                 </StaticRouter>
             </StrictMode>,

@@ -1,3 +1,4 @@
+import { ArrowRight, ExternalLink } from "lucide-react";
 import config, { siteUrl } from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 import PushSubscribeButton from "./PushSubscribeButton";
@@ -28,8 +29,9 @@ export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord 
                     href={`/u/${label}?edit=true`}
                     className="btn btn-primary btn-sm"
                     style={{ marginTop: "0.5rem" }}
+                    data-onboarding="setup-profile"
                 >
-                    Set up your profile →
+                    Set up your profile <ArrowRight size={14} aria-hidden="true" />
                 </a>
             </div>
 
@@ -48,7 +50,7 @@ export default function ClaimedView({ subdomain }: { subdomain: SubdomainRecord 
                     className="btn btn-ghost btn-sm"
                     aria-label={`Manage ${subdomain.name} on Tezos Domains (opens in new tab)`}
                 >
-                    Manage on Tezos Domains ↗
+                    Manage on Tezos Domains <ExternalLink size={14} aria-hidden="true" />
                 </a>
                 <PushSubscribeButton />
             </div>

@@ -1,10 +1,14 @@
 import { useState, useCallback } from "react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import { useTezos } from "../context/TezosContext";
+import { useOnboarding } from "../context/OnboardingContext";
 import { useSubdomains } from "../hooks/useSubdomains";
 import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 import SubdomainManager from "./SubdomainManager";
 import PushSubscribeButton from "./PushSubscribeButton";
+import ProfileHint from "./onboarding/ProfileHint";
+import PushHint from "./onboarding/PushHint";
 
 const TED_APP_URL = config.tedAppUrl;
 
@@ -23,7 +27,7 @@ function SubdomainCard({ domain, onMutate }: { domain: SubdomainRecord; onMutate
                 <div>
                     <div className="domain-name">{domain.name}</div>
                     <div className="domain-meta">
-                        →{" "}
+                        <ArrowRight size={12} aria-hidden="true" />{" "}
                         {domain.address
                             ? `${domain.address.slice(0, 10)}…${domain.address.slice(-6)}`
                             : "no address set"}
@@ -36,7 +40,7 @@ function SubdomainCard({ domain, onMutate }: { domain: SubdomainRecord; onMutate
                     className="btn btn-ghost btn-sm"
                     aria-label={`Manage ${domain.name} on Tezos Domains (opens in new tab)`}
                 >
-                    Manage ↗
+                    Manage <ExternalLink size={14} aria-hidden="true" />
                 </a>
             </div>
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
@@ -62,6 +66,7 @@ function SubdomainCard({ domain, onMutate }: { domain: SubdomainRecord; onMutate
 
 export default function Dashboard() {
     const { address } = useTezos();
+    const { step: onboardingStep } = useOnboarding();
     const { subdomains, loading, error, refresh } = useSubdomains(address);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -144,7 +149,10 @@ export default function Dashboard() {
                     You own your subdomains on Tezos Domains. Manage them directly on TED.
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <PushSubscribeButton />
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <PushSubscribeButton />
+                        {onboardingStep === "push" && <PushHint />}
+                    </div>
                     <button
                         onClick={() => void handleRefresh()}
                         className="btn btn-ghost btn-sm"
@@ -156,6 +164,10 @@ export default function Dashboard() {
                     </button>
                 </div>
             </div>
+
+            {onboardingStep === "profile" && topLevel.length > 0 && (
+                <ProfileHint />
+            )}
 
             {topLevel.length === 0 ? (
                 <div
@@ -171,7 +183,7 @@ export default function Dashboard() {
                 >
                     <p style={{ marginBottom: "0.75rem" }}>No subdomains yet.</p>
                     <a href="/" className="btn btn-primary btn-sm">
-                        Claim your name →
+                        Claim your name <ArrowRight size={14} aria-hidden="true" />
                     </a>
                 </div>
             ) : (

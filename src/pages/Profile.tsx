@@ -11,7 +11,7 @@ import config from "../config/tezos";
 import { useTedContracts } from "../hooks/useTedContracts";
 import { Hackatar } from "../components/Hackatar";
 import { ProfileShareStudio } from "../components/ProfileShareStudio";
-import { Globe } from "lucide-react";
+import { Globe, ExternalLink, ArrowLeft } from "lucide-react";
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -264,9 +264,9 @@ function ProjectCard({ project }: { project: ProjectEntry }) {
                                 href={projectUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ color: "var(--ok)", textDecoration: "none" }}
+                                style={{ color: "var(--ok)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.35em" }}
                             >
-                                ↗ Website
+                                <ExternalLink size={14} aria-hidden="true" /> Website
                             </a>
                         )}
                         {repoUrl && (
@@ -428,9 +428,12 @@ export default function Profile() {
                         textDecoration: "none",
                         fontSize: "0.8rem",
                         letterSpacing: "0.1em",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.35em",
                     }}
                 >
-                    ← claim a name
+                    <ArrowLeft size={14} aria-hidden="true" /> claim a name
                 </a>
             </div>
         );

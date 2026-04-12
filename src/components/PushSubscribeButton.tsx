@@ -74,10 +74,11 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
 
     const Icon = subscribed ? BellRing : Bell;
     const label = subscribed ? "This device subscribed" : "Notify this device";
+    const btnClass = className ?? "btn btn-ghost btn-sm";
 
     return (
         <button
-            className={className ?? "btn btn-ghost btn-sm"}
+            className={btnClass}
             style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.7rem", opacity: loading ? 0.5 : 1, transition: "opacity 0.15s", ...style }}
             onClick={() => void handleToggle()}
             disabled={loading || !checked || !token}
