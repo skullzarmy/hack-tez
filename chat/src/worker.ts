@@ -754,6 +754,8 @@ async function handleAdminBroadcast(request: Request, env: Env): Promise<Respons
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
   if (!isAdmin(user, env)) return errorResponse(request, "Admin access required", "FORBIDDEN", 403);
+  const domainErr = requireDomain(request, user);
+  if (domainErr) return domainErr;
 
   let body: unknown;
   try { body = await request.json(); } catch { return errorResponse(request, "Invalid JSON", "BAD_REQUEST", 400); }
