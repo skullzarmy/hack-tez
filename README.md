@@ -72,6 +72,15 @@ export $(grep -v '^#' .env | xargs)
 npx tsx scripts/redeploy-ghostnet.ts
 ```
 
+**Mainnet addresses:**
+
+| Contract | Address |
+|---|---|
+| HackTezRegistrar | `KT1UKAt5ioGdbKb435ziP25FRDzqgC7BUeB4` |
+| TED CheckAddress | `KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ` |
+| TED SetChildRecord proxy | `KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd` |
+| TED UpdateRecord proxy | `KT1H1MqmUM4aK9i1833EBmYCCEfkbt6ZdSBc` |
+
 **Ghostnet addresses:**
 
 | Contract | Address |

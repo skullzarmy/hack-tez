@@ -119,6 +119,15 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 
 ---
 
+## Contract Addresses (Mainnet)
+
+| Contract                 | Address                                |
+| ------------------------ | -------------------------------------- |
+| HackTezRegistrar         | `KT1UKAt5ioGdbKb435ziP25FRDzqgC7BUeB4` |
+| TED CheckAddress         | `KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ` |
+| TED SetChildRecord proxy | `KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd` |
+| TED UpdateRecord proxy   | `KT1H1MqmUM4aK9i1833EBmYCCEfkbt6ZdSBc` |
+
 ## Contract Addresses (Ghostnet)
 
 | Contract                 | Address                                |

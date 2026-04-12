@@ -268,6 +268,15 @@ npx tsx scripts/deploy-mainnet.ts      # mainnet
 ```
 Requires `TEZOS_WALLET_PUB_KEY` env var (which is actually the secret key `edsk...`). After deployment, the contract must be added as an operator on the parent domain NFT in the TED NameRegistry.
 
+## Key Contract Addresses (Mainnet)
+
+| Contract | Address |
+|----------|---------|
+| HackTezRegistrar | `KT1UKAt5ioGdbKb435ziP25FRDzqgC7BUeB4` |
+| TED CheckAddress | `KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ` |
+| TED SetChildRecord proxy | `KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd` |
+| TED UpdateRecord proxy | `KT1H1MqmUM4aK9i1833EBmYCCEfkbt6ZdSBc` |
+
 ## Key Contract Addresses (Ghostnet)
 
 | Contract | Address |
