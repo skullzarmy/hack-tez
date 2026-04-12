@@ -5,7 +5,7 @@ import { getOwnedDomains } from "../auth/domains.js";
 interface TokenPayload {
   address: string;
   domains: string[];
-  activeDomain: string;
+  activeDomain: string | null;
 }
 
 // Message rate limiting: max 10 messages per 30 seconds per connection

@@ -15,13 +15,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "jose": "^6.0.0",
-    "@taquito/utils": "^24.2.0"
+    "@pushforge/builder": "^2.0.4",
+    "@taquito/utils": "^24.2.0",
+    "jose": "^6.0.0"
   },
   "devDependencies": {
-    "partykit": "^0.0.111",
-    "wrangler": "^4.0.0",
     "@cloudflare/workers-types": "^4.0.0",
-    "typescript": "~5.9.3"
+    "partykit": "^0.0.111",
+    "typescript": "~5.9.3",
+    "wrangler": "^4.0.0"
   }
 }

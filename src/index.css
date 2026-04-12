@@ -154,6 +154,10 @@
         margin: 0;
         padding: 0;
     }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 }
 
 html {

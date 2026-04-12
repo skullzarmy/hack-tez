@@ -34,7 +34,7 @@ export default function PendingCommitsPanel({
     onRelease?: () => void;
     onClaim?: (subdomain: SubdomainRecord) => void;
 }) {
-    const { client, address } = useTezos();
+    const { client, address, refreshToken } = useTezos();
     const contractConfig = useContractConfig();
     const minCommitAgeMs = contractConfig.minCommitAgeSec * 1000;
     const maxCommitAgeMs = contractConfig.maxCommitAgeSec * 1000;
@@ -131,6 +131,9 @@ export default function PendingCommitsPanel({
         setClaimState((s) => ({ ...s, [commit.label]: "success" }));
         onClaim?.(subdomain);
         onRelease?.();
+
+        // Refresh JWT so the newly claimed domain is included
+        void refreshToken();
     };
 
     const handleRelease = async (commit: PendingCommit) => {

@@ -1,5 +1,5 @@
 /* hack.tez service worker — cache-first for app shell, network-first for API */
-const CACHE = "hack-tez-v7";
+const CACHE = "hack-tez-v8";
 const SHELL = ["/", "/manage", "/site.webmanifest", "/favicon.svg", "/favicon.ico", "/favicon-96x96.png"];
 const SKIP_CACHE = ["tzkt.io", "tezos.domains", "api.", "rpc.", "walletbeacon", "matrix.papers"];
 
@@ -14,6 +14,59 @@ self.addEventListener("activate", (e) => {
     );
     self.clients.claim();
 });
+
+// --- Push notifications ---
+self.addEventListener("push", (e) => {
+    let data = {};
+    try {
+        data = e.data?.json() ?? {};
+    } catch {
+        // Malformed payload — show generic notification
+    }
+    const title = data.title || "hackchat";
+    const options = {
+        body: data.body || "",
+        icon: "/favicon-96x96.png",
+        badge: "/favicon-96x96.png",
+        tag: data.tag || "hackchat-notification",
+        data: { url: data.url || "/chat" },
+        renotify: !!data.renotify,
+    };
+
+    // Suppress notification if user is already viewing the relevant chat tab
+    e.waitUntil(
+        clients
+            .matchAll({ type: "window", includeUncontrolled: true })
+            .then((windowClients) => {
+                const chatFocused = windowClients.some(
+                    (c) => c.visibilityState === "visible" && c.url.includes("/chat"),
+                );
+                // If a DM notification and user has chat open+focused, skip
+                if (chatFocused && data.tag?.startsWith("dm:")) return;
+                return self.registration.showNotification(title, options);
+            }),
+    );
+});
+
+self.addEventListener("notificationclick", (e) => {
+    e.notification.close();
+    const url = e.notification.data?.url || "/chat";
+    e.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+            // Focus existing chat tab if open
+            for (const client of windowClients) {
+                if (client.url.includes("/chat") && "focus" in client) {
+                    // Post message to navigate to the right conversation
+                    client.postMessage({ type: "push-navigate", url });
+                    return client.focus();
+                }
+            }
+            return clients.openWindow(url);
+        }),
+    );
+});
+
+// --- Fetch strategies ---
 
 self.addEventListener("fetch", (e) => {
     const url = e.request.url;

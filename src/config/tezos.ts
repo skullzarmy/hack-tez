@@ -26,6 +26,10 @@ export const hackchatUrl: string =
 export const partykitHost: string =
     (import.meta.env.VITE_PARTYKIT_HOST || "").trim() || "localhost:1999";
 
+/** VAPID public key for Web Push subscriptions (set at build time or fetched from server) */
+export const vapidPublicKey: string =
+    (import.meta.env.VITE_VAPID_PUBLIC_KEY || "").trim();
+
 interface NetworkConfig {
     name: TezosNetwork;
     tld: string;
