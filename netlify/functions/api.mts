@@ -98,7 +98,7 @@ const LABEL_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const TZ_ADDRESS_RE = /^(tz[123][1-9A-HJ-NP-Za-km-z]{33}|KT1[1-9A-HJ-NP-Za-km-z]{33})$/;
 
 function validateLabel(label: string): string | null {
-    if (!label || label.length < 3) return "Label must be at least 3 characters";
+    if (!label || label.length === 0) return "Label is required";
     if (label.length > 63) return "Label must be 63 characters or fewer";
     if (!LABEL_RE.test(label)) return "Label must be lowercase alphanumeric with hyphens";
     return null;
