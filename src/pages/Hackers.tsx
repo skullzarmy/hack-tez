@@ -56,8 +56,8 @@ function Avatar({ picture, label, playing }: { picture?: string; label: string; 
                 alt=""
                 onError={() => setImgFailed(true)}
                 style={{
-                    width: 48,
-                    height: 48,
+                    width: 56,
+                    height: 56,
                     borderRadius: "50%",
                     objectFit: "cover",
                     flexShrink: 0,
@@ -67,7 +67,7 @@ function Avatar({ picture, label, playing }: { picture?: string; label: string; 
         );
     }
 
-    return <Hackatar label={label} size={48} playing={playing} />;
+    return <Hackatar label={label} size={56} playing={playing} />;
 }
 
 function StatusBadge({ status }: { status: BuilderStatus }) {
@@ -613,17 +613,17 @@ export default function Hackers() {
                     ) : (
                         <div
                             style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                                gap: "1rem",
+                                columns: "280px auto",
+                                columnGap: "1rem",
                             }}
                         >
                             {pageSlice.map((h) => (
-                                <HackerCard
-                                    key={h.name}
-                                    hacker={h}
-                                    onSkillClick={handleSkillClick}
-                                />
+                                <div key={h.name} style={{ breakInside: "avoid", marginBottom: "1rem" }}>
+                                    <HackerCard
+                                        hacker={h}
+                                        onSkillClick={handleSkillClick}
+                                    />
+                                </div>
                             ))}
                         </div>
                     )}
