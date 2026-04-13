@@ -231,7 +231,6 @@ function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
                 className="text-sm px-4 py-2.5 italic"
                 style={{
                     background: "rgba(255,255,255,0.02)",
-                    borderLeft: "2px solid var(--border, rgba(255,255,255,0.1))",
                     color: "var(--fg-3, #888)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "12px",
@@ -429,7 +428,6 @@ function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: st
             style={{
                 padding: "4px 10px",
                 marginBottom: "4px",
-                borderLeft: "2px solid var(--fg-3, #888)",
                 background: "rgba(255,255,255,0.03)",
                 fontSize: "11px",
                 fontFamily: "var(--font-mono)",
@@ -649,7 +647,6 @@ function InlineEdit({ content, onSave, onCancel }: { content: string; onSave: (t
         <div style={{
             padding: "6px 12px",
             background: "rgba(0, 255, 200, 0.08)",
-            borderLeft: "2px solid var(--accent, #00ffc8)",
         }}>
             <textarea
                 ref={textareaRef}
@@ -813,7 +810,6 @@ export default function MessageBubble({
                             position: "relative",
                             padding: "6px 12px",
                             background: "rgba(0, 255, 200, 0.08)",
-                            borderLeft: "2px solid var(--accent, #00ffc8)",
                             fontFamily: "var(--font)",
                             lineHeight: "1.6",
                         }}
@@ -928,7 +924,6 @@ export default function MessageBubble({
                         position: "relative",
                         padding: "6px 12px",
                         background: "var(--bg-2, #0a0a0a)",
-                        borderLeft: "2px solid var(--border-2, #333)",
                         fontFamily: "var(--font)",
                         lineHeight: "1.6",
                     }}

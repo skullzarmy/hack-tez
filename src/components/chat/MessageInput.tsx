@@ -347,7 +347,6 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                         padding: "6px 12px",
                         marginBottom: "6px",
                         background: "rgba(255,255,255,0.03)",
-                        borderLeft: "2px solid var(--accent, #00ffc8)",
                     }}
                 >
                     <img
@@ -412,7 +411,6 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                         padding: "6px 12px",
                         marginBottom: "6px",
                         background: "rgba(255,255,255,0.03)",
-                        borderLeft: "2px solid var(--accent, #00ffc8)",
                         fontSize: "11px",
                         fontFamily: "var(--font-mono)",
                         color: "var(--fg-3, #888)",
