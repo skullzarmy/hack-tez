@@ -434,13 +434,12 @@ export default function Dashboard() {
                     role="list"
                     aria-label="Your subdomains"
                     style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                        gap: "1rem",
+                        columns: "300px auto",
+                        columnGap: "1rem",
                     }}
                 >
                     {topLevel.map((d) => (
-                        <div key={d.name} role="listitem">
+                        <div key={d.name} role="listitem" style={{ breakInside: "avoid", marginBottom: "1rem" }}>
                             <DomainTile domain={d} onMutate={refresh} />
                         </div>
                     ))}
