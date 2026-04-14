@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Send, X, ImageIcon, Paperclip, Loader2 } from "lucide-react";
 import GifPicker from "./GifPicker";
 import ChatAvatar from "./ChatAvatar";
+import { ipfsUriToGatewayUrl } from "../../lib/pin";
 
 import type { MediaAttachment } from "../../types/chat";
 
@@ -422,8 +423,8 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                     <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
                         {replyTarget.media && (replyTarget.media.thumbnailUrl || replyTarget.media.url) && (
                             <img
-                                src={replyTarget.media.thumbnailUrl ?? replyTarget.media.url}
-                                alt="media"
+                                src={ipfsUriToGatewayUrl(replyTarget.media.thumbnailUrl ?? replyTarget.media.url)}
+                                alt={replyTarget.media.type === "gif" ? "GIF" : "Image"}
                                 style={{
                                     width: "20px",
                                     height: "20px",
@@ -437,7 +438,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                             {replyTarget.sender}
                         </span>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {(replyTarget.content ?? "").slice(0, 80) || (replyTarget.media ? "GIF" : "")}
+                            {(replyTarget.content ?? "").slice(0, 80) || (replyTarget.media ? (replyTarget.media.type === "gif" ? "GIF" : "Image") : "")}
                             {(replyTarget.content?.length ?? 0) > 80 ? "…" : ""}
                         </span>
                     </div>

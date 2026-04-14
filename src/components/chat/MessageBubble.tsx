@@ -554,7 +554,9 @@ function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: st
     const truncated = replyContext.deleted
         ? "[deleted]"
         : (replyContext.content ?? "").slice(0, 100) + ((replyContext.content?.length ?? 0) > 100 ? "…" : "");
-    const previewUrl = replyContext.media?.thumbnailUrl ?? replyContext.media?.url;
+    const rawUrl = replyContext.media?.thumbnailUrl ?? replyContext.media?.url;
+    const previewUrl = rawUrl ? ipfsUriToGatewayUrl(rawUrl) : undefined;
+    const mediaLabel = replyContext.media ? (replyContext.media.type === "gif" ? "GIF" : "Image") : "";
     return (
         <div
             style={{
@@ -576,7 +578,7 @@ function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: st
             {previewUrl && (
                 <img
                     src={previewUrl}
-                    alt="media"
+                    alt={mediaLabel || "media"}
                     style={{
                         width: "20px",
                         height: "20px",
@@ -588,7 +590,7 @@ function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: st
             )}
             <span style={{ fontWeight: 600, flexShrink: 0 }}>{replyContext.sender}</span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                {truncated || (previewUrl ? "GIF" : "")}
+                {truncated || mediaLabel}
             </span>
         </div>
     );
