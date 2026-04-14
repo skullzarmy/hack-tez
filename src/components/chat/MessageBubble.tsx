@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo, useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
+import { useFloating, offset, flip, shift, autoUpdate, type Placement } from "@floating-ui/react-dom";
 import DOMPurify from "dompurify";
 import { MoreVertical, Trash2, Ban, Pencil, Reply, SmilePlus } from "lucide-react";
 import type { MediaAttachment, ReactionCount } from "../../hooks/useChat";
@@ -257,6 +258,15 @@ const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "🚀", "👀"];
 function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (messageId: string, emoji: string) => void }) {
     const [showPicker, setShowPicker] = useState(false);
     const pickerRef = useRef<HTMLDivElement>(null);
+    const pickerBtnRef = useRef<HTMLButtonElement>(null);
+
+    const { refs: emojiRefs, floatingStyles: emojiStyles } = useFloating({
+        open: showPicker,
+        placement: "top-start",
+        middleware: [offset(4), flip({ fallbackPlacements: ["top-end", "bottom-start", "bottom-end"] }), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+        elements: { reference: pickerBtnRef.current },
+    });
 
     useEffect(() => {
         if (!showPicker) return;
@@ -305,6 +315,7 @@ function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (me
             ))}
             <div ref={pickerRef} style={{ position: "relative", display: "inline-flex" }}>
                 <button
+                    ref={(el) => { pickerBtnRef.current = el; emojiRefs.setReference(el); }}
                     type="button"
                     onClick={() => setShowPicker((v) => !v)}
                     style={{
@@ -321,7 +332,7 @@ function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (me
                     <SmilePlus size={14} style={{ color: "var(--fg-3, #888)" }} />
                 </button>
                 {showPicker && (
-                    <div style={{ position: "absolute", bottom: "28px", left: 0, zIndex: 50 }}>
+                    <div ref={emojiRefs.setFloating} style={{ ...emojiStyles, zIndex: 50 }}>
                         <Suspense fallback={<div style={{ width: 350, height: 400, background: "var(--bg-1, #111)", border: "1px solid var(--border-2, #333)" }} />}>
                             <EmojiPicker
                                 onEmojiClick={(emojiData) => {
@@ -527,6 +538,14 @@ function MessageActions({
     const [showMenu, setShowMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const preferred: Placement = isOwn ? "bottom-end" : "bottom-start";
+    const { refs, floatingStyles } = useFloating({
+        open: showMenu,
+        placement: preferred,
+        middleware: [offset(4), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+    });
+
     useEffect(() => {
         if (!showMenu) return;
         function handleClick(e: MouseEvent) {
@@ -540,8 +559,9 @@ function MessageActions({
     if (!hasActions) return null;
 
     return (
-        <div ref={menuRef} style={{ position: "relative", display: "inline-flex" }}>
+        <div ref={menuRef} style={{ display: "inline-flex" }}>
             <button
+                ref={refs.setReference}
                 type="button"
                 onClick={() => setShowMenu((o) => !o)}
                 className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
@@ -560,10 +580,9 @@ function MessageActions({
             </button>
             {showMenu && (
                 <div
+                    ref={refs.setFloating}
                     style={{
-                        position: "absolute",
-                        top: "100%",
-                        ...(isOwn ? { right: 0 } : { left: 0 }),
+                        ...floatingStyles,
                         zIndex: 50,
                         minWidth: "160px",
                         background: "var(--bg-1, #111)",
