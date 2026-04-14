@@ -3,7 +3,7 @@ import { useMemo, useState, useRef, useEffect, useCallback, lazy, Suspense } fro
 import { useFloating, offset, flip, shift, autoUpdate, type Placement } from "@floating-ui/react-dom";
 import DOMPurify from "dompurify";
 import { MoreVertical, Trash2, Ban, Pencil, Reply, SmilePlus } from "lucide-react";
-import type { MediaAttachment, ReactionCount } from "../../hooks/useChat";
+import type { MediaAttachment, ReactionCount } from "../../types/chat";
 import { ipfsUriToGatewayUrl } from "../../lib/pin";
 import ChatAvatar from "./ChatAvatar";
 import LinkPreview from "./LinkPreview";

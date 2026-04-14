@@ -1,7 +1,6 @@
-import { useRef, useEffect, useCallback, useLayoutEffect } from "react";
-import { ArrowLeft, Loader2, MessageCircle, AlertTriangle } from "lucide-react";
-import MessageBubble from "./MessageBubble";
-import MessageInput from "./MessageInput";
+import { useRef, useEffect } from "react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
+import ChatMessagePanel from "./ChatMessagePanel";
 import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
 import { useDM } from "../../hooks/useDM";
 import type { ChatNotificationEvent, ChatNotificationSettings } from "../../lib/chatNotifications";
@@ -52,33 +51,11 @@ export default function DMView({
         sendTyping,
         markRead,
         peerOnline,
+        reactToMessage,
+        editMessage,
     } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage });
 
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const shouldAutoScrollRef = useRef(true);
-    const isInitialLoadRef = useRef(true);
-
-    const handleScroll = useCallback(() => {
-        const el = messagesContainerRef.current;
-        if (!el) return;
-        const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-        shouldAutoScrollRef.current = distFromBottom < 100;
-
-        if (el.scrollTop < 50 && hasMore && !isLoading) {
-            loadMore();
-        }
-    }, [hasMore, isLoading, loadMore]);
-
-    // Pin to latest without animation to avoid visible top->bottom movement.
-    useLayoutEffect(() => {
-        if (messages.length === 0 && isInitialLoadRef.current) return;
-        if (!shouldAutoScrollRef.current) return;
-        const container = messagesContainerRef.current;
-        if (!container) return;
-        container.scrollTop = container.scrollHeight;
-        isInitialLoadRef.current = false;
-    }, [messages.length]);
+    const prevPeerRef = useRef(peerDomain);
 
     // Mark as read when messages arrive while viewing
     useEffect(() => {
@@ -86,6 +63,13 @@ export default function DMView({
             markRead();
         }
     }, [messages.length, isConnected, markRead]);
+
+    // Reset on peer change
+    useEffect(() => {
+        prevPeerRef.current = peerDomain;
+    }, [peerDomain]);
+
+    const typingUsers = peerTyping ? [peerDomain] : [];
 
     return (
         <div className="flex flex-col flex-1 min-w-0">
@@ -190,71 +174,23 @@ export default function DMView({
                 </div>
             )}
 
-            {/* Message list */}
-            <div
-                ref={messagesContainerRef}
-                onScroll={handleScroll}
-                role="log"
-                aria-label={`DM with ${peerDomain}`}
-                aria-live="polite"
-                className="flex-1 overflow-y-auto flex flex-col px-6 py-5 gap-4"
-            >
-                {isLoading && (
-                    <div className="flex justify-center py-2">
-                        <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-3, #888)" }} />
-                    </div>
-                )}
-                {messages.length === 0 && !isLoading && (
-                    <div className="flex-1 flex items-center justify-center px-4">
-                        <div className="text-center" style={{ color: "var(--fg-3, #888)" }}>
-                            <MessageCircle size={48} className="opacity-20 mx-auto mb-4" aria-hidden="true" />
-                            <p
-                                className="text-xs uppercase tracking-widest font-bold"
-                                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
-                            >
-                                Start a conversation
-                            </p>
-                            <p
-                                className="text-xs mt-2"
-                                style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)" }}
-                            >
-                                with {peerDomain}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {messages.map((msg) => (
-                    <MessageBubble
-                        key={msg.id}
-                        id={msg.id}
-                        sender={msg.sender}
-                        content={msg.content}
-                        timestamp={msg.timestamp}
-                        isOwn={msg.sender === activeDomain}
-                    />
-                ))}
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* Typing indicator */}
-            {peerTyping && (
-                <div
-                    className="text-xs uppercase tracking-wide px-7 py-1.5"
-                    aria-live="polite"
-                    style={{
-                        color: "var(--fg-3, #888)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "10px",
-                        letterSpacing: "0.08em",
-                    }}
-                >
-                    {peerDomain} is typing…
-                </div>
-            )}
-
-            {/* Message input */}
-            <MessageInput onSend={sendMessage} onTyping={sendTyping} disabled={!isConnected} />
+            <ChatMessagePanel
+                messages={messages}
+                activeDomain={activeDomain}
+                isConnected={isConnected}
+                isLoading={isLoading}
+                hasMore={hasMore}
+                loadMore={loadMore}
+                sendMessage={sendMessage}
+                sendTyping={sendTyping}
+                reactToMessage={reactToMessage}
+                editMessage={editMessage}
+                typingUsers={typingUsers}
+                emptyLabel="Start a conversation"
+                emptySubLabel={`with ${peerDomain}`}
+                ariaLabel={`DM with ${peerDomain}`}
+                token={token}
+            />
         </div>
     );
 }

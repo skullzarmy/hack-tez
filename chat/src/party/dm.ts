@@ -1,5 +1,12 @@
 import type { Party, Server, Connection } from "partykit/server";
 import { jwtVerify } from "jose";
+import {
+  sendJson,
+  handleChatMessage as sharedHandleChatMessage,
+  handleReaction as sharedHandleReaction,
+  handleEditMessage as sharedHandleEditMessage,
+} from "./shared.js";
+import type { MediaAttachment, RoomContext } from "./shared.js";
 
 // Message rate limiting: max 10 messages per 30 seconds per connection
 const MSG_RATE_WINDOW_MS = 30_000;
@@ -12,18 +19,8 @@ interface TokenPayload {
 }
 
 interface HistoryResponse {
-    messages: Array<{ id: string; sender: string; content: string; timestamp: string }>;
+    messages: Array<{ id: string; sender: string; content: string | null; timestamp: string; deleted?: boolean; media?: MediaAttachment; replyTo?: string; editedAt?: string }>;
     hasMore: boolean;
-}
-
-function generateId(): string {
-    const ts = Date.now().toString(36);
-    const rand = Math.random().toString(36).slice(2, 8);
-    return `${ts}-${rand}`;
-}
-
-function sendJson(conn: Connection, data: unknown): void {
-    conn.send(JSON.stringify(data));
 }
 
 /** Extract the two participant domains from a dm: room ID */
@@ -82,6 +79,13 @@ export default class DMRoom implements Server {
             headers.set("Content-Type", "application/json");
         }
         return fetch(url, { ...options, headers });
+    }
+
+    private getRoomContext(): RoomContext {
+        return {
+            room: this.room,
+            workerFetch: (path, options) => this.workerFetch(path, options),
+        };
     }
 
     async onConnect(conn: Connection) {
@@ -195,7 +199,17 @@ export default class DMRoom implements Server {
                     });
                     return;
                 }
-                await this.handleChatMessage(sender, domain, parsed.content as string);
+                await this.handleChatMessage(
+                    sender, domain, parsed.content as string,
+                    parsed.media as MediaAttachment | undefined,
+                    parsed.replyTo as string | undefined,
+                );
+                break;
+            case "react":
+                await this.handleReaction(sender, domain, parsed as Record<string, unknown>);
+                break;
+            case "edit-message":
+                await this.handleEditMessage(sender, domain, parsed as Record<string, unknown>);
                 break;
             case "typing":
                 this.handleTyping(sender, domain, parsed.active as boolean);
@@ -217,30 +231,16 @@ export default class DMRoom implements Server {
       }
     }
 
-    private async handleChatMessage(sender: Connection, domain: string, content: string) {
-        if (!content || typeof content !== "string") {
-            sendJson(sender, { type: "error", code: "EMPTY_MESSAGE", message: "Message content required" });
-            return;
-        }
+    private async handleChatMessage(sender: Connection, domain: string, content: string, media?: MediaAttachment, replyTo?: string) {
+        await sharedHandleChatMessage(this.getRoomContext(), sender, domain, content, media, replyTo, 2000);
+    }
 
-        const trimmed = content.trim();
-        if (trimmed.length === 0 || trimmed.length > 2000) {
-            sendJson(sender, { type: "error", code: "INVALID_LENGTH", message: "Message must be 1-2000 characters" });
-            return;
-        }
+    private async handleReaction(sender: Connection, domain: string, data: Record<string, unknown>) {
+        await sharedHandleReaction(this.getRoomContext(), sender, domain, data);
+    }
 
-        const id = generateId();
-        const timestamp = new Date().toISOString();
-        const roomId = this.room.id;
-
-        // Broadcast to all connections in the room
-        this.room.broadcast(JSON.stringify({ type: "message", id, sender: domain, content: trimmed, timestamp }));
-
-        // Persist via Worker API (fire-and-forget)
-        this.workerFetch("/internal/store-message", {
-            method: "POST",
-            body: JSON.stringify({ id, roomId, senderDomain: domain, content: trimmed }),
-        }).catch((err) => console.error("Worker persist error:", err));
+    private async handleEditMessage(sender: Connection, domain: string, data: Record<string, unknown>) {
+        await sharedHandleEditMessage(this.getRoomContext(), sender, domain, data);
     }
 
     private handleTyping(sender: Connection, domain: string, active: boolean) {

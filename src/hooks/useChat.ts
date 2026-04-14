@@ -1,38 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PartySocket from "partysocket";
 import type { ChatNotificationEvent } from "../lib/chatNotifications";
+import type { ChatMessage, MediaAttachment } from "../types/chat";
 import { partykitHost } from "../config/tezos";
-
-interface MediaAttachment {
-    type: "gif" | "image";
-    url: string;
-    width?: number;
-    height?: number;
-    alt?: string;
-    thumbnailUrl?: string;
-    provider?: string;
-}
-
-interface ReactionCount {
-    emoji: string;
-    count: number;
-    domains: string[];
-}
-
-interface ChatMessage {
-    id: string;
-    sender: string;
-    content: string | null;
-    timestamp: string;
-    deleted?: boolean;
-    deletedBy?: string;
-    deleteReason?: string;
-    media?: MediaAttachment;
-    replyTo?: string;
-    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean };
-    editedAt?: string;
-    reactions?: ReactionCount[];
-}
 
 interface BanInfo {
     type: "soft" | "hard";
@@ -80,7 +50,8 @@ interface UseChatReturn {
     reconnect: () => void;
 }
 
-export type { ChatMessage, BanInfo, MediaAttachment, ReactionCount };
+export type { BanInfo };
+export type { ChatMessage, MediaAttachment, ReactionCount } from "../types/chat";
 
 export function useChat(config: UseChatConfig): UseChatReturn {
     const { token, activeDomain } = config;

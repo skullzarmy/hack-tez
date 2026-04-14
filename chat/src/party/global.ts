@@ -1,6 +1,13 @@
 import type { Party, Server, Connection } from "partykit/server";
 import { jwtVerify } from "jose";
 import { getOwnedDomains } from "../auth/domains.js";
+import {
+  sendJson,
+  handleChatMessage as sharedHandleChatMessage,
+  handleReaction as sharedHandleReaction,
+  handleEditMessage as sharedHandleEditMessage,
+} from "./shared.js";
+import type { MediaAttachment, RoomContext } from "./shared.js";
 
 interface TokenPayload {
   address: string;
@@ -36,29 +43,9 @@ interface BanCacheEntry {
   checkedAt: number;
 }
 
-interface MediaAttachment {
-  type: "gif" | "image";
-  url: string;
-  width?: number;
-  height?: number;
-  alt?: string;
-  thumbnailUrl?: string;
-  provider?: string;
-}
-
 interface HistoryResponse {
   messages: Array<{ id: string; sender: string; content: string | null; timestamp: string; deleted?: boolean; media?: MediaAttachment; replyTo?: string; editedAt?: string }>;
   hasMore: boolean;
-}
-
-function generateId(): string {
-  const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `${ts}-${rand}`;
-}
-
-function sendJson(conn: Connection, data: unknown): void {
-  conn.send(JSON.stringify(data));
 }
 
 export default class GlobalRoom implements Server {
@@ -194,6 +181,13 @@ export default class GlobalRoom implements Server {
       console.error(`[workerFetch] ${url} → ${resp.status}: ${body}`);
     }
     return resp;
+  }
+
+  private getRoomContext(): RoomContext {
+    return {
+      room: this.room,
+      workerFetch: (path, options) => this.workerFetch(path, options),
+    };
   }
 
   /** Check ban status via Worker (with local cache) */
@@ -373,51 +367,7 @@ export default class GlobalRoom implements Server {
   }
 
   private async handleChatMessage(sender: Connection, domain: string, content: string, media?: MediaAttachment, replyTo?: string) {
-    if (!content || typeof content !== "string") {
-      // Allow empty content if media is present
-      if (!media) {
-        sendJson(sender, { type: "error", code: "EMPTY_MESSAGE", message: "Message content required" });
-        return;
-      }
-    }
-
-    const trimmed = (content ?? "").trim();
-    if (!media && (trimmed.length === 0 || trimmed.length > 4000)) {
-      sendJson(sender, { type: "error", code: "INVALID_LENGTH", message: "Message must be 1-4000 characters" });
-      return;
-    }
-    if (trimmed.length > 4000) {
-      sendJson(sender, { type: "error", code: "INVALID_LENGTH", message: "Message must be at most 4000 characters" });
-      return;
-    }
-
-    // Validate media if present
-    if (media) {
-      if (!media.type || !media.url) {
-        sendJson(sender, { type: "error", code: "INVALID_MEDIA", message: "Media requires type and url" });
-        return;
-      }
-      if (media.type !== "gif" && media.type !== "image") {
-        sendJson(sender, { type: "error", code: "INVALID_MEDIA", message: "Media type must be gif or image" });
-        return;
-      }
-    }
-
-    const id = generateId();
-    const timestamp = new Date().toISOString();
-
-    const broadcastMsg: Record<string, unknown> = { type: "message", id, sender: domain, content: trimmed || null, timestamp };
-    if (media) broadcastMsg.media = media;
-    if (replyTo) broadcastMsg.replyTo = replyTo;
-
-    // Broadcast to all connections
-    this.room.broadcast(JSON.stringify(broadcastMsg));
-
-    // Persist via Worker API (fire-and-forget)
-    this.workerFetch("/internal/store-message", {
-      method: "POST",
-      body: JSON.stringify({ id, roomId: "global", senderDomain: domain, content: trimmed || "", media, replyTo }),
-    }).catch((err) => console.error("Worker persist error:", err));
+    await sharedHandleChatMessage(this.getRoomContext(), sender, domain, content, media, replyTo);
   }
 
   private handleTyping(sender: Connection, domain: string, active: boolean) {
@@ -472,76 +422,11 @@ export default class GlobalRoom implements Server {
   }
 
   private async handleEditMessage(sender: Connection, domain: string, data: Record<string, unknown>) {
-    const messageId = data.messageId as string;
-    const content = data.content as string;
-
-    if (!messageId || !content) {
-      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "messageId and content required" });
-      return;
-    }
-
-    try {
-      const resp = await this.workerFetch("/internal/edit-message", {
-        method: "POST",
-        body: JSON.stringify({ messageId, senderDomain: domain, content }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json() as { error: string };
-        sendJson(sender, { type: "error", code: "EDIT_FAILED", message: err.error });
-        return;
-      }
-
-      const result = await resp.json() as { ok: boolean; editedAt: string };
-
-      this.room.broadcast(JSON.stringify({
-        type: "message-edited",
-        messageId,
-        content: content.trim(),
-        editedAt: result.editedAt,
-        sender: domain,
-      }));
-    } catch (err) {
-      console.error("Edit message error:", err);
-      sendJson(sender, { type: "error", code: "EDIT_FAILED", message: "Failed to edit message" });
-    }
+    await sharedHandleEditMessage(this.getRoomContext(), sender, domain, data);
   }
 
   private async handleReaction(sender: Connection, domain: string, data: Record<string, unknown>) {
-    const messageId = data.messageId as string;
-    const emoji = data.emoji as string;
-
-    if (!messageId || !emoji) {
-      sendJson(sender, { type: "error", code: "INVALID_DATA", message: "messageId and emoji required" });
-      return;
-    }
-
-    try {
-      const resp = await this.workerFetch("/internal/react", {
-        method: "POST",
-        body: JSON.stringify({ messageId, domain, emoji }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json() as { error: string };
-        sendJson(sender, { type: "error", code: "REACT_FAILED", message: err.error });
-        return;
-      }
-
-      const result = await resp.json() as { ok: boolean; action: "add" | "remove"; reactions: Array<{ emoji: string; count: number }> };
-
-      this.room.broadcast(JSON.stringify({
-        type: "reaction-update",
-        messageId,
-        emoji,
-        domain,
-        action: result.action,
-        reactions: result.reactions,
-      }));
-    } catch (err) {
-      console.error("Reaction error:", err);
-      sendJson(sender, { type: "error", code: "REACT_FAILED", message: "Failed to react" });
-    }
+    await sharedHandleReaction(this.getRoomContext(), sender, domain, data);
   }
 
   private async handleHistory(sender: Connection, before?: string) {

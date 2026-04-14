@@ -1,8 +1,7 @@
-import { useRef, useEffect, useCallback, useState, useLayoutEffect, useMemo } from "react";
-import { MessageCircle, Users, Loader2, Menu, AlertTriangle, Megaphone } from "lucide-react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
+import { Users, Menu, AlertTriangle, Megaphone, MessageCircle } from "lucide-react";
 import IdentitySelector from "./IdentitySelector";
-import MessageBubble from "./MessageBubble";
-import MessageInput from "./MessageInput";
+import ChatMessagePanel from "./ChatMessagePanel";
 import ChatSidebar from "./ChatSidebar";
 import DMView from "./DMView";
 import NewDMModal from "./NewDMModal";
@@ -71,8 +70,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const [banModal, setBanModal] = useState<{ domain: string } | null>(null);
     const [broadcastPanel, setBroadcastPanel] = useState(false);
     const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
-    const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string | null } | null>(null);
-    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [profilePopout, setProfilePopout] = useState<{ domain: string; anchorRect: DOMRect } | null>(null);
     const [globalMentionCount, setGlobalMentionCount] = useState(0);
 
@@ -365,42 +362,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         (conv) => !hiddenDMs.includes(conv.roomId) || conv.unreadCount > 0,
     );
 
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const shouldAutoScrollRef = useRef(true);
-    const isInitialLoadRef = useRef(true);
-
-    // Track if user is near bottom
-    const handleScroll = useCallback(() => {
-        const el = messagesContainerRef.current;
-        if (!el) return;
-        const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-        shouldAutoScrollRef.current = distFromBottom < 100;
-
-        // Load more when scrolled to top
-        if (el.scrollTop < 50 && hasMore && !isLoading) {
-            loadMore();
-        }
-    }, [hasMore, isLoading, loadMore]);
-
-    // Reset pin-to-bottom state when entering global view.
-    useEffect(() => {
-        if (activeView.type !== "global") return;
-        shouldAutoScrollRef.current = true;
-        isInitialLoadRef.current = true;
-    }, [activeView.type]);
-
-    // Pin to latest before paint to avoid initial top->bottom visible motion.
-    useLayoutEffect(() => {
-        if (activeView.type !== "global") return;
-        if (messages.length === 0 && isInitialLoadRef.current) return;
-        if (!shouldAutoScrollRef.current) return;
-        const container = messagesContainerRef.current;
-        if (!container) return;
-        container.scrollTop = container.scrollHeight;
-        isInitialLoadRef.current = false;
-    }, [activeView.type, messages.length]);
-
     // Close mobile sidebar on Escape
     useEffect(() => {
         function handleKeyDown(e: KeyboardEvent) {
@@ -645,138 +606,20 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                         <BanBanner ban={banInfo} onExpired={handleBanExpired} />
                     )}
 
-                    {/* Message list */}
-                    <div
-                        ref={messagesContainerRef}
-                        onScroll={handleScroll}
-                        role="log"
-                        aria-label="Chat messages"
-                        aria-live="polite"
-                        className="flex-1 overflow-y-auto flex flex-col px-6 py-5 gap-4"
-                    >
-                        {/* Load more indicator */}
-                        {isLoading && (
-                            <div className="flex justify-center py-2">
-                                <Loader2 size={16} className="animate-spin" style={{ color: "var(--fg-3, #888)" }} />
-                            </div>
-                        )}
-                        {/* Empty state */}
-                        {messages.length === 0 && !isLoading && (
-                            <div className="flex-1 flex items-center justify-center px-4">
-                                <div className="text-center" style={{ color: "var(--fg-3, #888)" }}>
-                                    <MessageCircle size={48} className="opacity-20 mx-auto mb-4" aria-hidden="true" />
-                                    <p
-                                        className="text-xs uppercase tracking-widest font-bold"
-                                        style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
-                                    >
-                                        No messages yet
-                                    </p>
-                                    <p
-                                        className="text-xs mt-2"
-                                        style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3, #888)" }}
-                                    >
-                                        be the first to say something
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Messages */}
-                        {messages.map((msg, idx) => {
-                            const prevMsg = idx > 0 ? messages[idx - 1] : null;
-                            const showHeader = !prevMsg
-                                || prevMsg.sender !== msg.sender
-                                || prevMsg.sender === "__system__"
-                                || prevMsg.deleted === true;
-                            const resolvedReplyContext = msg.replyTo
-                                ? msg.replyContext ?? (() => {
-                                    const ref = messages.find((m) => m.id === msg.replyTo);
-                                    return ref ? { id: ref.id, sender: ref.sender, content: ref.content, deleted: ref.deleted } : undefined;
-                                })()
-                                : undefined;
-                            return (
-                            <MessageBubble
-                                key={msg.id}
-                                id={msg.id}
-                                sender={msg.sender}
-                                content={msg.content}
-                                timestamp={msg.timestamp}
-                                isOwn={msg.sender === currentDomain}
-                                deleted={msg.deleted}
-                                deletedBy={msg.deletedBy}
-                                deleteReason={msg.deleteReason}
-                                media={msg.media}
-                                replyTo={msg.replyTo}
-                                replyContext={resolvedReplyContext}
-                                editedAt={msg.editedAt}
-                                reactions={msg.reactions}
-                                activeDomain={currentDomain}
-                                showHeader={showHeader}
-                                isAdmin={isAdmin}
-                                onReact={reactToMessage}
-                                onReply={(messageId) => {
-                                    const target = messages.find((m) => m.id === messageId);
-                                    if (target) setReplyTarget({ id: target.id, sender: target.sender, content: target.content });
-                                }}
-                                onEdit={(messageId) => {
-                                    setEditingMessageId(messageId);
-                                }}
-                                isEditing={editingMessageId === msg.id}
-                                onEditSave={(messageId, newContent) => {
-                                    editMessage(messageId, newContent);
-                                    setEditingMessageId(null);
-                                }}
-                                onEditCancel={() => setEditingMessageId(null)}
-                                onAdminDelete={(messageId) => {
-                                    const target = messages.find((m) => m.id === messageId);
-                                    if (target) setDeleteModal({ messageId, senderDomain: target.sender });
-                                }}
-                                onAdminBan={(domain) => setBanModal({ domain })}
-                                onShowProfile={(domain, rect) => setProfilePopout({ domain, anchorRect: rect })}
-                                chatToken={token}
-                            />
-                            );
-                        })}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Typing indicator */}
-                    {filteredTyping.length > 0 && (
-                        <div
-                            className="text-xs uppercase tracking-wide px-7 py-1.5"
-                            aria-live="polite"
-                            style={{
-                                color: "var(--fg-3, #888)",
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "10px",
-                                letterSpacing: "0.08em",
-                            }}
-                        >
-                            {filteredTyping.length === 1
-                                ? `${filteredTyping[0]} is typing…`
-                                : `${filteredTyping.join(", ")} are typing…`}
-                        </div>
-                    )}
-
-                    {/* Message input */}
-                    <MessageInput
-                        onSend={(content, media) => {
-                            const mediaAttachment = media ? {
-                                type: media.type,
-                                url: media.url,
-                                thumbnailUrl: media.preview,
-                                width: media.width,
-                                height: media.height,
-                                alt: media.title,
-                                ...(media.type === "gif" ? { provider: "KLIPY" as const } : {}),
-                            } : undefined;
-                            sendMessage(content, mediaAttachment, replyTarget?.id);
-                            setReplyTarget(null);
-                        }}
-                        onTyping={sendTyping}
+                    <ChatMessagePanel
+                        messages={messages}
+                        activeDomain={currentDomain}
+                        isConnected={isConnected}
+                        isLoading={isLoading}
+                        hasMore={hasMore}
+                        loadMore={loadMore}
+                        sendMessage={sendMessage}
+                        sendTyping={sendTyping}
+                        reactToMessage={reactToMessage}
+                        editMessage={editMessage}
+                        typingUsers={filteredTyping}
                         disabled={!isConnected || !!banInfo}
-                        replyTarget={replyTarget}
-                        onCancelReply={() => setReplyTarget(null)}
+                        isAdmin={isAdmin}
                         token={token}
                         gifEnabled
                         onImageUpload={onPinImage ? async (file) => {
@@ -784,6 +627,9 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                             return result;
                         } : undefined}
                         mentionCandidates={mentionCandidates}
+                        onAdminDelete={(messageId, senderDomain) => setDeleteModal({ messageId, senderDomain })}
+                        onAdminBan={(domain) => setBanModal({ domain })}
+                        onShowProfile={(domain, rect) => setProfilePopout({ domain, anchorRect: rect })}
                     />
                 </div>
             )}
