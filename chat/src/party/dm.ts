@@ -282,6 +282,13 @@ export default class DMRoom implements Server {
         }
     }
 
+    // Health check for uptime monitoring (no auth required)
+    onRequest(): Response {
+        return new Response(JSON.stringify({ status: "ok", party: "dm", room: this.room.id }), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
     onClose(conn: Connection) {
         const domain = this.getDomain(conn);
         if (!domain) return;

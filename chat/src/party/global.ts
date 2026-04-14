@@ -632,6 +632,13 @@ export default class GlobalRoom implements Server {
     }
   }
 
+  // Health check for uptime monitoring (no auth required)
+  onRequest(): Response {
+    return new Response(JSON.stringify({ status: "ok", party: "global", connections: [...this.room.getConnections()].length }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   onClose(conn: Connection) {
     const domain = this.getDomain(conn);
     this.msgRateMap.delete(conn.id);
