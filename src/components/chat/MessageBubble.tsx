@@ -280,7 +280,7 @@ function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (me
                 padding: "2px 4px",
                 position: "absolute",
                 bottom: "-22px",
-                right: 0,
+                left: 0,
                 zIndex: 40,
                 boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
             }}
@@ -321,7 +321,7 @@ function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (me
                     <SmilePlus size={14} style={{ color: "var(--fg-3, #888)" }} />
                 </button>
                 {showPicker && (
-                    <div style={{ position: "absolute", bottom: "28px", right: 0, zIndex: 50 }}>
+                    <div style={{ position: "absolute", bottom: "28px", left: 0, zIndex: 50 }}>
                         <Suspense fallback={<div style={{ width: 350, height: 400, background: "var(--bg-1, #111)", border: "1px solid var(--border-2, #333)" }} />}>
                             <EmojiPicker
                                 onEmojiClick={(emojiData) => {
@@ -563,7 +563,7 @@ function MessageActions({
                     style={{
                         position: "absolute",
                         top: "100%",
-                        right: 0,
+                        ...(isOwn ? { right: 0 } : { left: 0 }),
                         zIndex: 50,
                         minWidth: "160px",
                         background: "var(--bg-1, #111)",
