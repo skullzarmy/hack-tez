@@ -292,8 +292,10 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                                 }
                                 return { ...m, reactions: [...existing, { emoji: reactEmoji, count: 1, domains: [reactDomain] }] };
                             } else {
+                                // Idempotent: only decrement if domain is still present
                                 const updated = existing.map((r) => {
                                     if (r.emoji !== reactEmoji) return r;
+                                    if (!r.domains.includes(reactDomain)) return r;
                                     return { ...r, count: r.count - 1, domains: r.domains.filter((d) => d !== reactDomain) };
                                 }).filter((r) => r.count > 0);
                                 return { ...m, reactions: updated.length > 0 ? updated : undefined };
@@ -386,6 +388,36 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     }, []);
 
     const reactToMessage = useCallback((messageId: string, emoji: string) => {
+        const domain = currentDomainRef.current;
+
+        // Optimistic update — apply locally before round-trip
+        setMessages((prev) =>
+            prev.map((m) => {
+                if (m.id !== messageId) return m;
+                const existing = m.reactions ?? [];
+                const idx = existing.findIndex((r) => r.emoji === emoji);
+                const alreadyReacted = idx >= 0 && existing[idx].domains.includes(domain);
+
+                if (alreadyReacted) {
+                    // Remove own reaction
+                    const updated = existing.map((r) => {
+                        if (r.emoji !== emoji) return r;
+                        return { ...r, count: r.count - 1, domains: r.domains.filter((d) => d !== domain) };
+                    }).filter((r) => r.count > 0);
+                    return { ...m, reactions: updated.length > 0 ? updated : undefined };
+                } else if (idx >= 0) {
+                    // Add to existing emoji
+                    const updated = [...existing];
+                    const entry = updated[idx];
+                    updated[idx] = { ...entry, count: entry.count + 1, domains: [...entry.domains, domain] };
+                    return { ...m, reactions: updated };
+                } else {
+                    // New emoji
+                    return { ...m, reactions: [...existing, { emoji, count: 1, domains: [domain] }] };
+                }
+            }),
+        );
+
         wsRef.current?.send(JSON.stringify({ type: "react", messageId, emoji }));
     }, []);
 
