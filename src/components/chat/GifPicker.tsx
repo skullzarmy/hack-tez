@@ -108,7 +108,7 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
                 left: 0,
                 right: 0,
                 marginBottom: "4px",
-                maxHeight: "min(360px, 60vh)",
+                maxHeight: "min(340px, 50vh)",
                 display: "flex",
                 flexDirection: "column",
                 background: "var(--bg-1, #111)",
@@ -162,7 +162,7 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
                     flex: 1,
                     overflowY: "auto",
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(min(120px, 40vw), 1fr))",
+                    gridTemplateColumns: "repeat(2, 1fr)",
                     gap: "4px",
                     padding: "4px",
                 }}
@@ -181,10 +181,10 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
                         style={{
                             padding: 0,
                             border: "1px solid transparent",
-                            background: "transparent",
+                            background: "var(--bg-2, #0a0a0a)",
                             cursor: "pointer",
                             overflow: "hidden",
-                            aspectRatio: "1",
+                            height: "100px",
                         }}
                         aria-label={gif.title || "GIF"}
                     >
