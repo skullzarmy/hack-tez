@@ -3,10 +3,13 @@ import { Send, X, ImageIcon, Paperclip, Loader2 } from "lucide-react";
 import GifPicker from "./GifPicker";
 import ChatAvatar from "./ChatAvatar";
 
+import type { MediaAttachment } from "../../types/chat";
+
 interface ReplyTarget {
     id: string;
     sender: string;
     content: string | null;
+    media?: MediaAttachment;
 }
 
 interface PendingMedia {
@@ -416,12 +419,27 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                         color: "var(--fg-3, #888)",
                     }}
                 >
-                    <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        <span style={{ fontWeight: 600, marginRight: "6px", color: "var(--fg-2, rgba(255,255,255,0.6))" }}>
+                    <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+                        {replyTarget.media && (replyTarget.media.thumbnailUrl || replyTarget.media.url) && (
+                            <img
+                                src={replyTarget.media.thumbnailUrl ?? replyTarget.media.url}
+                                alt="media"
+                                style={{
+                                    width: "20px",
+                                    height: "20px",
+                                    objectFit: "cover",
+                                    borderRadius: "3px",
+                                    flexShrink: 0,
+                                }}
+                            />
+                        )}
+                        <span style={{ fontWeight: 600, color: "var(--fg-2, rgba(255,255,255,0.6))", flexShrink: 0 }}>
                             {replyTarget.sender}
                         </span>
-                        {(replyTarget.content ?? "").slice(0, 80)}
-                        {(replyTarget.content?.length ?? 0) > 80 ? "…" : ""}
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {(replyTarget.content ?? "").slice(0, 80) || (replyTarget.media ? "GIF" : "")}
+                            {(replyTarget.content?.length ?? 0) > 80 ? "…" : ""}
+                        </span>
                     </div>
                     <button
                         type="button"

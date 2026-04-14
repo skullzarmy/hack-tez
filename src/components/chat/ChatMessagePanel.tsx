@@ -62,7 +62,7 @@ export default function ChatMessagePanel({
     const shouldAutoScrollRef = useRef(true);
     const isInitialLoadRef = useRef(true);
 
-    const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string | null } | null>(null);
+    const [replyTarget, setReplyTarget] = useState<{ id: string; sender: string; content: string | null; media?: MediaAttachment } | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
     const handleScroll = useCallback(() => {
@@ -144,7 +144,7 @@ export default function ChatMessagePanel({
                     const resolvedReplyContext = msg.replyTo
                         ? msg.replyContext ?? (() => {
                             const ref = messages.find((m) => m.id === msg.replyTo);
-                            return ref ? { id: ref.id, sender: ref.sender, content: ref.content, deleted: ref.deleted } : undefined;
+                            return ref ? { id: ref.id, sender: ref.sender, content: ref.content, deleted: ref.deleted, media: ref.media } : undefined;
                         })()
                         : undefined;
                     return (
@@ -169,7 +169,7 @@ export default function ChatMessagePanel({
                             onReact={reactToMessage}
                             onReply={(messageId) => {
                                 const target = messages.find((m) => m.id === messageId);
-                                if (target) setReplyTarget({ id: target.id, sender: target.sender, content: target.content });
+                                if (target) setReplyTarget({ id: target.id, sender: target.sender, content: target.content, media: target.media });
                             }}
                             onEdit={(messageId) => {
                                 setEditingMessageId(messageId);

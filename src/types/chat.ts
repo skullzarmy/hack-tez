@@ -24,7 +24,7 @@ export interface ChatMessage {
     deleteReason?: string;
     media?: MediaAttachment;
     replyTo?: string;
-    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean };
+    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean; media?: MediaAttachment };
     editedAt?: string;
     reactions?: ReactionCount[];
 }

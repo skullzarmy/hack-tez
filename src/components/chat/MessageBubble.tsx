@@ -21,7 +21,7 @@ interface MessageBubbleProps {
     deleteReason?: string;
     media?: MediaAttachment;
     replyTo?: string;
-    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean };
+    replyContext?: { id: string; sender: string; content: string | null; deleted?: boolean; media?: MediaAttachment };
     editedAt?: string;
     reactions?: ReactionCount[];
     activeDomain?: string;
@@ -550,10 +550,11 @@ function ReactionPills({
     );
 }
 
-function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: string; content: string | null; deleted?: boolean } }) {
+function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: string; content: string | null; deleted?: boolean; media?: MediaAttachment } }) {
     const truncated = replyContext.deleted
         ? "[deleted]"
         : (replyContext.content ?? "").slice(0, 100) + ((replyContext.content?.length ?? 0) > 100 ? "…" : "");
+    const previewUrl = replyContext.media?.thumbnailUrl ?? replyContext.media?.url;
     return (
         <div
             style={{
@@ -567,10 +568,28 @@ function ReplyPreview({ replyContext }: { replyContext: { id: string; sender: st
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
             }}
         >
-            <span style={{ fontWeight: 600, marginRight: "6px" }}>{replyContext.sender}</span>
-            {truncated}
+            {previewUrl && (
+                <img
+                    src={previewUrl}
+                    alt="media"
+                    style={{
+                        width: "20px",
+                        height: "20px",
+                        objectFit: "cover",
+                        borderRadius: "3px",
+                        flexShrink: 0,
+                    }}
+                />
+            )}
+            <span style={{ fontWeight: 600, flexShrink: 0 }}>{replyContext.sender}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                {truncated || (previewUrl ? "GIF" : "")}
+            </span>
         </div>
     );
 }
