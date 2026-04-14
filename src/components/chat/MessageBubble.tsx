@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { useMemo, useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
-import { useFloating, offset, flip, shift, autoUpdate, type Placement } from "@floating-ui/react-dom";
+import { useFloating, offset, flip, shift, autoUpdate } from "@floating-ui/react-dom";
 import DOMPurify from "dompurify";
-import { MoreVertical, Trash2, Ban, Pencil, Reply, SmilePlus } from "lucide-react";
+import { MoreHorizontal, Trash2, Ban, Pencil, Reply, SmilePlus } from "lucide-react";
 import type { MediaAttachment, ReactionCount } from "../../types/chat";
 import { ipfsUriToGatewayUrl } from "../../lib/pin";
 import ChatAvatar from "./ChatAvatar";
@@ -255,101 +255,221 @@ function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "🚀", "👀"];
 
-function QuickReactBar({ messageId, onReact }: { messageId: string; onReact: (messageId: string, emoji: string) => void }) {
-    const [showPicker, setShowPicker] = useState(false);
-    const pickerRef = useRef<HTMLDivElement>(null);
-    const pickerBtnRef = useRef<HTMLButtonElement>(null);
+/** Unified toolbar: reply + emoji (+ overflow for edit/admin). Appears on hover/tap at bottom-right of every message. */
+function MessageToolbar({
+    id,
+    sender,
+    isOwn,
+    isAdmin,
+    onReact,
+    onReply,
+    onEdit,
+    onAdminDelete,
+    onAdminBan,
+}: {
+    id: string;
+    sender: string;
+    isOwn: boolean;
+    isAdmin?: boolean;
+    onReact?: (messageId: string, emoji: string) => void;
+    onReply?: (messageId: string) => void;
+    onEdit?: (messageId: string) => void;
+    onAdminDelete?: (messageId: string) => void;
+    onAdminBan?: (domain: string) => void;
+}) {
+    const [showEmoji, setShowEmoji] = useState(false);
+    const [showOverflow, setShowOverflow] = useState(false);
+    const emojiRef = useRef<HTMLDivElement>(null);
+    const emojiBtnRef = useRef<HTMLButtonElement>(null);
+    const overflowRef = useRef<HTMLDivElement>(null);
 
     const { refs: emojiRefs, floatingStyles: emojiStyles } = useFloating({
-        open: showPicker,
-        placement: "top-start",
-        middleware: [offset(4), flip({ fallbackPlacements: ["top-end", "bottom-start", "bottom-end"] }), shift({ padding: 8 })],
+        open: showEmoji,
+        placement: isOwn ? "top-end" : "top-start",
+        middleware: [offset(4), flip(), shift({ padding: 8 })],
         whileElementsMounted: autoUpdate,
-        elements: { reference: pickerBtnRef.current },
     });
 
+    const { refs: overflowRefs, floatingStyles: overflowStyles } = useFloating({
+        open: showOverflow,
+        placement: isOwn ? "top-end" : "top-start",
+        middleware: [offset(4), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+    });
+
+    // Close emoji picker on outside click
     useEffect(() => {
-        if (!showPicker) return;
+        if (!showEmoji) return;
         function handleClick(e: MouseEvent) {
-            if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-                setShowPicker(false);
-            }
+            if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) setShowEmoji(false);
         }
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
-    }, [showPicker]);
+    }, [showEmoji]);
+
+    // Close overflow menu on outside click
+    useEffect(() => {
+        if (!showOverflow) return;
+        function handleClick(e: MouseEvent) {
+            if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) setShowOverflow(false);
+        }
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [showOverflow]);
+
+    const hasOverflow = (isOwn && onEdit) || (isAdmin && (onAdminDelete || onAdminBan));
+    const hasAny = onReact || onReply || hasOverflow;
+    if (!hasAny) return null;
+
+    const iconBtnStyle: React.CSSProperties = {
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+        color: "var(--fg-3, #888)",
+        padding: "4px",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "3px",
+    };
 
     return (
         <div
             className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
             style={{
+                position: "absolute",
+                bottom: "-14px",
+                right: isOwn ? "4px" : undefined,
+                left: isOwn ? undefined : undefined,
+                zIndex: 40,
                 display: "inline-flex",
-                gap: "2px",
+                gap: "1px",
                 background: "var(--bg-1, #111)",
                 border: "1px solid var(--border-2, #333)",
-                padding: "2px 4px",
-                position: "absolute",
-                bottom: "-22px",
-                left: 0,
-                zIndex: 40,
+                padding: "2px",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                borderRadius: "4px",
             }}
         >
-            {QUICK_REACTIONS.map((emoji) => (
+            {/* Reply */}
+            {onReply && (
                 <button
-                    key={emoji}
                     type="button"
-                    onClick={(e) => { onReact(messageId, emoji); (e.currentTarget as HTMLButtonElement).blur(); }}
-                    style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        padding: "2px 3px",
-                        lineHeight: 1,
-                    }}
-                    aria-label={`React with ${emoji}`}
+                    onClick={() => onReply(id)}
+                    style={iconBtnStyle}
+                    aria-label="Reply"
+                    title="Reply"
                 >
-                    {emoji}
+                    <Reply size={14} />
                 </button>
-            ))}
-            <div ref={pickerRef} style={{ position: "relative", display: "inline-flex" }}>
-                <button
-                    ref={(el) => { pickerBtnRef.current = el; emojiRefs.setReference(el); }}
-                    type="button"
-                    onClick={() => setShowPicker((v) => !v)}
-                    style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "2px 3px",
-                        lineHeight: 1,
-                        display: "inline-flex",
-                        alignItems: "center",
-                    }}
-                    aria-label="More reactions"
-                >
-                    <SmilePlus size={14} style={{ color: "var(--fg-3, #888)" }} />
-                </button>
-                {showPicker && (
-                    <div ref={emojiRefs.setFloating} style={{ ...emojiStyles, zIndex: 50 }}>
-                        <Suspense fallback={<div style={{ width: 350, height: 400, background: "var(--bg-1, #111)", border: "1px solid var(--border-2, #333)" }} />}>
-                            <EmojiPicker
-                                onEmojiClick={(emojiData) => {
-                                    onReact(messageId, emojiData.emoji);
-                                    setShowPicker(false);
-                                }}
-                                theme={"dark" as import("emoji-picker-react").Theme}
-                                width={350}
-                                height={400}
-                                searchPlaceholder="Search emoji…"
-                                previewConfig={{ showPreview: false }}
-                                lazyLoadEmojis
-                            />
-                        </Suspense>
-                    </div>
-                )}
-            </div>
+            )}
+
+            {/* Emoji react — quick reactions + full picker */}
+            {onReact && (
+                <div ref={emojiRef} style={{ display: "inline-flex" }}>
+                    <button
+                        ref={(el) => { emojiBtnRef.current = el; emojiRefs.setReference(el); }}
+                        type="button"
+                        onClick={() => { setShowEmoji((v) => !v); setShowOverflow(false); }}
+                        style={iconBtnStyle}
+                        aria-label="React"
+                        title="React"
+                    >
+                        <SmilePlus size={14} />
+                    </button>
+                    {showEmoji && (
+                        <div ref={emojiRefs.setFloating} style={{ ...emojiStyles, zIndex: 50 }}>
+                            <div style={{
+                                background: "var(--bg-1, #111)",
+                                border: "1px solid var(--border-2, #333)",
+                                borderRadius: "6px",
+                                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                                overflow: "hidden",
+                            }}>
+                                {/* Quick reactions row */}
+                                <div style={{ display: "flex", gap: "2px", padding: "6px 8px", borderBottom: "1px solid var(--border-2, #333)" }}>
+                                    {QUICK_REACTIONS.map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => { onReact(id, emoji); setShowEmoji(false); }}
+                                            style={{
+                                                background: "transparent",
+                                                border: "none",
+                                                cursor: "pointer",
+                                                fontSize: "18px",
+                                                padding: "4px 5px",
+                                                lineHeight: 1,
+                                                borderRadius: "4px",
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                                            aria-label={`React with ${emoji}`}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                                {/* Full emoji picker */}
+                                <Suspense fallback={<div style={{ width: 350, height: 400, background: "var(--bg-1, #111)" }} />}>
+                                    <EmojiPicker
+                                        onEmojiClick={(emojiData) => {
+                                            onReact(id, emojiData.emoji);
+                                            setShowEmoji(false);
+                                        }}
+                                        theme={"dark" as import("emoji-picker-react").Theme}
+                                        width={350}
+                                        height={400}
+                                        searchPlaceholder="Search emoji…"
+                                        previewConfig={{ showPreview: false }}
+                                        lazyLoadEmojis
+                                    />
+                                </Suspense>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Overflow: edit / admin actions */}
+            {hasOverflow && (
+                <div ref={overflowRef} style={{ display: "inline-flex" }}>
+                    <button
+                        ref={overflowRefs.setReference}
+                        type="button"
+                        onClick={() => { setShowOverflow((v) => !v); setShowEmoji(false); }}
+                        style={iconBtnStyle}
+                        aria-label="More actions"
+                        title="More"
+                    >
+                        <MoreHorizontal size={14} />
+                    </button>
+                    {showOverflow && (
+                        <div
+                            ref={overflowRefs.setFloating}
+                            style={{
+                                ...overflowStyles,
+                                zIndex: 50,
+                                minWidth: "140px",
+                                background: "var(--bg-1, #111)",
+                                border: "1px solid var(--border-2, #333)",
+                                borderRadius: "4px",
+                                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                            }}
+                        >
+                            {isOwn && onEdit && (
+                                <ActionButton icon={<Pencil size={13} />} label="Edit" onClick={() => { setShowOverflow(false); onEdit(id); }} />
+                            )}
+                            {isAdmin && onAdminDelete && (
+                                <ActionButton icon={<Trash2 size={13} />} label="Delete" color="#ff6b6b" onClick={() => { setShowOverflow(false); onAdminDelete(id); }} />
+                            )}
+                            {isAdmin && onAdminBan && (
+                                <ActionButton icon={<Ban size={13} />} label="Ban user" color="#ff6b6b" onClick={() => { setShowOverflow(false); onAdminBan(sender); }} />
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -514,99 +634,6 @@ function MediaRenderer({ media }: { media: MediaAttachment }) {
     );
 }
 
-function MessageActions({
-    id,
-    sender,
-    isOwn,
-    isAdmin,
-    onReact,
-    onReply,
-    onEdit,
-    onAdminDelete,
-    onAdminBan,
-}: {
-    id: string;
-    sender: string;
-    isOwn: boolean;
-    isAdmin?: boolean;
-    onReact?: (messageId: string, emoji: string) => void;
-    onReply?: (messageId: string) => void;
-    onEdit?: (messageId: string) => void;
-    onAdminDelete?: (messageId: string) => void;
-    onAdminBan?: (domain: string) => void;
-}) {
-    const [showMenu, setShowMenu] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-
-    const preferred: Placement = isOwn ? "bottom-end" : "bottom-start";
-    const { refs, floatingStyles } = useFloating({
-        open: showMenu,
-        placement: preferred,
-        middleware: [offset(4), flip(), shift({ padding: 8 })],
-        whileElementsMounted: autoUpdate,
-    });
-
-    useEffect(() => {
-        if (!showMenu) return;
-        function handleClick(e: MouseEvent) {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
-        }
-        document.addEventListener("mousedown", handleClick);
-        return () => document.removeEventListener("mousedown", handleClick);
-    }, [showMenu]);
-
-    const hasActions = onReact || onReply || (isOwn && onEdit) || (isAdmin && (onAdminDelete || onAdminBan));
-    if (!hasActions) return null;
-
-    return (
-        <div ref={menuRef} style={{ display: "inline-flex" }}>
-            <button
-                ref={refs.setReference}
-                type="button"
-                onClick={() => setShowMenu((o) => !o)}
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
-                style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--fg-3, #888)",
-                    padding: "2px",
-                    display: "flex",
-                    alignItems: "center",
-                }}
-                aria-label="Message actions"
-            >
-                <MoreVertical size={14} />
-            </button>
-            {showMenu && (
-                <div
-                    ref={refs.setFloating}
-                    style={{
-                        ...floatingStyles,
-                        zIndex: 50,
-                        minWidth: "160px",
-                        background: "var(--bg-1, #111)",
-                        border: "1px solid var(--border-2, #333)",
-                        boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                    }}
-                >
-                    {onReply && (
-                        <ActionButton icon={<Reply size={13} />} label="Reply" onClick={() => { setShowMenu(false); onReply(id); }} />
-                    )}
-                    {isOwn && onEdit && (
-                        <ActionButton icon={<Pencil size={13} />} label="Edit" onClick={() => { setShowMenu(false); onEdit(id); }} />
-                    )}
-                    {isAdmin && onAdminDelete && (
-                        <ActionButton icon={<Trash2 size={13} />} label="Delete message" color="#ff6b6b" onClick={() => { setShowMenu(false); onAdminDelete(id); }} />
-                    )}
-                    {isAdmin && onAdminBan && (
-                        <ActionButton icon={<Ban size={13} />} label="Ban user" color="#ff6b6b" onClick={() => { setShowMenu(false); onAdminBan(sender); }} />
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
 
 function ActionButton({ icon, label, color, onClick }: { icon: ReactNode; label: string; color?: string; onClick: () => void }) {
     const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
@@ -790,28 +817,17 @@ export default function MessageBubble({
             >
 
                 {showHeader && (
-                    <div className="flex items-center gap-2">
-                        <span
-                            className="text-xs font-bold uppercase tracking-widest px-1"
-                            style={{
-                                color: "var(--accent, #00ffc8)",
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "10px",
-                                letterSpacing: "0.12em",
-                            }}
-                        >
-                            {sender}
-                        </span>
-                        <MessageActions
-                            id={id}
-                            sender={sender}
-                            isOwn={isOwn}
-                            isAdmin={isAdmin}
-                            onEdit={onEdit}
-                            onAdminDelete={onAdminDelete}
-                            onAdminBan={onAdminBan}
-                        />
-                    </div>
+                    <span
+                        className="text-xs font-bold uppercase tracking-widest px-1"
+                        style={{
+                            color: "var(--accent, #00ffc8)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "10px",
+                            letterSpacing: "0.12em",
+                        }}
+                    >
+                        {sender}
+                    </span>
                 )}
 
                 {replyContext && <ReplyPreview replyContext={replyContext} />}
@@ -838,6 +854,17 @@ export default function MessageBubble({
                         {reactions && reactions.length > 0 && (
                             <ReactionPills reactions={reactions} messageId={id} activeDomain={activeDomain} onReact={onReact} />
                         )}
+                        <MessageToolbar
+                            id={id}
+                            sender={sender}
+                            isOwn={isOwn}
+                            isAdmin={isAdmin}
+                            onReact={onReact}
+                            onReply={onReply}
+                            onEdit={onEdit}
+                            onAdminDelete={onAdminDelete}
+                            onAdminBan={onAdminBan}
+                        />
                     </div>
                 )}
 
@@ -860,17 +887,6 @@ export default function MessageBubble({
                         >
                             (edited)
                         </span>
-                    )}
-                    {!showHeader && (
-                        <MessageActions
-                            id={id}
-                            sender={sender}
-                            isOwn={isOwn}
-                            isAdmin={isAdmin}
-                            onEdit={onEdit}
-                            onAdminDelete={onAdminDelete}
-                            onAdminBan={onAdminBan}
-                        />
                     )}
                 </div>
             </div>
@@ -903,36 +919,24 @@ export default function MessageBubble({
             {/* Content column */}
             <div className="flex flex-col gap-1" style={{ flex: "1 1 0", minWidth: 0 }}>
                 {showHeader && (
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={(e) => onShowProfile?.(sender, e.currentTarget.getBoundingClientRect())}
-                            className="text-xs font-bold uppercase tracking-widest"
-                            style={{
-                                color: "var(--fg-2, rgba(255,255,255,0.6))",
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "10px",
-                                letterSpacing: "0.12em",
-                                background: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                                padding: 0,
-                            }}
-                        >
-                            {sender}
-                        </button>
-                        <MessageActions
-                            id={id}
-                            sender={sender}
-                            isOwn={isOwn}
-                            isAdmin={isAdmin}
-                            onReact={onReact}
-                            onReply={onReply}
-                            onEdit={onEdit}
-                            onAdminDelete={onAdminDelete}
-                            onAdminBan={onAdminBan}
-                        />
-                    </div>
+                    <button
+                        type="button"
+                        onClick={(e) => onShowProfile?.(sender, e.currentTarget.getBoundingClientRect())}
+                        className="text-xs font-bold uppercase tracking-widest"
+                        style={{
+                            color: "var(--fg-2, rgba(255,255,255,0.6))",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "10px",
+                            letterSpacing: "0.12em",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 0,
+                            textAlign: "left",
+                        }}
+                    >
+                        {sender}
+                    </button>
                 )}
 
                 {replyContext && <ReplyPreview replyContext={replyContext} />}
@@ -952,7 +956,17 @@ export default function MessageBubble({
                     {reactions && reactions.length > 0 && (
                         <ReactionPills reactions={reactions} messageId={id} activeDomain={activeDomain} onReact={onReact} />
                     )}
-                    {onReact && <QuickReactBar messageId={id} onReact={onReact} />}
+                    <MessageToolbar
+                        id={id}
+                        sender={sender}
+                        isOwn={isOwn}
+                        isAdmin={isAdmin}
+                        onReact={onReact}
+                        onReply={onReply}
+                        onEdit={onEdit}
+                        onAdminDelete={onAdminDelete}
+                        onAdminBan={onAdminBan}
+                    />
                 </div>
 
                 {chatToken && contentUrls.map((u) => (
@@ -974,19 +988,6 @@ export default function MessageBubble({
                         >
                             (edited)
                         </span>
-                    )}
-                    {!showHeader && (
-                        <MessageActions
-                            id={id}
-                            sender={sender}
-                            isOwn={isOwn}
-                            isAdmin={isAdmin}
-                            onReact={onReact}
-                            onReply={onReply}
-                            onEdit={onEdit}
-                            onAdminDelete={onAdminDelete}
-                            onAdminBan={onAdminBan}
-                        />
                     )}
                 </div>
             </div>
