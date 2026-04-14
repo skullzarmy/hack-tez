@@ -261,6 +261,7 @@ function MessageToolbar({
     sender,
     isOwn,
     isAdmin,
+    anchorRef,
     onReact,
     onReply,
     onEdit,
@@ -271,6 +272,7 @@ function MessageToolbar({
     sender: string;
     isOwn: boolean;
     isAdmin?: boolean;
+    anchorRef: React.RefObject<HTMLDivElement | null>;
     onReact?: (messageId: string, emoji: string) => void;
     onReply?: (messageId: string) => void;
     onEdit?: (messageId: string) => void;
@@ -282,6 +284,15 @@ function MessageToolbar({
     const emojiRef = useRef<HTMLDivElement>(null);
     const emojiBtnRef = useRef<HTMLButtonElement>(null);
     const overflowRef = useRef<HTMLDivElement>(null);
+
+    // Position the toolbar itself below the message content
+    const { refs: toolbarRefs, floatingStyles: toolbarStyles } = useFloating({
+        open: true,
+        placement: isOwn ? "bottom-end" : "bottom-start",
+        middleware: [offset(2), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+        elements: { reference: anchorRef.current },
+    });
 
     const { refs: emojiRefs, floatingStyles: emojiStyles } = useFloating({
         open: showEmoji,
@@ -335,12 +346,10 @@ function MessageToolbar({
 
     return (
         <div
+            ref={toolbarRefs.setFloating}
             className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
             style={{
-                position: "absolute",
-                bottom: "-14px",
-                right: isOwn ? "4px" : undefined,
-                left: isOwn ? undefined : undefined,
+                ...toolbarStyles,
                 zIndex: 40,
                 display: "inline-flex",
                 gap: "1px",
@@ -474,6 +483,77 @@ function MessageToolbar({
     );
 }
 
+function ReactionPill({
+    reaction,
+    messageId,
+    isMine,
+    onReact,
+}: {
+    reaction: ReactionCount;
+    messageId: string;
+    isMine: boolean;
+    onReact?: (messageId: string, emoji: string) => void;
+}) {
+    const [hovered, setHovered] = useState(false);
+    const { refs, floatingStyles } = useFloating({
+        open: hovered,
+        placement: "top",
+        middleware: [offset(4), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+    });
+
+    return (
+        <div style={{ display: "inline-flex" }}>
+            <button
+                ref={refs.setReference}
+                type="button"
+                onClick={() => onReact?.(messageId, reaction.emoji)}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "2px 6px",
+                    fontSize: "12px",
+                    background: isMine ? "rgba(0, 255, 200, 0.12)" : "rgba(255,255,255,0.05)",
+                    border: isMine ? "1px solid rgba(0, 255, 200, 0.3)" : "1px solid var(--border, rgba(255,255,255,0.1))",
+                    cursor: "pointer",
+                    color: "var(--fg-2, rgba(255,255,255,0.6))",
+                    fontFamily: "var(--font-mono)",
+                }}
+                aria-label={`${reaction.emoji} ${reaction.count} reaction${reaction.count !== 1 ? "s" : ""}`}
+            >
+                <span>{reaction.emoji}</span>
+                <span style={{ fontSize: "10px" }}>{reaction.count}</span>
+            </button>
+            {hovered && reaction.domains.length > 0 && (
+                <div
+                    ref={refs.setFloating}
+                    style={{
+                        ...floatingStyles,
+                        zIndex: 50,
+                        padding: "4px 8px",
+                        background: "var(--bg-1, #111)",
+                        border: "1px solid var(--border-2, #333)",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                        fontSize: "10px",
+                        fontFamily: "var(--font-mono)",
+                        color: "var(--fg-2, rgba(255,255,255,0.7))",
+                        whiteSpace: "nowrap",
+                        maxWidth: "200px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {reaction.domains.slice(0, 10).join(", ")}
+                    {reaction.domains.length > 10 && ` +${reaction.domains.length - 10}`}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ReactionPills({
     reactions,
     messageId,
@@ -485,67 +565,19 @@ function ReactionPills({
     activeDomain?: string;
     onReact?: (messageId: string, emoji: string) => void;
 }) {
-    const [hoveredEmoji, setHoveredEmoji] = useState<string | null>(null);
-
     if (reactions.length === 0) return null;
 
     return (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "1px" }}>
-            {reactions.map((r) => {
-                const isMine = activeDomain ? r.domains.includes(activeDomain) : false;
-                return (
-                    <div key={r.emoji} style={{ position: "relative", display: "inline-flex" }}>
-                        <button
-                            type="button"
-                            onClick={() => onReact?.(messageId, r.emoji)}
-                            onMouseEnter={() => setHoveredEmoji(r.emoji)}
-                            onMouseLeave={() => setHoveredEmoji(null)}
-                            style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                padding: "2px 6px",
-                                fontSize: "12px",
-                                background: isMine ? "rgba(0, 255, 200, 0.12)" : "rgba(255,255,255,0.05)",
-                                border: isMine ? "1px solid rgba(0, 255, 200, 0.3)" : "1px solid var(--border, rgba(255,255,255,0.1))",
-                                cursor: "pointer",
-                                color: "var(--fg-2, rgba(255,255,255,0.6))",
-                                fontFamily: "var(--font-mono)",
-                            }}
-                            aria-label={`${r.emoji} ${r.count} reaction${r.count !== 1 ? "s" : ""}`}
-                        >
-                            <span>{r.emoji}</span>
-                            <span style={{ fontSize: "10px" }}>{r.count}</span>
-                        </button>
-                        {hoveredEmoji === r.emoji && r.domains.length > 0 && (
-                            <div
-                                style={{
-                                    position: "absolute",
-                                    bottom: "100%",
-                                    left: "50%",
-                                    transform: "translateX(-50%)",
-                                    marginBottom: "4px",
-                                    padding: "4px 8px",
-                                    background: "var(--bg-1, #111)",
-                                    border: "1px solid var(--border-2, #333)",
-                                    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-                                    fontSize: "10px",
-                                    fontFamily: "var(--font-mono)",
-                                    color: "var(--fg-2, rgba(255,255,255,0.7))",
-                                    whiteSpace: "nowrap",
-                                    zIndex: 50,
-                                    maxWidth: "200px",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                }}
-                            >
-                                {r.domains.slice(0, 10).join(", ")}
-                                {r.domains.length > 10 && ` +${r.domains.length - 10}`}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
+            {reactions.map((r) => (
+                <ReactionPill
+                    key={r.emoji}
+                    reaction={r}
+                    messageId={messageId}
+                    isMine={activeDomain ? r.domains.includes(activeDomain) : false}
+                    onReact={onReact}
+                />
+            ))}
         </div>
     );
 }
@@ -826,6 +858,7 @@ export default function MessageBubble({
     const contentUrls = useMemo(() => content ? Array.from(new Set(content.match(URL_REGEX) ?? [])).slice(0, 3) : [], [content]);
     const relativeTime = useRelativeTime(timestamp);
     const senderLabel = useMemo(() => sender.split(".")[0], [sender]);
+    const contentRef = useRef<HTMLDivElement>(null);
 
     // Own messages: right-aligned, no avatar
     if (isOwn) {
@@ -862,9 +895,9 @@ export default function MessageBubble({
                     />
                 ) : (
                     <div
+                        ref={contentRef}
                         className="text-sm break-words"
                         style={{
-                            position: "relative",
                             padding: "6px 12px",
                             background: "rgba(0, 255, 200, 0.08)",
                             fontFamily: "var(--font)",
@@ -876,19 +909,20 @@ export default function MessageBubble({
                         {reactions && reactions.length > 0 && (
                             <ReactionPills reactions={reactions} messageId={id} activeDomain={activeDomain} onReact={onReact} />
                         )}
-                        <MessageToolbar
-                            id={id}
-                            sender={sender}
-                            isOwn={isOwn}
-                            isAdmin={isAdmin}
-                            onReact={onReact}
-                            onReply={onReply}
-                            onEdit={onEdit}
-                            onAdminDelete={onAdminDelete}
-                            onAdminBan={onAdminBan}
-                        />
                     </div>
                 )}
+                <MessageToolbar
+                    id={id}
+                    sender={sender}
+                    isOwn={isOwn}
+                    isAdmin={isAdmin}
+                    anchorRef={contentRef}
+                    onReact={onReact}
+                    onReply={onReply}
+                    onEdit={onEdit}
+                    onAdminDelete={onAdminDelete}
+                    onAdminBan={onAdminBan}
+                />
 
                 {chatToken && contentUrls.map((u) => (
                     <LinkPreview key={u} url={u} token={chatToken} />
@@ -964,9 +998,9 @@ export default function MessageBubble({
                 {replyContext && <ReplyPreview replyContext={replyContext} />}
 
                 <div
+                    ref={contentRef}
                     className="text-sm break-words"
                     style={{
-                        position: "relative",
                         padding: "6px 12px",
                         background: "var(--bg-2, #0a0a0a)",
                         fontFamily: "var(--font)",
@@ -978,18 +1012,19 @@ export default function MessageBubble({
                     {reactions && reactions.length > 0 && (
                         <ReactionPills reactions={reactions} messageId={id} activeDomain={activeDomain} onReact={onReact} />
                     )}
-                    <MessageToolbar
-                        id={id}
-                        sender={sender}
-                        isOwn={isOwn}
-                        isAdmin={isAdmin}
-                        onReact={onReact}
-                        onReply={onReply}
-                        onEdit={onEdit}
-                        onAdminDelete={onAdminDelete}
-                        onAdminBan={onAdminBan}
-                    />
                 </div>
+                <MessageToolbar
+                    id={id}
+                    sender={sender}
+                    isOwn={isOwn}
+                    isAdmin={isAdmin}
+                    anchorRef={contentRef}
+                    onReact={onReact}
+                    onReply={onReply}
+                    onEdit={onEdit}
+                    onAdminDelete={onAdminDelete}
+                    onAdminBan={onAdminBan}
+                />
 
                 {chatToken && contentUrls.map((u) => (
                     <LinkPreview key={u} url={u} token={chatToken} />

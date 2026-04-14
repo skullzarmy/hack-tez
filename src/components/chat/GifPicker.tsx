@@ -103,18 +103,12 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
             role="dialog"
             aria-label="GIF picker"
             style={{
-                position: "absolute",
-                bottom: "100%",
-                left: 0,
-                right: 0,
-                marginBottom: "4px",
                 maxHeight: "min(340px, 50vh)",
                 display: "flex",
                 flexDirection: "column",
                 background: "var(--bg-1, #111)",
                 border: "1px solid var(--border-2, #333)",
                 boxShadow: "0 -4px 24px rgba(0,0,0,0.5)",
-                zIndex: 60,
             }}
         >
             {/* Search bar */}

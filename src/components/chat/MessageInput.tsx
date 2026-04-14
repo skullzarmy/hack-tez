@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Send, X, ImageIcon, Paperclip, Loader2 } from "lucide-react";
+import { useFloating, offset, flip, shift, autoUpdate } from "@floating-ui/react-dom";
 import GifPicker from "./GifPicker";
 import ChatAvatar from "./ChatAvatar";
 import { ipfsUriToGatewayUrl } from "../../lib/pin";
@@ -48,6 +49,35 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isTypingRef = useRef(false);
+    const inputWrapperRef = useRef<HTMLDivElement>(null);
+
+    // Floating-ui: GIF picker above input
+    const { refs: gifRefs, floatingStyles: gifStyles } = useFloating({
+        open: showGifPicker,
+        placement: "top-start",
+        middleware: [offset(4), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+        elements: { reference: inputWrapperRef.current },
+    });
+
+    // Floating-ui: upload error above input
+    const { refs: errorRefs, floatingStyles: errorStyles } = useFloating({
+        open: !!uploadError,
+        placement: "top-start",
+        middleware: [offset(8), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+        elements: { reference: inputWrapperRef.current },
+    });
+
+    // Floating-ui: mention autocomplete above input
+    const showMentions = mentionQuery !== null && (mentionCandidates ?? []).filter((d) => d.toLowerCase().includes((mentionQuery ?? "").toLowerCase())).length > 0;
+    const { refs: mentionRefs, floatingStyles: mentionStyles } = useFloating({
+        open: showMentions,
+        placement: "top-start",
+        middleware: [offset(4), flip(), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+        elements: { reference: inputWrapperRef.current },
+    });
 
     // Auto-dismiss upload error after 4 seconds
     useEffect(() => {
@@ -237,22 +267,23 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
 
     return (
         <div
+            ref={inputWrapperRef}
             className="shrink-0 px-6 py-3"
             style={{
                 borderTop: "1px solid var(--border-2, #333)",
                 paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
-                position: "relative",
             }}
         >
             {/* GIF picker */}
             {showGifPicker && token && gifEnabled && (
-                <GifPicker
-                    token={token}
-                    onSelect={(gif) => {
-                        setShowGifPicker(false);
-                        setPendingMedia({
-                            type: "gif",
-                            url: gif.url,
+                <div ref={gifRefs.setFloating} style={{ ...gifStyles, zIndex: 60, left: 0, right: 0, width: "100%" }}>
+                    <GifPicker
+                        token={token}
+                        onSelect={(gif) => {
+                            setShowGifPicker(false);
+                            setPendingMedia({
+                                type: "gif",
+                                url: gif.url,
                             preview: gif.preview,
                             width: gif.width,
                             height: gif.height,
@@ -262,16 +293,16 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                     }}
                     onClose={() => setShowGifPicker(false)}
                 />
+                </div>
             )}
 
             {/* Upload error toast */}
             {uploadError && (
-                <div style={{
-                    position: "absolute",
-                    bottom: "100%",
+                <div ref={errorRefs.setFloating} style={{
+                    ...errorStyles,
+                    zIndex: 10,
                     left: "16px",
                     right: "16px",
-                    marginBottom: "8px",
                     padding: "8px 12px",
                     background: "rgba(255, 80, 80, 0.15)",
                     border: "1px solid rgba(255, 80, 80, 0.3)",
@@ -279,7 +310,6 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: "8px",
-                    zIndex: 10,
                 }}>
                     <span style={{ fontSize: "12px", color: "#ff6b6b", fontFamily: "var(--font-mono)" }}>{uploadError}</span>
                     <button
@@ -296,11 +326,12 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
             {/* Mention autocomplete dropdown */}
             {mentionQuery !== null && mentionMatches.length > 0 && (
                 <div
+                    ref={mentionRefs.setFloating}
                     role="listbox"
                     aria-label="Mention suggestions"
                     style={{
-                        position: "absolute",
-                        bottom: "100%",
+                        ...mentionStyles,
+                        zIndex: 20,
                         left: "24px",
                         right: "24px",
                         background: "var(--bg-1, #111)",
@@ -308,7 +339,6 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                         boxShadow: "0 -4px 16px rgba(0,0,0,0.5)",
                         maxHeight: "min(200px, 40vh)",
                         overflowY: "auto",
-                        zIndex: 20,
                     }}
                 >
                     {mentionMatches.map((domain, i) => (

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ExternalLink, MessageSquare, X, Loader2 } from "lucide-react";
+import { useFloating, offset, flip, shift, autoUpdate } from "@floating-ui/react-dom";
 import ChatAvatar from "./ChatAvatar";
 import type { HackProfile } from "../../types/profile";
 
@@ -24,6 +25,19 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
     const [error, setError] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     const label = domain.split(".")[0];
+
+    // Virtual reference element from the anchor rect
+    const virtualRef = useMemo(() => ({
+        getBoundingClientRect: () => anchorRect,
+    }), [anchorRect]);
+
+    const { refs, floatingStyles } = useFloating({
+        open: true,
+        placement: "bottom-start",
+        middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+        whileElementsMounted: autoUpdate,
+        elements: { reference: virtualRef },
+    });
 
     const fetchProfile = useCallback(async () => {
         const cached = profileCache.get(label);
@@ -71,21 +85,14 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
         return () => document.removeEventListener("keydown", handleKey);
     }, [onClose]);
 
-    // Position: anchor below the clicked element, constrain to viewport
-    const popoutWidth = Math.min(260, window.innerWidth - 16);
-    const top = Math.max(8, Math.min(anchorRect.bottom + 4, window.innerHeight - 320));
-    const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - popoutWidth - 8));
-
     return (
         <div
-            ref={ref}
+            ref={(el) => { (ref as React.MutableRefObject<HTMLDivElement | null>).current = el; refs.setFloating(el); }}
             role="dialog"
             aria-label={`Profile: ${domain}`}
             style={{
-                position: "fixed",
-                top: `${top}px`,
-                left: `${left}px`,
-                width: `${popoutWidth}px`,
+                ...floatingStyles,
+                width: "260px",
                 maxWidth: "calc(100vw - 16px)",
                 zIndex: 100,
                 background: "var(--bg-1, #111)",
