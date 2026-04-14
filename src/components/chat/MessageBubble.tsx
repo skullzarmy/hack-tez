@@ -620,7 +620,7 @@ function MediaRenderer({ media }: { media: MediaAttachment }) {
     const thumbnailUrl = media.thumbnailUrl ?? displayUrl;
 
     return (
-        <div style={{ marginTop: "4px", maxWidth: "min(320px, calc(100vw - 80px))" }}>
+        <div style={{ marginTop: "4px", maxWidth: "min(320px, calc(100vw - 80px))", overflow: "hidden" }}>
             <img
                 src={expanded ? displayUrl : thumbnailUrl}
                 alt={media.alt ?? (media.type === "gif" ? "GIF" : "Image")}
@@ -628,6 +628,7 @@ function MediaRenderer({ media }: { media: MediaAttachment }) {
                 onError={() => setLoadError(true)}
                 loading="lazy"
                 style={{
+                    width: "100%",
                     maxWidth: expanded ? "min(480px, calc(100vw - 40px))" : "min(320px, calc(100vw - 80px))",
                     maxHeight: expanded ? "480px" : "200px",
                     objectFit: "contain",
