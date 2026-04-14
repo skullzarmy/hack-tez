@@ -155,55 +155,55 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
                 </button>
             </div>
 
-            {/* Results grid */}
+            {/* Results — masonry via CSS columns (same pattern as Hackers/Dashboard) */}
             <div
                 onScroll={handleScroll}
                 style={{
                     flex: 1,
                     overflowY: "auto",
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, 1fr)",
-                    gap: "4px",
+                    columns: "120px auto",
+                    columnGap: "4px",
                     padding: "4px",
                 }}
             >
                 {results.map((gif) => (
-                    <button
-                        key={gif.id}
-                        type="button"
-                        onClick={() => onSelect({
-                            url: gif.url,
-                            preview: gif.preview,
-                            width: gif.width,
-                            height: gif.height,
-                            title: gif.title,
-                        })}
-                        style={{
-                            padding: 0,
-                            border: "1px solid transparent",
-                            background: "var(--bg-2, #0a0a0a)",
-                            cursor: "pointer",
-                            overflow: "hidden",
-                            height: "100px",
-                        }}
-                        aria-label={gif.title || "GIF"}
-                    >
-                        <img
-                            src={gif.preview}
-                            alt={gif.title || "GIF"}
-                            loading="lazy"
+                    <div key={gif.id} style={{ breakInside: "avoid", marginBottom: "4px" }}>
+                        <button
+                            type="button"
+                            onClick={() => onSelect({
+                                url: gif.url,
+                                preview: gif.preview,
+                                width: gif.width,
+                                height: gif.height,
+                                title: gif.title,
+                            })}
                             style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
+                                padding: 0,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                overflow: "hidden",
                                 display: "block",
+                                width: "100%",
                             }}
-                        />
-                    </button>
+                            aria-label={gif.title || "GIF"}
+                        >
+                            <img
+                                src={gif.preview}
+                                alt={gif.title || "GIF"}
+                                loading="lazy"
+                                style={{
+                                    width: "100%",
+                                    height: "auto",
+                                    display: "block",
+                                }}
+                            />
+                        </button>
+                    </div>
                 ))}
                 {loading && (
                     <div style={{
-                        gridColumn: "1 / -1",
+                        columnSpan: "all",
                         display: "flex",
                         justifyContent: "center",
                         padding: "16px",
@@ -214,7 +214,7 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
                 )}
                 {!loading && results.length === 0 && (
                     <div style={{
-                        gridColumn: "1 / -1",
+                        columnSpan: "all",
                         textAlign: "center",
                         padding: "24px",
                         color: "var(--fg-3, #888)",
