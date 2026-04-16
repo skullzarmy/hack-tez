@@ -121,6 +121,43 @@ export async function handleReaction(
   }
 }
 
+export async function handleDeleteMessage(
+  ctx: RoomContext,
+  sender: Connection,
+  domain: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const messageId = data.messageId as string;
+
+  if (!messageId) {
+    sendJson(sender, { type: "error", code: "INVALID_DATA", message: "messageId required" });
+    return;
+  }
+
+  try {
+    const resp = await ctx.workerFetch("/internal/self-delete-message", {
+      method: "POST",
+      body: JSON.stringify({ messageId, senderDomain: domain }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json() as { error: string };
+      sendJson(sender, { type: "error", code: "DELETE_FAILED", message: err.error });
+      return;
+    }
+
+    ctx.room.broadcast(JSON.stringify({
+      type: "message-deleted",
+      messageId,
+      deletedBy: domain,
+      selfDelete: true,
+    }));
+  } catch (err) {
+    console.error("Delete message error:", err);
+    sendJson(sender, { type: "error", code: "DELETE_FAILED", message: "Failed to delete message" });
+  }
+}
+
 export async function handleEditMessage(
   ctx: RoomContext,
   sender: Connection,

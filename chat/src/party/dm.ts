@@ -5,6 +5,7 @@ import {
   handleChatMessage as sharedHandleChatMessage,
   handleReaction as sharedHandleReaction,
   handleEditMessage as sharedHandleEditMessage,
+  handleDeleteMessage as sharedHandleDeleteMessage,
 } from "./shared.js";
 import type { MediaAttachment, RoomContext } from "./shared.js";
 
@@ -210,6 +211,9 @@ export default class DMRoom implements Server {
                 break;
             case "edit-message":
                 await this.handleEditMessage(sender, domain, parsed as Record<string, unknown>);
+                break;
+            case "delete-message":
+                await sharedHandleDeleteMessage(this.getRoomContext(), sender, domain, parsed as Record<string, unknown>);
                 break;
             case "typing":
                 this.handleTyping(sender, domain, parsed.active as boolean);

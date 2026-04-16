@@ -25,6 +25,7 @@ interface UseDMReturn {
     peerOnline: boolean;
     reactToMessage: (messageId: string, emoji: string) => void;
     editMessage: (messageId: string, content: string) => void;
+    deleteMessage: (messageId: string) => void;
 }
 
 export function useDM(config: UseDMConfig): UseDMReturn {
@@ -202,6 +203,24 @@ export function useDM(config: UseDMConfig): UseDMReturn {
                     ));
                     break;
                 }
+                case "message-deleted": {
+                    const messageId = data.messageId as string;
+                    const selfDelete = data.selfDelete as boolean | undefined;
+                    const deletedBy = data.deletedBy as string;
+                    if (selfDelete) {
+                        // Self-delete: remove from view
+                        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+                    } else {
+                        setMessages((prev) =>
+                            prev.map((m) =>
+                                m.id === messageId
+                                    ? { ...m, content: null, deleted: true, deletedBy, deleteReason: undefined }
+                                    : m
+                            ),
+                        );
+                    }
+                    break;
+                }
                 case "presence": {
                     const domain = data.domain as string;
                     const status = data.status as string;
@@ -292,6 +311,10 @@ export function useDM(config: UseDMConfig): UseDMReturn {
         wsRef.current.send(JSON.stringify({ type: "edit-message", messageId, content: content.trim() }));
     }, []);
 
+    const deleteMessage = useCallback((messageId: string) => {
+        wsRef.current?.send(JSON.stringify({ type: "delete-message", messageId }));
+    }, []);
+
     const sendTyping = useCallback((active: boolean) => {
         wsRef.current?.send(JSON.stringify({ type: "typing", active }));
     }, []);
@@ -320,5 +343,6 @@ export function useDM(config: UseDMConfig): UseDMReturn {
         peerOnline,
         reactToMessage,
         editMessage,
+        deleteMessage,
     };
 }

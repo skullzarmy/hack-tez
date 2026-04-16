@@ -53,6 +53,7 @@ export default function DMView({
         peerOnline,
         reactToMessage,
         editMessage,
+        deleteMessage,
     } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage });
 
     const prevPeerRef = useRef(peerDomain);
@@ -185,6 +186,7 @@ export default function DMView({
                 sendTyping={sendTyping}
                 reactToMessage={reactToMessage}
                 editMessage={editMessage}
+                deleteMessage={deleteMessage}
                 typingUsers={typingUsers}
                 emptyLabel="Start a conversation"
                 emptySubLabel={`with ${peerDomain}`}

@@ -30,6 +30,7 @@ interface MessageBubbleProps {
     isAdmin?: boolean;
     onAdminDelete?: (messageId: string) => void;
     onAdminBan?: (domain: string) => void;
+    onDelete?: (messageId: string) => void;
     onReact?: (messageId: string, emoji: string) => void;
     onReply?: (messageId: string) => void;
     onEdit?: (messageId: string) => void;
@@ -265,6 +266,7 @@ function MessageToolbar({
     onReact,
     onReply,
     onEdit,
+    onDelete,
     onAdminDelete,
     onAdminBan,
 }: {
@@ -276,6 +278,7 @@ function MessageToolbar({
     onReact?: (messageId: string, emoji: string) => void;
     onReply?: (messageId: string) => void;
     onEdit?: (messageId: string) => void;
+    onDelete?: (messageId: string) => void;
     onAdminDelete?: (messageId: string) => void;
     onAdminBan?: (domain: string) => void;
 }) {
@@ -328,7 +331,7 @@ function MessageToolbar({
         return () => document.removeEventListener("mousedown", handleClick);
     }, [showOverflow]);
 
-    const hasOverflow = (isOwn && onEdit) || (isAdmin && (onAdminDelete || onAdminBan));
+    const hasOverflow = (isOwn && (onEdit || onDelete)) || (isAdmin && (onAdminDelete || onAdminBan));
     const hasAny = onReact || onReply || hasOverflow;
     if (!hasAny) return null;
 
@@ -468,6 +471,9 @@ function MessageToolbar({
                         >
                             {isOwn && onEdit && (
                                 <ActionButton icon={<Pencil size={13} />} label="Edit" onClick={() => { setShowOverflow(false); onEdit(id); }} />
+                            )}
+                            {isOwn && onDelete && (
+                                <ActionButton icon={<Trash2 size={13} />} label="Delete" color="#ff6b6b" onClick={() => { setShowOverflow(false); onDelete(id); }} />
                             )}
                             {isAdmin && onAdminDelete && (
                                 <ActionButton icon={<Trash2 size={13} />} label="Delete" color="#ff6b6b" onClick={() => { setShowOverflow(false); onAdminDelete(id); }} />
@@ -828,6 +834,7 @@ export default function MessageBubble({
     isAdmin,
     onAdminDelete,
     onAdminBan,
+    onDelete,
     onReact,
     onReply,
     onEdit,
@@ -920,6 +927,7 @@ export default function MessageBubble({
                     onReact={onReact}
                     onReply={onReply}
                     onEdit={onEdit}
+                    onDelete={onDelete}
                     onAdminDelete={onAdminDelete}
                     onAdminBan={onAdminBan}
                 />
@@ -1022,6 +1030,7 @@ export default function MessageBubble({
                     onReact={onReact}
                     onReply={onReply}
                     onEdit={onEdit}
+                    onDelete={onDelete}
                     onAdminDelete={onAdminDelete}
                     onAdminBan={onAdminBan}
                 />

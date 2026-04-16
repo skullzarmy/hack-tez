@@ -142,6 +142,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         activeDomain: currentDomain,
         switchIdentity,
         editMessage,
+        deleteMessage,
         reactToMessage,
         adminDeleteMessage,
         adminBanUser,
@@ -617,6 +618,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                         sendTyping={sendTyping}
                         reactToMessage={reactToMessage}
                         editMessage={editMessage}
+                        deleteMessage={deleteMessage}
                         typingUsers={filteredTyping}
                         disabled={!isConnected || !!banInfo}
                         isAdmin={isAdmin}

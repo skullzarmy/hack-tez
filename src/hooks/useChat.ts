@@ -34,6 +34,7 @@ interface UseChatReturn {
     switchIdentity: (domain: string) => void;
     // Edit + react
     editMessage: (messageId: string, content: string) => void;
+    deleteMessage: (messageId: string) => void;
     reactToMessage: (messageId: string, emoji: string) => void;
     // Admin commands
     adminDeleteMessage: (messageId: string, reason: string, visible: boolean) => void;
@@ -214,14 +215,19 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                 // Moderation events
                 case "message-deleted": {
                     const messageId = data.messageId as string;
-                    const visible = data.visible as boolean;
+                    const selfDelete = data.selfDelete as boolean | undefined;
+                    const visible = data.visible as boolean | undefined;
                     const deletedBy = data.deletedBy as string;
-                    const reason = data.reason as string;
+                    const reason = data.reason as string | undefined;
                     setMessages((prev) =>
                         prev.map((m) => {
                             if (m.id !== messageId) return m;
-                            if (!visible) {
-                                // Hide entirely — mark so we can filter
+                            if (selfDelete) {
+                                // Self-delete: remove from view entirely
+                                return { ...m, content: null, deleted: true, deletedBy, _hidden: true } as ChatMessage & { _hidden: boolean };
+                            }
+                            if (visible === false) {
+                                // Admin invisible delete
                                 return { ...m, content: null, deleted: true, deletedBy, deleteReason: reason, _hidden: true } as ChatMessage & { _hidden: boolean };
                             }
                             return { ...m, content: null, deleted: true, deletedBy, deleteReason: reason };
@@ -353,9 +359,13 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         wsRef.current?.send(JSON.stringify({ type: "switch-identity", domain }));
     }, []);
 
-    // Edit + react
+    // Edit + delete + react
     const editMessage = useCallback((messageId: string, content: string) => {
         wsRef.current?.send(JSON.stringify({ type: "edit-message", messageId, content }));
+    }, []);
+
+    const deleteMessage = useCallback((messageId: string) => {
+        wsRef.current?.send(JSON.stringify({ type: "delete-message", messageId }));
     }, []);
 
     const reactToMessage = useCallback((messageId: string, emoji: string) => {
@@ -431,6 +441,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         activeDomain: currentDomain,
         switchIdentity,
         editMessage,
+        deleteMessage,
         reactToMessage,
         adminDeleteMessage,
         adminBanUser,

@@ -15,6 +15,7 @@ interface ChatMessagePanelProps {
     sendTyping: (active: boolean) => void;
     reactToMessage: (messageId: string, emoji: string) => void;
     editMessage: (messageId: string, content: string) => void;
+    deleteMessage?: (messageId: string) => void;
     typingUsers: string[];
     disabled?: boolean;
     emptyLabel?: string;
@@ -43,6 +44,7 @@ export default function ChatMessagePanel({
     sendTyping,
     reactToMessage,
     editMessage,
+    deleteMessage,
     typingUsers,
     disabled,
     emptyLabel = "No messages yet",
@@ -180,6 +182,7 @@ export default function ChatMessagePanel({
                                 setEditingMessageId(null);
                             }}
                             onEditCancel={() => setEditingMessageId(null)}
+                            onDelete={deleteMessage}
                             onAdminDelete={onAdminDelete ? (messageId) => {
                                 const target = messages.find((m) => m.id === messageId);
                                 if (target) onAdminDelete(messageId, target.sender);

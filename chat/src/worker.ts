@@ -1194,6 +1194,61 @@ async function handleInternalGetReplyContext(request: Request, env: Env): Promis
   }
 }
 
+// --- Internal self-delete endpoint (PartyKit → Worker, secured by shared secret) ---
+
+async function handleInternalSelfDeleteMessage(request: Request, env: Env): Promise<Response> {
+  if (!verifyInternalSecret(request, env)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  let body: unknown;
+  try { body = await request.json(); } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  const b = body as Record<string, unknown>;
+  const messageId = b.messageId as string;
+  const senderDomain = b.senderDomain as string;
+
+  if (!messageId || !senderDomain) {
+    return new Response("Missing fields", { status: 400 });
+  }
+
+  try {
+    const msg = await env.DB
+      .prepare("SELECT sender_domain FROM chat_messages WHERE id = ? AND deleted_at IS NULL")
+      .bind(messageId)
+      .first();
+
+    if (!msg) {
+      return new Response(JSON.stringify({ error: "Message not found or already deleted" }), {
+        status: 404, headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (msg.sender_domain !== senderDomain) {
+      return new Response(JSON.stringify({ error: "You can only delete your own messages" }), {
+        status: 403, headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const now = new Date().toISOString();
+    await env.DB
+      .prepare("UPDATE chat_messages SET deleted_at = ?, deleted_by = ?, delete_reason = ?, delete_visible = 0 WHERE id = ?")
+      .bind(now, senderDomain, "self-delete", messageId)
+      .run();
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Internal self-delete-message error:", err);
+    return new Response(JSON.stringify({ error: "Delete failed" }), {
+      status: 500, headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
 // --- Internal admin endpoints (PartyKit → Worker, secured by shared secret) ---
 
 async function handleInternalDeleteMessage(request: Request, env: Env): Promise<Response> {
@@ -1807,6 +1862,9 @@ export default {
       }
       if (path === "/internal/delete-message" && request.method === "POST") {
         return handleInternalDeleteMessage(request, env);
+      }
+      if (path === "/internal/self-delete-message" && request.method === "POST") {
+        return handleInternalSelfDeleteMessage(request, env);
       }
       if (path === "/internal/ban" && request.method === "POST") {
         return handleInternalBan(request, env);

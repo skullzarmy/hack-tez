@@ -6,6 +6,7 @@ import {
   handleChatMessage as sharedHandleChatMessage,
   handleReaction as sharedHandleReaction,
   handleEditMessage as sharedHandleEditMessage,
+  handleDeleteMessage as sharedHandleDeleteMessage,
 } from "./shared.js";
 import type { MediaAttachment, RoomContext } from "./shared.js";
 
@@ -342,6 +343,9 @@ export default class GlobalRoom implements Server {
           break;
         case "react":
           await this.handleReaction(sender, domain, parsed);
+          break;
+        case "delete-message":
+          await sharedHandleDeleteMessage(this.getRoomContext(), sender, domain, parsed);
           break;
 
         // Admin commands
