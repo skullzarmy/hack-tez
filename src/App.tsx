@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 /** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
 import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { TezosProvider, useTezos } from "./context/TezosContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
 import ConnectWallet from "./components/ConnectWallet";
@@ -20,7 +20,6 @@ const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"))
 const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
-const Dashboard = lazy(() => import("./components/Dashboard"));
 const Chat = lazy(() => import("./components/chat/ChatPage"));
 
 interface ErrorBoundaryState {
@@ -193,16 +192,6 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Chat
                                     </a>
                                     )}
-                                    {domain && (
-                                    <a
-                                        href="/manage"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Manage
-                                    </a>
-                                    )}
                                     <a
                                         href="/hackers"
                                         role="menuitem"
@@ -255,8 +244,11 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
 
 function ActivityLayer() {
     const location = useLocation();
+    const { domain, restoring } = useTezos();
     const { events, newEvents, isLoading } = useRecentActivity();
-    if (location.pathname === "/developers" || location.pathname === "/chat") return null;
+    // Only show on the landing page (unauthenticated homepage)
+    if (location.pathname !== "/") return null;
+    if (domain || restoring) return null;
     return (
         <>
             {/* Desktop: fixed side panel (lg+ only, hidden via CSS on smaller screens) */}
@@ -306,7 +298,7 @@ export function AppShell() {
                     <Route path="/skills/:slug" element={<Suspense fallback={null}><SkillDetail /></Suspense>} />
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
                     <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
-                    <Route path="/manage" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+                    <Route path="/manage" element={<Navigate to="/" replace />} />
                     <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />

@@ -28,7 +28,6 @@ export default function Manifesto() {
                     display: "flex",
                     flexDirection: "column",
                     gap: "1.5rem",
-                    maxWidth: "72ch",
                 }}
             >
                 <p>

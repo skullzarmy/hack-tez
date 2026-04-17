@@ -8,22 +8,21 @@ import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
 import PendingCommitsPanel from "../components/PendingCommitsPanel";
 import EligibilityPanel from "../components/EligibilityPanel";
-import ClaimedView from "../components/ClaimedView";
-import ClaimUsedView from "../components/ClaimUsedView";
+
 import { loadPendingCommits } from "../lib/commits";
 import { useSubdomains } from "../hooks/useSubdomains";
 import { useRegistrationCount } from "../hooks/useRegistrationCount";
 import type { SubdomainRecord } from "../lib/domains";
 import config from "../config/tezos";
 import ClaimHint from "../components/onboarding/ClaimHint";
-import ProfileArrowHint from "../components/onboarding/ProfileArrowHint";
+import HomeDashboard from "../components/HomeDashboard";
 
 const CircuitBackground = lazy(() =>
     import("../components/CircuitBackground").then((m) => ({ default: m.CircuitBackground })),
 );
 
 export default function Home() {
-    const { address } = useTezos();
+    const { address, domain, restoring, token } = useTezos();
     const contractConfig = useContractConfig();
     const waitDescription = formatDuration(contractConfig.minCommitAgeSec);
     const maxAgeDescription = formatDuration(contractConfig.maxCommitAgeSec);
@@ -47,7 +46,7 @@ export default function Home() {
         setClaimedSubdomain(null);
     }
 
-    const { subdomains, loading: subdomainsLoading } = useSubdomains(address);
+    const { subdomains, loading: subdomainsLoading, refresh: refreshSubdomains } = useSubdomains(address);
     const { count: registrationCount, loading: regLoading } = useRegistrationCount(address);
 
     // Real on-chain subdomain takes priority over the just-claimed one
@@ -68,6 +67,29 @@ export default function Home() {
     }, [address, commitKey, contractConfig.maxCommitAgeSec]);
 
     const { step: onboardingStep } = useOnboarding();
+
+    // ── Dashboard for authenticated users with domains ──
+    if (domain && token) {
+        return (
+            <HomeDashboard
+                subdomains={subdomains}
+                loading={subdomainsLoading}
+                refresh={refreshSubdomains}
+            />
+        );
+    }
+
+    // Wallet session is being restored (valid JWT + beacon session exist) —
+    // show dashboard shell to prevent the landing page from flashing.
+    if (restoring) {
+        return (
+            <HomeDashboard
+                subdomains={[]}
+                loading={true}
+                refresh={refreshSubdomains}
+            />
+        );
+    }
 
     return (
         <>
@@ -126,11 +148,6 @@ export default function Home() {
 
                     <p className="hero-cta-label">Claim your name. Only gas.</p>
 
-                    {address && hasSubdomain && <ClaimedView subdomain={displaySubdomain!} />}
-
-                    <ProfileArrowHint />
-
-                    {address && hasUsedAllClaims && !hasSubdomain && <ClaimUsedView />}
 
                     {address && !hasSubdomain && !hasUsedAllClaims && (
                         <PendingCommitsPanel

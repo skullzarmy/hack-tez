@@ -27,6 +27,8 @@ interface TezosState {
     address: string | null;
     domain: string | null;
     connecting: boolean;
+    /** True while restoring a previous wallet session on mount. */
+    restoring: boolean;
     token: string | null;
     chatDomains: string[];
     activeDomain: string | null;
@@ -161,17 +163,34 @@ async function authenticateWallet(c: DAppClient, addr: string): Promise<AuthSess
 }
 
 export function TezosProvider({ children }: { children: ReactNode }) {
+    // Synchronously seed from stored JWT to prevent CLS on first render.
+    // Returning users get the dashboard immediately instead of a landing-page flash.
+    // The session-restore useEffect will refresh/correct these values.
+    const seedRef = useRef<AuthSession | null | undefined>(undefined);
+    if (seedRef.current === undefined) {
+        seedRef.current = typeof window !== "undefined" ? loadAuthSession() : null;
+    }
+    const seed = seedRef.current;
+
     const [address, setAddress] = useState<string | null>(null);
-    const [domain, setDomain] = useState<string | null>(null);
+    const [domain, setDomain] = useState<string | null>(
+        seed?.activeDomain ?? seed?.domains[0] ?? null,
+    );
     const [connecting, setConnecting] = useState(false);
+    // True while a previous beacon session is being restored asynchronously.
+    // Only true when we have both a wallet session AND a valid JWT — prevents
+    // showing the dashboard before the user has signed.
+    const [restoring, setRestoring] = useState(
+        () => typeof window !== "undefined" && hasBeaconSession() && seed !== null,
+    );
     const [client, setClient] = useState<DAppClient | null>(null);
     const subscribedRef = useRef(false);
 
-    // JWT auth state
-    const [token, setToken] = useState<string | null>(null);
-    const [chatDomains, setChatDomains] = useState<string[]>([]);
-    const [activeDomain, setActiveDomainState] = useState<string | null>(null);
-    const tokenRef = useRef<string | null>(null);
+    // JWT auth state — also seeded from stored session
+    const [token, setToken] = useState<string | null>(seed?.token ?? null);
+    const [chatDomains, setChatDomains] = useState<string[]>(seed?.domains ?? []);
+    const [activeDomain, setActiveDomainState] = useState<string | null>(seed?.activeDomain ?? null);
+    const tokenRef = useRef<string | null>(seed?.token ?? null);
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const applySession = useCallback((session: AuthSession) => {
@@ -232,9 +251,8 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
     const hydrateAccount = useCallback(async (addr: string) => {
         setAddress(addr);
-        resolveDisplayName(addr)
-            .then(setDomain)
-            .catch(() => {});
+        const name = await resolveDisplayName(addr).catch(() => null);
+        setDomain(name);
     }, []);
 
     // Set up event subscription and return (or create) the client.
@@ -260,20 +278,27 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
     // Session restore: load wallet + JWT from storage on mount
     useEffect(() => {
-        if (!hasBeaconSession()) return;
+        if (!hasBeaconSession()) {
+            setRestoring(false);
+            return;
+        }
         initClient().then((c) => {
-            c.getActiveAccount().then((account) => {
-                if (!account) return;
-                hydrateAccount(account.address);
-                // Restore JWT from localStorage
+            c.getActiveAccount().then(async (account) => {
+                if (!account) {
+                    setRestoring(false);
+                    return;
+                }
+                // Restore JWT synchronously from localStorage first
                 const stored = loadAuthSession();
                 if (stored) {
                     applySession(stored);
                     scheduleRefresh(stored.token);
                 }
-                // If no stored session, user will need to re-sign (connect() handles it)
-            });
-        });
+                // Then resolve domain (network) — restoring stays true until this completes
+                await hydrateAccount(account.address);
+                setRestoring(false);
+            }).catch(() => setRestoring(false));
+        }).catch(() => setRestoring(false));
     }, [hydrateAccount, initClient, applySession, scheduleRefresh]);
 
     // Cross-tab sync: pick up JWT changes from other tabs
@@ -325,7 +350,8 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 addr = account.address;
             }
 
-            await hydrateAccount(addr);
+            // Resolve domain in parallel with JWT check — don't block signing
+            void hydrateAccount(addr);
 
             // Check if we already have a valid JWT for this address
             const stored = loadAuthSession();
@@ -475,6 +501,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 address,
                 domain,
                 connecting,
+                restoring,
                 token,
                 chatDomains,
                 activeDomain,

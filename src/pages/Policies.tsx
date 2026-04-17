@@ -26,7 +26,6 @@ export default function Policies() {
                     display: "flex",
                     flexDirection: "column",
                     gap: "2rem",
-                    maxWidth: "72ch",
                 }}
             >
                 {/* What this is */}
