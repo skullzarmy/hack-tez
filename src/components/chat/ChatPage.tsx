@@ -6,6 +6,19 @@ import { pinFile } from "../../lib/pin";
 
 const IDENTITY_STORAGE_KEY = "hack-tez-chat-identity";
 
+function getJwtActiveDomain(token: string): string | null {
+    try {
+        const seg = token.split(".")[1];
+        if (!seg) return null;
+        const base64 = seg.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        const payload = JSON.parse(atob(padded)) as { activeDomain?: unknown };
+        return typeof payload.activeDomain === "string" ? payload.activeDomain : null;
+    } catch {
+        return null;
+    }
+}
+
 export default function ChatPage() {
     const {
         address,
@@ -160,6 +173,36 @@ export default function ChatPage() {
                 >
                     Register a domain
                 </a>
+            </div>
+        );
+    }
+
+    const tokenActiveDomain = getJwtActiveDomain(token);
+
+    // Gate 3.5: identity was switched locally, but the JWT has not caught up yet.
+    if (tokenActiveDomain && tokenActiveDomain !== resolvedDomain) {
+        return (
+            <div
+                className="flex flex-col items-center justify-center gap-6"
+                style={{
+                    flex: "1 1 0",
+                    fontFamily: "var(--font)",
+                    padding: "clamp(1.5rem, 4vw, 3rem)",
+                }}
+            >
+                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />
+                <h2
+                    className="text-sm font-bold uppercase tracking-widest text-center"
+                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
+                >
+                    Syncing identity…
+                </h2>
+                <p
+                    className="text-xs text-center max-w-md"
+                    style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", lineHeight: "1.7" }}
+                >
+                    Updating your chat session for {resolvedDomain}.
+                </p>
             </div>
         );
     }
