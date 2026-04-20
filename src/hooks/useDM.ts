@@ -10,6 +10,7 @@ interface UseDMConfig {
     roomId: string;
     peerDomain: string;
     onIncomingMessage?: (event: ChatNotificationEvent) => void;
+    onAuthFailure?: () => void | Promise<void>;
 }
 
 interface UseDMReturn {
@@ -36,12 +37,13 @@ export function useDM(config: UseDMConfig): UseDMReturn {
     const [hasMore, setHasMore] = useState(false);
     const [peerTyping, setPeerTyping] = useState(false);
     const [peerOnline, setPeerOnline] = useState(false);
-    const [reconnectTick, setReconnectTick] = useState(0);
     const wsRef = useRef<PartySocket | null>(null);
-    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const prevRoomKeyRef = useRef<string>("");
     const onIncomingMessageRef = useRef(config.onIncomingMessage);
+    const onAuthFailureRef = useRef(config.onAuthFailure);
+    const authFailureHandledRef = useRef(false);
     onIncomingMessageRef.current = config.onIncomingMessage;
+    onAuthFailureRef.current = config.onAuthFailure;
     const roomKey = `${roomId}|${peerDomain}`;
     const activeDomainRef = useRef(activeDomain);
     activeDomainRef.current = activeDomain;
@@ -56,32 +58,22 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             setPeerOnline(false);
         }
 
-        let closedIntentionally = false;
         const ws = new PartySocket({
             host: partykitHost,
             party: "dm",
             room: roomId,
-            query: { token, activeDomain, rt: String(reconnectTick) },
+            query: { token, activeDomain },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
-            if (reconnectTimerRef.current) {
-                clearTimeout(reconnectTimerRef.current);
-                reconnectTimerRef.current = null;
-            }
+            authFailureHandledRef.current = false;
             ws.send(JSON.stringify({ type: "history" }));
         });
 
         ws.addEventListener("close", () => {
             setIsConnected(false);
-            if (!closedIntentionally && !reconnectTimerRef.current) {
-                reconnectTimerRef.current = setTimeout(() => {
-                    reconnectTimerRef.current = null;
-                    setReconnectTick((n) => n + 1);
-                }, 1500);
-            }
         });
 
         ws.addEventListener("message", (event) => {
@@ -251,22 +243,33 @@ export function useDM(config: UseDMConfig): UseDMReturn {
                 }
                 case "read":
                 case "unread":
+                    break;
                 case "error":
+                    if (data.code === "BANNED") {
+                        ws.close(4010, "Banned");
+                        break;
+                    }
+
+                    if (
+                        (data.code === "AUTH_INVALID" ||
+                            data.code === "AUTH_REQUIRED" ||
+                            data.code === "NOT_PARTICIPANT") &&
+                        !authFailureHandledRef.current
+                    ) {
+                        authFailureHandledRef.current = true;
+                        ws.close(4001, String(data.code));
+                        void onAuthFailureRef.current?.();
+                    }
                     break;
             }
         });
 
         return () => {
-            closedIntentionally = true;
-            if (reconnectTimerRef.current) {
-                clearTimeout(reconnectTimerRef.current);
-                reconnectTimerRef.current = null;
-            }
             ws.close();
             wsRef.current = null;
             setIsConnected(false);
         };
-    }, [roomId, peerDomain, roomKey, token, activeDomain, reconnectTick]);
+    }, [roomId, peerDomain, roomKey, token, activeDomain]);
 
     const sendMessage = useCallback((content: string, media?: MediaAttachment, replyTo?: string) => {
         const trimmed = content.trim();

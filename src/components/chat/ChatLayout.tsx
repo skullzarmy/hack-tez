@@ -30,6 +30,7 @@ interface ChatLayoutProps {
     domains: string[];
     activeDomain: string;
     onSwitchDomain: (domain: string) => void;
+    onAuthFailure?: () => void | Promise<void>;
     onPinImage?: (file: File) => Promise<{ url: string; width: number; height: number } | null>;
 }
 
@@ -54,7 +55,7 @@ interface DMConversation {
     unreadCount: number;
 }
 
-export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain, onPinImage }: ChatLayoutProps) {
+export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain, onAuthFailure, onPinImage }: ChatLayoutProps) {
     const [activeView, setActiveView] = useState<ActiveView>({ type: "global" });
     const [pendingDM, setPendingDM] = useState<PendingDMSelection | null>(null);
     const [showNewDM, setShowNewDM] = useState(false);
@@ -78,6 +79,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const conversationsRef = useRef<DMConversation[]>([]);
     const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
     const refreshDMsRef = useRef<() => void>(() => {});
+    const authFailureInFlightRef = useRef(false);
 
     useEffect(() => {
         activeViewRef.current = activeView;
@@ -129,6 +131,16 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         setBanInfo(ban);
     }, []);
 
+    const handleAuthFailure = useCallback(() => {
+        if (authFailureInFlightRef.current) return;
+        authFailureInFlightRef.current = true;
+        void onAuthFailure?.();
+    }, [onAuthFailure]);
+
+    useEffect(() => {
+        authFailureInFlightRef.current = false;
+    }, [token]);
+
     const {
         messages,
         isConnected,
@@ -153,6 +165,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         onIdentitySwitched: onSwitchDomain,
         onIncomingMessage: handleIncomingMessage,
         onBanned: handleBanned,
+        onAuthFailure: handleAuthFailure,
     });
 
     // Admin tools only active when speaking AS admin identity
@@ -490,6 +503,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     peerDomain={activeView.peerDomain}
                     onBack={handleDMBack}
                     onIncomingMessage={handleIncomingMessage}
+                    onAuthFailure={handleAuthFailure}
                     hasMultipleDomains={domains.length > 1}
                     notificationSettings={notificationSettings}
                     isGlobalChannelMuted={isGlobalChannelMuted}

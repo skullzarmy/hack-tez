@@ -12,6 +12,7 @@ interface DMViewProps {
     peerDomain: string;
     onBack: () => void;
     onIncomingMessage?: (event: ChatNotificationEvent) => void;
+    onAuthFailure?: () => void | Promise<void>;
     notificationSettings: ChatNotificationSettings;
     isGlobalChannelMuted: boolean;
     isActiveDMMuted: boolean;
@@ -30,6 +31,7 @@ export default function DMView({
     peerDomain,
     onBack,
     onIncomingMessage,
+    onAuthFailure,
     notificationSettings,
     isGlobalChannelMuted,
     isActiveDMMuted,
@@ -54,7 +56,7 @@ export default function DMView({
         reactToMessage,
         editMessage,
         deleteMessage,
-    } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage });
+    } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage, onAuthFailure });
 
     const prevPeerRef = useRef(peerDomain);
 

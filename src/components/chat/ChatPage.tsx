@@ -16,6 +16,7 @@ export default function ChatPage() {
         chatDomains,
         activeDomain: contextActiveDomain,
         setActiveDomain,
+        refreshToken,
     } = useTezos();
 
     // Resolve initial domain from localStorage preference
@@ -174,6 +175,7 @@ export default function ChatPage() {
                 setResolvedDomain(newDomain);
                 setActiveDomain(newDomain);
             }}
+            onAuthFailure={refreshToken}
             onPinImage={async (file) => {
                 try {
                     const { gatewayUrl } = await pinFile(file, client);
