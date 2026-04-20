@@ -104,9 +104,16 @@ export function useChat(config: UseChatConfig): UseChatReturn {
 
         ws.addEventListener("close", (event) => {
             setIsConnected(false);
-            const isBanClose = event.code === 4010;
-            if (isBanClose) {
+            if (event.code === 4010) {
                 bannedRef.current = true;
+                ws.close(event.code, event.reason);
+                return;
+            }
+
+            if ((event.code === 4001 || event.code === 4003) && !authFailureHandledRef.current) {
+                authFailureHandledRef.current = true;
+                ws.close(event.code, event.reason);
+                void onAuthFailureRef.current?.();
             }
         });
 

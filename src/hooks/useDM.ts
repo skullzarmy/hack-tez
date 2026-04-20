@@ -75,8 +75,16 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             ws.send(JSON.stringify({ type: "history" }));
         });
 
-        ws.addEventListener("close", () => {
+        ws.addEventListener("close", (event) => {
             setIsConnected(false);
+
+            if ((event.code === 4001 || event.code === 4003 || event.code === 4010) && !authFailureHandledRef.current) {
+                authFailureHandledRef.current = true;
+                ws.close(event.code, event.reason);
+                if (event.code !== 4010) {
+                    void onAuthFailureRef.current?.();
+                }
+            }
         });
 
         ws.addEventListener("message", (event) => {
