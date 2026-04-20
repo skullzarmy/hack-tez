@@ -397,9 +397,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     const session = await authenticateWallet(client, address);
                     applySession(session);
                     scheduleRefresh(session.token);
-                } catch {
-                    clearSession();
-                }
+                } catch { /* silent failure */ }
             }
             return;
         }
@@ -420,10 +418,8 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             };
             applySession(session);
             scheduleRefresh(data.token);
-        } catch {
-            clearSession();
-        }
-    }, [client, address, applySession, clearSession, scheduleRefresh]);
+        } catch { /* silent failure */ }
+    }, [client, address, applySession, scheduleRefresh]);
 
     const setActiveDomain = useCallback(
         (newDomain: string) => {

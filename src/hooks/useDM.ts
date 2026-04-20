@@ -10,7 +10,6 @@ interface UseDMConfig {
     roomId: string;
     peerDomain: string;
     onIncomingMessage?: (event: ChatNotificationEvent) => void;
-    onAuthFailure?: () => void | Promise<void>;
 }
 
 interface UseDMReturn {
@@ -37,13 +36,12 @@ export function useDM(config: UseDMConfig): UseDMReturn {
     const [hasMore, setHasMore] = useState(false);
     const [peerTyping, setPeerTyping] = useState(false);
     const [peerOnline, setPeerOnline] = useState(false);
+    const [reconnectTick, setReconnectTick] = useState(0);
     const wsRef = useRef<PartySocket | null>(null);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const prevRoomKeyRef = useRef<string>("");
     const onIncomingMessageRef = useRef(config.onIncomingMessage);
-    const onAuthFailureRef = useRef(config.onAuthFailure);
-    const authFailureHandledRef = useRef(false);
     onIncomingMessageRef.current = config.onIncomingMessage;
-    onAuthFailureRef.current = config.onAuthFailure;
     const roomKey = `${roomId}|${peerDomain}`;
     const activeDomainRef = useRef(activeDomain);
     activeDomainRef.current = activeDomain;
@@ -58,32 +56,31 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             setPeerOnline(false);
         }
 
+        let closedIntentionally = false;
         const ws = new PartySocket({
             host: partykitHost,
             party: "dm",
             room: roomId,
-            query: { token, activeDomain },
-            connectionTimeout: 15_000,
-            minReconnectionDelay: 1_500,
-            maxReconnectionDelay: 10_000,
+            query: { token, activeDomain, rt: String(reconnectTick) },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
-            authFailureHandledRef.current = false;
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             ws.send(JSON.stringify({ type: "history" }));
         });
 
-        ws.addEventListener("close", (event) => {
+        ws.addEventListener("close", () => {
             setIsConnected(false);
-
-            if ((event.code === 4001 || event.code === 4003 || event.code === 4010) && !authFailureHandledRef.current) {
-                authFailureHandledRef.current = true;
-                ws.close(event.code, event.reason);
-                if (event.code !== 4010) {
-                    void onAuthFailureRef.current?.();
-                }
+            if (!closedIntentionally && !reconnectTimerRef.current) {
+                reconnectTimerRef.current = setTimeout(() => {
+                    reconnectTimerRef.current = null;
+                    setReconnectTick((n) => n + 1);
+                }, 1500);
             }
         });
 
@@ -254,33 +251,22 @@ export function useDM(config: UseDMConfig): UseDMReturn {
                 }
                 case "read":
                 case "unread":
-                    break;
                 case "error":
-                    if (data.code === "BANNED") {
-                        ws.close(4010, "Banned");
-                        break;
-                    }
-
-                    if (
-                        (data.code === "AUTH_INVALID" ||
-                            data.code === "AUTH_REQUIRED" ||
-                            data.code === "NOT_PARTICIPANT") &&
-                        !authFailureHandledRef.current
-                    ) {
-                        authFailureHandledRef.current = true;
-                        ws.close(4001, String(data.code));
-                        void onAuthFailureRef.current?.();
-                    }
                     break;
             }
         });
 
         return () => {
+            closedIntentionally = true;
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             ws.close();
             wsRef.current = null;
             setIsConnected(false);
         };
-    }, [roomId, peerDomain, roomKey, token, activeDomain]);
+    }, [roomId, peerDomain, roomKey, token, activeDomain, reconnectTick]);
 
     const sendMessage = useCallback((content: string, media?: MediaAttachment, replyTo?: string) => {
         const trimmed = content.trim();

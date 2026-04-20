@@ -18,7 +18,6 @@ interface UseChatConfig {
     onIdentitySwitched?: (domain: string) => void;
     onIncomingMessage?: (event: ChatNotificationEvent) => void;
     onBanned?: (ban: BanInfo) => void;
-    onAuthFailure?: () => void | Promise<void>;
 }
 
 interface UseChatReturn {
@@ -63,20 +62,19 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     const [hasMore, setHasMore] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
+    const [reconnectTick, setReconnectTick] = useState(0);
     const [currentDomain, setCurrentDomain] = useState(activeDomain);
     const wsRef = useRef<PartySocket | null>(null);
     const historyLoadedRef = useRef(false);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentDomainRef = useRef(activeDomain);
     const bannedRef = useRef(false);
-    const authFailureHandledRef = useRef(false);
     const onSwitchRef = useRef(config.onIdentitySwitched);
     const onIncomingMessageRef = useRef(config.onIncomingMessage);
     const onBannedRef = useRef(config.onBanned);
-    const onAuthFailureRef = useRef(config.onAuthFailure);
     onSwitchRef.current = config.onIdentitySwitched;
     onIncomingMessageRef.current = config.onIncomingMessage;
     onBannedRef.current = config.onBanned;
-    onAuthFailureRef.current = config.onAuthFailure;
     currentDomainRef.current = currentDomain;
 
     // Sync local identity when parent session identity changes.
@@ -85,35 +83,36 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     }, [activeDomain]);
 
     useEffect(() => {
+        let closedIntentionally = false;
         const ws = new PartySocket({
             host: partykitHost,
             room: "global",
-            query: { token, activeDomain },
-            connectionTimeout: 15_000,
-            minReconnectionDelay: 1_500,
-            maxReconnectionDelay: 10_000,
+            query: { token, activeDomain, rt: String(reconnectTick) },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
-            authFailureHandledRef.current = false;
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             // Always load history on connect/reconnect, dedup handled by ID
             ws.send(JSON.stringify({ type: "history" }));
         });
 
         ws.addEventListener("close", (event) => {
             setIsConnected(false);
-            if (event.code === 4010) {
+            // Don't auto-reconnect if banned (server close 4010) — wait for ban expiry
+            const isBanClose = event.code === 4010;
+            if (isBanClose) {
                 bannedRef.current = true;
-                ws.close(event.code, event.reason);
-                return;
             }
-
-            if ((event.code === 4001 || event.code === 4003) && !authFailureHandledRef.current) {
-                authFailureHandledRef.current = true;
-                ws.close(event.code, event.reason);
-                void onAuthFailureRef.current?.();
+            if (!closedIntentionally && !bannedRef.current && !reconnectTimerRef.current) {
+                reconnectTimerRef.current = setTimeout(() => {
+                    reconnectTimerRef.current = null;
+                    setReconnectTick((n) => n + 1);
+                }, 1500);
             }
         });
 
@@ -308,21 +307,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
                 case "error": {
                     // Handle ban error specifically
                     if (data.code === "BANNED" && data.ban) {
-                        bannedRef.current = true;
                         onBannedRef.current?.(data.ban as BanInfo);
-                        ws.close(4010, "Banned");
-                        break;
-                    }
-
-                    if (
-                        (data.code === "AUTH_INVALID" ||
-                            data.code === "AUTH_REQUIRED" ||
-                            data.code === "OWNERSHIP_CHANGED") &&
-                        !authFailureHandledRef.current
-                    ) {
-                        authFailureHandledRef.current = true;
-                        ws.close(4001, String(data.code));
-                        void onAuthFailureRef.current?.();
                     }
                     break;
                 }
@@ -330,12 +315,17 @@ export function useChat(config: UseChatConfig): UseChatReturn {
         });
 
         return () => {
+            closedIntentionally = true;
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             ws.close();
             wsRef.current = null;
             setIsConnected(false);
             historyLoadedRef.current = false;
         };
-    }, [token, activeDomain]);
+    }, [token, activeDomain, reconnectTick]);
 
     const sendMessage = useCallback((content: string, media?: MediaAttachment, replyTo?: string) => {
         const trimmed = content.trim();
@@ -435,11 +425,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
     // Force reconnect (used after ban expiry)
     const reconnect = useCallback(() => {
         bannedRef.current = false;
-        authFailureHandledRef.current = false;
-        if (wsRef.current) {
-            wsRef.current.reconnect();
-            return;
-        }
+        setReconnectTick((n) => n + 1);
     }, []);
 
     return {

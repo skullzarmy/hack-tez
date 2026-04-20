@@ -30,7 +30,6 @@ interface ChatLayoutProps {
     domains: string[];
     activeDomain: string;
     onSwitchDomain: (domain: string) => void;
-    onAuthFailure?: () => void | Promise<void>;
     onPinImage?: (file: File) => Promise<{ url: string; width: number; height: number } | null>;
 }
 
@@ -55,7 +54,7 @@ interface DMConversation {
     unreadCount: number;
 }
 
-export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain, onAuthFailure, onPinImage }: ChatLayoutProps) {
+export default function ChatLayout({ token, domains, activeDomain, onSwitchDomain, onPinImage }: ChatLayoutProps) {
     const [activeView, setActiveView] = useState<ActiveView>({ type: "global" });
     const [pendingDM, setPendingDM] = useState<PendingDMSelection | null>(null);
     const [showNewDM, setShowNewDM] = useState(false);
@@ -73,14 +72,12 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
     const [profilePopout, setProfilePopout] = useState<{ domain: string; anchorRect: DOMRect } | null>(null);
     const [globalMentionCount, setGlobalMentionCount] = useState(0);
-    const [showReconnectBanner, setShowReconnectBanner] = useState(false);
 
     const activeViewRef = useRef<ActiveView>(activeView);
     const currentDomainRef = useRef(activeDomain);
     const conversationsRef = useRef<DMConversation[]>([]);
     const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
     const refreshDMsRef = useRef<() => void>(() => {});
-    const authFailureInFlightRef = useRef(false);
 
     useEffect(() => {
         activeViewRef.current = activeView;
@@ -132,16 +129,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         setBanInfo(ban);
     }, []);
 
-    const handleAuthFailure = useCallback(() => {
-        if (authFailureInFlightRef.current) return;
-        authFailureInFlightRef.current = true;
-        void onAuthFailure?.();
-    }, [onAuthFailure]);
-
-    useEffect(() => {
-        authFailureInFlightRef.current = false;
-    }, [token]);
-
     const {
         messages,
         isConnected,
@@ -166,7 +153,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         onIdentitySwitched: onSwitchDomain,
         onIncomingMessage: handleIncomingMessage,
         onBanned: handleBanned,
-        onAuthFailure: handleAuthFailure,
     });
 
     // Admin tools only active when speaking AS admin identity
@@ -201,21 +187,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     useEffect(() => {
         conversationsRef.current = conversations;
     }, [conversations]);
-
-    useEffect(() => {
-        if (isConnected || banInfo) {
-            setShowReconnectBanner(false);
-            return;
-        }
-
-        const timeout = window.setTimeout(() => {
-            setShowReconnectBanner(true);
-        }, 2000);
-
-        return () => {
-            window.clearTimeout(timeout);
-        };
-    }, [isConnected, banInfo]);
 
     useEffect(() => {
         let cancelled = false;
@@ -519,7 +490,6 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     peerDomain={activeView.peerDomain}
                     onBack={handleDMBack}
                     onIncomingMessage={handleIncomingMessage}
-                    onAuthFailure={handleAuthFailure}
                     hasMultipleDomains={domains.length > 1}
                     notificationSettings={notificationSettings}
                     isGlobalChannelMuted={isGlobalChannelMuted}
@@ -615,7 +585,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     </header>
 
                     {/* Reconnecting banner */}
-                    {showReconnectBanner && !banInfo && (
+                    {!isConnected && !banInfo && (
                         <div
                             role="alert"
                             className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0 px-4 py-2 gap-2"

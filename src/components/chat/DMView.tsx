@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import ChatMessagePanel from "./ChatMessagePanel";
 import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
@@ -12,7 +12,6 @@ interface DMViewProps {
     peerDomain: string;
     onBack: () => void;
     onIncomingMessage?: (event: ChatNotificationEvent) => void;
-    onAuthFailure?: () => void | Promise<void>;
     notificationSettings: ChatNotificationSettings;
     isGlobalChannelMuted: boolean;
     isActiveDMMuted: boolean;
@@ -31,7 +30,6 @@ export default function DMView({
     peerDomain,
     onBack,
     onIncomingMessage,
-    onAuthFailure,
     notificationSettings,
     isGlobalChannelMuted,
     isActiveDMMuted,
@@ -56,10 +54,9 @@ export default function DMView({
         reactToMessage,
         editMessage,
         deleteMessage,
-    } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage, onAuthFailure });
+    } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage });
 
     const prevPeerRef = useRef(peerDomain);
-    const [showReconnectBanner, setShowReconnectBanner] = useState(false);
 
     // Mark as read when messages arrive while viewing
     useEffect(() => {
@@ -72,21 +69,6 @@ export default function DMView({
     useEffect(() => {
         prevPeerRef.current = peerDomain;
     }, [peerDomain]);
-
-    useEffect(() => {
-        if (isConnected) {
-            setShowReconnectBanner(false);
-            return;
-        }
-
-        const timeout = window.setTimeout(() => {
-            setShowReconnectBanner(true);
-        }, 2000);
-
-        return () => {
-            window.clearTimeout(timeout);
-        };
-    }, [isConnected]);
 
     const typingUsers = peerTyping ? [peerDomain] : [];
 
@@ -176,7 +158,7 @@ export default function DMView({
             </header>
 
             {/* Reconnecting banner */}
-            {showReconnectBanner && (
+            {!isConnected && (
                 <div
                     role="alert"
                     className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0 px-4 py-2 gap-2"
