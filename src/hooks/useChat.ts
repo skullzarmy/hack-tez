@@ -101,6 +101,17 @@ export function useChat(config: UseChatConfig): UseChatReturn {
             ws.send(JSON.stringify({ type: "history" }));
         });
 
+        // Heartbeat — Cloudflare closes idle WebSockets after ~100s, causing
+        // intermittent "Reconnecting..." UI churn. Send a ping every 25s to keep
+        // the connection alive whenever there's no other traffic.
+        const pingInterval = setInterval(() => {
+            try {
+                if (ws.readyState === ws.OPEN) {
+                    ws.send(JSON.stringify({ type: "ping" }));
+                }
+            } catch { /* ignore — close handler will fire if socket is dead */ }
+        }, 25_000);
+
         ws.addEventListener("close", (event) => {
             setIsConnected(false);
             // Don't auto-reconnect if banned (server close 4010) — wait for ban expiry
@@ -316,6 +327,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
 
         return () => {
             closedIntentionally = true;
+            clearInterval(pingInterval);
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;

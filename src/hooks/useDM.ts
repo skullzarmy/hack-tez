@@ -74,6 +74,16 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             ws.send(JSON.stringify({ type: "history" }));
         });
 
+        // Heartbeat — Cloudflare closes idle WebSockets after ~100s.
+        // Send a ping every 25s to keep the DM connection alive.
+        const pingInterval = setInterval(() => {
+            try {
+                if (ws.readyState === ws.OPEN) {
+                    ws.send(JSON.stringify({ type: "ping" }));
+                }
+            } catch { /* ignore — close handler will fire if socket is dead */ }
+        }, 25_000);
+
         ws.addEventListener("close", () => {
             setIsConnected(false);
             if (!closedIntentionally && !reconnectTimerRef.current) {
@@ -258,6 +268,7 @@ export function useDM(config: UseDMConfig): UseDMReturn {
 
         return () => {
             closedIntentionally = true;
+            clearInterval(pingInterval);
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;

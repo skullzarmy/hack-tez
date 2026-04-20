@@ -191,6 +191,10 @@ export default class DMRoom implements Server {
         }
 
         switch (parsed.type) {
+            case "ping":
+                // Keepalive — Cloudflare closes idle WebSockets after ~100s.
+                sendJson(sender, { type: "pong" });
+                break;
             case "message":
                 if (!this.checkMessageRate(sender.id)) {
                     sendJson(sender, {

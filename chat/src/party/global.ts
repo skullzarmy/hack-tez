@@ -300,6 +300,11 @@ export default class GlobalRoom implements Server {
       }
 
       switch (parsed.type) {
+        case "ping":
+          // Keepalive — Cloudflare closes idle WebSockets after ~100s.
+          // Client sends ping every 25s; we echo so client can also detect dead links.
+          sendJson(sender, { type: "pong" });
+          break;
         case "message": {
           // Re-check ban before allowing message
           const address = this.getAddress(sender);
