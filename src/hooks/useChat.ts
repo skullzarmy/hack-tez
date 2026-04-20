@@ -89,6 +89,9 @@ export function useChat(config: UseChatConfig): UseChatReturn {
             host: partykitHost,
             room: "global",
             query: { token, activeDomain },
+            connectionTimeout: 15_000,
+            minReconnectionDelay: 1_500,
+            maxReconnectionDelay: 10_000,
         });
         wsRef.current = ws;
 

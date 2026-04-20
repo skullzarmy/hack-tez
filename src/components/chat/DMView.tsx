@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import ChatMessagePanel from "./ChatMessagePanel";
 import ChatNotificationSettingsMenu from "./ChatNotificationSettingsMenu";
@@ -59,6 +59,7 @@ export default function DMView({
     } = useDM({ token, activeDomain, roomId, peerDomain, onIncomingMessage, onAuthFailure });
 
     const prevPeerRef = useRef(peerDomain);
+    const [showReconnectBanner, setShowReconnectBanner] = useState(false);
 
     // Mark as read when messages arrive while viewing
     useEffect(() => {
@@ -71,6 +72,21 @@ export default function DMView({
     useEffect(() => {
         prevPeerRef.current = peerDomain;
     }, [peerDomain]);
+
+    useEffect(() => {
+        if (isConnected) {
+            setShowReconnectBanner(false);
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            setShowReconnectBanner(true);
+        }, 2000);
+
+        return () => {
+            window.clearTimeout(timeout);
+        };
+    }, [isConnected]);
 
     const typingUsers = peerTyping ? [peerDomain] : [];
 
@@ -160,7 +176,7 @@ export default function DMView({
             </header>
 
             {/* Reconnecting banner */}
-            {!isConnected && (
+            {showReconnectBanner && (
                 <div
                     role="alert"
                     className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0 px-4 py-2 gap-2"

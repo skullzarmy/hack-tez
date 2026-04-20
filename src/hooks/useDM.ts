@@ -63,6 +63,9 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             party: "dm",
             room: roomId,
             query: { token, activeDomain },
+            connectionTimeout: 15_000,
+            minReconnectionDelay: 1_500,
+            maxReconnectionDelay: 10_000,
         });
         wsRef.current = ws;
 

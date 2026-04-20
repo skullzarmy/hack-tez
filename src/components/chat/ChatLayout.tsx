@@ -73,6 +73,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
     const [profilePopout, setProfilePopout] = useState<{ domain: string; anchorRect: DOMRect } | null>(null);
     const [globalMentionCount, setGlobalMentionCount] = useState(0);
+    const [showReconnectBanner, setShowReconnectBanner] = useState(false);
 
     const activeViewRef = useRef<ActiveView>(activeView);
     const currentDomainRef = useRef(activeDomain);
@@ -200,6 +201,21 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
     useEffect(() => {
         conversationsRef.current = conversations;
     }, [conversations]);
+
+    useEffect(() => {
+        if (isConnected || banInfo) {
+            setShowReconnectBanner(false);
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            setShowReconnectBanner(true);
+        }, 2000);
+
+        return () => {
+            window.clearTimeout(timeout);
+        };
+    }, [isConnected, banInfo]);
 
     useEffect(() => {
         let cancelled = false;
@@ -599,7 +615,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                     </header>
 
                     {/* Reconnecting banner */}
-                    {!isConnected && !banInfo && (
+                    {showReconnectBanner && !banInfo && (
                         <div
                             role="alert"
                             className="flex items-center justify-center text-xs font-bold uppercase tracking-widest shrink-0 px-4 py-2 gap-2"
