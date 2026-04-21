@@ -29,33 +29,49 @@ export interface SubdomainWithProfile {
     profile: HackProfile;
 }
 
-/** Fetch subdomains under hack.{tld} (up to 50) with profile data */
+/** Fetch all subdomains under hack.{tld} with profile data (paginates 50 at a time) */
 export async function getAllSubdomains(): Promise<SubdomainWithProfile[]> {
     const parent = `hack.${config.tld}`;
-    const data = await gql<{
-        domains: {
-            items: Array<{
-                name: string;
-                address: string | null;
-                owner: string;
-                data: Array<{ key: string; value: unknown }>;
-            }>;
-        };
-    }>(
-        `query AllSubdomains($parent: String!) {
-      domains(where: { name: { endsWith: $parent } }, first: 50) {
+    const suffix = `.${parent}`;
+    const items: Array<{
+        name: string;
+        address: string | null;
+        owner: string;
+        data: Array<{ key: string; value: unknown }>;
+    }> = [];
+    let after: string | null = null;
+    // Cap at 20 pages (1000 domains) as a safety stop.
+    for (let i = 0; i < 20; i++) {
+        const data: {
+            domains: {
+                items: Array<{
+                    name: string;
+                    address: string | null;
+                    owner: string;
+                    data: Array<{ key: string; value: unknown }>;
+                }>;
+                pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            };
+        } = await gql(
+            `query AllSubdomains($parent: String!, $after: String) {
+      domains(where: { name: { endsWith: $parent } }, first: 50, after: $after, order: { field: NAME, direction: ASC }) {
         items {
           name
           address
           owner
           data { key value }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }`,
-        { parent: `.${parent}` },
-    );
-    return data.domains.items.flatMap((d) => {
-        const label = d.name.replace(`.${parent}`, "");
+            { parent: suffix, after },
+        );
+        items.push(...data.domains.items);
+        if (!data.domains.pageInfo.hasNextPage || !data.domains.pageInfo.endCursor) break;
+        after = data.domains.pageInfo.endCursor;
+    }
+    return items.flatMap((d) => {
+        const label = d.name.replace(suffix, "");
         if (label.includes(".")) return [];
         return [{
             label,
@@ -265,32 +281,46 @@ export async function resolveDisplayName(address: string): Promise<string | null
         r.status === "fulfilled" ? r.value : null;
     return best(hackTez) ?? best(domain) ?? best(alias);
 }
-/** Fetch sub-subdomains (children) of a specific parent domain */
+/** Fetch sub-subdomains (children) of a specific parent domain (paginates 50 at a time) */
 export async function getSubSubdomains(parentName: string): Promise<SubdomainRecord[]> {
-    const data = await gql<{
-        domains: {
-            items: Array<{
-                name: string;
-                address: string | null;
-                owner: string;
-                data: Array<{ key: string; value: unknown }>;
-            }>;
-        };
-    }>(
-        `query SubSubdomains($parent: String!) {
-      domains(where: { name: { endsWith: $parent } }, first: 50) {
+    const items: Array<{
+        name: string;
+        address: string | null;
+        owner: string;
+        data: Array<{ key: string; value: unknown }>;
+    }> = [];
+    let after: string | null = null;
+    for (let i = 0; i < 20; i++) {
+        const data: {
+            domains: {
+                items: Array<{
+                    name: string;
+                    address: string | null;
+                    owner: string;
+                    data: Array<{ key: string; value: unknown }>;
+                }>;
+                pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            };
+        } = await gql(
+            `query SubSubdomains($parent: String!, $after: String) {
+      domains(where: { name: { endsWith: $parent } }, first: 50, after: $after, order: { field: NAME, direction: ASC }) {
         items {
           name
           address
           owner
           data { key value }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }`,
-        { parent: `.${parentName}` },
-    );
+            { parent: `.${parentName}`, after },
+        );
+        items.push(...data.domains.items);
+        if (!data.domains.pageInfo.hasNextPage || !data.domains.pageInfo.endCursor) break;
+        after = data.domains.pageInfo.endCursor;
+    }
     // Filter out the parent domain itself (endsWith matches it too)
-    return data.domains.items
+    return items
         .filter((d) => d.name !== parentName)
         .map((d) => ({
             name: d.name,

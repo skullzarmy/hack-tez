@@ -781,6 +781,7 @@ async function getAllRegistrationHashes(
 }
 
 const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 1000; // safety cap on internal pagination
 
 /** GET /api/v1/domains?limit=50 — list all hack.tez registrations */
 async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
@@ -788,36 +789,53 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
 
     const rawLimit = parseInt(url.searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
     if (Number.isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
-    const limit = Math.min(rawLimit, 50); // TED GraphQL caps first at 50
+    const limit = Math.min(rawLimit, MAX_LIMIT);
 
-    const [data, regHashes] = await Promise.all([
-        tedGql<{
-            domains: {
-                items: Array<{
-                    name: string;
-                    owner: string;
-                    address: string | null;
-                    data: Array<{ key: string; value: unknown }>;
-                }>;
-            };
-        }>(
-            net.domainsGraphql,
-            `query AllDomains($parent: String!, $first: Int!) {
-              domains(where: { name: { endsWith: $parent } }, first: $first) {
-                items {
-                  name
-                  owner
-                  address
-                  data { key value }
-                }
-              }
-            }`,
-            { parent: `.${parent}`, first: limit },
-        ),
-        getAllRegistrationHashes(net),
-    ]);
+    // TED GraphQL caps `first` at 50 — paginate via cursor to satisfy larger limits.
+    const items: Array<{
+        name: string;
+        owner: string;
+        address: string | null;
+        data: Array<{ key: string; value: unknown }>;
+    }> = [];
+    let after: string | null = null;
+    const fetchAll = (async () => {
+        while (items.length < limit) {
+            const pageSize = Math.min(50, limit - items.length);
+            const page = await tedGql<{
+                domains: {
+                    items: Array<{
+                        name: string;
+                        owner: string;
+                        address: string | null;
+                        data: Array<{ key: string; value: unknown }>;
+                    }>;
+                    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+                };
+            }>(
+                net.domainsGraphql,
+                `query AllDomains($parent: String!, $first: Int!, $after: String) {
+                  domains(where: { name: { endsWith: $parent } }, first: $first, after: $after, order: { field: NAME, direction: ASC }) {
+                    items {
+                      name
+                      owner
+                      address
+                      data { key value }
+                    }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }`,
+                { parent: `.${parent}`, first: pageSize, after },
+            );
+            items.push(...page.domains.items);
+            if (!page.domains.pageInfo.hasNextPage || !page.domains.pageInfo.endCursor) break;
+            after = page.domains.pageInfo.endCursor;
+        }
+    })();
 
-    const domains = data.domains.items.flatMap((d) => {
+    const [, regHashes] = await Promise.all([fetchAll, getAllRegistrationHashes(net)]);
+
+    const domains = items.flatMap((d) => {
         const label = d.name.replace(`.${parent}`, "");
         if (label.includes(".")) return [];
         const reg = regHashes.get(label);
