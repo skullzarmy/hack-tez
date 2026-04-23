@@ -3088,3 +3088,67 @@ a:hover {
     align-self: flex-start;
     color: var(--fg-3);
 }
+.mantine-Popover-dropdown { z-index: 99999 !important; }
+
+:root {
+  --mantine-z-index-app: 99999;
+  --mantine-z-index-modal: 99999;
+  --mantine-z-index-popover: 99999;
+  --mantine-z-index-overlay: 99999;
+}
+.mantine-Menu-dropdown, .mantine-Portal-root, .mantine-Popover-dropdown, .bn-menu, .bn-popover {
+  z-index: 99999 !important;
+}
+
+
+.bn-mantine {
+  --mantine-z-index-max: 99999 !important;
+  --mantine-z-index-popover: 99999 !important;
+  --mantine-z-index-modal: 99999 !important;
+  --mantine-z-index-overlay: 99999 !important;
+  --mantine-z-index-app: 99999 !important;
+}
+
+
+.mantine-Portal-root, .bn-mantine {
+  font-weight: normal;
+  line-height: 1.5;
+}
+
+
+/* --- BLOCKNOTE PORTAL FIXES --- */
+.mantine-Portal-root * {
+    margin: revert;
+    padding: revert;
+}
+.mantine-Portal-root {
+    font-family: "Inter", -apple-system, sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    line-height: 1.4 !important;
+}
+.mantine-Popover-dropdown, .bn-menu-dropdown {
+    /* Let BlockNote/Mantine handle its own inner scroll area */
+}
+
+.bn-menu-dropdown * {
+    margin-bottom: 0;
+}
+.bn-menu-dropdown .mantine-ScrollArea-viewport {
+    overscroll-behavior: none !important;
+}
+.bn-menu-dropdown .mantine-Menu-item {
+    margin: 0 !important;
+}
+
+
+.bn-menu-dropdown {
+    max-height: 350px !important;
+}
+.bn-menu-dropdown .mantine-ScrollArea-root,
+.bn-menu-dropdown .mantine-ScrollArea-viewport {
+    max-height: 350px !important;
+}
+
