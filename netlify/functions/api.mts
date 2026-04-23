@@ -1273,6 +1273,12 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
 
     const net = getNetwork();
 
+    // Delegate /api/v1/wiki/* to the wiki function explicitly to avoid path pattern overlap
+    if (resource === "wiki") {
+        const wiki = await import("./wiki.mts");
+        return wiki.default(req, ctx);
+    }
+
     try {
         if (resource === "domains") return await handleDomains(new URL(req.url), net);
         if (resource === "domain" && param) return await handleDomain(decodeURIComponent(param), net);
