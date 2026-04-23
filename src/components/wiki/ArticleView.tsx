@@ -226,7 +226,7 @@ export default function ArticleView({ slug }: Props) {
         </div>
 
         {/* Tags */}
-        {article.tags.length > 0 && (
+        {(article.tags?.length ?? 0) > 0 && (
           <div
             style={{
               display: "flex",

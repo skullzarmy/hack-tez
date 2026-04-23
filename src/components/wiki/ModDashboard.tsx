@@ -196,7 +196,7 @@ export default function ModDashboard() {
             onClick={() => setTab(t)}
             style={{ padding: "0.4rem 0.8rem", background: tab === t ? "var(--bg-3)" : "transparent", border: tab === t ? "1px solid var(--border)" : "1px solid transparent", borderBottom: "none", color: tab === t ? "var(--fg)" : "var(--fg-2)", fontFamily: "var(--font)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.06em", cursor: "pointer", transition: "all 0.15s" }}
           >
-            {t === "proposals" ? `proposals (${proposals.length})` : "audit log"}
+            {t === "proposals" ? `proposals (${proposals?.length ?? 0})` : "audit log"}
           </button>
         ))}
       </div>
@@ -204,7 +204,7 @@ export default function ModDashboard() {
       {loading ? (
         <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.75rem" }}>Loading…</p>
       ) : tab === "proposals" ? (
-        proposals.length === 0 ? (
+        (proposals?.length ?? 0) === 0 ? (
           <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.75rem" }}>No open proposals.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
@@ -220,7 +220,7 @@ export default function ModDashboard() {
           </div>
         )
       ) : (
-        audit.length === 0 ? (
+        (audit?.length ?? 0) === 0 ? (
           <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.75rem" }}>No audit entries.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>

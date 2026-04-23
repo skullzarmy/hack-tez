@@ -121,7 +121,7 @@ export default function AdminPanel() {
           {/* List */}
           {loading ? (
             <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.7rem" }}>Loading…</p>
-          ) : mods.length === 0 ? (
+          ) : (mods?.length ?? 0) === 0 ? (
             <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.7rem" }}>No moderators assigned.</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
@@ -177,7 +177,7 @@ export default function AdminPanel() {
           </div>
 
           {/* List */}
-          {cats.length === 0 ? (
+          {(cats?.length ?? 0) === 0 ? (
             <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.7rem" }}>No categories.</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>

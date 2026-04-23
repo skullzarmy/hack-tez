@@ -90,7 +90,7 @@ export default function CategoryView({ slug }: Props) {
             // ARTICLES
           </h2>
 
-          {articles.length === 0 ? (
+          {(articles?.length ?? 0) === 0 ? (
             <div
               style={{
                 textAlign: "center",

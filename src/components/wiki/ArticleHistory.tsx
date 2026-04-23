@@ -49,7 +49,7 @@ export default function ArticleHistory({ slug }: Props) {
           // REVISION HISTORY
         </h1>
 
-        {revisions.length === 0 ? (
+        {(revisions?.length ?? 0) === 0 ? (
           <p style={{ color: "var(--fg-2)" }}>No revisions found.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>

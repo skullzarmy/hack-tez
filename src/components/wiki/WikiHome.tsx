@@ -151,7 +151,7 @@ export default function WikiHome() {
             >
               // {searchLoading ? "SEARCHING…" : `${results.length} RESULT${results.length !== 1 ? "S" : ""}`}
             </h2>
-            {results.length > 0 ? (
+            {(results?.length ?? 0) > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 {results.map((r) => (
                   <a
@@ -251,7 +251,7 @@ export default function WikiHome() {
         )}
 
         {/* Categories grid */}
-        {!isSearching && categories.length > 0 && (
+        {!isSearching && (categories?.length ?? 0) > 0 && (
           <section style={{ marginBottom: "3rem" }}>
             <h2
               style={{

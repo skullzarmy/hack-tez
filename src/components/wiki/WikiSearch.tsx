@@ -57,13 +57,13 @@ export default function WikiSearch() {
           <p style={{ color: "var(--fg-2)", fontSize: "0.9rem" }}>Searching…</p>
         )}
 
-        {!loading && query.trim().length >= 2 && results.length === 0 && (
+        {!loading && query.trim().length >= 2 && (results?.length ?? 0) === 0 && (
           <p style={{ color: "var(--fg-2)", fontSize: "0.9rem" }}>
             No results found for &ldquo;{query}&rdquo;
           </p>
         )}
 
-        {results.length > 0 && (
+        {(results?.length ?? 0) > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             <p
               style={{
@@ -74,7 +74,7 @@ export default function WikiSearch() {
                 color: "var(--fg-2)",
               }}
             >
-              {results.length} result{results.length !== 1 ? "s" : ""}
+              {(results?.length ?? 0)} result{(results?.length ?? 0) !== 1 ? "s" : ""}
             </p>
             {results.map((r) => (
               <a
