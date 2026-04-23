@@ -26,9 +26,14 @@ export default function WikiHome() {
       api.listCategories(),
       api.getStats(),
     ]).then(([recentData, catData, statsData]) => {
-      setRecent(recentData.articles);
-      setCategories(catData.categories);
-      setStats(statsData);
+      // Be defensive: ensure arrays/objects have expected shapes
+      setRecent(Array.isArray((recentData as any)?.articles) ? (recentData as any).articles : []);
+      setCategories(Array.isArray((catData as any)?.categories) ? (catData as any).categories : []);
+      setStats(
+        statsData && typeof (statsData as any).articles === "number"
+          ? (statsData as any)
+          : null,
+      );
     }).catch(() => {
       // Silent fail on initial load
     }).finally(() => setLoading(false));

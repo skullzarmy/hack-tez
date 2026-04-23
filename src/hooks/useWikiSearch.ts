@@ -35,8 +35,8 @@ export function useWikiSearch() {
         { signal: controller.signal },
       );
       if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-      const data = await res.json() as { results: WikiSearchResult[] };
-      setResults(data.results);
+      const data = (await res.json()) as { results?: WikiSearchResult[] };
+      setResults(Array.isArray(data.results) ? data.results : []);
       hasFetchedRef.current = true;
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
