@@ -2,7 +2,7 @@
 title: "SmartPy — Overview and Where It Fits"
 slug: "smartpy-quickstart"
 summary: "What SmartPy is, when to use it, how it fits in the Tezos stack, and where to go next."
-category: "contracts"
+category: "smart-contracts"
 tags: [smartpy, contracts, python, michelson, testing, tooling]
 status: "draft"
 author: "admin.hack.tez"
