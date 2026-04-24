@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useWikiApi } from "../../hooks/useWikiApi";
 import type { WikiArticleSummary, WikiCategory } from "../../hooks/useWikiApi";
+import Breadcrumbs from "./Breadcrumbs";
 
 interface Props {
   slug: string;
@@ -50,12 +51,7 @@ export default function CategoryView({ slug }: Props) {
   return (
     <div style={{ fontFamily: "var(--font)", padding: "clamp(1.5rem, 4vw, 3rem) 0" }}>
       <div className="container" style={{ maxWidth: "800px", margin: "0 auto", padding: "0 1rem" }}>
-        <a
-          href="/wiki"
-          style={{ color: "var(--fg-3)", textDecoration: "none", fontSize: "0.85rem", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}
-        >
-          ← BACK TO WIKI
-        </a>
+        <Breadcrumbs items={[{ label: "Wiki", href: "/wiki" }, { label: category.name }]} />
 
         <header style={{ marginTop: "1.5rem", marginBottom: "3rem" }}>
           <h1

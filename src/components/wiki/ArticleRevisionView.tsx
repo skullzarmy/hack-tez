@@ -5,6 +5,7 @@ import { Clock, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import Breadcrumbs from "./Breadcrumbs";
 
 interface Props {
   slug: string;
@@ -85,6 +86,9 @@ export default function ArticleRevisionView({ slug, revision }: Props) {
       }}
     >
       <div className="container" style={{ maxWidth: "800px", margin: "0 auto", padding: "0 1rem" }}>
+
+        {/* Breadcrumbs */}
+        <Breadcrumbs items={[{ label: "Wiki", href: "/wiki" }, { label: rev ? rev.title : slug, href: `/wiki/${slug}` }, { label: `Revision ${rev ? rev.revision : revision}` }]} />
 
         {/* Warning banner */}
         <div

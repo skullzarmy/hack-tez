@@ -6,6 +6,7 @@ import { Clock, Edit3, History, Lock, Tag, Archive } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import Breadcrumbs from "./Breadcrumbs";
 
 interface Props {
   slug: string;
@@ -95,6 +96,14 @@ export default function ArticleView({ slug }: Props) {
       }}
     >
       <div className="container" style={{ maxWidth: "800px", margin: "0 auto", padding: "0 1rem" }}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs
+          items={[
+            { label: "Wiki", href: "/wiki" },
+            ...(article.category ? [{ label: article.category.name, href: `/wiki/categories/${article.category.slug}` }] : []),
+            { label: article.title },
+          ]}
+        />
 
         {/* Archived banner */}
         {isArchived && (
