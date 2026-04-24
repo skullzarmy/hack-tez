@@ -1267,17 +1267,17 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         return pinHandler(req, ctx);
     }
 
+    // Delegate ALL /api/v1/wiki/* requests (any method) to the wiki function
+    if (resource === "wiki") {
+        const wiki = await import("./wiki.mts");
+        return wiki.default(req, ctx);
+    }
+
     if (req.method !== "GET") {
         return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
     const net = getNetwork();
-
-    // Delegate /api/v1/wiki/* to the wiki function explicitly to avoid path pattern overlap
-    if (resource === "wiki") {
-        const wiki = await import("./wiki.mts");
-        return wiki.default(req, ctx);
-    }
 
     try {
         if (resource === "domains") return await handleDomains(new URL(req.url), net);
