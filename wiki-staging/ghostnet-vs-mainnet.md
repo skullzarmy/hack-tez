@@ -8,26 +8,29 @@ status: "draft"
 author: "admin.hack.tez"
 ---
 
-# Ghostnet vs Mainnet
+# Networks: Testnets and Mainnet
 
-Ghostnet is the long-lived Tezos testnet. Use it for development, experimentation, and staging. Mainnet is for production.
+Tezos maintains mainnet plus a set of evolving test networks. Historically, ghostnet has been the long‑lived testnet, but this has recently been sunset. Shadownet is now the preferred long-running test network. Tezos also runs protocol‑specific testnets and transitional networks.
 
-## When to use Ghostnet
+## When to use a Testnet
+
 - Iterating on contracts and UI.
 - Testing fee/gas assumptions and indexer queries.
-- Dry-running operational scripts.
+- Dry‑running operational scripts.
 
-## RPC and Indexers
-- RPC: `https://ghostnet.ecadinfra.com` (example). Choose reliable providers.
-- Indexer: `https://api.ghostnet.tzkt.io` with the TzKT explorer and REST API.
+## RPC and Indexers (Examples)
+
+- Choose reliable RPC providers appropriate for the current testnet and mainnet.
+- TzKT indexer: `https://api.tzkt.io` (mainnet) and network‑specific subdomains for testnets.
 
 ## Migration Checklist
+
 1. Remove faucet/private keys from code and config.
 2. Switch RPCs and indexers to mainnet endpoints.
 3. Confirm contract addresses and originated KT1s.
 4. Re-audit limits/fees and metadata.
 
 ## References
-- https://teztnets.com/
-- https://ghostnet.tzkt.io
 
+- https://teztnets.com/ — current list of public Tezos networks
+- https://tzkt.io — mainnet explorer (switch network as needed)

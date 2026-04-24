@@ -8,31 +8,24 @@ status: "draft"
 author: "admin.hack.tez"
 ---
 
-# Taquito Quickstart
+# Taquito: Where to Start
 
-Taquito is the canonical TypeScript SDK for Tezos. It exposes two surfaces:
+Taquito is the canonical TypeScript SDK for Tezos.
 
-- `Tezos.contract.*` — direct signing with a Signer (server scripts, CLI, secure services).
-- `Tezos.wallet.*` — delegated signing through a wallet provider (browser dApps).
+## What it Provides
 
-## Setup
-```bash
-npm install @taquito/taquito
-```
+- `Tezos.contract.*` — direct signing with a Signer (scripts, services).
+- `Tezos.wallet.*` — delegated signing via a wallet provider (browser dApps).
 
-```ts
-import { TezosToolkit } from "@taquito/taquito";
-const Tezos = new TezosToolkit("https://ghostnet.ecadinfra.com");
-```
+## Get Started
 
-## Transfers
-```ts
-const op = await Tezos.contract.transfer({ to: "tz1...", amount: 1 });
-await op.confirmation(1);
-```
+- Quickstart and Docs: https://tezostaquito.io/
+- Examples: https://tezostaquito.io/docs/quick_start
+- Contract Calls: https://tezostaquito.io/docs/contract
+- Wallet API: https://tezostaquito.io/docs/wallet_api
 
-See the full Skill for deeper coverage of contract calls, signers, and the Wallet API.
+## Tips
 
-## References
-- https://tezostaquito.io/
-
+- Reuse a single `TezosToolkit` where possible.
+- Distinguish between tez (1e6 mutez) and mutez for amounts.
+- For browser dApps, prefer the Wallet API with a Beacon provider.

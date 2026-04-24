@@ -10,16 +10,16 @@ author: "admin.hack.tez"
 
 # Tezos Domains and hack.tez
 
-Tezos Domains (TED) is an on-chain naming system. Domains map human-readable names to data such as owners, addresses, and profile metadata.
+Tezos Domains (TED) is an on‑chain naming system. Domains map human‑readable names to data such as owners, addresses, and profile metadata.
 
 ## TED Records
-TED stores records in FA2-like contracts and exposes GraphQL APIs for resolution and discovery. Each record has an owner, optional address, and a `data` map of key/value pairs (e.g., profile fields).
+TED maintains registry contracts (including an FA2 token for names) and exposes GraphQL APIs for resolution and discovery. Each record has an owner, optional address, and a `data` map of key/value pairs (e.g., profile fields).
 
 ## hack.tez Subdomains
-`name.hack.tez` are real TED records. The hack.tez registrar contract sets you as the owner and writes the record via TED proxy entrypoints. Ownership is on-chain; transfer the record to transfer identity.
+`name.hack.tez` are real TED records. The hack.tez registrar contract sets you as the owner and writes the record via TED proxy entrypoints. Ownership is on‑chain; transferring the record transfers the identity.
 
 ## Profiles
-Profiles are simple JSON key/values in the TED data map: `openid:name`, `hack:bio`, skills, and more. Apps can parse and display these consistently.
+Profiles are JSON‑encoded key/values in the TED data map: `openid:name`, `hack:bio`, skills, and more. Apps can parse and display these consistently. The TED GraphQL API returns these values already decoded.
 
 ## Resolution
 - Forward: name → address/owner/data via TED GraphQL.
@@ -29,4 +29,3 @@ Profiles are simple JSON key/values in the TED data map: `openid:name`, `hack:bi
 - https://tezos.domains/
 - https://api.tezos.domains/graphql
 - https://ghostnet-api.tezos.domains/graphql
-
