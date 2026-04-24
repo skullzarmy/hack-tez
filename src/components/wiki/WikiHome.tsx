@@ -4,7 +4,7 @@ import type { WikiArticleSummary, WikiCategory } from "../../hooks/useWikiApi";
 import { useWikiSearch } from "../../hooks/useWikiSearch";
 import { useTezos } from "../../context/TezosContext";
 import { Search, BookOpen, Clock, Users, TrendingUp, PenLine, Shield, Settings } from "lucide-react";
-import { Hackatar } from "../Hackatar";
+import ChatAvatar from "../chat/ChatAvatar";
 
 export default function WikiHome() {
   const api = useWikiApi();
@@ -395,7 +395,7 @@ export default function WikiHome() {
                       }}
                     >
                       <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-                        <Hackatar label={(article.lastEditor?.split(".")[0]) ?? ""} size={16} animated={false} />
+                        <ChatAvatar label={(article.lastEditor?.split(".")[0]) ?? ""} size={16} animated={false} />
                         {article.lastEditor}
                       </span>
                       <span style={{ opacity: 0.5, margin: "0 0.3rem" }}>|</span>

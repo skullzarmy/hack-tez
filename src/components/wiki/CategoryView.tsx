@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useWikiApi } from "../../hooks/useWikiApi";
 import type { WikiArticleSummary, WikiCategory } from "../../hooks/useWikiApi";
-import { Hackatar } from "../Hackatar";
+import ChatAvatar from "../chat/ChatAvatar";
 import Breadcrumbs from "./Breadcrumbs";
 
 interface Props {
@@ -152,7 +152,7 @@ export default function CategoryView({ slug }: Props) {
                     }}
                   >
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-                      <Hackatar label={(article.author?.split(".")[0]) ?? ""} size={16} animated={false} />
+                      <ChatAvatar label={(article.author?.split(".")[0]) ?? ""} size={16} animated={false} />
                       {article.author}
                     </span>
                     <span style={{ opacity: 0.5, margin: "0 0.3rem" }}>|</span>

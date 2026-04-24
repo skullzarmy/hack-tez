@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Breadcrumbs from "./Breadcrumbs";
-import { Hackatar } from "../Hackatar";
+import ChatAvatar from "../chat/ChatAvatar";
 
 interface Props {
   slug: string;
@@ -208,7 +208,7 @@ export default function ArticleView({ slug }: Props) {
         >
           <span itemProp="author" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
             {article.author && (
-              <Hackatar label={labelFromDomain(article.author)} size={18} animated={false} />
+              <ChatAvatar label={labelFromDomain(article.author)} size={18} animated={false} />
             )}
             {article.author}
           </span>
@@ -270,7 +270,7 @@ export default function ArticleView({ slug }: Props) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
               {contributors.map((name) => (
                 <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.5rem", background: "var(--bg-3)", border: "1px solid var(--border)" }}>
-                  <Hackatar label={labelFromDomain(name)} size={18} animated={false} />
+                  <ChatAvatar label={labelFromDomain(name)} size={18} animated={false} />
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{name}</span>
                 </div>
               ))}
