@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Breadcrumbs from "./Breadcrumbs";
+import { Hackatar } from "../Hackatar";
 
 interface Props {
   slug: string;
@@ -19,6 +20,7 @@ export default function ArticleView({ slug }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
+  const [contributors, setContributors] = useState<string[]>([]);
 
   const fetchArticle = useCallback(() => {
     api.getArticle(slug).then((data) => {
@@ -35,6 +37,26 @@ export default function ArticleView({ slug }: Props) {
     setError(null);
     fetchArticle();
   }, [fetchArticle]);
+
+  // Fetch contributors (unique editors) in background without blocking render
+  useEffect(() => {
+    if (!slug) return;
+    api.getRevisions(slug).then((data) => {
+      const names = new Set<string>();
+      if (article?.author) names.add(article.author);
+      if (article?.lastEditor) names.add(article.lastEditor);
+      for (const r of data.revisions) names.add(r.editor);
+      setContributors(Array.from(names));
+    }).catch(() => { /* silent */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, api, article?.author, article?.lastEditor]);
+
+  function labelFromDomain(name: string | null | undefined): string {
+    if (!name) return "";
+    const i = name.indexOf(".hack.");
+    if (i > 0) return name.slice(0, i);
+    return name.split(".")[0] ?? name;
+  }
 
   if (loading) {
     return (
@@ -184,7 +206,12 @@ export default function ArticleView({ slug }: Props) {
             borderBottom: "1px solid var(--border, rgba(255,255,255,0.08))",
           }}
         >
-          <span itemProp="author">{article.author}</span>
+          <span itemProp="author" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            {article.author && (
+              <Hackatar label={labelFromDomain(article.author)} size={18} animated={false} />
+            )}
+            {article.author}
+          </span>
           <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
             <Clock size={12} />
             <time itemProp="dateModified" dateTime={article.updatedAt}>
@@ -233,6 +260,23 @@ export default function ArticleView({ slug }: Props) {
             {article.markdown}
           </ReactMarkdown>
         </div>
+
+        {/* Contributors */}
+        {contributors.length > 0 && (
+          <section style={{ marginTop: "2rem" }}>
+            <h3 style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--fg-3)", marginBottom: "0.6rem" }}>
+              // CONTRIBUTORS
+            </h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
+              {contributors.map((name) => (
+                <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.5rem", background: "var(--bg-3)", border: "1px solid var(--border)" }}>
+                  <Hackatar label={labelFromDomain(name)} size={18} animated={false} />
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>{name}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Tags */}
         {(article.tags?.length ?? 0) > 0 && (

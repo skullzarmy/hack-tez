@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useWikiApi } from "../../hooks/useWikiApi";
 import type { WikiArticleSummary, WikiCategory } from "../../hooks/useWikiApi";
+import { Hackatar } from "../Hackatar";
 import Breadcrumbs from "./Breadcrumbs";
 
 interface Props {
@@ -150,7 +151,12 @@ export default function CategoryView({ slug }: Props) {
                       border: "1px solid var(--border)"
                     }}
                   >
-                    {article.author} <span style={{ opacity: 0.5 }}>|</span> REV {article.revision}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                      <Hackatar label={(article.author?.split(".")[0]) ?? ""} size={16} animated={false} />
+                      {article.author}
+                    </span>
+                    <span style={{ opacity: 0.5, margin: "0 0.3rem" }}>|</span>
+                    REV {article.revision}
                   </div>
                 </a>
               ))}
