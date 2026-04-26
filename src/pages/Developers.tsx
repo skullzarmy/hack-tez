@@ -52,6 +52,16 @@ const NAV: NavSection[] = [
         ],
     },
     {
+        id: "wiki",
+        label: "Wiki API",
+        children: [
+            { id: "ep-wiki-articles", label: "List Articles" },
+            { id: "ep-wiki-article", label: "Get Article" },
+            { id: "ep-wiki-search", label: "Search Articles" },
+            { id: "ep-wiki-categories", label: "Categories" },
+        ],
+    },
+    {
         id: "chat",
         label: "Chat",
         children: [
@@ -1926,6 +1936,280 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                                     </li>
                                 </ol>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* ================================================================ */}
+                    {/* Wiki API                                                          */}
+                    {/* ================================================================ */}
+
+                    <div style={{ marginTop: "3rem", marginBottom: "2rem" }}>
+                        <h2
+                            id="wiki"
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--fg-3)",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                                marginBottom: 0,
+                            }}
+                        >
+                            Wiki API
+                        </h2>
+                    </div>
+
+                    {/* ---- GET /api/v1/wiki/articles ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-wiki-articles" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                List Articles
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/wiki/articles
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Paginated list of published wiki articles. Supports filtering by category or tag.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    { name: "category", kind: "query", type: "string", description: "Filter by category slug" },
+                                    { name: "tag", kind: "query", type: "string", description: "Filter by tag slug" },
+                                    { name: "limit", kind: "query", type: "integer", default: "50", description: "Results per page" },
+                                    { name: "offset", kind: "query", type: "integer", default: "0", description: "Pagination offset" }
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/wiki/articles?limit=3" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify({
+                                    articles: [
+                                        {
+                                            slug: "getting-started",
+                                            title: "Getting Started with Tezos",
+                                            summary: "A brief intro...",
+                                            author: "tz1...",
+                                            lastEditor: "tz1...",
+                                            category: { slug: "guides", name: "Guides" },
+                                            createdAt: "2025-04-01T12:00:00Z",
+                                            updatedAt: "2025-04-02T12:00:00Z",
+                                            revision: 2
+                                        }
+                                    ],
+                                    total: 1,
+                                    limit: 3,
+                                    offset: 0
+                                }, null, 2)}
+                            />
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/wiki/articles/:slug ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-wiki-article" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Get Article
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/wiki/articles/:slug
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Fetch full content and metadata for a specific article. Returns rendered HTML and raw Markdown.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    { name: "slug", kind: "path", type: "string", description: "Article URL slug" }
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/wiki/articles/getting-started" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify({
+                                    slug: "getting-started",
+                                    title: "Getting Started with Tezos",
+                                    summary: "A brief intro...",
+                                    content: "<p>Welcome...</p>",
+                                    markdown: "Welcome...",
+                                    author: "tz1...",
+                                    lastEditor: "tz1...",
+                                    category: { slug: "guides", name: "Guides" },
+                                    tags: [{ slug: "beginner", name: "Beginner" }],
+                                    status: "published",
+                                    createdAt: "2025-04-01T12:00:00Z",
+                                    updatedAt: "2025-04-02T12:00:00Z",
+                                    revision: 2,
+                                    lockedBy: null,
+                                    lockReason: null,
+                                    lockExpires: null
+                                }, null, 2)}
+                            />
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/wiki/search ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-wiki-search" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Search Articles
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/wiki/search
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Full-text search across article titles, summaries, and markdown content using FTS5.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    { name: "q", kind: "query", type: "string", description: "Search query" },
+                                    { name: "limit", kind: "query", type: "integer", default: "20", description: "Max results" },
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/wiki/search?q=smartpy" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify({
+                                    query: "smartpy",
+                                    results: [
+                                        {
+                                            slug: "smartpy-basics",
+                                            title: "SmartPy Basics",
+                                            summary: "Learn SmartPy...",
+                                            excerpt: "...write a <b>SmartPy</b> contract...",
+                                            author: "tz1...",
+                                            updatedAt: "2025-04-01T12:00:00Z"
+                                        }
+                                    ]
+                                }, null, 2)}
+                            />
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/wiki/categories ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-wiki-categories" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Categories
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/wiki/categories
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                List all wiki categories and their published article counts.
+                            </p>
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/wiki/categories" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify({
+                                    categories: [
+                                        {
+                                            id: "cat_123",
+                                            slug: "guides",
+                                            name: "Guides",
+                                            description: "Tutorials and guides",
+                                            parentId: null,
+                                            articleCount: 15
+                                        }
+                                    ]
+                                }, null, 2)}
+                            />
                         </div>
                     </section>
 

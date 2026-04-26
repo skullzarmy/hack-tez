@@ -21,6 +21,7 @@ const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Chat = lazy(() => import("./components/chat/ChatPage"));
+const WikiApp = lazy(() => import("./pages/WikiApp"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -209,6 +210,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Developers
                                     </a>
                                     <a
+                                        href="/wiki"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Wiki
+                                    </a>
+                                    <a
                                         href="/skills"
                                         role="menuitem"
                                         className="nav-drawer-link"
@@ -267,6 +276,7 @@ export function AppShell() {
     const { theme, setTheme } = useTheme();
     const location = useLocation();
     const isChat = location.pathname === "/chat";
+    const isWiki = location.pathname.startsWith("/wiki");
 
     return (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
@@ -300,13 +310,14 @@ export function AppShell() {
                     <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
                     <Route path="/manage" element={<Navigate to="/" replace />} />
                     <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
+                    <Route path="/wiki/*" element={<Suspense fallback={null}><WikiApp /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>
             </main>
 
             <ActivityLayer />
-            <Footer compact={isChat} />
+            <Footer compact={isChat || isWiki} />
             <ConnectHint />
             <ChatHint />
         </div>
