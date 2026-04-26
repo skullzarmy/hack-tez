@@ -4,12 +4,13 @@
     "version": "0.1.0",
     "license": "Unlicense",
     "type": "module",
-    "scripts": {
+  "scripts": {
         "dev": "vite",
         "netlify:dev": "cross-env NODE_OPTIONS='--require ./scripts/netlify-dev-patch.cjs' VITE_HMR_CLIENT_PORT=8888 netlify dev",
         "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
-        "preview": "vite preview"
-    },
+        "preview": "vite preview",
+        "wiki:load": "tsx scripts/wiki/loader.mts"
+  },
     "dependencies": {
         "@blocknote/core": "^0.48.1",
         "@blocknote/mantine": "^0.48.1",
