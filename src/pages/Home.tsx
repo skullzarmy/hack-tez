@@ -22,7 +22,7 @@ const CircuitBackground = lazy(() =>
 );
 
 export default function Home() {
-    const { address, domain, restoring, token } = useTezos();
+    const { address, restoring, token, activeDomain } = useTezos();
     const contractConfig = useContractConfig();
     const waitDescription = formatDuration(contractConfig.minCommitAgeSec);
     const maxAgeDescription = formatDuration(contractConfig.maxCommitAgeSec);
@@ -68,8 +68,14 @@ export default function Home() {
 
     const { step: onboardingStep } = useOnboarding();
 
+    // Use activeDomain (from JWT, synchronously seeded from localStorage) rather
+    // than domain (async TED network resolution) to decide whether to show the
+    // dashboard. This prevents the landing page from flashing while
+    // resolveDisplayName is still in-flight.
+    const isAuthenticated = !!(activeDomain && token);
+
     // ── Dashboard for authenticated users with domains ──
-    if (domain && token) {
+    if (isAuthenticated) {
         return (
             <HomeDashboard
                 subdomains={subdomains}

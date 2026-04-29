@@ -73,7 +73,7 @@ interface HomeDashboardProps {
 }
 
 export default function HomeDashboard({ subdomains, loading, refresh }: HomeDashboardProps) {
-    const { domain } = useTezos();
+    const { activeDomain } = useTezos();
     const { step: onboardingStep } = useOnboarding();
     const { events, isLoading: activityLoading } = useRecentActivity();
     const totalDomains = useDomainCount();
@@ -103,7 +103,7 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
             </section>
 
             {/* ── HACKCHAT ──────────────────────────────────────────── */}
-            {domain && (
+            {activeDomain && (
                 <section className="dashboard-section">
                     <Link to="/chat" className="dashboard-chat-card">
                         <div className="dashboard-chat-glow" aria-hidden="true" />

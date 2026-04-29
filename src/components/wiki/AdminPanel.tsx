@@ -13,7 +13,7 @@ interface EditingCategory {
 
 export default function AdminPanel() {
     const api = useWikiApi();
-    const { domain, token } = useTezos();
+    const { token } = useTezos();
     const [mods, setMods] = useState<WikiModerator[]>([]);
     const [cats, setCats] = useState<WikiCategory[]>([]);
     const [loading, setLoading] = useState(true);
