@@ -68,30 +68,26 @@ export default function Home() {
 
     const { step: onboardingStep } = useOnboarding();
 
-    // Use activeDomain (from JWT, synchronously seeded from localStorage) rather
-    // than domain (async TED network resolution) to decide whether to show the
-    // dashboard. This prevents the landing page from flashing while
-    // resolveDisplayName is still in-flight.
-    const isAuthenticated = !!(activeDomain && token);
+    // Show the dashboard when we know the user has domains. Three paths:
+    //   1. JWT is valid (activeDomain seeded synchronously from localStorage)
+    //   2. Wallet session is being restored (show loading shell)
+    //   3. Wallet connected + subdomains confirmed on-chain (JWT not required)
+    // This ensures users are never locked out of domain management when
+    // their JWT expires but their wallet session persists.
+    const showDashboard =
+        !!(activeDomain && token) ||   // JWT proves they have a domain
+        restoring ||                    // session still loading
+        (!!address && hasSubdomain);    // on-chain subdomains confirmed
 
-    // ── Dashboard for authenticated users with domains ──
-    if (isAuthenticated) {
+    // While wallet is connected and we're still loading subdomains, show the
+    // dashboard shell instead of flashing the landing page.
+    const dashboardLoading = restoring || (!!address && subdomainsLoading);
+
+    if (showDashboard) {
         return (
             <HomeDashboard
                 subdomains={subdomains}
-                loading={subdomainsLoading}
-                refresh={refreshSubdomains}
-            />
-        );
-    }
-
-    // Wallet session is being restored (valid JWT + beacon session exist) —
-    // show dashboard shell to prevent the landing page from flashing.
-    if (restoring) {
-        return (
-            <HomeDashboard
-                subdomains={[]}
-                loading={true}
+                loading={dashboardLoading}
                 refresh={refreshSubdomains}
             />
         );

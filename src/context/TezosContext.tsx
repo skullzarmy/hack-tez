@@ -178,10 +178,11 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     );
     const [connecting, setConnecting] = useState(false);
     // True while a previous beacon session is being restored asynchronously.
-    // Only true when we have both a wallet session AND a valid JWT — prevents
-    // showing the dashboard before the user has signed.
+    // True whenever a wallet session exists — we must wait for the wallet
+    // restore to complete before deciding what to show, regardless of whether
+    // a JWT is also present.
     const [restoring, setRestoring] = useState(
-        () => typeof window !== "undefined" && hasBeaconSession() && seed !== null,
+        () => typeof window !== "undefined" && hasBeaconSession(),
     );
     const [client, setClient] = useState<DAppClient | null>(null);
     const subscribedRef = useRef(false);
