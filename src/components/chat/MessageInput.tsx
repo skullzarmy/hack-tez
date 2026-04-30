@@ -354,7 +354,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                                 gap: "8px",
                                 width: "100%",
                                 padding: "8px 12px",
-                                background: i === mentionIndex ? "rgba(0, 255, 200, 0.1)" : "transparent",
+                                background: i === mentionIndex ? "var(--accent-bg)" : "transparent",
                                 border: "none",
                                 borderBottom: "1px solid var(--border, rgba(255,255,255,0.06))",
                                 cursor: "pointer",
@@ -528,7 +528,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                             style={{
                                 width: "36px",
                                 height: "36px",
-                                color: uploading ? "var(--accent, #00ffc8)" : "var(--fg-3, #888)",
+                                color: uploading ? "var(--accent)" : "var(--fg-3, #888)",
                                 cursor: disabled || uploading ? "default" : "pointer",
                                 border: "none",
                                 background: "transparent",
@@ -549,7 +549,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                         style={{
                             width: "36px",
                             height: "36px",
-                            color: showGifPicker ? "var(--accent, #00ffc8)" : "var(--fg-3, #888)",
+                            color: showGifPicker ? "var(--accent)" : "var(--fg-3, #888)",
                             cursor: disabled ? "default" : "pointer",
                             border: "none",
                             background: "transparent",
@@ -569,12 +569,12 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                         width: "36px",
                         height: "36px",
                         color: (value.trim() || pendingMedia) && !disabled
-                            ? "var(--accent, #00ffc8)"
+                            ? "var(--accent)"
                             : "var(--fg-3, #888)",
                         cursor: (value.trim() || pendingMedia) && !disabled ? "pointer" : "default",
                         border: "none",
                         background: "transparent",
-                        outlineColor: "var(--accent, #00ffc8)",
+                        outlineColor: "var(--accent)",
                     }}
                     aria-label="Send message"
                 >

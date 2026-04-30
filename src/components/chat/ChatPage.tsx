@@ -65,7 +65,7 @@ export default function ChatPage() {
                     padding: "clamp(1.5rem, 4vw, 3rem)",
                 }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />
+                <MessageCircle size={48} style={{ color: "var(--accent)", opacity: 0.4 }} aria-hidden="true" />
                 <h2
                     className="text-sm font-bold uppercase tracking-widest text-center"
                     style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
@@ -79,7 +79,7 @@ export default function ChatPage() {
                     className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
                         minHeight: "44px",
-                        outlineColor: "var(--accent, #00ffc8)",
+                        outlineColor: "var(--accent)",
                     }}
                 >
                     {connecting ? "Connecting…" : "Connect Wallet"}
@@ -99,7 +99,7 @@ export default function ChatPage() {
                     padding: "clamp(1.5rem, 4vw, 3rem)",
                 }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />
+                <MessageCircle size={48} style={{ color: "var(--accent)", opacity: 0.4 }} aria-hidden="true" />
                 <h2
                     className="text-sm font-bold uppercase tracking-widest text-center"
                     style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
@@ -119,7 +119,7 @@ export default function ChatPage() {
                         type="button"
                         onClick={connect}
                         className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-                        style={{ minHeight: "44px", outlineColor: "var(--accent, #00ffc8)" }}
+                        style={{ minHeight: "44px", outlineColor: "var(--accent)" }}
                     >
                         Reconnect
                     </button>
@@ -139,7 +139,7 @@ export default function ChatPage() {
                     padding: "clamp(1.5rem, 4vw, 3rem)",
                 }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.4 }} aria-hidden="true" />
+                <MessageCircle size={48} style={{ color: "var(--accent)", opacity: 0.4 }} aria-hidden="true" />
                 <h2
                     className="text-sm font-bold uppercase tracking-widest text-center"
                     style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
@@ -155,7 +155,7 @@ export default function ChatPage() {
                 <a
                     href="/"
                     className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-                    style={{ minHeight: "44px", outlineColor: "var(--accent, #00ffc8)", textDecoration: "none" }}
+                    style={{ minHeight: "44px", outlineColor: "var(--accent)", textDecoration: "none" }}
                 >
                     Register a domain
                 </a>

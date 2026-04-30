@@ -90,7 +90,7 @@ export default function LinkPreview({ url, token }: { url: string; token: string
                 {(og.siteName || hostname) && (
                     <div style={{
                         fontSize: "10px",
-                        color: "var(--accent, #00ffc8)",
+                        color: "var(--accent)",
                         fontFamily: "var(--font-mono)",
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",

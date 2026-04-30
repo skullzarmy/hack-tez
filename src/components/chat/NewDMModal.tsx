@@ -132,7 +132,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                         style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
                         id="new-dm-title"
                     >
-                        <MessageSquare size={14} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
+                        <MessageSquare size={14} style={{ color: "var(--accent)" }} aria-hidden="true" />
                         New DM
                     </span>
                     <button
@@ -146,7 +146,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                             cursor: "pointer",
                             border: "none",
                             background: "transparent",
-                            outlineColor: "var(--accent, #00ffc8)",
+                            outlineColor: "var(--accent)",
                         }}
                         aria-label="Close"
                     >
@@ -202,12 +202,12 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                                 borderBottom: "1px solid var(--border-2, #222)",
                                 background: "transparent",
                                 minHeight: "44px",
-                                outlineColor: "var(--accent, #00ffc8)",
+                                outlineColor: "var(--accent)",
                             }}
                         >
                             <span
                                 className="inline-block w-2 h-2 rounded-full shrink-0"
-                                style={{ background: "var(--accent, #00ffc8)" }}
+                                style={{ background: "var(--accent)" }}
                                 aria-hidden="true"
                             />
                             <span
@@ -233,18 +233,18 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                                 cursor: "pointer",
                                 border: "none",
                                 borderBottom: "1px solid var(--border-2, #222)",
-                                background: "rgba(0, 255, 200, 0.05)",
+                                background: "var(--accent-bg)",
                                 minHeight: "44px",
-                                outlineColor: "var(--accent, #00ffc8)",
+                                outlineColor: "var(--accent)",
                             }}
                         >
-                            <MessageSquare size={14} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
+                            <MessageSquare size={14} style={{ color: "var(--accent)" }} aria-hidden="true" />
                             <span
                                 className="text-xs"
                                 style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
                             >
                                 Message{" "}
-                                <span style={{ color: "var(--accent, #00ffc8)", fontWeight: 700 }}>
+                                <span style={{ color: "var(--accent)", fontWeight: 700 }}>
                                     {manualTarget.domain}
                                 </span>
                             </span>

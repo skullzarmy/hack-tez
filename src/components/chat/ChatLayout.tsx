@@ -529,7 +529,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                             >
                                 <Menu size={20} />
                             </button>
-                            <MessageCircle size={18} style={{ color: "var(--accent, #00ffc8)" }} aria-hidden="true" />
+                            <MessageCircle size={18} style={{ color: "var(--accent)" }} aria-hidden="true" />
                             <span
                                 className="text-sm font-bold uppercase tracking-widest"
                                 style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}

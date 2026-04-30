@@ -179,7 +179,7 @@ export default function Select({
     );
 
     const focusRing: React.CSSProperties = {
-        boxShadow: "inset 0 0 0 2px var(--accent, #00ffc8)",
+        boxShadow: "inset 0 0 0 2px var(--accent)",
     };
 
     const triggerStyle: React.CSSProperties =
@@ -195,8 +195,8 @@ export default function Select({
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.12em",
-                  background: "var(--accent, #00ffc8)",
-                  color: "var(--bg, #000)",
+                  background: "var(--accent)",
+                  color: "var(--accent-fg)",
                   padding: "0.35rem 0.5rem",
                   minHeight: "44px",
                   maxWidth: "min(48vw, 190px)",
@@ -272,7 +272,7 @@ export default function Select({
                             style={{
                                 ...itemBase,
                                 background: isFocused ? "var(--bg-3, #222)" : "transparent",
-                                color: isSelected ? "var(--accent, #00ffc8)" : "var(--fg)",
+                                color: isSelected ? "var(--accent)" : "var(--fg)",
                                 ...(isFocused ? focusRing : {}),
                             }}
                         >
@@ -280,7 +280,7 @@ export default function Select({
                             {isSelected && (
                                 <Check
                                     size={12}
-                                    style={{ flexShrink: 0, marginLeft: "0.5rem", color: "var(--accent, #00ffc8)" }}
+                                    style={{ flexShrink: 0, marginLeft: "0.5rem", color: "var(--accent)" }}
                                     aria-hidden="true"
                                 />
                             )}
@@ -293,7 +293,7 @@ export default function Select({
 
     return (
         <div style={{ display: fullWidth ? "block" : "inline-block", width: fullWidth ? "100%" : undefined }}>
-            <style>{`#${CSS.escape(triggerId)}:focus-visible { outline: 2px solid var(--accent, #00ffc8); outline-offset: 2px; }`}</style>
+            <style>{`#${CSS.escape(triggerId)}:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }`}</style>
             <button
                 ref={triggerRef}
                 type="button"
@@ -327,7 +327,7 @@ export default function Select({
                         marginLeft: "0.25rem",
                         transition: "transform 150ms",
                         transform: open ? "rotate(180deg)" : "none",
-                        color: variant === "accent" ? "var(--bg, #000)" : "var(--fg-3)",
+                        color: variant === "accent" ? "var(--accent-fg)" : "var(--fg-3)",
                     }}
                     aria-hidden="true"
                 />

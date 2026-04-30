@@ -108,7 +108,7 @@ export default function ChatSidebar({
                         cursor: "pointer",
                         border: "none",
                         background: "transparent",
-                        outlineColor: "var(--accent, #00ffc8)",
+                        outlineColor: "var(--accent)",
                     }}
                     aria-label="Close navigation"
                 >
@@ -129,14 +129,14 @@ export default function ChatSidebar({
                     onClick={onSelectGlobal}
                     className="flex items-center text-xs w-full text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 px-3 gap-2"
                     style={{
-                        background: activeView.type === "global" ? "var(--accent, #00ffc8)" : "transparent",
-                        color: activeView.type === "global" ? "var(--bg, #000)" : "var(--fg, #eee)",
+                        background: activeView.type === "global" ? "var(--accent)" : "transparent",
+                        color: activeView.type === "global" ? "var(--accent-fg)" : "var(--fg, #eee)",
                         fontFamily: "var(--font-mono)",
                         fontWeight: 700,
                         cursor: "pointer",
                         border: "none",
                         minHeight: "44px",
-                        outlineColor: "var(--accent, #00ffc8)",
+                        outlineColor: "var(--accent)",
                         textTransform: "uppercase",
                         letterSpacing: "0.1em",
                     }}
@@ -148,8 +148,8 @@ export default function ChatSidebar({
                         <span
                             className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
                             style={{
-                                background: activeView.type === "global" ? "var(--bg, #000)" : "var(--accent, #00ffc8)",
-                                color: activeView.type === "global" ? "var(--accent, #00ffc8)" : "var(--bg, #000)",
+                                background: activeView.type === "global" ? "var(--accent-fg)" : "var(--accent)",
+                                color: activeView.type === "global" ? "var(--accent)" : "var(--accent-fg)",
                                 minWidth: "16px",
                                 marginLeft: "auto",
                             }}
@@ -178,8 +178,8 @@ export default function ChatSidebar({
                         <span
                             className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
                             style={{
-                                background: "var(--accent, #00ffc8)",
-                                color: "var(--bg, #000)",
+                                background: "var(--accent)",
+                                color: "var(--accent-fg)",
                                 minWidth: "16px",
                             }}
                         >
@@ -199,7 +199,7 @@ export default function ChatSidebar({
                         cursor: "pointer",
                         border: "none",
                         background: "transparent",
-                        outlineColor: "var(--accent, #00ffc8)",
+                        outlineColor: "var(--accent)",
                     }}
                     aria-label="New DM"
                     title="New DM"
@@ -252,8 +252,8 @@ export default function ChatSidebar({
                             key={conv.roomId}
                             className="flex items-stretch w-full min-w-0"
                             style={{
-                                background: isActive ? "rgba(0, 255, 200, 0.06)" : "transparent",
-                                borderLeft: isActive ? "2px solid var(--accent, #00ffc8)" : "2px solid transparent",
+                                background: isActive ? "var(--accent-bg)" : "transparent",
+                                borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
                             }}
                         >
                             <button
@@ -265,7 +265,7 @@ export default function ChatSidebar({
                                     cursor: "pointer",
                                     border: "none",
                                     minHeight: "52px",
-                                    outlineColor: "var(--accent, #00ffc8)",
+                                    outlineColor: "var(--accent)",
                                 }}
                                 aria-current={isActive ? "page" : undefined}
                             >
@@ -273,7 +273,7 @@ export default function ChatSidebar({
                                     <span
                                         className="text-[11px] font-bold truncate min-w-0 flex-1"
                                         style={{
-                                            color: isActive ? "var(--accent, #00ffc8)" : "var(--fg, #eee)",
+                                            color: isActive ? "var(--accent)" : "var(--fg, #eee)",
                                             fontFamily: "var(--font-mono)",
                                         }}
                                     >
@@ -296,8 +296,8 @@ export default function ChatSidebar({
                                             <span
                                                 className="inline-flex items-center justify-center text-[10px] font-bold leading-none px-1.5 py-0.5"
                                                 style={{
-                                                    background: "var(--accent, #00ffc8)",
-                                                    color: "var(--bg, #000)",
+                                                    background: "var(--accent)",
+                                                    color: "var(--accent-fg)",
                                                     minWidth: "16px",
                                                 }}
                                             >

@@ -140,7 +140,7 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
                         <div
                             style={{
                                 fontSize: "10px",
-                                color: "var(--accent, #00ffc8)",
+                                color: "var(--accent)",
                                 textTransform: "uppercase",
                                 letterSpacing: "0.1em",
                                 marginTop: "2px",
@@ -251,7 +251,7 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
                             textTransform: "uppercase",
                             letterSpacing: "0.1em",
                             color: "var(--bg, #000)",
-                            background: "var(--accent, #00ffc8)",
+                            background: "var(--accent)",
                             border: "none",
                             fontFamily: "var(--font-mono)",
                             cursor: "pointer",
@@ -275,11 +275,11 @@ function ProfileLink({ href, label }: { href: string; label: string }) {
             rel="noopener noreferrer"
             style={{
                 fontSize: "10px",
-                color: "var(--accent, #00ffc8)",
+                color: "var(--accent)",
                 textDecoration: "none",
                 padding: "2px 6px",
-                border: "1px solid rgba(0, 255, 200, 0.2)",
-                background: "rgba(0, 255, 200, 0.05)",
+                border: "1px solid var(--accent)",
+                background: "var(--accent-bg)",
             }}
         >
             {label}

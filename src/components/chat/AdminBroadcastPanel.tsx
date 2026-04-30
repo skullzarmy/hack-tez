@@ -157,7 +157,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
             <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
-                    <Megaphone size={18} style={{ color: "var(--accent, #00ff9d)" }} />
+                    <Megaphone size={18} style={{ color: "var(--accent)" }} />
                     <span
                         style={{
                             fontSize: "14px",
@@ -241,11 +241,11 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
                     <div
                         style={{
                             padding: "8px 12px",
-                            background: "rgba(0,255,157,0.08)",
-                            border: "1px solid rgba(0,255,157,0.3)",
+                            background: "var(--accent-bg)",
+                            border: "1px solid var(--accent)",
                             borderRadius: "6px",
                             fontSize: "12px",
-                            color: "var(--accent, #00ff9d)",
+                            color: "var(--accent)",
                             marginBottom: "12px",
                             display: "flex",
                             alignItems: "center",
@@ -267,7 +267,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
                         padding: "10px",
                         background: !title.trim() || !body.trim() || sending
                             ? "var(--bg-3, #222)"
-                            : "var(--accent, #00ff9d)",
+                            : "var(--accent)",
                         color: !title.trim() || !body.trim() || sending
                             ? "var(--fg-3, #666)"
                             : "var(--bg, #0a0a1a)",
@@ -338,7 +338,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", fontSize: "10px", color: "var(--fg-3, #666)" }}>
                                         <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                                            <CheckCircle2 size={10} style={{ color: "var(--accent, #00ff9d)" }} />
+                                            <CheckCircle2 size={10} style={{ color: "var(--accent)" }} />
                                             {b.sentCount} sent
                                         </span>
                                         {b.failedCount > 0 && (
@@ -352,7 +352,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
                                                 href={b.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                style={{ display: "flex", alignItems: "center", gap: "2px", color: "var(--accent, #00ff9d)" }}
+                                                style={{ display: "flex", alignItems: "center", gap: "2px", color: "var(--accent)" }}
                                             >
                                                 <ExternalLink size={10} />
                                                 link

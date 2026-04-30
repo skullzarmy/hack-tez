@@ -157,7 +157,7 @@ export default function DeleteMessageModal({ messageId, senderDomain, onConfirm,
                                 height: "24px",
                                 borderRadius: "10px",
                                 background: visible
-                                    ? "var(--accent, #00ffc8)"
+                                    ? "var(--accent)"
                                     : "var(--border-2, #333)",
                                 position: "relative",
                                 transition: "background 0.2s",
@@ -177,7 +177,7 @@ export default function DeleteMessageModal({ messageId, senderDomain, onConfirm,
                             />
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            {visible ? <Eye size={14} style={{ color: "var(--accent, #00ffc8)" }} /> : <EyeOff size={14} style={{ color: "var(--fg-3, #888)" }} />}
+                            {visible ? <Eye size={14} style={{ color: "var(--accent)" }} /> : <EyeOff size={14} style={{ color: "var(--fg-3, #888)" }} />}
                             <span
                                 style={{
                                     fontFamily: "var(--font-mono)",

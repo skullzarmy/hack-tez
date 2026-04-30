@@ -14,7 +14,7 @@ const Switch = React.forwardRef<
                 width: "36px",
                 height: "20px",
                 border: "1px solid var(--border-2, #333)",
-                background: checked ? "var(--accent, #00ffc8)" : "var(--bg-3, #1a1a1a)",
+                background: checked ? "var(--accent)" : "var(--bg-3, #1a1a1a)",
                 display: "inline-flex",
                 alignItems: "center",
                 cursor: "pointer",

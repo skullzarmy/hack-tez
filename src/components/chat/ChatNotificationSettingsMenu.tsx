@@ -166,7 +166,7 @@ export default function ChatNotificationSettingsMenu({
                         background: "transparent",
                         color: "var(--fg-2, rgba(255,255,255,0.75))",
                         cursor: "pointer",
-                        outlineColor: "var(--accent, #00ffc8)",
+                        outlineColor: "var(--accent)",
                     }}
                     aria-label="Chat notification settings"
                     title="Chat notification settings"

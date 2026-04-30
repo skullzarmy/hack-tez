@@ -222,7 +222,7 @@ export default function ArticleView({ slug }: Props) {
           {article.category && (
             <a
               href={`/wiki/categories/${article.category.slug}`}
-              style={{ color: "var(--accent, #00ffc8)", textDecoration: "none" }}
+              style={{ color: "var(--accent)", textDecoration: "none" }}
             >
               {article.category.name}
             </a>

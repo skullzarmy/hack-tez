@@ -17,8 +17,8 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
             <span
                 className="inline-flex items-center text-[10px] font-bold uppercase tracking-widest px-2 gap-1"
                 style={{
-                    background: "var(--accent, #00ffc8)",
-                    color: "var(--bg, #000)",
+                    background: "var(--accent)",
+                    color: "var(--accent-fg)",
                     fontFamily: "var(--font-mono)",
                     minHeight: "28px",
                     letterSpacing: "0.12em",

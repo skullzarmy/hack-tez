@@ -94,7 +94,7 @@ export default function DMView({
                             cursor: "pointer",
                             border: "none",
                             background: "transparent",
-                            outlineColor: "var(--accent, #00ffc8)",
+                            outlineColor: "var(--accent)",
                         }}
                         aria-label="Back to chat"
                     >
@@ -104,7 +104,7 @@ export default function DMView({
                         <div className="flex items-center gap-2">
                             <span
                                 className="inline-block w-1.5 h-1.5 shrink-0"
-                                style={{ background: peerOnline ? "var(--accent, #00ffc8)" : "var(--fg-3, #555)" }}
+                                style={{ background: peerOnline ? "var(--accent)" : "var(--fg-3, #555)" }}
                                 aria-hidden="true"
                             />
                             <span

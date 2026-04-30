@@ -54,9 +54,9 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
 
     const radioStyle = (active: boolean) => ({
         padding: "8px 14px",
-        background: active ? "rgba(0,255,200,0.08)" : "transparent",
-        border: active ? "1px solid var(--accent, #00ffc8)" : "1px solid var(--border-2, #333)",
-        color: active ? "var(--accent, #00ffc8)" : "var(--fg-2, rgba(255,255,255,0.6))",
+        background: active ? "var(--accent-bg)" : "transparent",
+        border: active ? "1px solid var(--accent)" : "1px solid var(--border-2, #333)",
+        color: active ? "var(--accent)" : "var(--fg-2, rgba(255,255,255,0.6))",
         fontFamily: "var(--font-mono)" as const,
         fontSize: "11px",
         textTransform: "uppercase" as const,

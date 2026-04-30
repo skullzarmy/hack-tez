@@ -66,7 +66,7 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
                 padding: "clamp(1.5rem, 4vw, 3rem)",
             }}
         >
-            <ShieldCheck size={48} style={{ color: "var(--accent, #00ffc8)", opacity: 0.6 }} aria-hidden="true" />
+            <ShieldCheck size={48} style={{ color: "var(--accent)", opacity: 0.6 }} aria-hidden="true" />
             <h2
                 className="text-sm font-bold uppercase tracking-widest text-center"
                 style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
@@ -108,7 +108,7 @@ export default function ChatAuth({ address, client, onAuthenticated }: ChatAuthP
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    outlineColor: "var(--accent, #00ffc8)",
+                    outlineColor: "var(--accent)",
                 }}
             >
                 {isBusy && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}

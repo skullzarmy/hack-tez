@@ -114,9 +114,9 @@ function formatContent(raw: string, onMentionClick?: (label: string) => void): R
                                 type="button"
                                 onClick={() => onMentionClick?.(label)}
                                 style={{
-                                    color: "var(--accent, #00ffc8)",
+                                    color: "var(--accent)",
                                     fontWeight: 700,
-                                    background: "rgba(0, 255, 200, 0.08)",
+                                    background: "var(--accent-bg)",
                                     padding: "0 2px",
                                     border: "none",
                                     cursor: onMentionClick ? "pointer" : "default",
@@ -141,7 +141,7 @@ function formatContent(raw: string, onMentionClick?: (label: string) => void): R
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                        style={{ color: "var(--accent, #00ffc8)", outlineColor: "var(--accent, #00ffc8)" }}
+                        style={{ color: "var(--accent)", outlineColor: "var(--accent)" }}
                     >
                         {urls[i]}
                     </a>,
@@ -522,8 +522,8 @@ function ReactionPill({
                     gap: "4px",
                     padding: "2px 6px",
                     fontSize: "12px",
-                    background: isMine ? "rgba(0, 255, 200, 0.12)" : "rgba(255,255,255,0.05)",
-                    border: isMine ? "1px solid rgba(0, 255, 200, 0.3)" : "1px solid var(--border, rgba(255,255,255,0.1))",
+                    background: isMine ? "var(--accent-bg)" : "rgba(255,255,255,0.05)",
+                    border: isMine ? "1px solid var(--accent)" : "1px solid var(--border, rgba(255,255,255,0.1))",
                     cursor: "pointer",
                     color: "var(--fg-2, rgba(255,255,255,0.6))",
                     fontFamily: "var(--font-mono)",
@@ -752,7 +752,7 @@ function InlineEdit({ content, onSave, onCancel }: { content: string; onSave: (t
     return (
         <div style={{
             padding: "6px 12px",
-            background: "rgba(0, 255, 200, 0.08)",
+            background: "var(--accent-bg)",
         }}>
             <textarea
                 ref={textareaRef}
@@ -764,7 +764,7 @@ function InlineEdit({ content, onSave, onCancel }: { content: string; onSave: (t
                     width: "100%",
                     background: "var(--bg-1, #111)",
                     color: "var(--fg, #eee)",
-                    border: "1px solid var(--accent, #00ffc8)",
+                    border: "1px solid var(--accent)",
                     fontFamily: "var(--font)",
                     fontSize: "14px",
                     lineHeight: "1.6",
@@ -795,9 +795,9 @@ function InlineEdit({ content, onSave, onCancel }: { content: string; onSave: (t
                     type="button"
                     onClick={() => { if (value.trim()) onSave(value.trim()); }}
                     style={{
-                        background: "var(--accent, #00ffc8)",
+                        background: "var(--accent)",
                         border: "none",
-                        color: "#000",
+                        color: "var(--accent-fg)",
                         fontFamily: "var(--font-mono)",
                         fontSize: "10px",
                         fontWeight: 700,
@@ -873,8 +873,8 @@ export default function MessageBubble({
             <div
                 role="article"
                 aria-label={`Message from ${sender}`}
+                className="group flex flex-col max-w-[95%] md:max-w-[80%] gap-1 self-end items-end"
                 style={{ position: "relative", outline: "2px solid transparent" }}
-                className="group flex flex-col max-w-[95%] md:max-w-[80%] gap-1 self-end items-end focus-visible:outline-[var(--accent,#00ffc8)]"
                 tabIndex={0}
             >
 
@@ -882,7 +882,7 @@ export default function MessageBubble({
                     <span
                         className="text-xs font-bold uppercase tracking-widest px-1"
                         style={{
-                            color: "var(--accent, #00ffc8)",
+                            color: "var(--fg-2)",
                             fontFamily: "var(--font-mono)",
                             fontSize: "10px",
                             letterSpacing: "0.12em",
@@ -906,7 +906,7 @@ export default function MessageBubble({
                         className="text-sm break-words"
                         style={{
                             padding: "6px 12px",
-                            background: "rgba(0, 255, 200, 0.08)",
+                            background: "var(--accent-bg)",
                             fontFamily: "var(--font)",
                             lineHeight: "1.6",
                         }}
@@ -963,7 +963,7 @@ export default function MessageBubble({
             role="article"
             aria-label={`Message from ${sender}`}
             style={{ position: "relative", gap: "8px", outline: "2px solid transparent" }}
-            className="group flex max-w-[95%] md:max-w-[80%] self-start focus-visible:outline-[var(--accent,#00ffc8)]"
+            className="group flex max-w-[95%] md:max-w-[80%] self-start"
             tabIndex={0}
         >
             {/* Avatar column — fixed width for alignment */}
