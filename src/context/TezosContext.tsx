@@ -35,6 +35,7 @@ interface TezosState {
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     resetConnection: () => Promise<void>;
+    authError: string | null;
     refreshToken: () => Promise<void>;
     setActiveDomain: (domain: string) => void;
 }
@@ -185,6 +186,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         () => typeof window !== "undefined" && hasBeaconSession(),
     );
     const [client, setClient] = useState<DAppClient | null>(null);
+    const [authError, setAuthError] = useState<string | null>(null);
     const subscribedRef = useRef(false);
 
     // JWT auth state — also seeded from stored session
@@ -231,7 +233,14 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                             Authorization: `Bearer ${t}`,
                         },
                     });
-                    if (!res.ok) throw new Error("Refresh failed");
+                    if (!res.ok) {
+                        if (res.status >= 500) {
+                            // Upstream failure (like TED GraphQL down). Try again in 30s.
+                            refreshTimerRef.current = setTimeout(() => scheduleRefresh(t), 30_000);
+                            return;
+                        }
+                        throw new Error("Refresh failed");
+                    }
                     const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
                     const session: AuthSession = {
                         token: data.token,
@@ -241,7 +250,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     applySession(session);
                     scheduleRefresh(data.token);
                 } catch {
-                    // Token refresh failed — clear auth but keep wallet connected.
+                    // Token refresh failed permanently — clear auth but keep wallet connected.
                     // User will need to re-sign on next action that needs auth.
                     clearSession();
                 }
@@ -322,6 +331,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
     const connect = useCallback(async () => {
         setConnecting(true);
+        setAuthError(null);
         try {
             const sdk = await loadSDK();
             const c = await initClient();
@@ -376,6 +386,8 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             scheduleRefresh(session.token);
         } catch (err: unknown) {
             const errObj = err as Record<string, unknown>;
+            const msg = err instanceof Error ? err.message : String(errObj?.message || "Authentication failed");
+            setAuthError(msg);
             if (import.meta.env.DEV) {
                 console.error("Wallet connection failed:", {
                     errorType: errObj?.errorType,
@@ -495,6 +507,18 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         }
     }, [address, clearSession]);
 
+    // Listen for fatal websocket errors from useChat (like server 4001/4003 rejects)
+    // and kill the local session so the user isn't stuck with a dead reconnecting UI
+    useEffect(() => {
+        const handleFatalClose = (e: Event) => {
+            const ce = e as CustomEvent<{ code: number }>;
+            clearSession();
+            setAuthError(ce.detail.code === 4010 ? "You are banned from chat." : "Chat connection rejected by server. Please reconnect.");
+        };
+        window.addEventListener("hack-tez-chat-fatal-close", handleFatalClose);
+        return () => window.removeEventListener("hack-tez-chat-fatal-close", handleFatalClose);
+    }, [clearSession]);
+
     return (
         <TezosContext.Provider
             value={{
@@ -509,6 +533,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 connect,
                 disconnect,
                 resetConnection,
+                authError,
                 refreshToken: refreshTokenFn,
                 setActiveDomain,
             }}

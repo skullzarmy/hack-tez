@@ -114,10 +114,16 @@ export function useChat(config: UseChatConfig): UseChatReturn {
 
         ws.addEventListener("close", (event) => {
             setIsConnected(false);
-            // Don't auto-reconnect if banned (server close 4010) — wait for ban expiry
-            const isBanClose = event.code === 4010;
-            if (isBanClose) {
-                bannedRef.current = true;
+            // 4010: Banned, 4001: Invalid/Expired Token, 4003: Ownership Changed
+            const isFatalClose = event.code === 4010 || event.code === 4001 || event.code === 4003;
+            if (isFatalClose) {
+                bannedRef.current = true; // Use this to halt reconnects
+                if (import.meta.env.DEV) {
+                    console.error(`PartyKit fatal close: ${event.code} - ${event.reason}`);
+                }
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("hack-tez-chat-fatal-close", { detail: { code: event.code } }));
+                }
             }
             if (!closedIntentionally && !bannedRef.current && !reconnectTimerRef.current) {
                 reconnectTimerRef.current = setTimeout(() => {
