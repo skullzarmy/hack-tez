@@ -77,11 +77,11 @@ export default function Home() {
     const showDashboard =
         !!(activeDomain && token) ||   // JWT proves they have a domain
         restoring ||                    // session still loading
-        (!!address && hasSubdomain);    // on-chain subdomains confirmed
+        (!!address && (hasSubdomain || isStatusLoading || hasUsedAllClaims));
 
     // While wallet is connected and we're still loading subdomains, show the
     // dashboard shell instead of flashing the landing page.
-    const dashboardLoading = restoring || (!!address && subdomainsLoading);
+    const dashboardLoading = restoring || (!!address && isStatusLoading);
 
     if (showDashboard) {
         return (

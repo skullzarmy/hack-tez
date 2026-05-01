@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Megaphone, Send, Loader2, ExternalLink, Clock, CheckCircle2, XCircle } from "lucide-react";
-import { hackchatUrl } from "../../config/tezos";
+import { hackchatUrl, siteUrl } from "../../config/tezos";
 import { useTezos } from "../../context/TezosContext";
-import { signMessage } from "../../lib/signing";
+import { signMessage, buildAuthChallenge } from "../../lib/signing";
+import { authedFetch } from "../../lib/authedFetch";
 
 interface Broadcast {
     id: number;
@@ -20,8 +21,8 @@ interface AdminBroadcastPanelProps {
     onClose: () => void;
 }
 
-export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPanelProps) {
-    const { client } = useTezos();
+export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBroadcastPanelProps) {
+    const { client, address } = useTezos();
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
     const [url, setUrl] = useState("");
@@ -36,9 +37,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
         let cancelled = false;
         async function load() {
             try {
-                const res = await fetch(`${hackchatUrl}/admin/broadcasts?limit=20`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                const res = await authedFetch(`${hackchatUrl}/admin/broadcasts?limit=20`);
                 if (res.ok && !cancelled) {
                     const data = await res.json();
                     setBroadcasts(data.broadcasts ?? []);
@@ -48,38 +47,38 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
         }
         void load();
         return () => { cancelled = true; };
-    }, [token]);
+    }, []);
 
     const handleSend = useCallback(async () => {
-        if (!title.trim() || !body.trim() || !client) return;
+        if (!title.trim() || !body.trim() || !client || !address) return;
         setError(null);
         setSuccess(null);
         setSending(true);
 
         try {
-            const timestamp = Math.floor(Date.now() / 1000);
-            const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
-            const nonce = Array.from(nonceBytes)
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("");
+            // Build a SIWE-style challenge that includes the broadcast intent so the
+            // signature is bound to THIS broadcast (not just to "I am admin").
+            const host = new URL(siteUrl).host;
+            const network = (await import("../../config/tezos")).default.name === "mainnet" ? "mainnet" : "ghostnet";
+            const { message } = buildAuthChallenge({
+                address,
+                domain: host,
+                uri: siteUrl,
+                network,
+                statement: `Send admin broadcast: "${title.trim()}"`,
+            });
+            const { signature, publicKey } = await signMessage(client, message);
 
-            const challenge = `hack.tez-chat:${timestamp}:${nonce}`;
-            const { signature, publicKey } = await signMessage(client, challenge);
-
-            const res = await fetch(`${hackchatUrl}/admin/broadcast`, {
+            const res = await authedFetch(`${hackchatUrl}/admin/broadcast`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     title: title.trim(),
                     body: body.trim(),
                     url: url.trim() || undefined,
+                    message,
                     signature,
                     publicKey,
-                    timestamp,
-                    nonce,
                 }),
             });
 
@@ -95,9 +94,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
             setUrl("");
 
             // Refresh history
-            const histRes = await fetch(`${hackchatUrl}/admin/broadcasts?limit=20`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const histRes = await authedFetch(`${hackchatUrl}/admin/broadcasts?limit=20`);
             if (histRes.ok) {
                 const data = await histRes.json();
                 setBroadcasts(data.broadcasts ?? []);
@@ -107,7 +104,7 @@ export default function AdminBroadcastPanel({ token, onClose }: AdminBroadcastPa
         } finally {
             setSending(false);
         }
-    }, [title, body, url, client, token]);
+    }, [title, body, url, client, address]);
 
     const monoFont = "var(--font-mono)";
     const panelStyle: React.CSSProperties = {

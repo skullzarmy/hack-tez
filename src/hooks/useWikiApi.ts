@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef } from "react";
-import { useTezos } from "../context/TezosContext";
+import { useCallback, useMemo } from "react";
 import wikiUrl from "../config/wiki";
+import { authedFetch } from "../lib/authedFetch";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,36 +108,23 @@ export interface WikiAuditEntry {
 // ---------------------------------------------------------------------------
 
 export function useWikiApi() {
-  const { token } = useTezos();
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
-
-  const headers = useCallback(
-    (extra?: Record<string, string>): Record<string, string> => {
-      const h: Record<string, string> = { "Content-Type": "application/json", ...extra };
-      if (tokenRef.current) h.Authorization = `Bearer ${tokenRef.current}`;
-      return h;
-    },
-    [],
-  );
-
   const get = useCallback(
     async <T>(path: string): Promise<T> => {
-      const res = await fetch(`${wikiUrl}${path}`, { headers: headers() });
+      const res = await authedFetch(`${wikiUrl}${path}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
         throw new Error((body as Record<string, string>).error ?? `HTTP ${res.status}`);
       }
       return res.json() as Promise<T>;
     },
-    [headers],
+    [],
   );
 
   const post = useCallback(
     async <T>(path: string, body: unknown): Promise<T> => {
-      const res = await fetch(`${wikiUrl}${path}`, {
+      const res = await authedFetch(`${wikiUrl}${path}`, {
         method: "POST",
-        headers: headers(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -146,14 +133,14 @@ export function useWikiApi() {
       }
       return res.json() as Promise<T>;
     },
-    [headers],
+    [],
   );
 
   const put = useCallback(
     async <T>(path: string, body: unknown): Promise<T> => {
-      const res = await fetch(`${wikiUrl}${path}`, {
+      const res = await authedFetch(`${wikiUrl}${path}`, {
         method: "PUT",
-        headers: headers(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -162,14 +149,13 @@ export function useWikiApi() {
       }
       return res.json() as Promise<T>;
     },
-    [headers],
+    [],
   );
 
   const del = useCallback(
     async <T>(path: string): Promise<T> => {
-      const res = await fetch(`${wikiUrl}${path}`, {
+      const res = await authedFetch(`${wikiUrl}${path}`, {
         method: "DELETE",
-        headers: headers(),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -177,7 +163,7 @@ export function useWikiApi() {
       }
       return res.json() as Promise<T>;
     },
-    [headers],
+    [],
   );
 
   // --- Public ---

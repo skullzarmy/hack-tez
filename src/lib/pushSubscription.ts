@@ -1,8 +1,12 @@
 /**
  * Client-side push subscription management.
  * Handles browser permission, PushManager subscription, and server sync.
+ *
+ * All authenticated calls go through `authedFetch` — token + active domain
+ * are read from module state, not passed in.
  */
 import { hackchatUrl } from "../config/tezos";
+import { authedFetch } from "./authedFetch";
 
 const VAPID_KEY_CACHE_KEY = "hack-tez-vapid-public-key";
 
@@ -59,7 +63,7 @@ export async function isPushSubscribed(): Promise<boolean> {
 }
 
 /** Request notification permission and subscribe to push */
-export async function subscribeToPush(token: string): Promise<boolean> {
+export async function subscribeToPush(): Promise<boolean> {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
     // Request permission
@@ -84,12 +88,9 @@ export async function subscribeToPush(token: string): Promise<boolean> {
         if (!p256dh || !auth) throw new Error("Subscription missing keys");
 
         // Send to server
-        const res = await fetch(`${hackchatUrl}/push/subscribe`, {
+        const res = await authedFetch(`${hackchatUrl}/push/subscribe`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 endpoint: subscription.endpoint,
                 p256dh,
@@ -112,7 +113,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
 }
 
 /** Unsubscribe from push notifications */
-export async function unsubscribeFromPush(token: string): Promise<boolean> {
+export async function unsubscribeFromPush(): Promise<boolean> {
     if (!("serviceWorker" in navigator)) return false;
 
     try {
@@ -125,12 +126,9 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
         await subscription.unsubscribe();
 
         // Remove from server
-        const res = await fetch(`${hackchatUrl}/push/subscribe`, {
+        const res = await authedFetch(`${hackchatUrl}/push/subscribe`, {
             method: "DELETE",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
 
@@ -164,11 +162,9 @@ const DEFAULT_PUSH_PREFS: PushPreferences = {
 };
 
 /** Fetch push preferences from server */
-export async function getPushPreferences(token: string): Promise<PushPreferences> {
+export async function getPushPreferences(): Promise<PushPreferences> {
     try {
-        const res = await fetch(`${hackchatUrl}/push/preferences`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authedFetch(`${hackchatUrl}/push/preferences`);
         if (!res.ok) return DEFAULT_PUSH_PREFS;
         const data = await res.json();
         return data.preferences ?? DEFAULT_PUSH_PREFS;
@@ -179,16 +175,12 @@ export async function getPushPreferences(token: string): Promise<PushPreferences
 
 /** Update push preferences on server */
 export async function updatePushPreferences(
-    token: string,
     prefs: Partial<PushPreferences>,
 ): Promise<boolean> {
     try {
-        const res = await fetch(`${hackchatUrl}/push/preferences`, {
+        const res = await authedFetch(`${hackchatUrl}/push/preferences`, {
             method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(prefs),
         });
         return res.ok;

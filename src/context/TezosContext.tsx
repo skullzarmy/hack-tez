@@ -1,7 +1,17 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { DAppClient } from "@tezos-x/octez.connect-sdk";
-import config, { hackchatUrl } from "../config/tezos";
+import config, { hackchatUrl, siteUrl } from "../config/tezos";
 import { resolveDisplayName } from "../lib/domains";
+import {
+    setSession,
+    subscribeToSession,
+    setAuthHandlers,
+    refreshSession,
+    getTokenExpiryMs,
+    REFRESH_THRESHOLD_MS,
+    type SessionSnapshot,
+} from "../lib/authedFetch";
+import type { Network } from "../../auth/types";
 
 // Lazy-load the heavy Tezos SDK only when needed (connect or session restore).
 // This keeps ~2 MB of wallet/blockchain code out of the initial bundle,
@@ -14,7 +24,6 @@ function loadSDK(): Promise<SDKModule> {
 }
 
 const AUTH_STORAGE_KEY = "hack-tez-auth-session";
-const REFRESH_LEAD_MS = 60 * 60 * 1000; // refresh 1 hour before expiry
 
 interface AuthSession {
     token: string;
@@ -57,8 +66,6 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 }
 
 // Use CUSTOM network type with explicit RPC URL for non-mainnet.
-// This bypasses wallet extension's internal network lookup which can fail
-// if the wallet doesn't recognize the network name (e.g. older Temple versions).
 function buildNetwork(sdk: SDKModule) {
     if (config.name === "mainnet") {
         return { type: sdk.NetworkType.MAINNET };
@@ -70,7 +77,6 @@ function buildNetwork(sdk: SDKModule) {
     };
 }
 
-// Module-level singleton — recreated on resetConnection
 let dAppClient: DAppClient | null = null;
 
 async function getOrCreateClient(): Promise<DAppClient> {
@@ -80,7 +86,6 @@ async function getOrCreateClient(): Promise<DAppClient> {
     return dAppClient;
 }
 
-// Clear all beacon-related localStorage entries to reset stale state
 function clearBeaconState() {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -90,7 +95,6 @@ function clearBeaconState() {
     keysToRemove.forEach((k) => localStorage.removeItem(k));
 }
 
-// Quick localStorage check — avoids loading the SDK on cold visits
 function hasBeaconSession(): boolean {
     for (let i = 0; i < localStorage.length; i++) {
         if (localStorage.key(i)?.startsWith("beacon:")) return true;
@@ -98,22 +102,10 @@ function hasBeaconSession(): boolean {
     return false;
 }
 
-function getJwtExpiry(token: string): number | null {
-    try {
-        const seg = token.split(".")[1];
-        const base64 = seg.replace(/-/g, "+").replace(/_/g, "/");
-        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-        const payload = JSON.parse(atob(padded));
-        return payload.exp ? payload.exp * 1000 : null;
-    } catch {
-        return null;
-    }
-}
-
 function saveAuthSession(session: AuthSession) {
     try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-    } catch { /* quota exceeded — ignore */ }
+    } catch { /* quota exceeded */ }
 }
 
 function loadAuthSession(): AuthSession | null {
@@ -121,7 +113,8 @@ function loadAuthSession(): AuthSession | null {
         const raw = localStorage.getItem(AUTH_STORAGE_KEY);
         if (!raw) return null;
         const session = JSON.parse(raw) as AuthSession;
-        const expiry = getJwtExpiry(session.token);
+        // Discard if already expired or expiring within 60s.
+        const expiry = getTokenExpiryMs(session.token);
         if (!expiry || expiry < Date.now() + 60_000) {
             localStorage.removeItem(AUTH_STORAGE_KEY);
             return null;
@@ -132,26 +125,31 @@ function loadAuthSession(): AuthSession | null {
     }
 }
 
-function clearAuthSession() {
+function clearAuthStorage() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
-/** Sign a challenge and exchange it for a JWT via the chat worker /auth endpoint. */
-async function authenticateWallet(c: DAppClient, addr: string): Promise<AuthSession> {
-    const { signMessage } = await import("../lib/signing");
-    const timestamp = Math.floor(Date.now() / 1000);
-    const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
-    const nonce = Array.from(nonceBytes)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+/** Map TezosNetwork → auth Network (collapses shadownet → ghostnet for SIWE chain ID purposes). */
+function authNetwork(): Network {
+    return config.name === "mainnet" ? "mainnet" : "ghostnet";
+}
 
-    const challenge = `hack.tez-chat:${timestamp}:${nonce}`;
-    const { signature, publicKey } = await signMessage(c, challenge);
+/** Sign a SIWE-style challenge and exchange it for a JWT via the chat worker /auth endpoint. */
+async function authenticateWallet(c: DAppClient, addr: string): Promise<AuthSession> {
+    const { signMessage, buildAuthChallenge } = await import("../lib/signing");
+    const url = new URL(siteUrl);
+    const { message } = buildAuthChallenge({
+        address: addr,
+        domain: url.host,
+        uri: siteUrl,
+        network: authNetwork(),
+    });
+    const { signature, publicKey } = await signMessage(c, message);
 
     const res = await fetch(`${hackchatUrl}/auth`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: addr, publicKey, signature, timestamp, nonce }),
+        body: JSON.stringify({ address: addr, publicKey, signature, message }),
     });
 
     if (!res.ok) {
@@ -163,10 +161,25 @@ async function authenticateWallet(c: DAppClient, addr: string): Promise<AuthSess
     return { token: data.token, domains: data.domains, activeDomain: data.activeDomain };
 }
 
+/** Call /auth/refresh, optionally requesting a different active domain. */
+async function callRefresh(token: string, activeDomainOverride?: string): Promise<AuthSession | null> {
+    try {
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        };
+        if (activeDomainOverride) headers["X-Active-Domain"] = activeDomainOverride;
+        const res = await fetch(`${hackchatUrl}/auth/refresh`, { method: "POST", headers });
+        if (!res.ok) return null;
+        const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
+        return { token: data.token, domains: data.domains, activeDomain: data.activeDomain };
+    } catch {
+        return null;
+    }
+}
+
 export function TezosProvider({ children }: { children: ReactNode }) {
     // Synchronously seed from stored JWT to prevent CLS on first render.
-    // Returning users get the dashboard immediately instead of a landing-page flash.
-    // The session-restore useEffect will refresh/correct these values.
     const seedRef = useRef<AuthSession | null | undefined>(undefined);
     if (seedRef.current === undefined) {
         seedRef.current = typeof window !== "undefined" ? loadAuthSession() : null;
@@ -178,10 +191,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         seed?.activeDomain ?? seed?.domains[0] ?? null,
     );
     const [connecting, setConnecting] = useState(false);
-    // True while a previous beacon session is being restored asynchronously.
-    // True whenever a wallet session exists — we must wait for the wallet
-    // restore to complete before deciding what to show, regardless of whether
-    // a JWT is also present.
     const [restoring, setRestoring] = useState(
         () => typeof window !== "undefined" && hasBeaconSession(),
     );
@@ -189,75 +198,145 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     const [authError, setAuthError] = useState<string | null>(null);
     const subscribedRef = useRef(false);
 
-    // JWT auth state — also seeded from stored session
     const [token, setToken] = useState<string | null>(seed?.token ?? null);
     const [chatDomains, setChatDomains] = useState<string[]>(seed?.domains ?? []);
     const [activeDomain, setActiveDomainState] = useState<string | null>(seed?.activeDomain ?? null);
     const tokenRef = useRef<string | null>(seed?.token ?? null);
-    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const applySession = useCallback((session: AuthSession) => {
+    // Push the seed into authedFetch's module state immediately so any pre-mount
+    // network call (unlikely but possible) sees it.
+    if (seed && typeof window !== "undefined") {
+        const snapshot = getSessionSnapshotIfStale(seed);
+        if (snapshot) setSession(snapshot, { broadcast: false });
+    }
+
+    const applySession = useCallback((session: AuthSession, opts: { broadcast?: boolean } = {}) => {
         setToken(session.token);
         setChatDomains(session.domains);
         setActiveDomainState(session.activeDomain);
         tokenRef.current = session.token;
         saveAuthSession(session);
+        setSession(
+            { token: session.token, activeDomain: session.activeDomain, domains: session.domains },
+            { broadcast: opts.broadcast },
+        );
     }, []);
 
-    const clearSession = useCallback(() => {
-        if (refreshTimerRef.current) {
-            clearTimeout(refreshTimerRef.current);
-            refreshTimerRef.current = null;
-        }
+    const clearSession = useCallback((opts: { broadcast?: boolean } = {}) => {
         setToken(null);
         setChatDomains([]);
         setActiveDomainState(null);
         tokenRef.current = null;
-        clearAuthSession();
+        clearAuthStorage();
+        setSession({ token: null, activeDomain: null, domains: [] }, { broadcast: opts.broadcast });
     }, []);
 
-    const scheduleRefresh = useCallback(
-        (currentToken: string) => {
-            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-            const expiry = getJwtExpiry(currentToken);
-            if (!expiry) return;
-            const delay = Math.max(expiry - Date.now() - REFRESH_LEAD_MS, 0);
-            refreshTimerRef.current = setTimeout(async () => {
+    /** Public refresh — used by callers who just want to force a refresh (e.g. PendingCommitsPanel). */
+    const refreshTokenFn = useCallback(async () => {
+        const t = tokenRef.current;
+        if (!t) {
+            // No token but we have a wallet — full re-auth.
+            if (client && address) {
                 try {
-                    const t = tokenRef.current;
-                    if (!t) return;
-                    const res = await fetch(`${hackchatUrl}/auth/refresh`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${t}`,
-                        },
-                    });
-                    if (!res.ok) {
-                        if (res.status >= 500) {
-                            // Upstream failure (like TED GraphQL down). Try again in 30s.
-                            refreshTimerRef.current = setTimeout(() => scheduleRefresh(t), 30_000);
-                            return;
-                        }
-                        throw new Error("Refresh failed");
-                    }
-                    const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
-                    const session: AuthSession = {
-                        token: data.token,
-                        domains: data.domains,
-                        activeDomain: data.activeDomain,
-                    };
+                    const session = await authenticateWallet(client, address);
                     applySession(session);
-                    scheduleRefresh(data.token);
-                } catch {
-                    // Token refresh failed permanently — clear auth but keep wallet connected.
-                    // User will need to re-sign on next action that needs auth.
-                    clearSession();
-                }
-            }, delay);
-        },
-        [applySession, clearSession],
-    );
+                } catch { /* silent */ }
+            }
+            return;
+        }
+        const refreshed = await callRefresh(t);
+        if (refreshed) applySession(refreshed);
+    }, [client, address, applySession]);
+
+    // Wire up authedFetch handlers ONCE per provider lifetime.
+    // The handlers close over tokenRef so they always see the latest token.
+    useEffect(() => {
+        setAuthHandlers({
+            refresh: async (): Promise<SessionSnapshot | null> => {
+                const t = tokenRef.current;
+                if (!t) return null;
+                const refreshed = await callRefresh(t);
+                if (!refreshed) return null;
+                applySession(refreshed);
+                return {
+                    token: refreshed.token,
+                    activeDomain: refreshed.activeDomain,
+                    domains: refreshed.domains,
+                };
+            },
+            onAuthLost: () => {
+                // Refresh failed at the network layer — server says this token is dead.
+                // Clear local session but KEEP wallet connected; user can re-sign on next action.
+                clearSession();
+                setAuthError("Your session expired. Please sign in again.");
+            },
+        });
+    }, [applySession, clearSession]);
+
+    // Subscribe to cross-tab session updates from BroadcastChannel.
+    useEffect(() => {
+        const unsub = subscribeToSession((snap) => {
+            // Only act on REMOTE updates: if local state already matches, skip.
+            if (snap.token === tokenRef.current) return;
+            if (!snap.token) {
+                // Another tab logged out.
+                setToken(null);
+                setChatDomains([]);
+                setActiveDomainState(null);
+                tokenRef.current = null;
+                clearAuthStorage();
+                return;
+            }
+            // Another tab refreshed/logged in — adopt their session.
+            setToken(snap.token);
+            setChatDomains(snap.domains);
+            setActiveDomainState(snap.activeDomain);
+            tokenRef.current = snap.token;
+            saveAuthSession({
+                token: snap.token,
+                domains: snap.domains,
+                activeDomain: snap.activeDomain,
+            });
+        });
+        return unsub;
+    }, []);
+
+    // Visibility/focus refresh: when the tab becomes visible OR window focused,
+    // and the token is in the refresh window, kick off a refresh. This is THE
+    // mechanism that fixes "session invalid after a few minutes" — before, we
+    // only had a setTimeout that could be killed by the OS suspending the tab.
+    useEffect(() => {
+        function maybeRefresh() {
+            const t = tokenRef.current;
+            if (!t) return;
+            const exp = getTokenExpiryMs(t);
+            if (!exp) return;
+            const remaining = exp - Date.now();
+            if (remaining <= 0) {
+                // Already expired — clear and let the user re-sign.
+                clearSession();
+                return;
+            }
+            if (remaining < REFRESH_THRESHOLD_MS) {
+                void refreshSession();
+            }
+        }
+        function onVisibilityChange() {
+            if (document.visibilityState === "visible") maybeRefresh();
+        }
+        window.addEventListener("focus", maybeRefresh);
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        // Also schedule a periodic check every 5 minutes — covers the case where
+        // the tab is visible the whole time and we never get a focus event.
+        const interval = setInterval(maybeRefresh, 5 * 60 * 1000);
+        // Fire one immediately to catch any seed token that's already in the window.
+        maybeRefresh();
+        return () => {
+            window.removeEventListener("focus", maybeRefresh);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+            clearInterval(interval);
+        };
+    }, [clearSession]);
 
     const hydrateAccount = useCallback(async (addr: string) => {
         setAddress(addr);
@@ -265,8 +344,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         setDomain(name);
     }, []);
 
-    // Set up event subscription and return (or create) the client.
-    // Idempotent — safe to call from both session-restore and connect().
     const initClient = useCallback(async (): Promise<DAppClient> => {
         const c = await getOrCreateClient();
         if (!subscribedRef.current) {
@@ -286,7 +363,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         return c;
     }, [hydrateAccount, clearSession]);
 
-    // Session restore: load wallet + JWT from storage on mount
+    // Session restore on mount.
     useEffect(() => {
         if (!hasBeaconSession()) {
             setRestoring(false);
@@ -298,36 +375,13 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     setRestoring(false);
                     return;
                 }
-                // Restore JWT synchronously from localStorage first
                 const stored = loadAuthSession();
-                if (stored) {
-                    applySession(stored);
-                    scheduleRefresh(stored.token);
-                }
-                // Then resolve domain (network) — restoring stays true until this completes
+                if (stored) applySession(stored, { broadcast: false });
                 await hydrateAccount(account.address);
                 setRestoring(false);
             }).catch(() => setRestoring(false));
         }).catch(() => setRestoring(false));
-    }, [hydrateAccount, initClient, applySession, scheduleRefresh]);
-
-    // Cross-tab sync: pick up JWT changes from other tabs
-    useEffect(() => {
-        function onStorage(e: StorageEvent) {
-            if (e.key !== AUTH_STORAGE_KEY) return;
-            if (!e.newValue) {
-                clearSession();
-                return;
-            }
-            try {
-                const session = JSON.parse(e.newValue) as AuthSession;
-                applySession(session);
-                scheduleRefresh(session.token);
-            } catch { /* ignore corrupt data */ }
-        }
-        window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
-    }, [applySession, clearSession, scheduleRefresh]);
+    }, [hydrateAccount, initClient, applySession]);
 
     const connect = useCallback(async () => {
         setConnecting(true);
@@ -336,16 +390,13 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             const sdk = await loadSDK();
             const c = await initClient();
 
-            // BCD pattern: check for existing active account first
             const existing = await c.getActiveAccount();
             let addr: string;
             if (existing) {
-                // Re-request permissions if existing session lacks SIGN scope
                 const hasSign = existing.scopes?.includes(sdk.PermissionScope.SIGN);
                 if (hasSign) {
                     addr = existing.address;
                 } else {
-                    // Clear stale session before re-requesting with SIGN scope
                     await c.clearActiveAccount();
                     const scopes = [sdk.PermissionScope.OPERATION_REQUEST, sdk.PermissionScope.SIGN];
                     await c.requestPermissions({ scopes });
@@ -361,10 +412,9 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 addr = account.address;
             }
 
-            // Resolve domain in parallel with JWT check — don't block signing
             void hydrateAccount(addr);
 
-            // Check if we already have a valid JWT for this address
+            // Reuse stored JWT only if it's for THIS address and has plenty of life left.
             const stored = loadAuthSession();
             if (stored) {
                 try {
@@ -372,18 +422,16 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     const base64 = seg.replace(/-/g, "+").replace(/_/g, "/");
                     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
                     const payload = JSON.parse(atob(padded));
-                    if (payload.address === addr) {
+                    const sub = payload.sub ?? payload.address;
+                    if (sub === addr) {
                         applySession(stored);
-                        scheduleRefresh(stored.token);
                         return;
                     }
-                } catch { /* token corrupt, continue to re-auth */ }
+                } catch { /* token corrupt, fall through to re-auth */ }
             }
 
-            // Sign challenge + exchange for JWT
             const session = await authenticateWallet(c, addr);
             applySession(session);
-            scheduleRefresh(session.token);
         } catch (err: unknown) {
             const errObj = err as Record<string, unknown>;
             const msg = err instanceof Error ? err.message : String(errObj?.message || "Authentication failed");
@@ -399,93 +447,48 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         } finally {
             setConnecting(false);
         }
-    }, [hydrateAccount, initClient, applySession, scheduleRefresh]);
-
-    const refreshTokenFn = useCallback(async () => {
-        const t = tokenRef.current;
-        if (!t) {
-            // No token — try full re-auth if we have a client + address
-            if (client && address) {
-                try {
-                    const session = await authenticateWallet(client, address);
-                    applySession(session);
-                    scheduleRefresh(session.token);
-                } catch { /* silent failure */ }
-            }
-            return;
-        }
-        try {
-            const res = await fetch(`${hackchatUrl}/auth/refresh`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${t}`,
-                },
-            });
-            if (!res.ok) throw new Error("Refresh failed");
-            const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
-            const session: AuthSession = {
-                token: data.token,
-                domains: data.domains,
-                activeDomain: data.activeDomain,
-            };
-            applySession(session);
-            scheduleRefresh(data.token);
-        } catch { /* silent failure */ }
-    }, [client, address, applySession, scheduleRefresh]);
+    }, [hydrateAccount, initClient, applySession]);
 
     const setActiveDomain = useCallback(
         (newDomain: string) => {
+            // Optimistic update.
             setActiveDomainState(newDomain);
-
-            // Persist + re-issue JWT with new active domain
             const stored = loadAuthSession();
             if (stored) {
                 stored.activeDomain = newDomain;
                 saveAuthSession(stored);
             }
-
-            // Refresh JWT with X-Active-Domain header
             const t = tokenRef.current;
-            if (t) {
-                void (async () => {
-                    try {
-                        const res = await fetch(`${hackchatUrl}/auth/refresh`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${t}`,
-                                "X-Active-Domain": newDomain,
-                            },
-                        });
-                        if (!res.ok) return;
-                        const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
-                        applySession({
-                            token: data.token,
-                            domains: data.domains,
-                            activeDomain: data.activeDomain,
-                        });
-                    } catch { /* silent — optimistic update already applied */ }
-                })();
-            }
+            if (!t) return;
+            void (async () => {
+                const refreshed = await callRefresh(t, newDomain);
+                if (refreshed) applySession(refreshed);
+            })();
         },
         [applySession],
     );
 
     const disconnect = useCallback(async () => {
+        // Best-effort: tell the server to revoke the session before we forget the token.
+        const t = tokenRef.current;
+        if (t) {
+            try {
+                await fetch(`${hackchatUrl}/auth/logout`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${t}` },
+                });
+            } catch { /* ignore — local cleanup is what matters for UX */ }
+        }
         if (client) await client.clearActiveAccount();
         setAddress(null);
         setDomain(null);
         clearSession();
     }, [client, clearSession]);
 
-    // Nuclear option: wipe all beacon state and recreate the client
     const resetConnection = useCallback(async () => {
         try {
             if (dAppClient) await dAppClient.destroy();
-        } catch {
-            /* may already be destroyed */
-        }
+        } catch { /* may already be destroyed */ }
         clearBeaconState();
         dAppClient = null;
         subscribedRef.current = false;
@@ -495,7 +498,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         clearSession();
     }, [clearSession]);
 
-    // Clear JWT when wallet address changes
+    // Clear JWT when wallet address changes.
     const prevAddressRef = useRef(address);
     useEffect(() => {
         const prev = prevAddressRef.current;
@@ -506,18 +509,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             clearSession();
         }
     }, [address, clearSession]);
-
-    // Listen for fatal websocket errors from useChat (like server 4001/4003 rejects)
-    // and kill the local session so the user isn't stuck with a dead reconnecting UI
-    useEffect(() => {
-        const handleFatalClose = (e: Event) => {
-            const ce = e as CustomEvent<{ code: number }>;
-            clearSession();
-            setAuthError(ce.detail.code === 4010 ? "You are banned from chat." : "Chat connection rejected by server. Please reconnect.");
-        };
-        window.addEventListener("hack-tez-chat-fatal-close", handleFatalClose);
-        return () => window.removeEventListener("hack-tez-chat-fatal-close", handleFatalClose);
-    }, [clearSession]);
 
     return (
         <TezosContext.Provider
@@ -541,6 +532,19 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             {children}
         </TezosContext.Provider>
     );
+}
+
+/**
+ * Helper: returns the snapshot to push into authedFetch's module state from
+ * a freshly-loaded localStorage seed. Returns null if the seed is unusable.
+ */
+function getSessionSnapshotIfStale(seed: AuthSession): SessionSnapshot | null {
+    if (!seed.token) return null;
+    return {
+        token: seed.token,
+        activeDomain: seed.activeDomain,
+        domains: seed.domains,
+    };
 }
 
 export function useTezos() {

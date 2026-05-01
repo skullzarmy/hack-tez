@@ -22,6 +22,7 @@ import {
 } from "../../lib/chatNotifications";
 import type { ChatNotificationEvent, ChatNotificationSettings } from "../../lib/chatNotifications";
 import { hackchatUrl } from "../../config/tezos";
+import { authedFetch } from "../../lib/authedFetch";
 
 const HIDDEN_DMS_STORAGE_KEY = "hack-tez-hidden-dms";
 
@@ -408,11 +409,10 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
         async (targetDomain: string) => {
             setShowNewDM(false);
             try {
-                const res = await fetch(`${hackchatUrl}/dm/create`, {
+                const res = await authedFetch(`${hackchatUrl}/dm/create`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
                         "X-Active-Domain": currentDomain,
                     },
                     body: JSON.stringify({ targetDomain }),
@@ -425,7 +425,7 @@ export default function ChatLayout({ token, domains, activeDomain, onSwitchDomai
                 // Silently fail
             }
         },
-        [token, currentDomain, refreshDMs],
+        [currentDomain, refreshDMs],
     );
 
     const handleDMBack = useCallback(() => {

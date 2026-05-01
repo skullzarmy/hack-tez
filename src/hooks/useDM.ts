@@ -3,6 +3,7 @@ import PartySocket from "partysocket";
 import type { ChatNotificationEvent } from "../lib/chatNotifications";
 import { partykitHost } from "../config/tezos";
 import type { ChatMessage, MediaAttachment } from "../types/chat";
+import { fetchWsTicket } from "../lib/wsTicket";
 
 interface UseDMConfig {
     token: string;
@@ -29,7 +30,7 @@ interface UseDMReturn {
 }
 
 export function useDM(config: UseDMConfig): UseDMReturn {
-    const { token, activeDomain, roomId, peerDomain } = config;
+    const { activeDomain, roomId, peerDomain } = config;
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -57,16 +58,21 @@ export function useDM(config: UseDMConfig): UseDMReturn {
         }
 
         let closedIntentionally = false;
+        let backoffAttempt = 0;
         const ws = new PartySocket({
             host: partykitHost,
             party: "dm",
             room: roomId,
-            query: { token, activeDomain, rt: String(reconnectTick) },
+            query: async () => {
+                const ticket = await fetchWsTicket();
+                return { ticket: ticket ?? "", activeDomain, rt: String(reconnectTick) };
+            },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
+            backoffAttempt = 0;
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
@@ -87,10 +93,15 @@ export function useDM(config: UseDMConfig): UseDMReturn {
         ws.addEventListener("close", () => {
             setIsConnected(false);
             if (!closedIntentionally && !reconnectTimerRef.current) {
+                // Exponential backoff with jitter: 1s, 2s, 4s, 8s, 16s, 30s cap.
+                const base = Math.min(1000 * 2 ** backoffAttempt, 30_000);
+                const jitter = Math.random() * 500;
+                const delay = base + jitter;
+                backoffAttempt = Math.min(backoffAttempt + 1, 5);
                 reconnectTimerRef.current = setTimeout(() => {
                     reconnectTimerRef.current = null;
                     setReconnectTick((n) => n + 1);
-                }, 1500);
+                }, delay);
             }
         });
 
@@ -277,7 +288,7 @@ export function useDM(config: UseDMConfig): UseDMReturn {
             wsRef.current = null;
             setIsConnected(false);
         };
-    }, [roomId, peerDomain, roomKey, token, activeDomain, reconnectTick]);
+    }, [roomId, peerDomain, roomKey, activeDomain, reconnectTick]);
 
     const sendMessage = useCallback((content: string, media?: MediaAttachment, replyTo?: string) => {
         const trimmed = content.trim();

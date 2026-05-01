@@ -1,24 +1,44 @@
 import type { D1Database, ExecutionContext } from "@cloudflare/workers-types";
-import { SignJWT, jwtVerify } from "jose";
-import { verifyTezosSignature, getOwnedDomains } from "./auth/verify.js";
+import {
+  buildSecretMap,
+  newSessionId,
+  signJwt,
+  signWsTicket,
+  verifyJwt as verifyJwtCore,
+  verifyTezosSignature,
+  getOwnedDomains,
+  parseChallenge,
+  validateChallenge,
+  type JwtClaims,
+  type Network,
+  type SecretMap,
+} from "../../auth/index.js";
 import { sendPushToUser, sendPushBroadcast, detectMentions } from "./push.js";
 
 interface Env {
   DB: D1Database;
   CHAT_JWT_SECRET: string;
+  CHAT_JWT_KID?: string;
+  CHAT_JWT_SECRET_PREV?: string;
+  CHAT_JWT_KID_PREV?: string;
   TEZOS_NETWORK?: string;
   INTERNAL_SECRET?: string;
   KLIPY_API_KEY?: string;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   VAPID_SUBJECT?: string;
+  /**
+   * Public app origin for SIWE challenge `domain`/`uri` validation.
+   * Defaults to "hacktez.com". Tests/dev set to "localhost:5173" or "localhost:8888".
+   */
+  AUTH_DOMAIN?: string;
 }
 
-interface JwtPayload {
+/** What the rest of the worker code consumes. Aligns with shared `JwtClaims` minus iat/exp. */
+type JwtPayload = Pick<JwtClaims, "sub" | "sid" | "domains" | "activeDomain"> & {
+  /** Back-compat alias for `sub` so existing callers using `.address` keep working. */
   address: string;
-  domains: string[];
-  activeDomain: string | null;
-}
+};
 
 // Per-isolate rate limiting for auth endpoint.
 // NOTE: This is per-isolate only (CF Workers are stateless across isolates).
@@ -78,24 +98,97 @@ function errorResponse(request: Request, error: string, code: string, status: nu
   return corsResponse(request, JSON.stringify({ error, code }), status);
 }
 
+// In-isolate revocation cache: sid -> { revoked, expiresAt(ms) }.
+// Cap is per-isolate; CF will cycle isolates so this stays bounded in practice.
+const REVOCATION_CACHE = new Map<string, { revoked: boolean; expiresAt: number }>();
+const REVOCATION_CACHE_TTL_MS = 60_000;
+
+function getNetwork(env: Env): Network {
+  return env.TEZOS_NETWORK === "mainnet" ? "mainnet" : "ghostnet";
+}
+
+function getAuthDomain(env: Env): string {
+  return env.AUTH_DOMAIN ?? "hacktez.com";
+}
+
+/** Build the SecretMap from env (current + optional previous for rotation). */
+function getSecrets(env: Env): SecretMap {
+  return buildSecretMap({
+    currentKid: env.CHAT_JWT_KID ?? "v1",
+    currentSecret: env.CHAT_JWT_SECRET,
+    previousKid: env.CHAT_JWT_KID_PREV,
+    previousSecret: env.CHAT_JWT_SECRET_PREV,
+  });
+}
+
+function getCurrentKid(env: Env): string {
+  return env.CHAT_JWT_KID ?? "v1";
+}
+
+/** Async revocation check backed by D1 + per-isolate cache. */
+async function isSessionRevoked(env: Env, sid: string): Promise<boolean> {
+  const now = Date.now();
+  const cached = REVOCATION_CACHE.get(sid);
+  if (cached && cached.expiresAt > now) return cached.revoked;
+  try {
+    const row = await env.DB
+      .prepare("SELECT revoked_at FROM auth_sessions WHERE sid = ?")
+      .bind(sid)
+      .first<{ revoked_at: string | null }>();
+    // Unknown sid is treated as revoked (defense in depth: a token whose
+    // session row is missing should not work).
+    const revoked = !row || row.revoked_at !== null;
+    REVOCATION_CACHE.set(sid, { revoked, expiresAt: now + REVOCATION_CACHE_TTL_MS });
+    return revoked;
+  } catch {
+    // Fail closed on D1 errors to avoid silent auth bypass.
+    return true;
+  }
+}
+
+/**
+ * Verify a request's bearer token. Returns `JwtPayload` (with both `sub` and
+ * `address` set) on success, or `null` for any failure mode.
+ *
+ * Honors `X-Active-Domain` header to switch identity within the JWT's domain set.
+ */
 async function verifyJwt(request: Request, env: Env): Promise<JwtPayload | null> {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.slice(7);
+  const result = await verifyJwtCore(token, {
+    secrets: getSecrets(env),
+    checkRevoked: (sid) => isSessionRevoked(env, sid),
+  });
+  if (!result.ok) return null;
+  const claims = result.claims;
+
+  let activeDomain = claims.activeDomain;
+  const domainOverride = request.headers.get("X-Active-Domain");
+  if (domainOverride && claims.domains.includes(domainOverride)) {
+    activeDomain = domainOverride;
+  }
+
+  // Touch last_seen_at out-of-band; never block the request on it.
+  void touchSessionLastSeen(env, claims.sid);
+
+  return {
+    sub: claims.sub,
+    address: claims.sub,
+    sid: claims.sid,
+    domains: claims.domains,
+    activeDomain,
+  };
+}
+
+async function touchSessionLastSeen(env: Env, sid: string): Promise<void> {
   try {
-    const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
-    const claims = payload as unknown as JwtPayload;
-
-    // Allow identity override via X-Active-Domain header (must be in JWT's domains)
-    const domainOverride = request.headers.get("X-Active-Domain");
-    if (domainOverride && claims.domains?.includes(domainOverride)) {
-      claims.activeDomain = domainOverride;
-    }
-
-    return claims;
+    await env.DB
+      .prepare("UPDATE auth_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE sid = ? AND revoked_at IS NULL")
+      .bind(sid)
+      .run();
   } catch {
-    return null;
+    // Non-critical; ignore.
   }
 }
 
@@ -183,8 +276,8 @@ interface AuthRequestBody {
   address: string;
   publicKey: string;
   signature: string;
-  timestamp: number;
-  nonce: string;
+  /** Full SIWE-style challenge string the user signed. */
+  message: string;
 }
 
 function isValidAuthBody(body: unknown): body is AuthRequestBody {
@@ -194,8 +287,7 @@ function isValidAuthBody(body: unknown): body is AuthRequestBody {
     typeof b.address === "string" &&
     typeof b.publicKey === "string" &&
     typeof b.signature === "string" &&
-    typeof b.timestamp === "number" &&
-    typeof b.nonce === "string"
+    typeof b.message === "string"
   );
 }
 
@@ -210,56 +302,90 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
   if (!isValidAuthBody(body)) {
     return errorResponse(
       request,
-      "Missing required fields: address, publicKey, signature, timestamp, nonce",
+      "Missing required fields: address, publicKey, signature, message",
       "INVALID_BODY",
       400,
     );
   }
 
-  const { address, publicKey, signature, timestamp, nonce } = body;
+  const { address, publicKey, signature, message } = body;
 
-  // Verify wallet signature
+  // Parse and validate the SIWE-style challenge before any expensive work.
+  const challenge = parseChallenge(message);
+  if (!challenge) {
+    return errorResponse(request, "Malformed challenge message", "INVALID_CHALLENGE", 400);
+  }
+  if (challenge.address !== address) {
+    return errorResponse(request, "Challenge address mismatch", "INVALID_CHALLENGE", 400);
+  }
+  const network = getNetwork(env);
+  const validation = validateChallenge(challenge, {
+    expectedDomain: getAuthDomain(env),
+    expectedNetwork: network,
+  });
+  if (!validation.ok) {
+    return errorResponse(request, `Challenge invalid: ${validation.reason}`, "INVALID_CHALLENGE", 400);
+  }
+
+  // Verify wallet signature over the exact message string.
   let valid: boolean;
   try {
-    valid = await verifyTezosSignature({ address, publicKey, signature, timestamp, nonce });
+    valid = await verifyTezosSignature({ address, publicKey, signature, message });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     console.error("Signature verification threw:", detail);
     return errorResponse(request, `Signature verification failed: ${detail}`, "SIG_VERIFY_ERROR", 400);
   }
-
   if (!valid) {
-    return errorResponse(request, "Invalid signature or expired timestamp", "INVALID_SIGNATURE", 401);
+    return errorResponse(request, "Invalid signature", "INVALID_SIGNATURE", 401);
   }
 
-  // Look up owned domains
-  const network = (env.TEZOS_NETWORK === "mainnet" ? "mainnet" : "ghostnet") as "ghostnet" | "mainnet";
+  // Look up owned domains.
   let domains: string[];
   try {
     domains = await getOwnedDomains(address, network);
   } catch {
     return errorResponse(request, "Failed to query domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
-
   const activeDomain = domains.length > 0 ? domains[0] : null;
 
-  // Issue JWT
-  const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
-  const token = await new SignJWT({ address, domains, activeDomain })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("24h")
-    .sign(secret);
+  // Issue v2 token with fresh sid + record session in D1.
+  const sid = newSessionId();
+  const kid = getCurrentKid(env);
+  const secrets = getSecrets(env);
+  const issued = await signJwt({
+    secret: secrets[kid],
+    kid,
+    claims: { sub: address, sid, domains, activeDomain },
+  });
 
-  return corsResponse(request, JSON.stringify({ token, domains, activeDomain }));
+  try {
+    const ip = request.headers.get("CF-Connecting-IP") ?? request.headers.get("X-Forwarded-For") ?? null;
+    const ua = request.headers.get("User-Agent") ?? null;
+    await env.DB
+      .prepare(
+        `INSERT INTO auth_sessions (sid, address, v, kid, exp_at, ip, user_agent)
+         VALUES (?, ?, ?, ?, datetime(?, 'unixepoch'), ?, ?)`,
+      )
+      .bind(sid, address, issued.claims.v, kid, issued.claims.exp, ip, ua)
+      .run();
+  } catch (err) {
+    console.error("Failed to record auth_session row:", err);
+    return errorResponse(request, "Failed to create session", "SESSION_CREATE_ERROR", 500);
+  }
+
+  return corsResponse(
+    request,
+    JSON.stringify({ token: issued.token, domains, activeDomain, sid, expiresAt: issued.claims.exp }),
+  );
 }
 
 async function handleRefresh(request: Request, env: Env): Promise<Response> {
   const user = await verifyJwt(request, env);
   if (!user) return errorResponse(request, "Token invalid or expired", "AUTH_REQUIRED", 401);
 
-  // Re-verify domain ownership before issuing a new token
-  const network = (env.TEZOS_NETWORK === "mainnet" ? "mainnet" : "ghostnet") as "ghostnet" | "mainnet";
+  // Re-verify domain ownership before issuing a new token.
+  const network = getNetwork(env);
   let domains: string[];
   try {
     domains = await getOwnedDomains(user.address, network);
@@ -267,19 +393,93 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
     return errorResponse(request, "Failed to verify domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
 
-  // Keep current active domain if still owned, otherwise pick first or null
+  // Keep current active domain if still owned, otherwise pick first or null.
   const activeDomain = user.activeDomain && domains.includes(user.activeDomain)
     ? user.activeDomain
     : domains.length > 0 ? domains[0] : null;
 
-  const secret = new TextEncoder().encode(env.CHAT_JWT_SECRET);
-  const token = await new SignJWT({ address: user.address, domains, activeDomain })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("24h")
-    .sign(secret);
+  // Refresh keeps the same sid (it's the same session, just rolled forward).
+  const kid = getCurrentKid(env);
+  const secrets = getSecrets(env);
+  const issued = await signJwt({
+    secret: secrets[kid],
+    kid,
+    claims: { sub: user.address, sid: user.sid, domains, activeDomain },
+  });
 
-  return corsResponse(request, JSON.stringify({ token, domains, activeDomain }));
+  try {
+    await env.DB
+      .prepare(
+        `UPDATE auth_sessions
+         SET exp_at = datetime(?, 'unixepoch'), kid = ?, last_seen_at = CURRENT_TIMESTAMP
+         WHERE sid = ? AND revoked_at IS NULL`,
+      )
+      .bind(issued.claims.exp, kid, user.sid)
+      .run();
+  } catch {
+    // Non-fatal; the token is still valid by signature.
+  }
+
+  return corsResponse(
+    request,
+    JSON.stringify({ token: issued.token, domains, activeDomain, sid: user.sid, expiresAt: issued.claims.exp }),
+  );
+}
+
+/** POST /auth/ws-ticket — mint a 60s WS ticket bound to the caller's sid. */
+async function handleWsTicket(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return errorResponse(request, "Unauthorized", "AUTH_REQUIRED", 401);
+  if (!user.activeDomain) {
+    return errorResponse(request, "A hack.tez domain is required for chat", "NO_DOMAIN", 403);
+  }
+  const kid = getCurrentKid(env);
+  const secrets = getSecrets(env);
+  const { ticket, exp } = await signWsTicket({
+    secret: secrets[kid],
+    kid,
+    session: { sub: user.address, sid: user.sid, domains: user.domains, activeDomain: user.activeDomain },
+  });
+  return corsResponse(request, JSON.stringify({ ticket, expiresAt: exp }));
+}
+
+/** POST /auth/logout — revoke the caller's session. Idempotent. */
+async function handleLogout(request: Request, env: Env): Promise<Response> {
+  const user = await verifyJwt(request, env);
+  if (!user) return corsResponse(request, JSON.stringify({ ok: true }));
+  try {
+    await env.DB
+      .prepare(
+        `UPDATE auth_sessions
+         SET revoked_at = CURRENT_TIMESTAMP, revoked_by = ?, revoke_reason = 'user_logout'
+         WHERE sid = ? AND revoked_at IS NULL`,
+      )
+      .bind(user.address, user.sid)
+      .run();
+    REVOCATION_CACHE.set(user.sid, { revoked: true, expiresAt: Date.now() + REVOCATION_CACHE_TTL_MS });
+  } catch {
+    // Best-effort.
+  }
+  return corsResponse(request, JSON.stringify({ ok: true }));
+}
+
+/**
+ * GET /auth/check-session?sid=... — internal endpoint for Netlify Functions
+ * to check session revocation without direct D1 access.
+ *
+ * Requires `X-Internal-Secret: <INTERNAL_SECRET>` header. Cached aggressively
+ * by the caller (60s recommended).
+ */
+async function handleCheckSession(request: Request, env: Env): Promise<Response> {
+  const provided = request.headers.get("X-Internal-Secret");
+  if (!env.INTERNAL_SECRET || !provided || provided !== env.INTERNAL_SECRET) {
+    return errorResponse(request, "Forbidden", "FORBIDDEN", 403);
+  }
+  const url = new URL(request.url);
+  const sid = url.searchParams.get("sid");
+  if (!sid) return errorResponse(request, "sid required", "MISSING_SID", 400);
+  const revoked = await isSessionRevoked(env, sid);
+  return corsResponse(request, JSON.stringify({ sid, revoked }));
 }
 
 async function handleHistory(request: Request, env: Env): Promise<Response> {
@@ -767,21 +967,33 @@ async function handleAdminBroadcast(request: Request, env: Env): Promise<Respons
   const broadcastBody = b.body as string;
   const url = (b.url as string) || null;
 
-  // Require wallet signature for broadcast (defense in depth)
+  // Require wallet signature for broadcast (defense in depth: even an admin
+  // JWT shouldn't be sufficient to nuke everyone with a push notification).
   const signature = b.signature as string;
   const publicKey = b.publicKey as string;
-  const nonce = b.nonce as string;
-  const timestamp = b.timestamp as number;
+  const message = b.message as string;
 
   if (!title || !broadcastBody) {
     return errorResponse(request, "Title and body required", "BAD_REQUEST", 400);
   }
-  if (!signature || !publicKey || !nonce || !timestamp) {
+  if (!signature || !publicKey || !message) {
     return errorResponse(request, "Wallet signature required for broadcasts", "BAD_REQUEST", 400);
   }
 
-  // Verify signature using existing auth verification
-  const sigValid = await verifyTezosSignature({ address: user.address, publicKey, signature, timestamp, nonce });
+  // Parse + validate the SIWE challenge (must be fresh, must match this user).
+  const parsed = parseChallenge(message);
+  if (!parsed || parsed.address !== user.address) {
+    return errorResponse(request, "Invalid challenge", "INVALID_CHALLENGE", 400);
+  }
+  const validation = validateChallenge(parsed, {
+    expectedDomain: getAuthDomain(env),
+    expectedNetwork: getNetwork(env),
+  });
+  if (!validation.ok) {
+    return errorResponse(request, `Challenge invalid: ${validation.reason}`, "INVALID_CHALLENGE", 400);
+  }
+
+  const sigValid = await verifyTezosSignature({ address: user.address, publicKey, signature, message });
   if (!sigValid) return errorResponse(request, "Invalid signature", "INVALID_SIGNATURE", 403);
 
   try {
@@ -1644,16 +1856,10 @@ async function handleGifSearch(request: Request, env: Env): Promise<Response> {
     return errorResponse(request, "GIF search not configured", "GIF_DISABLED", 503);
   }
 
-  // Require valid JWT
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  // Require valid JWT (full verify with revocation check).
+  const user = await verifyJwt(request, env);
+  if (!user) {
     return errorResponse(request, "Unauthorized", "UNAUTHORIZED", 401);
-  }
-  const token = authHeader.slice(7);
-  try {
-    await jwtVerify(new TextEncoder().encode(token), new TextEncoder().encode(env.CHAT_JWT_SECRET));
-  } catch {
-    return errorResponse(request, "Invalid token", "INVALID_TOKEN", 401);
   }
 
   const url = new URL(request.url);
@@ -1941,6 +2147,18 @@ export default {
 
     if (path === "/auth/refresh" && request.method === "POST") {
       return handleRefresh(request, env);
+    }
+
+    if (path === "/auth/ws-ticket" && request.method === "POST") {
+      return handleWsTicket(request, env);
+    }
+
+    if (path === "/auth/logout" && request.method === "POST") {
+      return handleLogout(request, env);
+    }
+
+    if (path === "/auth/check-session" && request.method === "GET") {
+      return handleCheckSession(request, env);
     }
 
     if (path === "/gif/search" && request.method === "GET") {

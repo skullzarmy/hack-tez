@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 import { hackchatUrl } from "../config/tezos";
+import { authedFetch } from "../lib/authedFetch";
 
 interface DMConversation {
     roomId: string;
@@ -24,18 +25,15 @@ interface UseDMListReturn {
 }
 
 export function useDMList(config: UseDMListConfig): UseDMListReturn {
-    const { token, activeDomain } = config;
+    const { activeDomain } = config;
     const [conversations, setConversations] = useState<DMConversation[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const fetchConversations = useCallback(async () => {
         try {
-            const res = await fetch(`${hackchatUrl}/dm/list`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "X-Active-Domain": activeDomain,
-                },
+            const res = await authedFetch(`${hackchatUrl}/dm/list`, {
+                headers: { "X-Active-Domain": activeDomain },
             });
             if (!res.ok) return;
             const data = (await res.json()) as { conversations: DMConversation[] };
@@ -43,7 +41,7 @@ export function useDMList(config: UseDMListConfig): UseDMListReturn {
         } catch {
             // Silently fail on poll errors
         }
-    }, [token, activeDomain]);
+    }, [activeDomain]);
 
     const refresh = useCallback(() => {
         setIsLoading(true);

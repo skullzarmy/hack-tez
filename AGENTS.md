@@ -148,7 +148,11 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **No Netlify Functions for resolution.** The API in `netlify/functions/api.mts` is a pure proxy to TED GraphQL + TzKT.
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects.
 - **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
-- **JWT is the trust boundary.** CF Worker issues JWT after verifying wallet signature + TED domain ownership. PartyKit only accepts connections with valid JWT. Both share `CHAT_JWT_SECRET`.
+- **JWT is the trust boundary.** CF Worker issues short-lived JWTs (2h TTL, rolling refresh) after verifying wallet signature + TED domain ownership. JWTs include `kid` (for secret rotation) and `sid` (for revocation via D1 `auth_sessions` table). All authenticated client calls go through `src/lib/authedFetch.ts` (singleton with `BroadcastChannel` cross-tab sync, `navigator.locks` refresh dedupe, pre-flight expiry check, single-401-retry).
+- **Auth challenge is SIWE-style** (see `auth/challenge.ts`): structured `domain / address / statement / URI / Version / Chain ID / Nonce / Issued At` message. Server re-parses to enforce nonce + freshness for replay protection.
+- **WebSocket auth uses single-use tickets.** Client calls `POST /auth/ws-ticket` (60s TTL, sid-bound) before connecting; ticket goes in WS query string, not the long-lived JWT. PartyKit verifies tickets locally via shared `auth/ticket.ts` — no worker round-trip per connection.
+- **Shared `auth/` module at repo root** is the single source of truth for all session/auth logic across CF Worker, PartyKit, Netlify Functions, and the React client. Runtime-agnostic (Web Crypto + jose). Never duplicate JWT logic anywhere else.
+- **WS failures NEVER nuke the app session.** Chat WebSocket close events do not clear auth state. Only `authedFetch` failure → refresh failure can clear the session.
 - **Hackatars are server-generated.** Generative avatars are built server-side in `api.mts`, seeded by a salted domain name (deterministic). Cached immutably in Netlify Blobs. The frontend `<Hackatar>` component uses `<img>` tags pointing to `/api/v1/hackatar/:label`. The engine lives in `src/lib/hackatar/` (pure JS, no DOM deps). See `HACKATARS.md` for the seeding roadmap.
 
 ---
@@ -164,7 +168,13 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 | `PINATA_JWT`             | Netlify server-only     | Pinata API JWT token for IPFS pinning             |
 | `VITE_HACKCHAT_URL`     | Frontend                | Chat worker URL (default `http://localhost:8787`) |
 | `VITE_PARTYKIT_HOST`    | Frontend                | PartyKit host (default `localhost:1999`)          |
-| `CHAT_JWT_SECRET`        | CF Worker + PartyKit    | Shared JWT signing secret (set via wrangler/partykit) |
+| `CHAT_JWT_SECRET`        | CF Worker + PartyKit    | Shared JWT signing secret (current key)           |
+| `CHAT_JWT_KID`           | CF Worker + PartyKit    | Key id for current secret (default `v1`)          |
+| `CHAT_JWT_SECRET_PREV`   | CF Worker + PartyKit    | Optional previous secret for rotation grace       |
+| `CHAT_JWT_KID_PREV`      | CF Worker + PartyKit    | Optional previous kid                             |
+| `AUTH_DOMAIN`            | CF Worker               | SIWE challenge domain (default `hacktez.com`)     |
+| `INTERNAL_SECRET`        | CF Worker + Netlify     | Shared secret for `/auth/check-session` calls     |
+| `HACKCHAT_INTERNAL_URL`  | Netlify Functions       | Internal worker URL for revocation checks         |
 
 ---
 

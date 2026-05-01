@@ -1,4 +1,14 @@
-const NETWORK_CONFIG = {
+/**
+ * TED (Tezos Domains) ownership lookup.
+ *
+ * No Node-only deps — safe to import from PartyKit, browsers, edge functions.
+ * Used by the worker during /auth and /auth/refresh to confirm which hack.tez
+ * domains a wallet currently owns.
+ */
+
+import type { Network } from "./types.js";
+
+const NETWORK_CONFIG: Record<Network, { tld: "tez" | "gho"; graphqlUrl: string }> = {
   ghostnet: {
     tld: "gho",
     graphqlUrl: "https://ghostnet-api.tezos.domains/graphql",
@@ -7,7 +17,7 @@ const NETWORK_CONFIG = {
     tld: "tez",
     graphqlUrl: "https://api.tezos.domains/graphql",
   },
-} as const;
+};
 
 async function tedGql<T>(
   graphqlUrl: string,
@@ -31,13 +41,10 @@ async function tedGql<T>(
 /**
  * Query TED GraphQL for all hack.tez (or hack.gho) domains owned by an address.
  * Returns an array of full domain names (e.g. ["alice.hack.tez"]).
- *
- * This module is intentionally free of Node.js dependencies so it can be
- * imported by PartyKit servers (which don't have nodejs_compat).
  */
 export async function getOwnedDomains(
   address: string,
-  network: "ghostnet" | "mainnet" = "ghostnet",
+  network: Network = "ghostnet",
 ): Promise<string[]> {
   const { tld, graphqlUrl } = NETWORK_CONFIG[network];
 

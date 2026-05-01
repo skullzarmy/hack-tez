@@ -41,10 +41,10 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
         setLoading(true);
         try {
             if (subscribed) {
-                const ok = await unsubscribeFromPush(token);
+                const ok = await unsubscribeFromPush();
                 if (ok) setSubscribed(false);
             } else {
-                const ok = await subscribeToPush(token);
+                const ok = await subscribeToPush();
                 if (ok) {
                     setSubscribed(true);
                     setPermission("granted");

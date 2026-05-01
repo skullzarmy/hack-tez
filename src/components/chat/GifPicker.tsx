@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Search, X, Loader2 } from "lucide-react";
 
 import { hackchatUrl } from "../../config/tezos";
+import { authedFetch } from "../../lib/authedFetch";
 
 interface GifResult {
     id: string;
@@ -18,7 +19,7 @@ interface GifPickerProps {
     onClose: () => void;
 }
 
-export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) {
+export default function GifPicker({ token: _token, onSelect, onClose }: GifPickerProps) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<GifResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -34,9 +35,7 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
             if (q.trim()) params.set("q", q.trim());
             if (pos) params.set("pos", pos);
 
-            const resp = await fetch(`${hackchatUrl}/gif/search?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const resp = await authedFetch(`${hackchatUrl}/gif/search?${params}`);
             if (!resp.ok) throw new Error("Failed");
             const data = await resp.json() as { gifs: GifResult[]; next: string | null };
             if (pos) {
@@ -50,7 +49,7 @@ export default function GifPicker({ token, onSelect, onClose }: GifPickerProps) 
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, []);
 
     // Load trending on mount
     useEffect(() => {

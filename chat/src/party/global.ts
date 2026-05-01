@@ -1,6 +1,11 @@
 import type { Party, Server, Connection } from "partykit/server";
-import { jwtVerify } from "jose";
-import { getOwnedDomains } from "../auth/domains.js";
+import {
+  buildSecretMap,
+  getOwnedDomains,
+  verifyWsTicket,
+  type Network,
+  type SecretMap,
+} from "../../../auth/index.js";
 import {
   sendJson,
   handleChatMessage as sharedHandleChatMessage,
@@ -12,6 +17,7 @@ import type { MediaAttachment, RoomContext } from "./shared.js";
 
 interface TokenPayload {
   address: string;
+  sid: string;
   domains: string[];
   activeDomain: string | null;
 }
@@ -67,12 +73,16 @@ export default class GlobalRoom implements Server {
     return (this.room.env.INTERNAL_SECRET as string) ?? "";
   }
 
-  private getSecret(): Uint8Array {
-    const secret = this.room.env.CHAT_JWT_SECRET as string;
-    return new TextEncoder().encode(secret);
+  private getSecrets(): SecretMap {
+    return buildSecretMap({
+      currentKid: (this.room.env.CHAT_JWT_KID as string) ?? "v1",
+      currentSecret: this.room.env.CHAT_JWT_SECRET as string,
+      previousKid: this.room.env.CHAT_JWT_KID_PREV as string | undefined,
+      previousSecret: this.room.env.CHAT_JWT_SECRET_PREV as string | undefined,
+    });
   }
 
-  private getNetwork(): "ghostnet" | "mainnet" {
+  private getNetwork(): Network {
     const net = this.room.env.TEZOS_NETWORK as string | undefined;
     return net === "mainnet" ? "mainnet" : "ghostnet";
   }
@@ -227,23 +237,31 @@ export default class GlobalRoom implements Server {
       this.ensureReverifyTimer();
 
       const url = new URL(conn.uri, "http://dummy");
-      const token = url.searchParams.get("token");
-      if (!token) {
-        sendJson(conn, { type: "error", code: "AUTH_REQUIRED", message: "Missing token" });
-        conn.close(4001, "Missing token");
+      // Accept either `ticket` (preferred, short-lived) or `token` (legacy bearer).
+      // After client migration we'll require ticket-only.
+      const ticket = url.searchParams.get("ticket") ?? url.searchParams.get("token");
+      if (!ticket) {
+        sendJson(conn, { type: "error", code: "AUTH_REQUIRED", message: "Missing ticket" });
+        conn.close(4001, "Missing ticket");
         return;
       }
 
-      let payload: TokenPayload;
-      try {
-        const { payload: claims } = await jwtVerify(token, this.getSecret(), {
-          algorithms: ["HS256"],
-        });
-        payload = claims as unknown as TokenPayload;
-        if (!payload.activeDomain) throw new Error("Missing activeDomain");
-      } catch {
-        sendJson(conn, { type: "error", code: "AUTH_INVALID", message: "Invalid or expired token" });
-        conn.close(4001, "Invalid token");
+      const verify = await verifyWsTicket(ticket, { secrets: this.getSecrets() });
+      if (!verify.ok) {
+        sendJson(conn, { type: "error", code: "AUTH_INVALID", message: `Ticket invalid (${verify.error.code})` });
+        conn.close(4001, "Invalid ticket");
+        return;
+      }
+      const claims = verify.claims;
+      const payload: TokenPayload = {
+        address: claims.sub,
+        sid: claims.sid,
+        domains: claims.domains,
+        activeDomain: claims.activeDomain,
+      };
+      if (!payload.activeDomain) {
+        sendJson(conn, { type: "error", code: "AUTH_INVALID", message: "No active domain" });
+        conn.close(4001, "No active domain");
         return;
       }
 
@@ -268,6 +286,7 @@ export default class GlobalRoom implements Server {
       conn.setState({
         domain: effectiveDomain,
         address: payload.address,
+        sid: payload.sid,
         domains: payload.domains,
       });
 

@@ -16,6 +16,7 @@ export default function ChatPage() {
         chatDomains,
         activeDomain: contextActiveDomain,
         setActiveDomain,
+        authError,
     } = useTezos();
 
     // Resolve initial domain from localStorage preference
@@ -114,6 +115,21 @@ export default function ChatPage() {
                         ? "Signing in with your wallet…"
                         : "Your session has expired. Reconnect to re-sign and enter chat."}
                 </p>
+
+                {authError && !connecting && (
+                    <div
+                        className="text-xs px-4 py-2 text-center"
+                        style={{
+                            background: "var(--err-bg, rgba(255,107,107,0.1))",
+                            color: "var(--err, #ff6b6b)",
+                            border: "1px solid var(--err, #ff6b6b)",
+                            fontFamily: "var(--font-mono)",
+                        }}
+                    >
+                        Error: {authError}
+                    </div>
+                )}
+
                 {!connecting && (
                     <button
                         type="button"

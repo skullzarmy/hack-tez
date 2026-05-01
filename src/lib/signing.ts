@@ -1,5 +1,34 @@
 import { SigningType } from "@tezos-x/octez.connect-sdk";
 import type { DAppClient } from "@tezos-x/octez.connect-sdk";
+import { buildChallenge } from "../../auth/challenge";
+import type { Network } from "../../auth/types";
+
+/**
+ * Build a SIWE-style structured challenge for hack.tez sign-in.
+ * The server uses the same `buildChallenge` to validate, so signing here
+ * and verifying there always agree on the canonical text.
+ */
+export function buildAuthChallenge(opts: {
+  address: string;
+  domain: string;          // host (e.g. "hacktez.com")
+  uri: string;             // origin (e.g. "https://hacktez.com")
+  network: Network;
+  statement?: string;
+}): { message: string; nonce: string; issuedAt: string } {
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = Array.from(nonceBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const issuedAt = new Date().toISOString();
+  const message = buildChallenge({
+    domain: opts.domain,
+    address: opts.address,
+    uri: opts.uri,
+    network: opts.network,
+    nonce,
+    issuedAt,
+    statement: opts.statement,
+  });
+  return { message, nonce, issuedAt };
+}
 
 /** Convert a UTF-8 string to its hex representation. */
 export function stringToHex(str: string): string {

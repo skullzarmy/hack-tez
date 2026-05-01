@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { hackchatUrl } from "../../config/tezos";
+import { authedFetch } from "../../lib/authedFetch";
 
 interface OgData {
     title?: string;
@@ -14,7 +15,7 @@ interface OgData {
 // Module-level cache so previews persist across re-renders
 const ogCache = new Map<string, OgData | null>();
 
-export default function LinkPreview({ url, token }: { url: string; token: string }) {
+export default function LinkPreview({ url, token: _token }: { url: string; token: string }) {
     const [og, setOg] = useState<OgData | null | undefined>(() => {
         const cached = ogCache.get(url);
         return cached !== undefined ? cached : undefined;
@@ -32,9 +33,8 @@ export default function LinkPreview({ url, token }: { url: string; token: string
         }
 
         try {
-            const res = await fetch(
+            const res = await authedFetch(
                 `${hackchatUrl}/og?url=${encodeURIComponent(url)}`,
-                { headers: { Authorization: `Bearer ${token}` } },
             );
             if (!res.ok) { ogCache.set(url, null); setOg(null); return; }
             const json = await res.json() as { og: OgData | null };
@@ -44,7 +44,7 @@ export default function LinkPreview({ url, token }: { url: string; token: string
             ogCache.set(url, null);
             setOg(null);
         }
-    }, [url, token]);
+    }, [url]);
 
     useEffect(() => { fetchOg(); }, [fetchOg]);
 

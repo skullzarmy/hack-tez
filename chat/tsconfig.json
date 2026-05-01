@@ -15,6 +15,6 @@
     "isolatedModules": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "../auth/**/*.ts"],
   "exclude": ["node_modules"]
 }

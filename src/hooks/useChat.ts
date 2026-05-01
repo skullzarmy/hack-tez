@@ -3,6 +3,7 @@ import PartySocket from "partysocket";
 import type { ChatNotificationEvent } from "../lib/chatNotifications";
 import type { ChatMessage, MediaAttachment } from "../types/chat";
 import { partykitHost } from "../config/tezos";
+import { fetchWsTicket } from "../lib/wsTicket";
 
 interface BanInfo {
     type: "soft" | "hard";
@@ -55,7 +56,7 @@ export type { BanInfo };
 export type { ChatMessage, MediaAttachment, ReactionCount } from "../types/chat";
 
 export function useChat(config: UseChatConfig): UseChatReturn {
-    const { token, activeDomain } = config;
+    const { activeDomain } = config;
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -84,15 +85,22 @@ export function useChat(config: UseChatConfig): UseChatReturn {
 
     useEffect(() => {
         let closedIntentionally = false;
+        let backoffAttempt = 0;
         const ws = new PartySocket({
             host: partykitHost,
             room: "global",
-            query: { token, activeDomain, rt: String(reconnectTick) },
+            query: async () => {
+                // Fetch a fresh ticket on every (re)connect.
+                // authedFetch handles bearer refresh transparently.
+                const ticket = await fetchWsTicket();
+                return { ticket: ticket ?? "", activeDomain, rt: String(reconnectTick) };
+            },
         });
         wsRef.current = ws;
 
         ws.addEventListener("open", () => {
             setIsConnected(true);
+            backoffAttempt = 0;
             if (reconnectTimerRef.current) {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
@@ -114,22 +122,26 @@ export function useChat(config: UseChatConfig): UseChatReturn {
 
         ws.addEventListener("close", (event) => {
             setIsConnected(false);
-            // 4010: Banned, 4001: Invalid/Expired Token, 4003: Ownership Changed
-            const isFatalClose = event.code === 4010 || event.code === 4001 || event.code === 4003;
-            if (isFatalClose) {
-                bannedRef.current = true; // Use this to halt reconnects
+            // 4010: Banned, 4003: Ownership Changed — halt reconnects.
+            // 4001: Invalid ticket — used to nuke session, now we just retry
+            //       with a fresh ticket (authedFetch refreshes the bearer if needed).
+            const isHaltingClose = event.code === 4010 || event.code === 4003;
+            if (isHaltingClose) {
+                bannedRef.current = true;
                 if (import.meta.env.DEV) {
-                    console.error(`PartyKit fatal close: ${event.code} - ${event.reason}`);
-                }
-                if (typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent("hack-tez-chat-fatal-close", { detail: { code: event.code } }));
+                    console.error(`PartyKit halting close: ${event.code} - ${event.reason}`);
                 }
             }
             if (!closedIntentionally && !bannedRef.current && !reconnectTimerRef.current) {
+                // Exponential backoff with jitter: 1s, 2s, 4s, 8s, 16s, 30s cap.
+                const base = Math.min(1000 * 2 ** backoffAttempt, 30_000);
+                const jitter = Math.random() * 500;
+                const delay = base + jitter;
+                backoffAttempt = Math.min(backoffAttempt + 1, 5);
                 reconnectTimerRef.current = setTimeout(() => {
                     reconnectTimerRef.current = null;
                     setReconnectTick((n) => n + 1);
-                }, 1500);
+                }, delay);
             }
         });
 
@@ -343,7 +355,7 @@ export function useChat(config: UseChatConfig): UseChatReturn {
             setIsConnected(false);
             historyLoadedRef.current = false;
         };
-    }, [token, activeDomain, reconnectTick]);
+    }, [activeDomain, reconnectTick]);
 
     const sendMessage = useCallback((content: string, media?: MediaAttachment, replyTo?: string) => {
         const trimmed = content.trim();

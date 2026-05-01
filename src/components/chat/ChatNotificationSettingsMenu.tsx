@@ -101,12 +101,10 @@ export default function ChatNotificationSettingsMenu({
         let cancelled = false;
         async function load() {
             const { hackchatUrl } = await import("../../config/tezos");
+            const { authedFetch } = await import("../../lib/authedFetch");
             const [subscribed, prefsRes] = await Promise.all([
                 isPushSubscribed(),
-                // Single request for preferences + device count
-                fetch(`${hackchatUrl}/push/preferences`, {
-                    headers: { Authorization: `Bearer ${authToken}` },
-                }).then(async (res) => {
+                authedFetch(`${hackchatUrl}/push/preferences`).then(async (res) => {
                     if (!res.ok) return { preferences: null, deviceCount: 0 };
                     const data = await res.json();
                     return { preferences: data.preferences ?? null, deviceCount: data.deviceCount ?? 0 };
@@ -126,13 +124,13 @@ export default function ChatNotificationSettingsMenu({
         setPushLoading(true);
         try {
             if (pushSubscribed) {
-                const ok = await unsubscribeFromPush(authToken);
+                const ok = await unsubscribeFromPush();
                 if (ok) {
                     setPushSubscribed(false);
                     setDeviceCount((c) => Math.max(0, c - 1));
                 }
             } else {
-                const ok = await subscribeToPush(authToken);
+                const ok = await subscribeToPush();
                 if (ok) {
                     setPushSubscribed(true);
                     setPushPermission("granted");
@@ -150,8 +148,8 @@ export default function ChatNotificationSettingsMenu({
         if (!pushPrefs) return;
         const updated = { ...pushPrefs, [key]: value };
         setPushPrefs(updated);
-        await updatePushPreferences(authToken, { [key]: value });
-    }, [pushPrefs, authToken]);
+        await updatePushPreferences({ [key]: value });
+    }, [pushPrefs]);
 
     return (
         <DropdownMenu>
