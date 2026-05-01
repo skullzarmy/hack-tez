@@ -108,6 +108,22 @@ function saveAuthSession(session: AuthSession) {
     } catch { /* quota exceeded */ }
 }
 
+/** Minimum acceptable token version. Bump in lockstep with shared `auth/types.ts`. */
+const MIN_TOKEN_VERSION = 2;
+
+/** Decode a JWT payload without verifying the signature. */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+    try {
+        const seg = token.split(".")[1];
+        if (!seg) return null;
+        const base64 = seg.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        return JSON.parse(atob(padded)) as Record<string, unknown>;
+    } catch {
+        return null;
+    }
+}
+
 function loadAuthSession(): AuthSession | null {
     try {
         const raw = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -116,6 +132,14 @@ function loadAuthSession(): AuthSession | null {
         // Discard if already expired or expiring within 60s.
         const expiry = getTokenExpiryMs(session.token);
         if (!expiry || expiry < Date.now() + 60_000) {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            return null;
+        }
+        // Discard any token below MIN_TOKEN_VERSION — the server will reject it anyway,
+        // and reusing an obsolete token here causes a "session expired" loop on chat.
+        const payload = decodeJwtPayload(session.token);
+        const version = typeof payload?.v === "number" ? (payload.v as number) : 0;
+        if (version < MIN_TOKEN_VERSION) {
             localStorage.removeItem(AUTH_STORAGE_KEY);
             return null;
         }
@@ -414,20 +438,16 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
             void hydrateAccount(addr);
 
-            // Reuse stored JWT only if it's for THIS address and has plenty of life left.
+            // Reuse stored JWT only if it's for THIS address (loadAuthSession
+            // already enforces version + expiry).
             const stored = loadAuthSession();
             if (stored) {
-                try {
-                    const seg = stored.token.split(".")[1];
-                    const base64 = seg.replace(/-/g, "+").replace(/_/g, "/");
-                    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-                    const payload = JSON.parse(atob(padded));
-                    const sub = payload.sub ?? payload.address;
-                    if (sub === addr) {
-                        applySession(stored);
-                        return;
-                    }
-                } catch { /* token corrupt, fall through to re-auth */ }
+                const payload = decodeJwtPayload(stored.token);
+                const sub = (payload?.sub ?? payload?.address) as string | undefined;
+                if (sub === addr) {
+                    applySession(stored);
+                    return;
+                }
             }
 
             const session = await authenticateWallet(c, addr);
