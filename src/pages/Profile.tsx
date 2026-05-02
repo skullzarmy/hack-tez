@@ -13,6 +13,7 @@ import { Hackatar } from "../components/Hackatar";
 import { ProfileShareStudio } from "../components/ProfileShareStudio";
 import { Globe, ExternalLink, ArrowLeft } from "lucide-react";
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -360,6 +361,19 @@ export default function Profile() {
 
     const label = subdomain ?? "";
     const fullName = `${label}.hack.${config.tld}`;
+
+    const profileForMeta = record?.profile ?? null;
+    const metaDisplayName = profileForMeta?.nickname || profileForMeta?.name || fullName;
+    const bio = profileForMeta?.bio?.trim();
+    const metaDescription = bio
+        ? bio.length > 200 ? `${bio.slice(0, 197)}…` : bio
+        : `${metaDisplayName} on hack.tez — a free Tezos subdomain. View profile, links, and on-chain identity.`;
+    usePageMeta({
+        title: `${metaDisplayName} (${fullName}) — hack.tez`,
+        description: metaDescription,
+        path: `/u/${label}`,
+        image: `/api/v1/share-card/${label}`,
+    });
 
     const handleRefresh = useCallback(() => {
         setRefreshKey((k) => k + 1);

@@ -1,8 +1,14 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { Link } from "react-router-dom";
 import { skills } from "../lib/skills";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function Skills() {
+    usePageMeta({
+        title: "Skills — LLM-ready Tezos reference docs — hack.tez",
+        description: "Markdown reference docs for the hack.tez stack: SmartPy, Taquito, Tezos Domains, Beacon SDK, octez.connect, and the hack.tez API. Drop into Cursor, Claude, or your AI editor.",
+        path: "/skills",
+    });
     return (
         <div className="container" style={{ paddingBlock: "3rem" }}>
             <header style={{ marginBottom: "2.5rem" }}>

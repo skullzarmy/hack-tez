@@ -8,6 +8,7 @@ import type { BuilderStatus } from "../types/profile";
 import { Hackatar } from "../components/Hackatar";
 import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -475,6 +476,12 @@ function FilterBar({
 // ── Main page ────────────────────────────────────────────────────────
 
 export default function Hackers() {
+    usePageMeta({
+        title: "Hackers — hack.tez",
+        description:
+            "Browse the directory of builders, artists, and tezonians on hack.tez. Filter by skill, status, and search across the on-chain Tezos hacker community.",
+        path: "/hackers",
+    });
     const { hackers, isLoading, refresh, lastUpdated } = useHackerProfiles();
     const [searchParams, setSearchParams] = useSearchParams();
 

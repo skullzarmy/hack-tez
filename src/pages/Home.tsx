@@ -8,6 +8,7 @@ import { useContractConfig, formatDuration } from "../hooks/useContractConfig";
 import SubdomainSearch from "../components/SubdomainSearch";
 import PendingCommitsPanel from "../components/PendingCommitsPanel";
 import EligibilityPanel from "../components/EligibilityPanel";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 import { loadPendingCommits } from "../lib/commits";
 import { useSubdomains } from "../hooks/useSubdomains";
@@ -22,6 +23,12 @@ const CircuitBackground = lazy(() =>
 );
 
 export default function Home() {
+    usePageMeta({
+        title: "hack.tez — Claim Your Free Tezos Subdomain",
+        description:
+            "Claim your subdomain on hack.tez. For hackers, builders, artists, and tezonians. yourname.hack.tez — 1 claim per wallet. Just gas.",
+        path: "/",
+    });
     const { address, restoring, token, activeDomain } = useTezos();
     const contractConfig = useContractConfig();
     const waitDescription = formatDuration(contractConfig.minCommitAgeSec);

@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Breadcrumbs from "./Breadcrumbs";
 import WikiAvatar from "./WikiAvatar";
+import { usePageMeta } from "../../hooks/usePageMeta";
 
 interface Props {
   slug: string;
@@ -37,6 +38,18 @@ export default function ArticleView({ slug }: Props) {
     setError(null);
     fetchArticle();
   }, [fetchArticle]);
+
+  usePageMeta(
+    article
+      ? {
+          title: `${article.title} — Wiki — hack.tez`,
+          description:
+            article.summary?.trim() ||
+            (article.content ? `${article.content.replace(/[#*_`>\[\]\(\)]/g, "").slice(0, 180).trim()}…` : `${article.title} on the hack.tez community wiki.`),
+          path: `/wiki/${slug}`,
+        }
+      : null,
+  );
 
   // Fetch contributors (unique editors) in background without blocking render
   useEffect(() => {

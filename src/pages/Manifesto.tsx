@@ -1,5 +1,12 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
+import { usePageMeta } from "../hooks/usePageMeta";
+
 export default function Manifesto() {
+    usePageMeta({
+        title: "Manifesto — hack.tez",
+        description: "HEN mattered because nobody asked permission. The hack.tez manifesto: free Tezos subdomains for hackers, builders, artists, and tezonians.",
+        path: "/manifesto",
+    });
     return (
         <div className="container" style={{ paddingBlock: "4rem 6rem" }}>
             <header style={{ marginBottom: "3rem" }}>

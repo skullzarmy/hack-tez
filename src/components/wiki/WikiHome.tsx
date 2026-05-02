@@ -5,8 +5,15 @@ import { useWikiSearch } from "../../hooks/useWikiSearch";
 import { useTezos } from "../../context/TezosContext";
 import { Search, BookOpen, Clock, Users, TrendingUp, PenLine, Shield, Settings } from "lucide-react";
 import WikiAvatar from "./WikiAvatar";
+import { usePageMeta } from "../../hooks/usePageMeta";
 
 export default function WikiHome() {
+  usePageMeta({
+    title: "Wiki — Community knowledge base — hack.tez",
+    description:
+      "The hack.tez community wiki. Articles, guides, and shared knowledge for builders, artists, and tezonians on Tezos. Edit by signing with your wallet.",
+    path: "/wiki",
+  });
   const api = useWikiApi();
   const { domain } = useTezos();
   const isAdmin = domain === "admin.hack.tez";

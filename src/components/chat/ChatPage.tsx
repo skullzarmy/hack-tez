@@ -3,10 +3,17 @@ import { MessageCircle } from "lucide-react";
 import { useTezos } from "../../context/TezosContext";
 import ChatLayout from "./ChatLayout";
 import { pinFile } from "../../lib/pin";
+import { usePageMeta } from "../../hooks/usePageMeta";
 
 const IDENTITY_STORAGE_KEY = "hack-tez-chat-identity";
 
 export default function ChatPage() {
+    usePageMeta({
+        title: "hackchat — wallet-native chat for hack.tez",
+        description:
+            "hackchat is real-time chat for hack.tez subdomain holders. Your domain is your identity. End-to-end signed with your wallet.",
+        path: "/chat",
+    });
     const {
         address,
         client,

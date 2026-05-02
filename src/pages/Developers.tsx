@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useState, useEffect } from "react";
 import config from "../config/tezos";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 // ---------------------------------------------------------------------------
 // Nav structure
@@ -340,6 +341,12 @@ function SideNav({ active, mobileOpen, onClose }: { active: string; mobileOpen: 
 // ---------------------------------------------------------------------------
 
 export default function Developers() {
+    usePageMeta({
+        title: "Developers — REST API & SDK — hack.tez",
+        description:
+            "Public REST API for hack.tez. Resolve domains, list hackers, fetch profiles, generate hackatars. JSON over HTTPS. No auth required for read endpoints.",
+        path: "/developers",
+    });
     const active = useActiveSection();
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const tld = config.tld;

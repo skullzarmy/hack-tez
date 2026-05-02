@@ -6,10 +6,23 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.min.css";
 import { getSkill } from "../lib/skills";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function SkillDetail() {
     const { slug } = useParams<{ slug: string }>();
     const skill = slug ? getSkill(slug) : undefined;
+
+    usePageMeta(
+        skill
+            ? {
+                  title: `${skill.title} — Skills — hack.tez`,
+                  description:
+                      skill.description ||
+                      `${skill.title} reference docs for the hack.tez stack. Drop into your AI editor.`,
+                  path: `/skills/${skill.slug}`,
+              }
+            : null,
+    );
 
     if (!skill) {
         return (

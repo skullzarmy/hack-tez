@@ -9,34 +9,84 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyPageMetaToHtml } from "../src/lib/pageMeta";
+import { STATIC_ROUTE_META } from "../src/lib/staticRouteMeta";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(__dirname, "..");
+const SITE_URL = (process.env.VITE_SITE_URL || "https://hacktez.com").replace(/\/$/, "");
 
-// Derive skill slugs automatically from src/skills/ filenames
-const skillSlugs = readdirSync(join(root, "src/skills"))
+function parseFrontmatter(raw: string): { title?: string; description?: string } {
+    const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!match) return {};
+    const out: { title?: string; description?: string } = {};
+    for (const line of match[1].split("\n")) {
+        const m = line.match(/^(title|description):\s*(.+)$/);
+        if (!m) continue;
+        let val = m[2].trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+        }
+        out[m[1] as "title" | "description"] = val;
+    }
+    return out;
+}
+
+interface SkillMeta {
+    slug: string;
+    title: string;
+    description: string;
+}
+
+const skillsDir = join(root, "src/skills");
+const skillSlugs = readdirSync(skillsDir)
     .filter((f) => f.endsWith(".md"))
     .map((f) => f.replace(/\.md$/, ""));
 
-// Routes to pre-render — these are static and benefit from SSG
+const skills: SkillMeta[] = skillSlugs.map((slug) => {
+    const fm = parseFrontmatter(readFileSync(join(skillsDir, `${slug}.md`), "utf8"));
+    return {
+        slug,
+        title: fm.title || slug,
+        description: fm.description || `${fm.title || slug} reference docs for the hack.tez stack.`,
+    };
+});
+
 const routes = ["/manifesto", "/policies", "/developers", "/skills", ...skillSlugs.map((slug) => `/skills/${slug}`)];
 
-// Import the server bundle built by: vite build --ssr src/entry-server.tsx --outDir dist-server
 const serverEntry = join(root, "dist-server/entry-server.js");
 const { render } = (await import(serverEntry)) as { render: (url: string) => Promise<string> };
 
 const template = readFileSync(join(root, "dist/index.html"), "utf-8");
 
+function metaForRoute(route: string): { title: string; description: string } {
+    const staticMeta = STATIC_ROUTE_META[route];
+    if (staticMeta) return { title: staticMeta.title, description: staticMeta.description };
+    if (route.startsWith("/skills/")) {
+        const slug = route.slice("/skills/".length);
+        const skill = skills.find((s) => s.slug === slug);
+        if (skill) {
+            return {
+                title: `${skill.title} — Skills — hack.tez`,
+                description: skill.description,
+            };
+        }
+    }
+    return { title: "hack.tez", description: "Free Tezos subdomains for hackers, builders, artists, and tezonians." };
+}
+
 let count = 0;
 for (const route of routes) {
     const html = await render(route);
-    const full = template.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
+    let full = template.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 
-    // Write to dist/<route>/index.html so Netlify serves it as static HTML
-    const dir = join(root, "dist", route.slice(1)); // strip leading /
+    const meta = metaForRoute(route);
+    full = applyPageMetaToHtml(full, { title: meta.title, description: meta.description, path: route }, SITE_URL);
+
+    const dir = join(root, "dist", route.slice(1));
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "index.html"), full);
-    console.log(`  ✓ ${route}`);
+    console.log(`  ✓ ${route}  (${meta.title})`);
     count++;
 }
 

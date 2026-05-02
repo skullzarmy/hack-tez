@@ -1,5 +1,12 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
+import { usePageMeta } from "../hooks/usePageMeta";
+
 export default function Policies() {
+    usePageMeta({
+        title: "Policies — hack.tez",
+        description: "Privacy policy and terms for hack.tez. Plain english. No bullshit. We don't sell your data — there's no data to sell.",
+        path: "/policies",
+    });
     return (
         <div className="container" style={{ paddingBlock: "4rem 6rem" }}>
             <header style={{ marginBottom: "3rem" }}>
