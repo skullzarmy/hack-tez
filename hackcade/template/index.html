@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>My Hackcade Game</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <main id="stage">
+        <header class="hud">
+            <span id="player">…</span>
+            <span id="score">0</span>
+        </header>
+
+        <section id="menu" class="screen">
+            <h1>My Game</h1>
+            <p>Tap to start</p>
+            <button id="start" type="button">Start</button>
+        </section>
+
+        <section id="play" class="screen hidden">
+            <p>Tap the target!</p>
+            <div id="target" tabindex="0" role="button" aria-label="Target">+1</div>
+        </section>
+
+        <section id="over" class="screen hidden">
+            <h2>Game over</h2>
+            <p>Final score: <span id="final">0</span></p>
+            <button id="again" type="button">Play again</button>
+        </section>
+    </main>
+
+    <script src="hackcade-sdk.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
