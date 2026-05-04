@@ -3,8 +3,9 @@ import { useMyGames, type ArcadeGame } from "../../hooks/useArcade";
 import ArcadeLoader from "./ArcadeLoader";
 
 export default function MyGames() {
-    const { activeDomain, address, connect } = useTezos();
-    const { data, loading, error } = useMyGames(activeDomain);
+    const { activeDomain, address, chatDomains, connect } = useTezos();
+    const domain = activeDomain ?? chatDomains[0] ?? null;
+    const { data, loading, error } = useMyGames(domain);
 
     if (!address) {
         return (
@@ -16,7 +17,7 @@ export default function MyGames() {
             </div>
         );
     }
-    if (!activeDomain) {
+    if (!domain) {
         return (
             <div style={pad}>
                 <h2>My games</h2>

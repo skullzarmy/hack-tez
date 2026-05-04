@@ -8,7 +8,8 @@ const MAX_ZIP_BYTES = 5 * 1024 * 1024;
 
 export default function GameSubmit() {
     const nav = useNavigate();
-    const { activeDomain, address, connect } = useTezos();
+    const { activeDomain, address, chatDomains, connect } = useTezos();
+    const submitDomain = activeDomain ?? chatDomains[0] ?? null;
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("arcade");
@@ -20,7 +21,7 @@ export default function GameSubmit() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<{ slug: string; ipfsCid: string } | null>(null);
 
-    if (!address || !activeDomain) {
+    if (!address || !submitDomain) {
         return (
             <div style={{ padding: 16, color: "#aafff0", fontFamily: "ui-monospace,monospace" }}>
                 <h2>Submit a game</h2>
@@ -104,7 +105,7 @@ export default function GameSubmit() {
         >
             <h2 style={{ margin: 0 }}>Submit a game</h2>
             <p style={{ opacity: 0.75, fontSize: 13, margin: 0 }}>
-                Submitting as <strong>{activeDomain}</strong>. See the{" "}
+                Submitting as <strong>{submitDomain}</strong>. See the{" "}
                 <a href="/skills/hackcade-sdk" style={{ color: "#ffe66d" }}>
                     Hackcade SDK skill
                 </a>{" "}
