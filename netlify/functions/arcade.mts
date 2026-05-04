@@ -27,7 +27,34 @@
  *   - Audit every admin mutation via `arcadeAudit()`.
  */
 import type { Config, Context } from "@netlify/functions";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { sql, verifyJwt, isAdmin, slugify, type JwtPayload } from "./wiki-db.mts";
+import { validateAndExtractGameZip } from "./arcade-zip.mts";
+import { pinDirectoryToIPFS } from "./arcade-pinata.mts";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** The canonical SDK file shipped into every game bundle. */
+let CANONICAL_SDK_BYTES: Uint8Array | null = null;
+function loadCanonicalSdk(): Uint8Array {
+    if (CANONICAL_SDK_BYTES) return CANONICAL_SDK_BYTES;
+    // Try repo path first (dev), then bundled-with-function path.
+    const candidates = [
+        resolve(__dirname, "../../hackcade/sdk/hackcade-sdk.js"),
+        resolve(__dirname, "./hackcade-sdk.js"),
+    ];
+    for (const p of candidates) {
+        try {
+            CANONICAL_SDK_BYTES = new Uint8Array(readFileSync(p));
+            return CANONICAL_SDK_BYTES;
+        } catch {
+            /* try next */
+        }
+    }
+    throw new Error("Canonical hackcade-sdk.js not found");
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -404,12 +431,189 @@ async function submitScore(req: Request): Promise<Response> {
 // Stubbed here so the router compiles end-to-end during the skeleton phase.
 // ---------------------------------------------------------------------------
 
-async function submitGame(_req: Request): Promise<Response> {
-    return err("Not yet implemented", "NOT_IMPLEMENTED", 501);
+/** Read multipart form, returning fields + the single zip file. */
+async function readSubmitForm(req: Request): Promise<
+    | {
+          ok: true;
+          fields: Record<string, string>;
+          zipBytes: Uint8Array;
+      }
+    | { ok: false; res: Response }
+> {
+    const ct = req.headers.get("content-type") ?? "";
+    if (!ct.toLowerCase().includes("multipart/form-data")) {
+        return { ok: false, res: err("multipart/form-data required", "INVALID_INPUT", 400) };
+    }
+    let form: FormData;
+    try {
+        form = await req.formData();
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : "form parse failed";
+        return { ok: false, res: err(`Invalid multipart body: ${msg}`, "INVALID_INPUT", 400) };
+    }
+    const file = form.get("zip");
+    if (!(file instanceof File)) {
+        return { ok: false, res: err("Missing zip field", "INVALID_INPUT", 400) };
+    }
+    const fields: Record<string, string> = {};
+    for (const [k, v] of form.entries()) {
+        if (typeof v === "string") fields[k] = v;
+    }
+    const zipBytes = new Uint8Array(await file.arrayBuffer());
+    return { ok: true, fields, zipBytes };
 }
 
-async function updateGame(_req: Request, _slug: string): Promise<Response> {
-    return err("Not yet implemented", "NOT_IMPLEMENTED", 501);
+function clampStr(s: unknown, max: number): string {
+    if (typeof s !== "string") return "";
+    return s.trim().slice(0, max);
+}
+
+function parseOptionalNumber(s: string | undefined, max: number): number | null {
+    if (!s) return null;
+    const n = Number(s);
+    if (!isFinite(n) || n < 0) return null;
+    return Math.min(n, max);
+}
+
+const ALLOWED_CATEGORIES = new Set(["action", "puzzle", "arcade", "rpg", "shooter", "platform", "other"]);
+
+async function submitGame(req: Request): Promise<Response> {
+    const user = await requireDomainHolder(req);
+    if (user instanceof Response) return user;
+
+    const pinataJwt = process.env.PINATA_JWT;
+    if (!pinataJwt) return err("IPFS pinning not configured", "PINATA_NOT_CONFIGURED", 503);
+
+    const parsed = await readSubmitForm(req);
+    if (!parsed.ok) return parsed.res;
+    const { fields, zipBytes } = parsed;
+
+    const title = clampStr(fields.title, 80);
+    const description = clampStr(fields.description, 600);
+    const categoryRaw = clampStr(fields.category || "other", 24).toLowerCase();
+    const category = ALLOWED_CATEGORIES.has(categoryRaw) ? categoryRaw : "other";
+    const sourceUrl = clampStr(fields.sourceUrl, 500) || null;
+    const maxPossibleScore = parseOptionalNumber(fields.maxPossibleScore, 1_000_000_000);
+    const maxScorePerSecond = parseOptionalNumber(fields.maxScorePerSecond, 100_000);
+
+    if (!title) return err("title is required", "INVALID_INPUT", 400);
+
+    // Validate + extract zip.
+    const sdkBytes = loadCanonicalSdk();
+    const validation = validateAndExtractGameZip(zipBytes, sdkBytes);
+    if (!validation.ok) return err(validation.error.message, validation.error.code, 422);
+
+    // Slug + collision suffix (max 5 attempts, then bail).
+    let slug = slugify(title);
+    if (!slug) return err("Title produced an empty slug", "INVALID_INPUT", 400);
+    for (let i = 0; i < 5; i++) {
+        const existing = await sql`SELECT 1 FROM arcade_games WHERE slug=${slug}`;
+        if (!existing.length) break;
+        slug = `${slugify(title)}-${nanoid(4).toLowerCase()}`;
+    }
+
+    // Pin to IPFS.
+    const folderName = `hackcade-${slug}`;
+    let pin;
+    try {
+        pin = await pinDirectoryToIPFS(validation.files, {
+            pinataJwt,
+            folderName,
+            pinataName: folderName,
+            keyvalues: {
+                builder: user.activeDomain ?? "",
+                slug,
+                version: "1",
+            },
+        });
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : "pinning failed";
+        return err(msg, "PINATA_ERROR", 502);
+    }
+
+    const builderLabel = (user.activeDomain as string).split(".")[0];
+    const id = nanoid(24);
+    await sql`
+        INSERT INTO arcade_games
+            (id, slug, title, description, category, source_url,
+             builder_domain, builder_label, builder_address,
+             ipfs_cid, version, max_possible_score, max_score_per_second, status)
+        VALUES (${id}, ${slug}, ${title}, ${description}, ${category}, ${sourceUrl},
+                ${user.activeDomain}, ${builderLabel}, ${user.address},
+                ${pin.cid}, 1, ${maxPossibleScore}, ${maxScorePerSecond}, 'pending')`;
+    await sql`
+        INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
+        VALUES (${id}, 1, ${pin.cid}, ${user.activeDomain}, FALSE, 'pending')`;
+
+    await arcadeAudit("game_submit", slug, user.activeDomain!, {
+        cid: pin.cid,
+        files: pin.fileCount,
+        bytes: pin.totalBytes,
+        injectedSdk: validation.injectedSdk,
+    });
+
+    return json({ ok: true, slug, ipfsCid: pin.cid, status: "pending", injectedSdk: validation.injectedSdk });
+}
+
+async function updateGame(req: Request, slug: string): Promise<Response> {
+    const user = await requireDomainHolder(req);
+    if (user instanceof Response) return user;
+
+    const pinataJwt = process.env.PINATA_JWT;
+    if (!pinataJwt) return err("IPFS pinning not configured", "PINATA_NOT_CONFIGURED", 503);
+
+    const games = await sql`SELECT id, version, builder_domain FROM arcade_games WHERE slug=${slug}`;
+    if (!games.length) return err("Game not found", "NOT_FOUND", 404);
+    const game = games[0] as any;
+
+    const isCreator = game.builder_domain === user.activeDomain;
+    if (!isCreator && !isAdmin(user)) return err("Not the creator", "FORBIDDEN", 403);
+
+    // Reject if there's already a pending version awaiting approval.
+    const existingPending = await sql`
+        SELECT 1 FROM arcade_game_versions WHERE game_id=${game.id} AND status='pending'`;
+    if (existingPending.length) return err("Update already pending review", "PENDING_EXISTS", 409);
+
+    const parsed = await readSubmitForm(req);
+    if (!parsed.ok) return parsed.res;
+    const { fields, zipBytes } = parsed;
+    const scoresReset = clampStr(fields.scoresReset, 5).toLowerCase() === "true";
+
+    const sdkBytes = loadCanonicalSdk();
+    const validation = validateAndExtractGameZip(zipBytes, sdkBytes);
+    if (!validation.ok) return err(validation.error.message, validation.error.code, 422);
+
+    const newVersion = Number(game.version) + 1;
+    const folderName = `hackcade-${slug}-v${newVersion}`;
+    let pin;
+    try {
+        pin = await pinDirectoryToIPFS(validation.files, {
+            pinataJwt,
+            folderName,
+            pinataName: folderName,
+            keyvalues: {
+                builder: user.activeDomain ?? "",
+                slug,
+                version: String(newVersion),
+            },
+        });
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : "pinning failed";
+        return err(msg, "PINATA_ERROR", 502);
+    }
+
+    await sql`
+        INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
+        VALUES (${game.id}, ${newVersion}, ${pin.cid}, ${user.activeDomain}, ${scoresReset}, 'pending')`;
+
+    await arcadeAudit("game_update_submit", slug, user.activeDomain!, {
+        cid: pin.cid,
+        version: newVersion,
+        scoresReset,
+        injectedSdk: validation.injectedSdk,
+    });
+
+    return json({ ok: true, slug, ipfsCid: pin.cid, version: newVersion, status: "pending" });
 }
 
 async function flagGame(req: Request, slug: string): Promise<Response> {
@@ -481,8 +685,115 @@ async function rejectGame(req: Request, slug: string): Promise<Response> {
     return json({ ok: true });
 }
 
-async function approveUpdate(_req: Request, _slug: string): Promise<Response> {
-    return err("Not yet implemented", "NOT_IMPLEMENTED", 501);
+/** Recompute denormalized stats for the given player domains. */
+async function recomputePlayerStats(domains: string[]): Promise<void> {
+    if (!domains.length) return;
+    await sql`
+        WITH per_game AS (
+            SELECT s.player_domain, s.game_id, MAX(s.score) AS best
+            FROM arcade_scores s
+            JOIN arcade_games g ON g.id = s.game_id AND g.status='active'
+            WHERE s.player_domain = ANY(${domains})
+            GROUP BY s.player_domain, s.game_id
+        ),
+        agg AS (
+            SELECT s.player_domain AS domain,
+                   MAX(s.player_label) AS label,
+                   COUNT(*)::int AS total_plays,
+                   COUNT(DISTINCT s.game_id)::int AS games_played,
+                   COALESCE(SUM(pg.best), 0)::bigint AS total_score
+            FROM arcade_scores s
+            JOIN arcade_games g ON g.id = s.game_id AND g.status='active'
+            LEFT JOIN per_game pg ON pg.player_domain = s.player_domain AND pg.game_id = s.game_id
+            WHERE s.player_domain = ANY(${domains})
+            GROUP BY s.player_domain
+        )
+        INSERT INTO arcade_player_stats (domain, label, total_plays, games_played, total_score, updated_at)
+        SELECT domain, label, total_plays, games_played, total_score, NOW() FROM agg
+        ON CONFLICT (domain) DO UPDATE SET
+            label = EXCLUDED.label,
+            total_plays = EXCLUDED.total_plays,
+            games_played = EXCLUDED.games_played,
+            total_score = EXCLUDED.total_score,
+            updated_at = NOW()`;
+
+    // Wipe stats for players who no longer have any active scores.
+    await sql`
+        DELETE FROM arcade_player_stats
+        WHERE domain = ANY(${domains})
+          AND NOT EXISTS (
+              SELECT 1 FROM arcade_scores s
+              JOIN arcade_games g ON g.id = s.game_id AND g.status='active'
+              WHERE s.player_domain = arcade_player_stats.domain
+          )`;
+}
+
+async function approveUpdate(req: Request, slug: string): Promise<Response> {
+    const user = await requireAdmin(req);
+    if (user instanceof Response) return user;
+
+    const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug}`;
+    if (!games.length) return err("Game not found", "NOT_FOUND", 404);
+    const gameId = (games[0] as any).id as string;
+
+    const pending = await sql`
+        SELECT id, version, ipfs_cid, scores_reset
+        FROM arcade_game_versions
+        WHERE game_id=${gameId} AND status='pending'
+        ORDER BY version DESC LIMIT 1`;
+    if (!pending.length) return err("No pending update", "NOT_FOUND", 404);
+    const v = pending[0] as any;
+
+    let affectedDomains: string[] = [];
+    if (v.scores_reset) {
+        const before = await sql`SELECT DISTINCT player_domain FROM arcade_scores WHERE game_id=${gameId}`;
+        affectedDomains = (before as any[]).map((r) => r.player_domain as string);
+        await sql`DELETE FROM arcade_scores WHERE game_id=${gameId}`;
+        await sql`UPDATE arcade_games SET play_count=0, player_count=0, updated_at=NOW() WHERE id=${gameId}`;
+    }
+
+    await sql`
+        UPDATE arcade_game_versions
+        SET status='approved', approved_by=${user.activeDomain}, approved_at=NOW()
+        WHERE id=${v.id}`;
+
+    await sql`
+        UPDATE arcade_games
+        SET ipfs_cid=${v.ipfs_cid}, version=${v.version}, updated_at=NOW()
+        WHERE id=${gameId}`;
+
+    if (affectedDomains.length) await recomputePlayerStats(affectedDomains);
+
+    await arcadeAudit("game_update_approve", slug, user.activeDomain!, {
+        version: Number(v.version),
+        cid: v.ipfs_cid,
+        scoresReset: !!v.scores_reset,
+        affectedPlayers: affectedDomains.length,
+    });
+
+    return json({ ok: true, version: Number(v.version), ipfsCid: v.ipfs_cid });
+}
+
+async function rejectUpdate(req: Request, slug: string): Promise<Response> {
+    const user = await requireAdmin(req);
+    if (user instanceof Response) return user;
+    const body = (await req.json().catch(() => null)) as { reason?: string } | null;
+    const reason = body?.reason?.trim() ?? "";
+    if (!reason) return err("Reason required", "INVALID_INPUT", 400);
+
+    const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug}`;
+    if (!games.length) return err("Game not found", "NOT_FOUND", 404);
+    const gameId = (games[0] as any).id as string;
+
+    const rows = await sql`
+        UPDATE arcade_game_versions
+        SET status='rejected', rejected_reason=${reason}, approved_by=${user.activeDomain}, approved_at=NOW()
+        WHERE game_id=${gameId} AND status='pending'
+        RETURNING id, version`;
+    if (!rows.length) return err("No pending update", "NOT_FOUND", 404);
+
+    await arcadeAudit("game_update_reject", slug, user.activeDomain!, { reason, version: Number((rows[0] as any).version) });
+    return json({ ok: true });
 }
 
 async function removeGame(req: Request, slug: string): Promise<Response> {
@@ -490,14 +801,44 @@ async function removeGame(req: Request, slug: string): Promise<Response> {
     if (user instanceof Response) return user;
     const body = (await req.json().catch(() => null)) as { reason?: string } | null;
     const reason = body?.reason?.trim() ?? "";
-    const rows = await sql`UPDATE arcade_games
+
+    const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug}`;
+    if (!games.length) return err("Game not found", "NOT_FOUND", 404);
+    const gameId = (games[0] as any).id as string;
+
+    // Snapshot affected players before flipping the game's status (the recompute
+    // query filters on status='active' so the rows we want to fix become invisible).
+    const before = await sql`SELECT DISTINCT player_domain FROM arcade_scores WHERE game_id=${gameId}`;
+    const affected = (before as any[]).map((r) => r.player_domain as string);
+
+    await sql`UPDATE arcade_games
         SET status='removed', flagged_reason=${reason || null}, updated_at=NOW()
-        WHERE slug=${slug}
-        RETURNING id, builder_domain`;
-    if (!rows.length) return err("Game not found", "NOT_FOUND", 404);
-    await arcadeAudit("game_remove", slug, user.activeDomain!, { reason });
-    // Stats recomputation for affected players is handled by approve-update / dedicated job.
+        WHERE id=${gameId}`;
+
+    if (affected.length) await recomputePlayerStats(affected);
+
+    await arcadeAudit("game_remove", slug, user.activeDomain!, { reason, affectedPlayers: affected.length });
     return json({ ok: true });
+}
+
+async function unflagGame(req: Request, slug: string): Promise<Response> {
+    const user = await requireAdmin(req);
+    if (user instanceof Response) return user;
+    const rows = await sql`
+        UPDATE arcade_games SET status='active', flagged_reason=NULL, updated_at=NOW()
+        WHERE slug=${slug} AND status='flagged' RETURNING id`;
+    if (!rows.length) return err("Game not flagged", "NOT_FOUND", 404);
+    await arcadeAudit("game_unflag", slug, user.activeDomain!);
+    return json({ ok: true });
+}
+
+async function listFlagged(req: Request): Promise<Response> {
+    const user = await requireAdmin(req);
+    if (user instanceof Response) return user;
+    const rows = await sql`
+        SELECT slug,title,builder_domain,builder_label,ipfs_cid,flagged_reason,updated_at
+        FROM arcade_games WHERE status='flagged' ORDER BY updated_at DESC`;
+    return json({ flagged: rows });
 }
 
 // ---------------------------------------------------------------------------
@@ -553,12 +894,6 @@ function toGameDetail(r: GameRow) {
     };
 }
 
-// silence unused-symbol guards from strict tsconfig until those handlers are implemented
-void slugify;
-void submitGame;
-void updateGame;
-void approveUpdate;
-
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -612,8 +947,13 @@ export default async function handler(req: Request, _ctx: Context): Promise<Resp
             return await rejectGame(req, decodeURIComponent(segments[1]));
         if (method === "POST" && segments[0] === "games" && segments[2] === "approve-update")
             return await approveUpdate(req, decodeURIComponent(segments[1]));
+        if (method === "POST" && segments[0] === "games" && segments[2] === "reject-update")
+            return await rejectUpdate(req, decodeURIComponent(segments[1]));
         if (method === "POST" && segments[0] === "games" && segments[2] === "remove")
             return await removeGame(req, decodeURIComponent(segments[1]));
+        if (method === "POST" && segments[0] === "games" && segments[2] === "unflag")
+            return await unflagGame(req, decodeURIComponent(segments[1]));
+        if (method === "GET" && path === "/flagged") return await listFlagged(req);
 
         return err("Not found", "NOT_FOUND", 404);
     } catch (e) {
