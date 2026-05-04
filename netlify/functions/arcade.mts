@@ -34,7 +34,7 @@ import { sql, verifyJwt, isAdmin, slugify, type JwtPayload } from "./wiki-db.mts
 import { validateAndExtractGameZip } from "./arcade-zip.mts";
 import { pinDirectoryToIPFS } from "./arcade-pinata.mts";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** The canonical SDK file shipped into every game bundle. */
 let CANONICAL_SDK_BYTES: Uint8Array | null = null;
@@ -42,8 +42,8 @@ function loadCanonicalSdk(): Uint8Array {
     if (CANONICAL_SDK_BYTES) return CANONICAL_SDK_BYTES;
     // Try repo path first (dev), then bundled-with-function path.
     const candidates = [
-        resolve(__dirname, "../../hackcade/sdk/hackcade-sdk.js"),
-        resolve(__dirname, "./hackcade-sdk.js"),
+        resolve(HERE, "../../hackcade/sdk/hackcade-sdk.js"),
+        resolve(HERE, "./hackcade-sdk.js"),
     ];
     for (const p of candidates) {
         try {
