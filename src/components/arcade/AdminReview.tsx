@@ -6,6 +6,7 @@ import {
     useArcadeFlagged,
     adminAction,
     gameIframeUrl,
+    gameCoverUrl,
     type ArcadeGame,
 } from "../../hooks/useArcade";
 import Tabs from "./ui/Tabs";
@@ -22,6 +23,7 @@ interface PendingUpdate {
     description?: string;
     category?: string;
     builderDomain?: string;
+    coverKey?: string | null;
     currentCid: string;
     currentVersion: number;
     newCid: string;
@@ -189,15 +191,18 @@ function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => v
 
     return (
         <div className="arcade-card" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <strong>{update.title}</strong>
-                <StatusBadge status="pending" />
-                <span className="arcade-meta">
-                    by <strong style={{ color: "var(--accent)" }}>{update.uploadedBy ?? update.builderDomain}</strong>
-                </span>
-                <span className="arcade-meta" style={{ marginLeft: "auto" }}>
-                    v{update.currentVersion} → v{update.newVersion}
-                </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <CoverThumb coverKey={update.coverKey} title={update.title} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: "1 1 auto", minWidth: 0 }}>
+                    <strong>{update.title}</strong>
+                    <StatusBadge status="pending" />
+                    <span className="arcade-meta">
+                        by <strong style={{ color: "var(--accent)" }}>{update.uploadedBy ?? update.builderDomain}</strong>
+                    </span>
+                    <span className="arcade-meta" style={{ marginLeft: "auto" }}>
+                        v{update.currentVersion} → v{update.newVersion}
+                    </span>
+                </div>
             </div>
 
             {update.scoresReset && (
@@ -334,20 +339,63 @@ function FlaggedCard({ game, reload }: { game: ArcadeGame; reload: () => void })
     );
 }
 
+function CoverThumb({ coverKey, title }: { coverKey?: string | null; title: string }) {
+    const url = gameCoverUrl(coverKey ?? null);
+    if (!url) {
+        return (
+            <div
+                aria-hidden
+                style={{
+                    width: 56,
+                    height: 56,
+                    flex: "0 0 auto",
+                    borderRadius: 6,
+                    background: "var(--bg-3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    opacity: 0.5,
+                }}
+            >
+                🎮
+            </div>
+        );
+    }
+    return (
+        <img
+            src={url}
+            alt={`${title} cover`}
+            loading="lazy"
+            style={{
+                width: 56,
+                height: 56,
+                flex: "0 0 auto",
+                borderRadius: 6,
+                objectFit: "cover",
+                background: "var(--bg-3)",
+            }}
+        />
+    );
+}
+
 function Header({ game }: { game: ArcadeGame }) {
     return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <strong>{game.title}</strong>
-            <StatusBadge status={game.status ?? "pending"} />
-            <span className="arcade-meta">
-                by{" "}
-                <Link to={`/u/${game.builder.label}`} className="arcade-link">
-                    {game.builder.domain}
-                </Link>
-            </span>
-            <span className="arcade-meta" style={{ marginLeft: "auto" }}>
-                {game.category} · v{game.version ?? 1}
-            </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <CoverThumb coverKey={game.coverKey} title={game.title} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: "1 1 auto", minWidth: 0 }}>
+                <strong>{game.title}</strong>
+                <StatusBadge status={game.status ?? "pending"} />
+                <span className="arcade-meta">
+                    by{" "}
+                    <Link to={`/u/${game.builder.label}`} className="arcade-link">
+                        {game.builder.domain}
+                    </Link>
+                </span>
+                <span className="arcade-meta" style={{ marginLeft: "auto" }}>
+                    {game.category} · v{game.version ?? 1}
+                </span>
+            </div>
         </div>
     );
 }
@@ -364,6 +412,7 @@ function toEditable(g: ArcadeGame): EditableGame {
         status: g.status,
         ipfsCid: g.ipfsCid,
         version: g.version,
+        coverKey: g.coverKey ?? null,
     };
 }
 

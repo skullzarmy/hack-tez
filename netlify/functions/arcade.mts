@@ -592,9 +592,8 @@ async function submitGame(req: Request): Promise<Response> {
         VALUES (${id}, ${slug}, ${title}, ${description}, ${category}, ${sourceUrl},
                 ${user.activeDomain}, ${builderLabel}, ${user.address},
                 ${stored.key}, 1, ${maxPossibleScore}, ${maxScorePerSecond}, 'pending', ${coverStored.key})`;
-    await sql`
-        INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
-        VALUES (${id}, 1, ${stored.key}, ${user.activeDomain}, FALSE, 'pending')`;
+    // NOTE: no arcade_game_versions row yet — v1 is only created on approval.
+    // Keeping it out avoids the pending submission also showing up as a "pending update".
 
     await arcadeAudit("game_submit", slug, user.activeDomain!, {
         bundleKey: stored.key,
@@ -879,7 +878,7 @@ async function listPendingUpdates(req: Request): Promise<Response> {
     const user = await requireAdmin(req);
     if (user instanceof Response) return user;
     const rows = await sql`
-        SELECT g.slug, g.title, g.description, g.category, g.builder_domain,
+        SELECT g.slug, g.title, g.description, g.category, g.builder_domain, g.cover_key,
                g.ipfs_cid AS current_cid, g.version AS current_version,
                v.id AS version_id, v.version AS new_version, v.ipfs_cid AS new_cid,
                v.uploaded_by, v.scores_reset, v.created_at
@@ -895,6 +894,7 @@ async function listPendingUpdates(req: Request): Promise<Response> {
         description: r.description,
         category: r.category,
         builderDomain: r.builder_domain,
+        coverKey: r.cover_key ?? null,
         currentCid: r.current_cid,
         currentVersion: Number(r.current_version),
         newCid: r.new_cid,
@@ -914,8 +914,15 @@ async function approveGame(req: Request, slug: string): Promise<Response> {
     const rows = await sql`UPDATE arcade_games
         SET status='active', approved_by=${user.activeDomain}, approved_at=NOW(), updated_at=NOW()
         WHERE slug=${slug} AND status='pending'
-        RETURNING id`;
+        RETURNING id, ipfs_cid, version, builder_domain`;
     if (!rows.length) return err("Game not found or not pending", "NOT_FOUND", 404);
+    const g = rows[0] as { id: string; ipfs_cid: string; version: number; builder_domain: string };
+    // First-approval: create the v1 version row now that it's actually live.
+    // Idempotent — second approval (shouldn't happen, but safe) is a no-op.
+    await sql`
+        INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status, approved_by, approved_at)
+        VALUES (${g.id}, ${g.version}, ${g.ipfs_cid}, ${g.builder_domain}, FALSE, 'approved', ${user.activeDomain}, NOW())
+        ON CONFLICT (game_id, version) DO NOTHING`;
     await arcadeAudit("game_approve", slug, user.activeDomain!);
     return json({ ok: true });
 }
