@@ -16,8 +16,33 @@ interface ArcadeLoaderProps {
 
 const TICKS = ["BOOTING ROM", "CHECKING IPFS GATEWAY", "MOUNTING CABINET", "INSERT COIN"];
 
+function resolveLightMode(): boolean {
+    if (typeof document === "undefined") return false;
+    const explicit = document.documentElement.dataset.theme;
+    if (explicit === "light") return true;
+    if (explicit === "dark") return false;
+    return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: light)").matches;
+}
+
+function useResolvedLightMode(): boolean {
+    const [light, setLight] = useState(resolveLightMode);
+    useEffect(() => {
+        const update = () => setLight(resolveLightMode());
+        const mql = matchMedia("(prefers-color-scheme: light)");
+        mql.addEventListener("change", update);
+        const obs = new MutationObserver(update);
+        obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+        return () => {
+            mql.removeEventListener("change", update);
+            obs.disconnect();
+        };
+    }, []);
+    return light;
+}
+
 export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
     const [tickIdx, setTickIdx] = useState(0);
+    const light = useResolvedLightMode();
 
     useEffect(() => {
         const t = setInterval(() => setTickIdx((i) => (i + 1) % TICKS.length), 1100);
@@ -25,6 +50,30 @@ export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
     }, []);
 
     const status = message ?? TICKS[tickIdx];
+
+    // Theme palettes: dark keeps the CRT-on-black arcade vibe; light is a softer
+    // paper-screen with the same accent ink so it still reads as "arcade".
+    const palette = light
+        ? {
+              bg: "radial-gradient(circle at center, rgba(0,180,140,0.10) 0%, #f4f1e8 70%), #f4f1e8",
+              ink: "#0a4a3a",
+              inkSoft: "rgba(10,74,58,0.75)",
+              accentGlow: "0 0 8px rgba(10,74,58,0.35)",
+              scanlineColor: "rgba(10,74,58,0.08)",
+              sweepGradient: "linear-gradient(180deg, transparent 0%, rgba(10,74,58,0.10) 50%, transparent 100%)",
+              blendMode: "multiply" as const,
+              sweepOpacity: 0.45,
+          }
+        : {
+              bg: "radial-gradient(circle at center, rgba(0,255,200,0.08) 0%, rgba(0,0,0,0.92) 70%), #000",
+              ink: "var(--accent, #00ffc8)",
+              inkSoft: "var(--accent, #00ffc8)",
+              accentGlow: "0 0 12px var(--accent, #00ffc8), 0 0 24px rgba(0,255,200,0.4)",
+              scanlineColor: "rgba(0,255,200,0.06)",
+              sweepGradient: "linear-gradient(180deg, transparent 0%, rgba(0,255,200,0.18) 50%, transparent 100%)",
+              blendMode: "screen" as const,
+              sweepOpacity: 0.35,
+          };
 
     return (
         <div
@@ -39,9 +88,8 @@ export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "1.25rem",
-                background:
-                    "radial-gradient(circle at center, rgba(0,255,200,0.08) 0%, rgba(0,0,0,0.92) 70%), #000",
-                color: "var(--accent, #00ffc8)",
+                background: palette.bg,
+                color: palette.ink,
                 fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
                 overflow: "hidden",
             }}
@@ -51,10 +99,9 @@ export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
                 style={{
                     position: "absolute",
                     inset: 0,
-                    backgroundImage:
-                        "repeating-linear-gradient(0deg, rgba(0,255,200,0.06) 0px, rgba(0,255,200,0.06) 1px, transparent 1px, transparent 3px)",
+                    backgroundImage: `repeating-linear-gradient(0deg, ${palette.scanlineColor} 0px, ${palette.scanlineColor} 1px, transparent 1px, transparent 3px)`,
                     pointerEvents: "none",
-                    mixBlendMode: "screen",
+                    mixBlendMode: palette.blendMode,
                 }}
             />
             <div
@@ -62,12 +109,11 @@ export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
                 style={{
                     position: "absolute",
                     inset: 0,
-                    background:
-                        "linear-gradient(180deg, transparent 0%, rgba(0,255,200,0.18) 50%, transparent 100%)",
+                    background: palette.sweepGradient,
                     backgroundSize: "100% 6px",
                     animation: "hackcade-scanline 4s linear infinite",
                     pointerEvents: "none",
-                    opacity: 0.35,
+                    opacity: palette.sweepOpacity,
                 }}
             />
             <style>{`
@@ -87,7 +133,7 @@ export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
                     fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
                     fontWeight: 700,
                     letterSpacing: "0.2em",
-                    textShadow: "0 0 12px var(--accent, #00ffc8), 0 0 24px rgba(0,255,200,0.4)",
+                    textShadow: palette.accentGlow,
                 }}
             >
                 HACKCADE
@@ -113,7 +159,7 @@ export default function ArcadeLoader({ title, message }: ArcadeLoaderProps) {
                     minHeight: "1.4em",
                     fontSize: "0.9rem",
                     letterSpacing: "0.08em",
-                    color: "var(--accent, #00ffc8)",
+                    color: palette.inkSoft,
                     opacity: 0.85,
                 }}
             >
