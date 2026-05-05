@@ -7,9 +7,11 @@ import {
     subscribeToSession,
     setAuthHandlers,
     refreshSession,
+    broadcastLogout,
     getTokenExpiryMs,
     REFRESH_THRESHOLD_MS,
     type SessionSnapshot,
+    type RefreshResult,
 } from "../lib/authedFetch";
 import type { Network } from "../../auth/types";
 
@@ -189,8 +191,18 @@ async function authenticateWallet(c: DAppClient, addr: string): Promise<AuthSess
     return { token: data.token, domains: data.domains, activeDomain: data.activeDomain };
 }
 
-/** Call /auth/refresh, optionally requesting a different active domain. */
-async function callRefresh(token: string, activeDomainOverride?: string): Promise<AuthSession | null> {
+/**
+ * Call /auth/refresh.
+ *
+ * Returns a discriminated RefreshResult:
+ *  - { ok: true, session }: server issued a fresh token
+ *  - { ok: false, permanent: true }: server explicitly rejected (401/403) — token is dead
+ *  - { ok: false, permanent: false }: transient failure (network, 5xx, gateway) — preserve session
+ *
+ * Conflating these (the previous `null` return) caused permanent logouts on
+ * a single TED graphql 502.
+ */
+async function callRefresh(token: string, activeDomainOverride?: string): Promise<RefreshResult> {
     try {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
@@ -198,11 +210,22 @@ async function callRefresh(token: string, activeDomainOverride?: string): Promis
         };
         if (activeDomainOverride) headers["X-Active-Domain"] = activeDomainOverride;
         const res = await fetch(`${hackchatUrl}/auth/refresh`, { method: "POST", headers });
-        if (!res.ok) return null;
-        const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
-        return { token: data.token, domains: data.domains, activeDomain: data.activeDomain };
+        if (res.ok) {
+            const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
+            return {
+                ok: true,
+                session: { token: data.token, domains: data.domains, activeDomain: data.activeDomain },
+            };
+        }
+        // 401/403: server says this token is invalid/revoked. Permanent.
+        if (res.status === 401 || res.status === 403) {
+            return { ok: false, permanent: true };
+        }
+        // Anything else (5xx, 502 from TED lookup, 504 timeout, etc.): transient.
+        return { ok: false, permanent: false };
     } catch {
-        return null;
+        // Network error / fetch threw — never permanent.
+        return { ok: false, permanent: false };
     }
 }
 
@@ -280,25 +303,28 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             }
             return;
         }
-        const refreshed = await callRefresh(t);
-        if (refreshed) applySession(refreshed);
+        const result = await callRefresh(t);
+        if (result.ok) applySession(result.session);
+        // Transient or permanent failure: the public refresher is a best-effort
+        // hint; the regular auth lifecycle (authedFetch) will react to a real
+        // 401 the next time we hit the server.
     }, [client, address, applySession]);
 
     // Wire up authedFetch handlers ONCE per provider lifetime.
     // The handlers close over tokenRef so they always see the latest token.
     useEffect(() => {
         setAuthHandlers({
-            refresh: async (): Promise<SessionSnapshot | null> => {
+            refresh: async (): Promise<RefreshResult> => {
                 const t = tokenRef.current;
-                if (!t) return null;
-                const refreshed = await callRefresh(t);
-                if (!refreshed) return null;
-                applySession(refreshed);
-                return {
-                    token: refreshed.token,
-                    activeDomain: refreshed.activeDomain,
-                    domains: refreshed.domains,
-                };
+                if (!t) {
+                    // No local token to refresh — treat as definitively logged out.
+                    return { ok: false, permanent: true };
+                }
+                const result = await callRefresh(t);
+                if (result.ok) {
+                    applySession(result.session);
+                }
+                return result;
             },
             onAuthLost: () => {
                 // Refresh failed at the network layer — server says this token is dead.
@@ -342,33 +368,36 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     // mechanism that fixes "session invalid after a few minutes" — before, we
     // only had a setTimeout that could be killed by the OS suspending the tab.
     useEffect(() => {
-        function maybeRefresh() {
+        async function maybeRefresh() {
             const t = tokenRef.current;
             if (!t) return;
             const exp = getTokenExpiryMs(t);
             if (!exp) return;
             const remaining = exp - Date.now();
-            if (remaining <= 0) {
-                // Already expired — clear and let the user re-sign.
-                clearSession();
-                return;
-            }
             if (remaining < REFRESH_THRESHOLD_MS) {
-                void refreshSession();
+                // Includes already-expired (remaining <= 0). Try to refresh
+                // FIRST. Only clear on permanent (server-rejected) failure.
+                // If we were offline when the timer fired, a transient failure
+                // here must NOT cost the user their session.
+                const result = await refreshSession();
+                if (!result.ok && result.permanent) {
+                    clearSession();
+                }
             }
         }
+        function onFocus() { void maybeRefresh(); }
         function onVisibilityChange() {
-            if (document.visibilityState === "visible") maybeRefresh();
+            if (document.visibilityState === "visible") void maybeRefresh();
         }
-        window.addEventListener("focus", maybeRefresh);
+        window.addEventListener("focus", onFocus);
         document.addEventListener("visibilitychange", onVisibilityChange);
         // Also schedule a periodic check every 5 minutes — covers the case where
         // the tab is visible the whole time and we never get a focus event.
-        const interval = setInterval(maybeRefresh, 5 * 60 * 1000);
+        const interval = setInterval(() => { void maybeRefresh(); }, 5 * 60 * 1000);
         // Fire one immediately to catch any seed token that's already in the window.
-        maybeRefresh();
+        void maybeRefresh();
         return () => {
-            window.removeEventListener("focus", maybeRefresh);
+            window.removeEventListener("focus", onFocus);
             document.removeEventListener("visibilitychange", onVisibilityChange);
             clearInterval(interval);
         };
@@ -497,14 +526,19 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             const t = tokenRef.current;
             if (!t) return;
             void (async () => {
-                const refreshed = await callRefresh(t, newDomain);
-                if (refreshed) applySession(refreshed);
+                const result = await callRefresh(t, newDomain);
+                if (result.ok) applySession(result.session);
+                // Transient/permanent failure: keep optimistic update; the
+                // next authedFetch will reconcile if the server disagrees.
             })();
         },
         [applySession],
     );
 
     const disconnect = useCallback(async () => {
+        // Capture address BEFORE we tear down state — needed for the
+        // cross-tab logout broadcast.
+        const walletAddr = address;
         // Best-effort: tell the server to revoke the session before we forget the token.
         const t = tokenRef.current;
         if (t) {
@@ -515,13 +549,10 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 });
             } catch { /* ignore — local cleanup is what matters for UX */ }
         }
-        if (client) await client.clearActiveAccount();
-        setAddress(null);
-        setDomain(null);
-        clearSession();
-    }, [client, clearSession]);
-
-    const resetConnection = useCallback(async () => {
+        // Full teardown so the user never needs a separate "refresh" button.
+        try {
+            if (client) await client.clearActiveAccount();
+        } catch { /* noop */ }
         try {
             if (dAppClient) await dAppClient.destroy();
         } catch { /* may already be destroyed */ }
@@ -532,18 +563,42 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         setAddress(null);
         setDomain(null);
         clearSession();
-    }, [clearSession]);
+        // Notify other tabs AFTER local cleanup. Receivers compare against
+        // their own JWT's sub claim and only clear if they're holding a
+        // session for the same wallet.
+        if (walletAddr) broadcastLogout(walletAddr);
+    }, [address, client, clearSession]);
 
-    // Clear JWT when wallet address changes.
+    const resetConnection = useCallback(async () => {
+        // Retained for API compatibility — same behaviour as disconnect now.
+        await disconnect();
+    }, [disconnect]);
+
+    // Track `restoring` via ref so the address-change effect can gate on the
+    // current value without re-firing whenever `restoring` flips. During
+    // Beacon hydration `address` may transition spuriously; we must not nuke
+    // the session in that window.
+    const restoringRef = useRef(restoring);
+    useEffect(() => {
+        restoringRef.current = restoring;
+    }, [restoring]);
+
+    // Clear JWT when wallet address changes (genuine wallet swap or explicit
+    // disconnect). Skipped during the Beacon hydration phase to avoid
+    // false-positive clears caused by transient null transitions.
     const prevAddressRef = useRef(address);
     useEffect(() => {
         const prev = prevAddressRef.current;
         prevAddressRef.current = address;
-        if (!address && prev) {
-            clearSession();
-        } else if (address && prev && address !== prev) {
+        if (restoringRef.current) return;
+        if (address && prev && address !== prev) {
+            // True wallet swap: previous and new are both real, and different.
             clearSession();
         }
+        // We intentionally do NOT clear on `!address && prev`. The only
+        // legitimate path to that transition is disconnect(), which clears
+        // the session itself. Anything else (Beacon flux, hydration race,
+        // SDK reset) is transient and must not cost the user their JWT.
     }, [address, clearSession]);
 
     return (
