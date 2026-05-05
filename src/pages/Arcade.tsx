@@ -46,7 +46,7 @@ export default function ArcadePage() {
                     // HACKCADE
                 </h1>
                 <p style={{ color: "var(--fg-3)", fontSize: "0.9rem", margin: 0 }}>
-                    Build it. Ship it. Brick it.
+                    Build it. Ship it. Play it.
                 </p>
             </header>
             <NavBar isAdmin={isAdmin} />
