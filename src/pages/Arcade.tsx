@@ -9,6 +9,7 @@
 
 import { lazy, Suspense, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useTezos } from "../context/TezosContext";
 import { Hackatar } from "../components/Hackatar";
 import GameLobby from "../components/arcade/GameLobby";
@@ -30,6 +31,11 @@ const Sandbox = lazy(() => import("../components/arcade/Sandbox"));
 
 export default function ArcadePage() {
     const { isAdmin } = useTezos();
+    usePageMeta({
+        title: "Hackcade — hack.tez Arcade",
+        description: "Build it. Ship it. Play it. Community-built HTML games with hack.tez identity and on-chain leaderboards.",
+        path: "/arcade",
+    });
 
     return (
         <div style={{ minHeight: "100vh", padding: "16px 12px", maxWidth: 1100, margin: "0 auto" }}>
@@ -112,8 +118,19 @@ function PlayRoute() {
     const [flagOpen, setFlagOpen] = useState(false);
     const [flagDone, setFlagDone] = useState(false);
 
+    const game = data?.game ?? null;
+    usePageMeta(
+        game
+            ? {
+                  title: `${game.title} — Hackcade — hack.tez`,
+                  description: game.description || `Play ${game.title} on the hack.tez Hackcade.`,
+                  path: `/arcade/play/${slug}`,
+              }
+            : null,
+    );
+
     if (loading && !data) return <ArcadeLoader message="LOADING GAME…" />;
-    if (error || !data?.game)
+    if (error || !game)
         return (
             <div className="arcade-page" style={{ padding: 16, color: "var(--err)" }}>
                 {error || "Not found"}{" "}
@@ -122,8 +139,6 @@ function PlayRoute() {
                 </button>
             </div>
         );
-
-    const game = data.game;
 
     return (
         <div style={{ display: "grid", gap: 16 }}>
@@ -169,7 +184,7 @@ function PlayRoute() {
                 )}
             </div>
 
-            <Leaderboard board={data.leaderboard} myDomain={activeDomain} />
+            <Leaderboard board={data!.leaderboard} myDomain={activeDomain} />
 
             <ConfirmAction
                 open={flagOpen}
