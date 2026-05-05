@@ -56,7 +56,11 @@ function emptyState<T>(): FetchState<T> {
 }
 
 /** Generic poller that doesn't blank the UI on background refresh. */
-function useFetched<T>(url: string | null, intervalMs = 0): FetchState<T> & { reload: () => void } {
+function useFetched<T>(
+    url: string | null,
+    opts: { intervalMs?: number; auth?: boolean } = {},
+): FetchState<T> & { reload: () => void } {
+    const { intervalMs = 0, auth = false } = opts;
     const [state, setState] = useState<FetchState<T>>(emptyState<T>());
     const hasFetched = useRef(false);
     const tick = useRef(0);
@@ -68,7 +72,7 @@ function useFetched<T>(url: string | null, intervalMs = 0): FetchState<T> & { re
             setState((s) => ({ ...s, loading: true }));
         }
         try {
-            const res = await fetch(url);
+            const res = await (auth ? authedFetch(url) : fetch(url));
             const json = (await res.json()) as Record<string, unknown>;
             if (myTick !== tick.current) return;
             if (!res.ok) {
@@ -83,7 +87,7 @@ function useFetched<T>(url: string | null, intervalMs = 0): FetchState<T> & { re
             const msg = e instanceof Error ? e.message : "fetch failed";
             setState({ data: null, loading: false, error: msg });
         }
-    }, [url]);
+    }, [url, auth]);
 
     useEffect(() => {
         hasFetched.current = false;
@@ -113,20 +117,22 @@ export function useArcadeLeaderboard(slug: string | undefined) {
 }
 
 export function useMyGames(domain: string | null) {
-    const { reload, ...state } = useFetched<{ games: ArcadeGame[] }>(domain ? `${API_BASE}/my-games` : null);
+    const { reload, ...state } = useFetched<{ games: ArcadeGame[] }>(domain ? `${API_BASE}/my-games` : null, {
+        auth: true,
+    });
     return { ...state, reload };
 }
 
 export function useArcadePending(isAdmin: boolean) {
-    return useFetched<{ pending: ArcadeGame[] }>(isAdmin ? `${API_BASE}/pending` : null);
+    return useFetched<{ pending: ArcadeGame[] }>(isAdmin ? `${API_BASE}/pending` : null, { auth: true });
 }
 
 export function useArcadePendingUpdates(isAdmin: boolean) {
-    return useFetched<{ pendingUpdates: any[] }>(isAdmin ? `${API_BASE}/pending-updates` : null);
+    return useFetched<{ pendingUpdates: any[] }>(isAdmin ? `${API_BASE}/pending-updates` : null, { auth: true });
 }
 
 export function useArcadeFlagged(isAdmin: boolean) {
-    return useFetched<{ flagged: ArcadeGame[] }>(isAdmin ? `${API_BASE}/flagged` : null);
+    return useFetched<{ flagged: ArcadeGame[] }>(isAdmin ? `${API_BASE}/flagged` : null, { auth: true });
 }
 
 export interface SessionResult {

@@ -15,6 +15,7 @@
     "node_modules/@fontsource/space-mono/files/space-mono-latin-400-normal.woff2",
     "node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff",
     "node_modules/@fontsource/space-mono/files/space-mono-latin-700-normal.woff2",
+    "hackcade/sdk/hackcade-sdk.js",
   ]
 
 # SPA routing — all paths serve index.html

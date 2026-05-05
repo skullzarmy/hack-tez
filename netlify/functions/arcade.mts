@@ -44,8 +44,13 @@ function loadCanonicalSdk(): Uint8Array {
     const candidates = [
         resolve(HERE, "../../hackcade/sdk/hackcade-sdk.js"),
         resolve(HERE, "./hackcade-sdk.js"),
+        resolve(process.cwd(), "hackcade/sdk/hackcade-sdk.js"),
+        resolve(process.cwd(), "../hackcade/sdk/hackcade-sdk.js"),
+        resolve(process.cwd(), "../../hackcade/sdk/hackcade-sdk.js"),
     ];
+    const tried: string[] = [];
     for (const p of candidates) {
+        tried.push(p);
         try {
             CANONICAL_SDK_BYTES = new Uint8Array(readFileSync(p));
             return CANONICAL_SDK_BYTES;
@@ -53,7 +58,9 @@ function loadCanonicalSdk(): Uint8Array {
             /* try next */
         }
     }
-    throw new Error("Canonical hackcade-sdk.js not found");
+    throw new Error(
+        `Canonical hackcade-sdk.js not found. HERE=${HERE} cwd=${process.cwd()} tried=${tried.join(" | ")}`,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -635,12 +642,10 @@ async function listPending(req: Request): Promise<Response> {
     const user = await requireAdmin(req);
     if (user instanceof Response) return user;
     const rows = await sql`
-        SELECT slug,title,description,category,builder_domain,builder_label,builder_address,
-               ipfs_cid,version,created_at
-        FROM arcade_games
+        SELECT * FROM arcade_games
         WHERE status='pending'
         ORDER BY created_at ASC`;
-    return json({ pending: rows });
+    return json({ pending: rows.map(toGameSummary) });
 }
 
 async function listPendingUpdates(req: Request): Promise<Response> {
@@ -836,9 +841,8 @@ async function listFlagged(req: Request): Promise<Response> {
     const user = await requireAdmin(req);
     if (user instanceof Response) return user;
     const rows = await sql`
-        SELECT slug,title,builder_domain,builder_label,ipfs_cid,flagged_reason,updated_at
-        FROM arcade_games WHERE status='flagged' ORDER BY updated_at DESC`;
-    return json({ flagged: rows });
+        SELECT * FROM arcade_games WHERE status='flagged' ORDER BY updated_at DESC`;
+    return json({ flagged: rows.map((r) => ({ ...toGameSummary(r), flaggedReason: r.flagged_reason })) });
 }
 
 // ---------------------------------------------------------------------------
