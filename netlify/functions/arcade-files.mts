@@ -50,5 +50,5 @@ export default async function handler(req: Request): Promise<Response> {
 }
 
 export const config: Config = {
-    path: "/arcade-files/*",
+    path: "/arcade-files/:path*",
 };
