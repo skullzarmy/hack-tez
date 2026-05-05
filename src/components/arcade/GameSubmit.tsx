@@ -9,6 +9,8 @@ const Sandbox = lazy(() => import("./Sandbox"));
 
 const CATEGORIES = ["action", "puzzle", "arcade", "rpg", "shooter", "platform", "other"];
 const MAX_ZIP_BYTES = 5 * 1024 * 1024;
+const MAX_COVER_BYTES = 2 * 1024 * 1024;
+const COVER_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 const MAX_TITLE = 80;
 const MAX_DESC = 600;
 const SDK_RAW_URL = "https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js";
@@ -25,6 +27,7 @@ export default function GameSubmit() {
     const [maxPossibleScore, setMaxPossibleScore] = useState("");
     const [maxScorePerSecond, setMaxScorePerSecond] = useState("");
     const [zip, setZip] = useState<File | null>(null);
+    const [cover, setCover] = useState<File | null>(null);
     const [showAntiCheat, setShowAntiCheat] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -35,10 +38,12 @@ export default function GameSubmit() {
         if (!title.trim()) return "Title is required";
         if (title.length > MAX_TITLE) return `Title is over ${MAX_TITLE} chars`;
         if (description.length > MAX_DESC) return `Description is over ${MAX_DESC} chars`;
+        if (!cover) return "Cover image is required";
+        if (cover.size > MAX_COVER_BYTES) return `Cover is too large (${(cover.size / 1024 / 1024).toFixed(1)} MB, max 2 MB)`;
         if (!zip) return "Zip is required";
         if (zip.size > MAX_ZIP_BYTES) return `Zip is too large (${(zip.size / 1024 / 1024).toFixed(1)} MB)`;
         return null;
-    }, [title, description, zip]);
+    }, [title, description, zip, cover]);
 
     if (!address || !submitDomain) {
         return (
@@ -66,7 +71,7 @@ export default function GameSubmit() {
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (validation || !zip) {
+        if (validation || !zip || !cover) {
             setError(validation);
             return;
         }
@@ -78,6 +83,7 @@ export default function GameSubmit() {
         if (sourceUrl) fd.set("sourceUrl", sourceUrl);
         if (maxPossibleScore) fd.set("maxPossibleScore", maxPossibleScore);
         if (maxScorePerSecond) fd.set("maxScorePerSecond", maxScorePerSecond);
+        fd.set("cover", cover);
         fd.set("zip", zip);
         setSubmitting(true);
         try {
@@ -208,6 +214,19 @@ export default function GameSubmit() {
                         onChange={(e) => setMaxScorePerSecond(e.target.value)}
                     />
                 </Field>
+            </Section>
+
+            <Section title="Cover image" hint="square works best · ≤ 2 MB · PNG/JPEG/WebP/GIF">
+                <FilePicker
+                    file={cover}
+                    onChange={setCover}
+                    accept={COVER_ACCEPT}
+                    maxBytes={MAX_COVER_BYTES}
+                    chooseLabel="Drop cover or click"
+                    replaceLabel="Drop or click to replace"
+                    preview="image"
+                    required
+                />
             </Section>
 
             <Section title="Game build" hint="≤ 5 MB zip">

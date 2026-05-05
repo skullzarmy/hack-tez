@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { editArcadeGame, gameIframeUrl } from "../../hooks/useArcade";
+import { editArcadeGame, gameCoverUrl, gameIframeUrl } from "../../hooks/useArcade";
 import FilePicker from "./FilePicker";
 
 const CATEGORIES = ["action", "puzzle", "arcade", "rpg", "shooter", "platform", "other"];
 const MAX_ZIP_BYTES = 5 * 1024 * 1024;
+const MAX_COVER_BYTES = 2 * 1024 * 1024;
+const COVER_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 const MAX_DESC = 600;
 
 export interface EditableGame {
@@ -17,6 +19,7 @@ export interface EditableGame {
     status?: string;
     ipfsCid?: string;
     version?: number;
+    coverKey?: string | null;
 }
 
 export default function EditGameForm({
@@ -44,6 +47,7 @@ export default function EditGameForm({
     const [maxPossibleScore, setMaxPossibleScore] = useState(initial.maxPossibleScore);
     const [maxScorePerSecond, setMaxScorePerSecond] = useState(initial.maxScorePerSecond);
     const [zip, setZip] = useState<File | null>(null);
+    const [cover, setCover] = useState<File | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +57,8 @@ export default function EditGameForm({
         sourceUrl !== initial.sourceUrl ||
         maxPossibleScore !== initial.maxPossibleScore ||
         maxScorePerSecond !== initial.maxScorePerSecond ||
-        zip !== null;
+        zip !== null ||
+        cover !== null;
 
     function reset() {
         setDescription(initial.description);
@@ -62,6 +67,7 @@ export default function EditGameForm({
         setMaxPossibleScore(initial.maxPossibleScore);
         setMaxScorePerSecond(initial.maxScorePerSecond);
         setZip(null);
+        setCover(null);
         setError(null);
     }
 
@@ -72,16 +78,21 @@ export default function EditGameForm({
             setError(`Zip is too large (${(zip.size / 1024 / 1024).toFixed(1)} MB, max 5 MB).`);
             return;
         }
+        if (cover && cover.size > MAX_COVER_BYTES) {
+            setError(`Cover is too large (${(cover.size / 1024 / 1024).toFixed(1)} MB, max 2 MB).`);
+            return;
+        }
         setBusy(true);
         try {
-            if (zip) {
+            if (zip || cover) {
                 const fd = new FormData();
                 fd.set("description", description);
                 fd.set("category", category);
                 fd.set("sourceUrl", sourceUrl);
                 if (maxPossibleScore) fd.set("maxPossibleScore", maxPossibleScore);
                 if (maxScorePerSecond) fd.set("maxScorePerSecond", maxScorePerSecond);
-                fd.set("zip", zip);
+                if (zip) fd.set("zip", zip);
+                if (cover) fd.set("cover", cover);
                 await editArcadeGame(game.slug, fd);
             } else {
                 await editArcadeGame(game.slug, {
@@ -164,6 +175,19 @@ export default function EditGameForm({
                     min={0}
                     value={maxScorePerSecond}
                     onChange={(e) => setMaxScorePerSecond(e.target.value)}
+                />
+            </Field>
+
+            <Field label="Cover image" hint="optional · ≤ 2 MB · square works best">
+                <FilePicker
+                    file={cover}
+                    onChange={setCover}
+                    accept={COVER_ACCEPT}
+                    maxBytes={MAX_COVER_BYTES}
+                    chooseLabel="Drop new cover or click"
+                    replaceLabel="Drop or click to replace"
+                    preview="image"
+                    initialPreviewUrl={gameCoverUrl(game.coverKey ?? null)}
                 />
             </Field>
 

@@ -293,6 +293,7 @@ function toEditable(g: ArcadeGame): EditableGame {
         status: g.status,
         ipfsCid: g.ipfsCid,
         version: g.version,
+        coverKey: g.coverKey ?? null,
     };
 }
 
