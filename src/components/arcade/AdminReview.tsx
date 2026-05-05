@@ -109,28 +109,30 @@ function PendingCard({ game, reload }: { game: ArcadeGame; reload: () => void })
     const [confirmKind, setConfirmKind] = useState<null | "approve" | "reject">(null);
 
     return (
-        <div style={card}>
+        <div className="arcade-card" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
             <Header game={game} />
-            <p style={desc}>{game.description || <em style={{ opacity: 0.5 }}>(no description)</em>}</p>
+            <p className="arcade-meta" style={{ margin: 0, fontSize: 13, opacity: 0.85, lineHeight: 1.4 }}>
+                {game.description || <em style={{ opacity: 0.5 }}>(no description)</em>}
+            </p>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <button style={btnPrimary} onClick={() => setConfirmKind("approve")}>
+                <button className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("approve")}>
                     Approve
                 </button>
-                <button style={btnDanger} onClick={() => setConfirmKind("reject")}>
+                <button className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("reject")}>
                     Reject
                 </button>
-                <button style={btn} onClick={() => setEditOpen(true)}>
+                <button className="arcade-btn" onClick={() => setEditOpen(true)}>
                     Edit
                 </button>
-                <button style={btn} onClick={() => setShowPreview((s) => !s)}>
+                <button className="arcade-btn" onClick={() => setShowPreview((s) => !s)}>
                     {showPreview ? "Hide preview" : "Preview"}
                 </button>
-                <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.55 }}>bundle: {short(game.ipfsCid)}</span>
+                <span className="arcade-meta" style={{ marginLeft: "auto" }}>bundle: {short(game.ipfsCid)}</span>
             </div>
 
             {showPreview && (
-                <div style={previewWrap}>
+                <div className="arcade-preview-wrap">
                     <iframe
                         title={`Preview ${game.title}`}
                         src={gameIframeUrl(game.ipfsCid)}
@@ -186,27 +188,29 @@ function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => v
     const [confirmKind, setConfirmKind] = useState<null | "approve" | "reject">(null);
 
     return (
-        <div style={card}>
+        <div className="arcade-card" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <strong style={{ color: "#fff" }}>{update.title}</strong>
+                <strong>{update.title}</strong>
                 <StatusBadge status="pending" />
-                <span style={{ fontSize: 11, opacity: 0.65 }}>
-                    by <strong style={{ color: "#aafff0" }}>{update.uploadedBy ?? update.builderDomain}</strong>
+                <span className="arcade-meta">
+                    by <strong style={{ color: "var(--accent)" }}>{update.uploadedBy ?? update.builderDomain}</strong>
                 </span>
-                <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6 }}>
+                <span className="arcade-meta" style={{ marginLeft: "auto" }}>
                     v{update.currentVersion} → v{update.newVersion}
                 </span>
             </div>
 
             {update.scoresReset && (
-                <div style={warn}>⚠ Approving will WIPE all existing scores for this game.</div>
+                <div className="arcade-warn-block">⚠ Approving will WIPE all existing scores for this game.</div>
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div style={subCard}>
-                    <div style={subHead}>Current v{update.currentVersion}</div>
-                    <div style={cidLine}>{short(update.currentCid)}</div>
-                    <button style={btnSm} onClick={() => setShowCurrent((s) => !s)}>
+                <div className="arcade-subcard">
+                    <div className="arcade-meta" style={{ textTransform: "uppercase", letterSpacing: 1, color: "var(--warn)" }}>
+                        Current v{update.currentVersion}
+                    </div>
+                    <div className="arcade-meta">{short(update.currentCid)}</div>
+                    <button className="arcade-btn arcade-btn--sm" onClick={() => setShowCurrent((s) => !s)}>
                         {showCurrent ? "Hide" : "Preview"}
                     </button>
                     {showCurrent && (
@@ -218,10 +222,12 @@ function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => v
                         />
                     )}
                 </div>
-                <div style={{ ...subCard, borderColor: "rgba(126,255,159,0.4)" }}>
-                    <div style={{ ...subHead, color: "#7eff9f" }}>New v{update.newVersion}</div>
-                    <div style={cidLine}>{short(update.newCid)}</div>
-                    <button style={btnSm} onClick={() => setShowNew((s) => !s)}>
+                <div className="arcade-subcard arcade-subcard--accent">
+                    <div className="arcade-meta" style={{ textTransform: "uppercase", letterSpacing: 1, color: "var(--ok)" }}>
+                        New v{update.newVersion}
+                    </div>
+                    <div className="arcade-meta">{short(update.newCid)}</div>
+                    <button className="arcade-btn arcade-btn--sm" onClick={() => setShowNew((s) => !s)}>
                         {showNew ? "Hide" : "Preview"}
                     </button>
                     {showNew && (
@@ -236,10 +242,10 @@ function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => v
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button style={btnPrimary} onClick={() => setConfirmKind("approve")}>
+                <button className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("approve")}>
                     Approve update
                 </button>
-                <button style={btnDanger} onClick={() => setConfirmKind("reject")}>
+                <button className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("reject")}>
                     Reject update
                 </button>
             </div>
@@ -281,30 +287,21 @@ function FlaggedCard({ game, reload }: { game: ArcadeGame; reload: () => void })
     const flagReason = (game as ArcadeGame & { flagReason?: string }).flagReason;
 
     return (
-        <div style={card}>
+        <div className="arcade-card" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
             <Header game={game} />
             {flagReason && (
-                <div
-                    style={{
-                        fontSize: 12,
-                        color: "#ffb86b",
-                        background: "rgba(255,184,107,0.07)",
-                        border: "1px solid rgba(255,184,107,0.3)",
-                        borderRadius: 4,
-                        padding: "6px 8px",
-                    }}
-                >
+                <div className="arcade-flag-block">
                     Flagged: {flagReason}
                 </div>
             )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button style={btnPrimary} onClick={() => setConfirmKind("unflag")}>
+                <button className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("unflag")}>
                     Unflag
                 </button>
-                <button style={btnDanger} onClick={() => setConfirmKind("remove")}>
+                <button className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("remove")}>
                     Remove
                 </button>
-                <Link to={`/arcade/play/${game.slug}`} style={btn}>
+                <Link to={`/arcade/play/${game.slug}`} className="arcade-btn">
                     Play
                 </Link>
             </div>
@@ -340,15 +337,15 @@ function FlaggedCard({ game, reload }: { game: ArcadeGame; reload: () => void })
 function Header({ game }: { game: ArcadeGame }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <strong style={{ color: "#fff" }}>{game.title}</strong>
+            <strong>{game.title}</strong>
             <StatusBadge status={game.status ?? "pending"} />
-            <span style={{ fontSize: 11, opacity: 0.65 }}>
+            <span className="arcade-meta">
                 by{" "}
-                <Link to={`/u/${game.builder.label}`} style={{ color: "#aafff0" }}>
+                <Link to={`/u/${game.builder.label}`} className="arcade-link">
                     {game.builder.domain}
                 </Link>
             </span>
-            <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.55 }}>
+            <span className="arcade-meta" style={{ marginLeft: "auto" }}>
                 {game.category} · v{game.version ?? 1}
             </span>
         </div>
@@ -372,16 +369,7 @@ function toEditable(g: ArcadeGame): EditableGame {
 
 function Empty({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) {
     return (
-        <div
-            style={{
-                padding: "32px 16px",
-                textAlign: "center",
-                border: "1px dashed rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-            }}
-        >
+        <div className="arcade-empty">
             <div style={{ fontSize: 14, marginBottom: 4 }}>{title}</div>
             {subtitle && <div style={{ fontSize: 12, opacity: 0.7 }}>{subtitle}</div>}
         </div>
@@ -392,93 +380,3 @@ function short(cid?: string) {
     if (!cid) return "";
     return cid.length > 14 ? `${cid.slice(0, 6)}…${cid.slice(-4)}` : cid;
 }
-
-const card: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    padding: 14,
-    background: "rgba(0,0,0,0.45)",
-    border: "1px solid rgba(0,255,170,0.22)",
-    borderRadius: 6,
-    color: "#aafff0",
-    fontFamily: "ui-monospace,monospace",
-};
-
-const subCard: React.CSSProperties = {
-    background: "rgba(0,0,0,0.4)",
-    border: "1px solid rgba(0,255,170,0.25)",
-    borderRadius: 4,
-    padding: 10,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-};
-
-const subHead: React.CSSProperties = {
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    opacity: 0.85,
-    color: "#ffe66d",
-};
-
-const cidLine: React.CSSProperties = {
-    fontSize: 11,
-    opacity: 0.6,
-    fontFamily: "ui-monospace,monospace",
-};
-
-const desc: React.CSSProperties = {
-    margin: 0,
-    fontSize: 13,
-    opacity: 0.85,
-    lineHeight: 1.4,
-};
-
-const previewWrap: React.CSSProperties = {
-    border: "1px solid rgba(0,255,170,0.25)",
-    borderRadius: 4,
-    overflow: "hidden",
-};
-
-const warn: React.CSSProperties = {
-    fontSize: 12,
-    color: "#ff8a8a",
-    background: "rgba(255,107,107,0.08)",
-    border: "1px solid rgba(255,107,107,0.3)",
-    padding: "6px 8px",
-    borderRadius: 4,
-};
-
-const btn: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.5)",
-    color: "#aafff0",
-    padding: "5px 12px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 12,
-    textDecoration: "none",
-};
-
-const btnSm: React.CSSProperties = {
-    ...btn,
-    padding: "3px 8px",
-    fontSize: 11,
-    alignSelf: "flex-start",
-};
-
-const btnPrimary: React.CSSProperties = {
-    ...btn,
-    background: "rgba(0,255,170,0.18)",
-    borderColor: "#7eff9f",
-    color: "#7eff9f",
-};
-
-const btnDanger: React.CSSProperties = {
-    ...btn,
-    borderColor: "rgba(255,107,107,0.6)",
-    color: "#ff8a8a",
-};

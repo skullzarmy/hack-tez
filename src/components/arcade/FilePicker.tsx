@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useId } from "react";
 
 /**
  * FilePicker — accessible custom-styled file input.
@@ -29,24 +29,19 @@ export default function FilePicker({
     disabled,
 }: FilePickerProps) {
     const id = useId();
-    const inputRef = useRef<HTMLInputElement>(null);
     const tooLarge = !!(file && maxBytes && file.size > maxBytes);
+
+    const dropAreaClass =
+        "arcade-droparea" +
+        (tooLarge ? " arcade-droparea--err" : "") +
+        (disabled ? " arcade-droparea--disabled" : "");
 
     return (
         <div
-            style={{
-                display: "flex",
-                alignItems: "stretch",
-                gap: 8,
-                background: "rgba(0,0,0,0.5)",
-                border: tooLarge ? "1px solid #ff6b6b" : "1px solid rgba(0,255,170,0.3)",
-                borderRadius: 4,
-                padding: 4,
-                fontFamily: "ui-monospace,monospace",
-            }}
+            className={dropAreaClass}
+            style={{ flexDirection: "row", alignItems: "stretch", padding: 4, gap: 8 }}
         >
             <input
-                ref={inputRef}
                 id={id}
                 type="file"
                 accept={accept}
@@ -66,88 +61,68 @@ export default function FilePicker({
             />
             <label
                 htmlFor={id}
+                className="arcade-btn"
                 style={{
-                    background: "rgba(0,255,170,0.15)",
-                    border: "1px solid rgba(0,255,170,0.5)",
-                    color: "#aafff0",
-                    padding: "8px 14px",
-                    borderRadius: 3,
                     cursor: disabled ? "not-allowed" : "pointer",
                     whiteSpace: "nowrap",
                     fontSize: 13,
                     letterSpacing: 0.5,
                     textTransform: "uppercase",
-                    opacity: disabled ? 0.5 : 1,
-                    userSelect: "none",
                     display: "inline-flex",
                     alignItems: "center",
+                    margin: 0,
                 }}
             >
                 {file ? replaceLabel : chooseLabel}
             </label>
-            <div
-                style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    padding: "0 6px",
-                    fontSize: 13,
-                    color: file ? "#fff" : "rgba(170,255,240,0.55)",
-                }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, overflow: "hidden" }}>
                 {file ? (
                     <>
                         <div
                             style={{
-                                whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                fontSize: 12,
                                 maxWidth: "100%",
                             }}
-                            title={file.name}
                         >
                             {file.name}
                         </div>
-                        <div style={{ fontSize: 11, opacity: 0.7, color: tooLarge ? "#ff6b6b" : undefined }}>
-                            {formatBytes(file.size)}
-                            {maxBytes ? ` / ${formatBytes(maxBytes)} max` : ""}
-                            {tooLarge ? " — TOO LARGE" : ""}
+                        <div className="arcade-meta" style={{ fontSize: 11, marginTop: 2 }}>
+                            {tooLarge && (
+                                <span style={{ color: "var(--err)", marginRight: 6 }}>
+                                    ⚠ {(file.size / 1024 / 1024).toFixed(1)} MB exceeds limit
+                                    {maxBytes ? ` (max ${(maxBytes / 1024 / 1024).toFixed(0)} MB)` : ""}
+                                </span>
+                            )}
+                            {!tooLarge && (
+                                <span>{(file.size / 1024).toFixed(0)} KB</span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => onChange(null)}
+                                disabled={disabled}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "var(--err)",
+                                    cursor: "pointer",
+                                    fontSize: 11,
+                                    padding: "0 0 0 8px",
+                                    fontFamily: "var(--font)",
+                                }}
+                            >
+                                Remove
+                            </button>
                         </div>
                     </>
                 ) : (
-                    <span>No file selected</span>
+                    <div className="arcade-meta" style={{ fontSize: 12 }}>
+                        No file chosen{required ? " (required)" : ""}
+                    </div>
                 )}
             </div>
-            {file && (
-                <button
-                    type="button"
-                    onClick={() => {
-                        onChange(null);
-                        if (inputRef.current) inputRef.current.value = "";
-                    }}
-                    title="Clear"
-                    style={{
-                        background: "transparent",
-                        border: "1px solid rgba(255,107,107,0.4)",
-                        color: "#ff6b6b",
-                        padding: "0 10px",
-                        borderRadius: 3,
-                        cursor: "pointer",
-                        fontFamily: "ui-monospace,monospace",
-                        fontSize: 14,
-                    }}
-                >
-                    ×
-                </button>
-            )}
         </div>
     );
-}
-
-function formatBytes(n: number): string {
-    if (n < 1024) return `${n} B`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }

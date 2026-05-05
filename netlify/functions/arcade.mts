@@ -34,7 +34,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sql, verifyJwt, isAdmin, slugify, type JwtPayload } from "./wiki-db.mts";
 import { validateAndExtractGameZip } from "./arcade-zip.mts";
-import { storeGameBundle, deleteBundle } from "./arcade-storage.mts";
+import { storeGameBundle, deleteBundle, storeCover, deleteCover, COVER_MAX_BYTES, COVER_ALLOWED_TYPES } from "./arcade-storage.mts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -120,14 +120,14 @@ async function listGames(url: URL): Promise<Response> {
     const rows = category
         ? await sql`SELECT slug,title,description,category,builder_domain,builder_label,
                            builder_address,ipfs_cid,version,play_count,player_count,
-                           created_at,updated_at
+                           cover_key,created_at,updated_at
                     FROM arcade_games
                     WHERE status='active' AND category=${category}
                     ORDER BY play_count DESC, updated_at DESC
                     LIMIT ${limit} OFFSET ${offset}`
         : await sql`SELECT slug,title,description,category,builder_domain,builder_label,
                            builder_address,ipfs_cid,version,play_count,player_count,
-                           created_at,updated_at
+                           cover_key,created_at,updated_at
                     FROM arcade_games
                     WHERE status='active'
                     ORDER BY play_count DESC, updated_at DESC
@@ -262,7 +262,7 @@ async function listMyGames(req: Request): Promise<Response> {
     if (user instanceof Response) return user;
     const rows = await sql`
         SELECT slug,title,description,category,source_url,status,ipfs_cid,version,play_count,player_count,
-               max_possible_score,max_score_per_second,
+               max_possible_score,max_score_per_second,cover_key,
                rejected_reason,flagged_reason,created_at,updated_at
         FROM arcade_games
         WHERE builder_domain=${user.activeDomain}
@@ -292,6 +292,7 @@ async function listMyGames(req: Request): Promise<Response> {
             sourceUrl: r.source_url,
             maxPossibleScore: r.max_possible_score,
             maxScorePerSecond: r.max_score_per_second,
+            coverKey: r.cover_key ?? null,
             rejectedReason: r.rejected_reason,
             flaggedReason: r.flagged_reason,
             createdAt: r.created_at,
@@ -472,6 +473,7 @@ async function readSubmitForm(req: Request): Promise<
           ok: true;
           fields: Record<string, string>;
           zipBytes: Uint8Array;
+          cover: { bytes: Uint8Array; contentType: string } | null;
       }
     | { ok: false; res: Response }
 > {
@@ -495,7 +497,21 @@ async function readSubmitForm(req: Request): Promise<
         if (typeof v === "string") fields[k] = v;
     }
     const zipBytes = new Uint8Array(await file.arrayBuffer());
-    return { ok: true, fields, zipBytes };
+
+    let cover: { bytes: Uint8Array; contentType: string } | null = null;
+    const coverField = form.get("cover");
+    if (coverField instanceof File && coverField.size > 0) {
+        const t = coverField.type || "application/octet-stream";
+        if (!COVER_ALLOWED_TYPES.has(t)) {
+            return { ok: false, res: err(`Cover must be PNG, JPEG, WebP, or GIF (got ${t})`, "INVALID_INPUT", 400) };
+        }
+        if (coverField.size > COVER_MAX_BYTES) {
+            return { ok: false, res: err(`Cover image is too large (max ${COVER_MAX_BYTES / 1024 / 1024} MB)`, "INVALID_INPUT", 400) };
+        }
+        cover = { bytes: new Uint8Array(await coverField.arrayBuffer()), contentType: t };
+    }
+
+    return { ok: true, fields, zipBytes, cover };
 }
 
 function clampStr(s: unknown, max: number): string {
@@ -518,7 +534,7 @@ async function submitGame(req: Request): Promise<Response> {
 
     const parsed = await readSubmitForm(req);
     if (!parsed.ok) return parsed.res;
-    const { fields, zipBytes } = parsed;
+    const { fields, zipBytes, cover } = parsed;
 
     const title = clampStr(fields.title, 80);
     const description = clampStr(fields.description, 600);
@@ -529,6 +545,7 @@ async function submitGame(req: Request): Promise<Response> {
     const maxScorePerSecond = parseOptionalNumber(fields.maxScorePerSecond, 100_000);
 
     if (!title) return err("title is required", "INVALID_INPUT", 400);
+    if (!cover) return err("cover image is required", "INVALID_INPUT", 400);
 
     // Validate + extract zip.
     const sdkBytes = loadCanonicalSdk();
@@ -556,26 +573,40 @@ async function submitGame(req: Request): Promise<Response> {
         return err(msg, "STORAGE_ERROR", 502);
     }
 
+    // Store cover under <gameId>/cover (no version — survives version bumps).
+    let coverStored;
+    try {
+        coverStored = await storeCover(id, cover.bytes, cover.contentType);
+    } catch (e) {
+        // Roll back the bundle to keep things clean.
+        await deleteBundle(id, 1).catch(() => {});
+        const msg = e instanceof Error ? e.message : "cover storage failed";
+        return err(msg, "STORAGE_ERROR", 502);
+    }
+
     await sql`
         INSERT INTO arcade_games
             (id, slug, title, description, category, source_url,
              builder_domain, builder_label, builder_address,
-             ipfs_cid, version, max_possible_score, max_score_per_second, status)
+             ipfs_cid, version, max_possible_score, max_score_per_second, status, cover_key)
         VALUES (${id}, ${slug}, ${title}, ${description}, ${category}, ${sourceUrl},
                 ${user.activeDomain}, ${builderLabel}, ${user.address},
-                ${stored.key}, 1, ${maxPossibleScore}, ${maxScorePerSecond}, 'pending')`;
+                ${stored.key}, 1, ${maxPossibleScore}, ${maxScorePerSecond}, 'pending', ${coverStored.key})`;
     await sql`
         INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
         VALUES (${id}, 1, ${stored.key}, ${user.activeDomain}, FALSE, 'pending')`;
 
     await arcadeAudit("game_submit", slug, user.activeDomain!, {
         bundleKey: stored.key,
+        coverKey: coverStored.key,
+        coverContentType: coverStored.contentType,
+        coverBytes: coverStored.bytes,
         files: stored.fileCount,
         bytes: stored.totalBytes,
         injectedSdk: validation.injectedSdk,
     });
 
-    return json({ ok: true, slug, ipfsCid: stored.key, status: "pending", injectedSdk: validation.injectedSdk });
+    return json({ ok: true, slug, ipfsCid: stored.key, coverKey: coverStored.key, status: "pending", injectedSdk: validation.injectedSdk });
 }
 
 async function updateGame(req: Request, slug: string): Promise<Response> {
@@ -656,23 +687,37 @@ async function editGame(req: Request, slug: string): Promise<Response> {
     const ct = req.headers.get("content-type") ?? "";
     let fields: Record<string, string> = {};
     let zipBytes: Uint8Array | null = null;
+    let coverSwap: { bytes: Uint8Array; contentType: string } | null = null;
 
     if (ct.toLowerCase().includes("multipart/form-data")) {
-        const parsed = await readSubmitForm(req).catch(() => null);
-        if (parsed && parsed.ok) {
-            fields = parsed.fields;
-            zipBytes = parsed.zipBytes.length ? parsed.zipBytes : null;
-        } else {
-            // multipart form without a zip is allowed
-            try {
-                const form = await req.formData();
-                for (const [k, v] of form.entries()) {
-                    if (typeof v === "string") fields[k] = v;
-                }
-            } catch (e) {
-                const msg = e instanceof Error ? e.message : "form parse failed";
-                return err(`Invalid multipart body: ${msg}`, "INVALID_INPUT", 400);
+        let form: FormData;
+        try {
+            form = await req.formData();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "form parse failed";
+            return err(`Invalid multipart body: ${msg}`, "INVALID_INPUT", 400);
+        }
+        for (const [k, v] of form.entries()) {
+            if (typeof v === "string") fields[k] = v;
+        }
+        const zipField = form.get("zip");
+        if (zipField instanceof File && zipField.size > 0) {
+            zipBytes = new Uint8Array(await zipField.arrayBuffer());
+        }
+        const coverField = form.get("cover");
+        if (coverField instanceof File && coverField.size > 0) {
+            const t = coverField.type || "application/octet-stream";
+            if (!COVER_ALLOWED_TYPES.has(t)) {
+                return err(`Cover must be PNG, JPEG, WebP, or GIF (got ${t})`, "INVALID_INPUT", 400);
             }
+            if (coverField.size > COVER_MAX_BYTES) {
+                return err(
+                    `Cover image is too large (max ${COVER_MAX_BYTES / 1024 / 1024} MB)`,
+                    "INVALID_INPUT",
+                    400,
+                );
+            }
+            coverSwap = { bytes: new Uint8Array(await coverField.arrayBuffer()), contentType: t };
         }
     } else if (ct.toLowerCase().includes("application/json")) {
         const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -722,6 +767,18 @@ async function editGame(req: Request, slug: string): Promise<Response> {
         updates.ipfs_cid = newCid;
     }
 
+    let coverReplaced = false;
+    if (coverSwap) {
+        try {
+            const stored = await storeCover(game.id, coverSwap.bytes, coverSwap.contentType);
+            updates.cover_key = stored.key;
+            coverReplaced = true;
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "cover storage failed";
+            return err(msg, "STORAGE_ERROR", 502);
+        }
+    }
+
     if (!Object.keys(updates).length) return err("No editable fields provided", "INVALID_INPUT", 400);
 
     // Build dynamic UPDATE — neon's tagged template can't compose so use sql.unsafe pattern via a single statement.
@@ -743,6 +800,9 @@ async function editGame(req: Request, slug: string): Promise<Response> {
             case "max_score_per_second":
                 await sql`UPDATE arcade_games SET max_score_per_second=${val as number | null}, updated_at=NOW() WHERE slug=${slug}`;
                 break;
+            case "cover_key":
+                await sql`UPDATE arcade_games SET cover_key=${val as string}, updated_at=NOW() WHERE slug=${slug}`;
+                break;
             case "ipfs_cid":
                 await sql`UPDATE arcade_games SET ipfs_cid=${val as string}, updated_at=NOW() WHERE slug=${slug}`;
                 await sql`UPDATE arcade_game_versions SET ipfs_cid=${val as string} WHERE game_id=${game.id} AND version=${game.version}`;
@@ -753,11 +813,12 @@ async function editGame(req: Request, slug: string): Promise<Response> {
     await arcadeAudit("game_edit", slug, user.activeDomain!, {
         fields: Object.keys(updates),
         zipReplaced: !!newCid,
+        coverReplaced,
         injectedSdk,
         actorIsAdmin: !isCreator,
     });
 
-    return json({ ok: true, slug, ipfsCid: newCid ?? undefined });
+    return json({ ok: true, slug, ipfsCid: newCid ?? undefined, coverReplaced });
 }
 
 /**
@@ -784,6 +845,7 @@ async function rescindGame(req: Request, slug: string): Promise<Response> {
     await sql`DELETE FROM arcade_games WHERE id=${game.id}`;
     // Best-effort blob cleanup — failures shouldn't block the rescind.
     await deleteBundle(game.id, 1).catch(() => {});
+    await deleteCover(game.id).catch(() => {});
     await arcadeAudit("game_rescind", slug, user.activeDomain!);
     return json({ ok: true });
 }
@@ -1053,6 +1115,7 @@ interface GameRow {
     player_count: number;
     max_possible_score: number | null;
     max_score_per_second: number | null;
+    cover_key: string | null;
     status: string;
     rejected_reason: string | null;
     flagged_reason: string | null;
@@ -1068,6 +1131,7 @@ function toGameSummary(r: any) {
         category: r.category,
         builder: { domain: r.builder_domain, label: r.builder_label, address: r.builder_address },
         ipfsCid: r.ipfs_cid,
+        coverKey: r.cover_key ?? null,
         version: Number(r.version),
         playCount: Number(r.play_count),
         playerCount: Number(r.player_count),

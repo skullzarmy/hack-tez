@@ -107,40 +107,23 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
 
     const cleanupBlobs = useCallback(() => {
         for (const u of blobUrlsRef.current) {
-            try {
-                URL.revokeObjectURL(u);
-            } catch {
-                /* ignore */
-            }
+            try { URL.revokeObjectURL(u); } catch { /* ignore */ }
         }
         blobUrlsRef.current = [];
     }, []);
 
     useEffect(() => () => cleanupBlobs(), [cleanupBlobs]);
 
-    // Sync initialZip prop changes (when reused from Submit modal).
     useEffect(() => {
         if (initialZip && initialZip !== zip) setZip(initialZip);
     }, [initialZip, zip]);
 
     const buildPlayerForInit = useCallback((id: MockIdentity) => {
         if (id.isGuest) {
-            return {
-                domain: "",
-                label: "guest",
-                address: "",
-                avatarUrl: "",
-                hackatarUrl: "",
-            };
+            return { domain: "", label: "guest", address: "", avatarUrl: "", hackatarUrl: "" };
         }
         const hackatarUrl = `/api/v1/hackatar/${encodeURIComponent(id.label)}?static=1`;
-        return {
-            domain: id.domain,
-            label: id.label,
-            address: id.address,
-            avatarUrl: hackatarUrl,
-            hackatarUrl,
-        };
+        return { domain: id.domain, label: id.label, address: id.address, avatarUrl: hackatarUrl, hackatarUrl };
     }, []);
 
     const pushLog = useCallback((entry: LogEntry) => {
@@ -151,7 +134,6 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
         });
     }, []);
 
-    // Listen to messages from the iframe.
     useEffect(() => {
         function onMessage(ev: MessageEvent) {
             const iframe = iframeRef.current;
@@ -163,7 +145,6 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
             pushLog({ ts: Date.now(), dir: "in", type, payload: data });
 
             if (type === "hackcade:ready") {
-                // Reply with init carrying mocked identity.
                 const player = buildPlayerForInit(identityRef.current);
                 const sessionId = `sandbox-${Math.random().toString(36).slice(2, 10)}`;
                 const initMsg = { type: "hackcade:init", player, sessionId };
@@ -197,8 +178,6 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
             try {
                 const buf = new Uint8Array(await file.arrayBuffer());
                 const entries = unzipSync(buf);
-
-                // Build path → blob URL map (excluding the html we're going to inline).
                 const pathToBlobUrl = new Map<string, string>();
                 let indexHtmlPath: string | null = null;
                 let indexHtmlBytes: Uint8Array | null = null;
@@ -221,15 +200,12 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     ? indexHtmlPath.slice(0, indexHtmlPath.lastIndexOf("/") + 1)
                     : "";
 
-                // Inject canonical SDK as a blob (overrides any user-bundled copy).
                 const sdkBlob = new Blob([sdkSource], { type: "text/javascript" });
                 const sdkUrl = URL.createObjectURL(sdkBlob);
                 blobUrlsRef.current.push(sdkUrl);
                 pathToBlobUrl.set(`${indexDir}hackcade-sdk.js`, sdkUrl);
                 pathToBlobUrl.set("hackcade-sdk.js", sdkUrl);
 
-                // Pre-create blob URLs for every other asset. ESM modules get
-                // their relative imports rewritten too, so they need a second pass.
                 const textAssets = new Map<string, { bytes: Uint8Array; isModule: boolean }>();
 
                 for (const [rawPath, bytes] of Object.entries(entries)) {
@@ -239,7 +215,6 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     if (pathToBlobUrl.has(path)) continue;
                     const ext = path.split(".").pop()?.toLowerCase() ?? "";
                     if (ext === "js" || ext === "mjs") {
-                        // Defer until after we know all blob URLs.
                         textAssets.set(path, { bytes, isModule: true });
                     } else if (ext === "css") {
                         textAssets.set(path, { bytes, isModule: false });
@@ -251,27 +226,16 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     }
                 }
 
-                // Now create text-asset URLs with rewritten refs (best-effort).
-                // Two passes: first allocate placeholder URLs by inserting bytes,
-                // then we replace below. But order matters because JS may reference
-                // other JS. Do it in a stable order: rewrite each text file using
-                // the union of (binary blobs + other text files' future URLs).
-                // To make all paths resolvable, we eagerly create blobs for text
-                // files and then re-write them in a second pass via revoke+recreate.
                 const textBlobUrls = new Map<string, string>();
                 for (const [path, info] of textAssets) {
                     const text = strFromU8(info.bytes);
-                    const blob = new Blob([text], {
-                        type: info.isModule ? "text/javascript" : mimeFor(path),
-                    });
+                    const blob = new Blob([text], { type: info.isModule ? "text/javascript" : mimeFor(path) });
                     const url = URL.createObjectURL(blob);
                     blobUrlsRef.current.push(url);
                     textBlobUrls.set(path, url);
                     pathToBlobUrl.set(path, url);
                 }
 
-                // Second pass: rewrite ESM imports inside JS files. Since blob
-                // URLs are immutable, we revoke and recreate.
                 for (const [path, info] of textAssets) {
                     if (!info.isModule) continue;
                     const original = strFromU8(info.bytes);
@@ -279,11 +243,7 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     if (rewritten === original) continue;
                     const oldUrl = textBlobUrls.get(path);
                     if (oldUrl) {
-                        try {
-                            URL.revokeObjectURL(oldUrl);
-                        } catch {
-                            /* ignore */
-                        }
+                        try { URL.revokeObjectURL(oldUrl); } catch { /* ignore */ }
                         const idx = blobUrlsRef.current.indexOf(oldUrl);
                         if (idx >= 0) blobUrlsRef.current.splice(idx, 1);
                     }
@@ -293,11 +253,9 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     pathToBlobUrl.set(path, newUrl);
                 }
 
-                // Rewrite index.html: src/href, plus inline module imports.
                 let html = strFromU8(indexHtmlBytes);
                 html = rewriteHtml(html, indexDir, pathToBlobUrl);
 
-                // Ensure SDK script is present (matches server-side behavior).
                 if (!/hackcade-sdk\.js/i.test(html) && !html.includes(sdkUrl)) {
                     const tag = `<script type="module" src="${sdkUrl}"></script>`;
                     if (/<\/head>/i.test(html)) html = html.replace(/<\/head>/i, `${tag}\n</head>`);
@@ -341,9 +299,9 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {!compact && (
-                <div style={panel}>
-                    <h2 style={{ margin: 0, color: "#fff", fontSize: 16 }}>Local sandbox</h2>
-                    <p style={{ fontSize: 12, opacity: 0.75, margin: "6px 0 10px" }}>
+                <div className="arcade-card">
+                    <h2 style={{ margin: 0, fontSize: 16 }}>Local sandbox</h2>
+                    <p className="arcade-meta" style={{ marginTop: 6, marginBottom: 10 }}>
                         Drop a hackcade game zip below. It runs entirely in your browser — nothing is uploaded. Use this
                         to iterate on your build before submitting.
                     </p>
@@ -352,27 +310,31 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
             )}
 
             {compact && (
-                <div style={{ ...panel, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div className="arcade-card" style={{ padding: "8px 12px", flexDirection: "row", alignItems: "center", gap: 10, display: "flex" }}>
                     <span
                         style={{
                             display: "inline-block",
                             width: 8,
                             height: 8,
                             borderRadius: 2,
-                            background: "#7eff9f",
-                            boxShadow: "0 0 8px #7eff9f",
+                            background: "var(--ok)",
+                            boxShadow: "0 0 8px var(--ok)",
                         }}
                     />
-                    <span style={{ fontSize: 12, opacity: 0.85 }}>
+                    <span className="arcade-meta">
                         Local preview · nothing uploaded · {zip?.name ?? "no file"}
                     </span>
                 </div>
             )}
 
-            {error && <div style={errBox}>{error}</div>}
+            {error && (
+                <div role="alert" className="arcade-err-block">
+                    {error}
+                </div>
+            )}
 
             {busy && (
-                <div style={{ ...panel, fontSize: 12, opacity: 0.8 }}>
+                <div className="arcade-card" style={{ fontSize: 12, opacity: 0.8 }}>
                     Unzipping & rewriting asset URLs…
                 </div>
             )}
@@ -397,32 +359,19 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                                 aspectRatio: "9 / 16",
                                 maxHeight: compact ? 520 : 640,
                                 background: "#000",
-                                border: "1px solid rgba(0,255,170,0.4)",
+                                border: "1px solid var(--border-2)",
                                 borderRadius: 6,
                                 display: "block",
                             }}
                         />
                         <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                            <button type="button" style={btn} onClick={reload}>
-                                Reload
-                            </button>
-                            <button type="button" style={btn} onClick={() => postLifecycle("start")}>
-                                Send start
-                            </button>
-                            <button type="button" style={btn} onClick={() => postLifecycle("pause")}>
-                                Send pause
-                            </button>
-                            <button type="button" style={btn} onClick={() => postLifecycle("resume")}>
-                                Send resume
-                            </button>
+                            <button type="button" className="arcade-btn" onClick={reload}>Reload</button>
+                            <button type="button" className="arcade-btn" onClick={() => postLifecycle("start")}>Send start</button>
+                            <button type="button" className="arcade-btn" onClick={() => postLifecycle("pause")}>Send pause</button>
+                            <button type="button" className="arcade-btn" onClick={() => postLifecycle("resume")}>Send resume</button>
                             <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 12, opacity: 0.85 }}>
-                                Score:{" "}
-                                <strong style={{ color: "#fff" }}>
-                                    {score ?? finalScore?.score ?? "—"}
-                                </strong>
-                                {finalScore && (
-                                    <span style={{ marginLeft: 8, color: "#7eff9f" }}>final</span>
-                                )}
+                                Score: <strong>{score ?? finalScore?.score ?? "—"}</strong>
+                                {finalScore && <span style={{ marginLeft: 8, color: "var(--ok)" }}>final</span>}
                             </span>
                         </div>
                     </div>
@@ -440,8 +389,6 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
 }
 
 function rewriteImports(source: string, path: string, blobMap: Map<string, string>): string {
-    // Best-effort: rewrite static `import … from "./x"` and `import "./x"` and
-    // `export … from "./x"`. Resolve relative to the JS file's path.
     const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
     const re = /(import\s+(?:[^'"`;]+\s+from\s+)?|export\s+[^'"`;]+\s+from\s+|import\s*\(\s*)(['"])([^'"]+)(['"])/g;
     return source.replace(re, (full, prefix, q1, spec, q2) => {
@@ -487,7 +434,7 @@ function SidePanel({
 }) {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={panel}>
+            <div className="arcade-card">
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, opacity: 0.85, marginBottom: 8 }}>
                     MOCK IDENTITY
                 </div>
@@ -501,7 +448,8 @@ function SidePanel({
                 </label>
                 <Field label="Label">
                     <input
-                        style={inp}
+                        className="arcade-input"
+                        style={{ fontSize: 12, padding: "6px 8px" }}
                         disabled={identity.isGuest}
                         value={identity.label}
                         onChange={(e) =>
@@ -515,28 +463,22 @@ function SidePanel({
                 </Field>
                 <Field label="Address">
                     <input
-                        style={inp}
+                        className="arcade-input"
+                        style={{ fontSize: 12, padding: "6px 8px" }}
                         disabled={identity.isGuest}
                         value={identity.address}
                         onChange={(e) => onIdentityChange({ ...identity, address: e.target.value })}
                     />
                 </Field>
-                <p style={{ fontSize: 11, opacity: 0.6, margin: "8px 0 0" }}>
+                <p className="arcade-meta" style={{ margin: "8px 0 0" }}>
                     Identity is sent on the next reload via the standard <code>hackcade:init</code> message.
                 </p>
             </div>
 
-            <div style={panel}>
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 6,
-                    }}
-                >
+            <div className="arcade-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, opacity: 0.85 }}>EVENT LOG</span>
-                    <button type="button" style={btnSm} onClick={onClear}>
+                    <button type="button" className="arcade-btn arcade-btn--sm" onClick={onClear}>
                         Clear
                     </button>
                 </div>
@@ -544,12 +486,12 @@ function SidePanel({
                     style={{
                         maxHeight: 260,
                         overflow: "auto",
-                        background: "rgba(0,0,0,0.5)",
-                        border: "1px solid rgba(0,255,170,0.15)",
+                        background: "var(--bg)",
+                        border: "1px solid var(--border)",
                         borderRadius: 4,
                         padding: 6,
                         fontSize: 11,
-                        fontFamily: "ui-monospace,monospace",
+                        fontFamily: "var(--font)",
                     }}
                 >
                     {!log.length && <div style={{ opacity: 0.5 }}>No messages yet…</div>}
@@ -558,19 +500,13 @@ function SidePanel({
                             key={i}
                             style={{
                                 padding: "4px 0",
-                                borderBottom: i < log.length - 1 ? "1px solid rgba(0,255,170,0.08)" : "none",
+                                borderBottom: i < log.length - 1 ? "1px solid var(--border)" : "none",
                             }}
                         >
-                            <span
-                                style={{
-                                    color: e.dir === "in" ? "#7eff9f" : "#ffe66d",
-                                    fontWeight: 700,
-                                    marginRight: 6,
-                                }}
-                            >
+                            <span style={{ color: e.dir === "in" ? "var(--ok)" : "var(--warn)", fontWeight: 700, marginRight: 6 }}>
                                 {e.dir === "in" ? "←" : "→"}
                             </span>
-                            <span style={{ color: "#aafff0" }}>{e.type}</span>
+                            <span>{e.type}</span>
                         </div>
                     ))}
                 </div>
@@ -587,49 +523,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
         </label>
     );
 }
-
-const panel: React.CSSProperties = {
-    background: "rgba(0,0,0,0.45)",
-    border: "1px solid rgba(0,255,170,0.25)",
-    borderRadius: 8,
-    padding: 14,
-    color: "#aafff0",
-    fontFamily: "ui-monospace,monospace",
-};
-
-const errBox: React.CSSProperties = {
-    padding: "8px 10px",
-    border: "1px solid rgba(255,107,107,0.4)",
-    borderRadius: 4,
-    color: "#ff8a8a",
-    fontSize: 12,
-    background: "rgba(255,107,107,0.08)",
-    fontFamily: "ui-monospace,monospace",
-};
-
-const inp: React.CSSProperties = {
-    background: "rgba(0,0,0,0.5)",
-    border: "1px solid rgba(0,255,170,0.3)",
-    borderRadius: 4,
-    padding: "6px 8px",
-    color: "#fff",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 12,
-};
-
-const btn: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.5)",
-    color: "#aafff0",
-    padding: "6px 12px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 12,
-};
-
-const btnSm: React.CSSProperties = {
-    ...btn,
-    padding: "2px 8px",
-    fontSize: 11,
-};

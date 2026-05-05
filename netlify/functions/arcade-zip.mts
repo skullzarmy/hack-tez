@@ -64,7 +64,14 @@ function isUnsafePath(p: string): boolean {
 }
 
 function injectSdkScript(html: string): { html: string; injected: boolean } {
-    // Already references an sdk script (any form)
+    // If a hackcade-sdk.js script tag already exists, normalize it to a module tag.
+    // (The SDK uses ESM `export`; loading it as a classic script produces a syntax error.)
+    const existingSdkTag = /<script\b[^>]*\bsrc\s*=\s*["'][^"']*hackcade-sdk\.js["'][^>]*>\s*<\/script>/i;
+    if (existingSdkTag.test(html)) {
+        const normalized = html.replace(existingSdkTag, SDK_TAG);
+        return { html: normalized, injected: false };
+    }
+    // Other reference forms (e.g. dynamic import strings) — don't double-inject.
     if (/hackcade-sdk\.js/i.test(html)) return { html, injected: false };
 
     // Prefer to inject just before </head>; fall back to </body>; finally prepend.

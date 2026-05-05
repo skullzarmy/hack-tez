@@ -12,6 +12,7 @@ const HOLES = 9;
 const ROUND_SECS = 30;
 
 const holes = [];
+const reggies = [];
 for (let i = 0; i < HOLES; i++) {
     const h = document.createElement("div");
     h.className = "hole";
@@ -19,7 +20,8 @@ for (let i = 0; i < HOLES; i++) {
     r.className = "reggie";
     h.appendChild(r);
     grid.appendChild(h);
-    holes.push(r);
+    holes.push(h);
+    reggies.push(r);
 }
 
 let score = 0;
@@ -38,13 +40,15 @@ function setScore(n) {
 
 function popRandom() {
     if (ending || paused) return;
-    const idx = Math.floor(Math.random() * holes.length);
-    const r = holes[idx];
+    const idx = Math.floor(Math.random() * reggies.length);
+    const r = reggies[idx];
+    const h = holes[idx];
     if (r.classList.contains("up")) return scheduleNext();
     r.classList.add("up");
-    const upMs = Math.max(420, 900 - elapsed * 18);
+    const ramp = Math.min(1, score / 300);
+    const upMs = Math.max(450, Math.round(1400 - ramp * 900));
     const t = setTimeout(() => r.classList.remove("up"), upMs);
-    r.onclick = r.ontouchstart = (e) => {
+    const onWhack = (e) => {
         e.preventDefault();
         if (!r.classList.contains("up")) return;
         clearTimeout(t);
@@ -53,11 +57,14 @@ function popRandom() {
         setScore(score + 10);
         setTimeout(() => r.classList.remove("bonk"), 200);
     };
+    h.onclick = onWhack;
+    h.ontouchstart = onWhack;
     scheduleNext();
 }
 
 function scheduleNext() {
-    const wait = Math.max(180, 700 - elapsed * 14);
+    const ramp = Math.min(1, score / 300);
+    const wait = Math.max(260, Math.round(1200 - ramp * 900));
     popTimer = setTimeout(popRandom, wait);
 }
 
@@ -83,10 +90,11 @@ function end() {
     ending = true;
     clearTimeout(popTimer);
     clearInterval(tickTimer);
-    holes.forEach((h) => h.classList.remove("up"));
+    reggies.forEach((r) => r.classList.remove("up"));
+    holes.forEach((h) => { h.onclick = null; h.ontouchstart = null; });
     sdk.gameOver(score, { durationMs: Date.now() - startedAt });
     overlay.classList.remove("hidden");
-    overlay.querySelector("p").textContent = `Final: ${score}. Tap to play again.`;
+    overlay.querySelector("p").textContent = `Final: ${score}. Smack 'em again?`;
     startBtn.textContent = "PLAY AGAIN";
 }
 

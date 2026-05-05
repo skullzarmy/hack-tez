@@ -13,12 +13,12 @@ import ConfirmAction from "./ui/ConfirmAction";
 import EditGameForm, { type EditableGame } from "./EditGameForm";
 import FilePicker from "./FilePicker";
 
-const STATUS_GROUPS: { key: string; label: string; tone: string }[] = [
-    { key: "active", label: "Live", tone: "#7eff9f" },
-    { key: "pending", label: "Pending review", tone: "#ffe66d" },
-    { key: "flagged", label: "Flagged", tone: "#ffb86b" },
-    { key: "rejected", label: "Rejected", tone: "#ff8a8a" },
-    { key: "removed", label: "Removed", tone: "#888" },
+const STATUS_GROUPS: { key: string; label: string; toneVar: string }[] = [
+    { key: "active", label: "Live", toneVar: "var(--ok)" },
+    { key: "pending", label: "Pending review", toneVar: "var(--warn)" },
+    { key: "flagged", label: "Flagged", toneVar: "var(--warn)" },
+    { key: "rejected", label: "Rejected", toneVar: "var(--err)" },
+    { key: "removed", label: "Removed", toneVar: "var(--fg-3)" },
 ];
 
 export default function MyGames() {
@@ -60,11 +60,11 @@ export default function MyGames() {
                 subtitle={
                     <>
                         Build one with the{" "}
-                        <Link to="/skills/hackcade-sdk" style={{ color: "#ffe66d" }}>
+                        <Link to="/skills/hackcade-sdk" className="arcade-link">
                             Hackcade SDK
                         </Link>
                         , then{" "}
-                        <Link to="/arcade/submit" style={{ color: "#ffe66d" }}>
+                        <Link to="/arcade/submit" className="arcade-link">
                             submit it
                         </Link>
                         .
@@ -87,9 +87,9 @@ export default function MyGames() {
                                 fontSize: 12,
                                 letterSpacing: 1.5,
                                 textTransform: "uppercase",
-                                color: group.tone,
+                                color: group.toneVar,
                                 opacity: 0.9,
-                                fontFamily: "ui-monospace,monospace",
+                                fontFamily: "var(--font)",
                             }}
                         >
                             {group.label} <span style={{ opacity: 0.55 }}>({items.length})</span>
@@ -141,7 +141,7 @@ export default function MyGames() {
                 message={
                     rescinding ? (
                         <>
-                            <strong style={{ color: "#fff" }}>{rescinding.title}</strong> will be withdrawn from the
+                            <strong>{rescinding.title}</strong> will be withdrawn from the
                             review queue. You can resubmit later.
                         </>
                     ) : null
@@ -171,32 +171,22 @@ function GameRow({
     onRescind: () => void;
 }) {
     const status = game.status ?? "active";
-    const reason = (game as ArcadeGame & { rejectionReason?: string; removalReason?: string; flagReason?: string });
+    const reason = game as ArcadeGame & { rejectionReason?: string; removalReason?: string; flagReason?: string };
     const showReason = reason.rejectionReason || reason.removalReason || reason.flagReason;
 
     return (
-        <div style={row}>
+        <div className="arcade-row">
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <strong style={{ color: "#fff" }}>{game.title}</strong>
+                    <strong>{game.title}</strong>
                     <StatusBadge status={status} />
-                    <span style={{ opacity: 0.5, fontSize: 11 }}>v{game.version ?? 1}</span>
+                    <span className="arcade-meta">v{game.version ?? 1}</span>
                 </div>
-                <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>
+                <div className="arcade-meta" style={{ marginTop: 2 }}>
                     {game.playCount ?? 0} plays · {game.playerCount ?? 0} players
                 </div>
                 {showReason && (
-                    <div
-                        style={{
-                            marginTop: 6,
-                            fontSize: 11,
-                            color: "#ff8a8a",
-                            background: "rgba(255,107,107,0.07)",
-                            border: "1px solid rgba(255,107,107,0.25)",
-                            borderRadius: 3,
-                            padding: "4px 6px",
-                        }}
-                    >
+                    <div className="arcade-flag-block" style={{ marginTop: 6 }}>
                         {reason.rejectionReason && <>Rejected: {reason.rejectionReason}</>}
                         {reason.removalReason && <>Removed: {reason.removalReason}</>}
                         {reason.flagReason && <>Flagged: {reason.flagReason}</>}
@@ -205,20 +195,20 @@ function GameRow({
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {status === "active" && (
-                    <Link to={`/arcade/play/${game.slug}`} style={btn}>
+                    <Link to={`/arcade/play/${game.slug}`} className="arcade-btn arcade-btn--sm">
                         Play
                     </Link>
                 )}
-                <button style={btn} onClick={onEdit}>
+                <button className="arcade-btn arcade-btn--sm" onClick={onEdit}>
                     Edit
                 </button>
                 {status === "active" && (
-                    <button style={btn} onClick={onUpdate}>
+                    <button className="arcade-btn arcade-btn--sm" onClick={onUpdate}>
                         Update
                     </button>
                 )}
                 {status === "pending" && (
-                    <button style={btnDanger} onClick={onRescind}>
+                    <button className="arcade-btn arcade-btn--sm arcade-btn--danger" onClick={onRescind}>
                         Rescind
                     </button>
                 )}
@@ -255,7 +245,7 @@ function UpdateForm({ game, onDone, onCancel }: { game: ArcadeGame; onDone: () =
     }
 
     return (
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 16 }}>
             <p style={{ fontSize: 12, opacity: 0.85, margin: 0 }}>
                 Submit a new build. It will go through admin review again. Players keep playing the current version
                 until approved.
@@ -270,25 +260,20 @@ function UpdateForm({ game, onDone, onCancel }: { game: ArcadeGame; onDone: () =
                 Reset all scores when this update is approved
             </label>
             {scoresReset && (
-                <div
-                    style={{
-                        fontSize: 11,
-                        color: "#ff8a8a",
-                        background: "rgba(255,107,107,0.08)",
-                        border: "1px solid rgba(255,107,107,0.3)",
-                        padding: "6px 8px",
-                        borderRadius: 4,
-                    }}
-                >
+                <div className="arcade-warn-block">
                     ⚠ All existing high scores for {game.title} will be wiped on approval.
                 </div>
             )}
-            {error && <div style={{ color: "#ff8a8a", fontSize: 12 }}>{error}</div>}
+            {error && (
+                <div role="alert" className="arcade-err-block">
+                    {error}
+                </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" style={btnPrimary} disabled={busy || !zip}>
+                <button type="submit" className="arcade-btn arcade-btn--primary" disabled={busy || !zip}>
                     {busy ? "Submitting…" : "Submit update"}
                 </button>
-                <button type="button" style={btn} onClick={onCancel} disabled={busy}>
+                <button type="button" className="arcade-btn" onClick={onCancel} disabled={busy}>
                     Cancel
                 </button>
             </div>
@@ -313,55 +298,9 @@ function toEditable(g: ArcadeGame): EditableGame {
 
 function Empty({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) {
     return (
-        <div
-            style={{
-                padding: "32px 16px",
-                textAlign: "center",
-                border: "1px dashed rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-            }}
-        >
+        <div className="arcade-empty">
             <div style={{ fontSize: 14, marginBottom: 4 }}>{title}</div>
             {subtitle && <div style={{ fontSize: 12, opacity: 0.7 }}>{subtitle}</div>}
         </div>
     );
 }
-
-const row: React.CSSProperties = {
-    display: "flex",
-    gap: 12,
-    alignItems: "flex-start",
-    padding: 12,
-    background: "rgba(0,0,0,0.45)",
-    border: "1px solid rgba(0,255,170,0.22)",
-    borderRadius: 6,
-    color: "#aafff0",
-    fontFamily: "ui-monospace,monospace",
-};
-
-const btn: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.5)",
-    color: "#aafff0",
-    padding: "5px 12px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 12,
-    textDecoration: "none",
-};
-
-const btnPrimary: React.CSSProperties = {
-    ...btn,
-    background: "rgba(0,255,170,0.18)",
-    borderColor: "#7eff9f",
-    color: "#7eff9f",
-};
-
-const btnDanger: React.CSSProperties = {
-    ...btn,
-    borderColor: "rgba(255,107,107,0.6)",
-    color: "#ff8a8a",
-};

@@ -42,25 +42,25 @@ export default function GameSubmit() {
 
     if (!address || !submitDomain) {
         return (
-            <Card>
+            <div className="arcade-card">
                 <h2 style={{ marginTop: 0 }}>Submit a game</h2>
                 <p style={{ opacity: 0.85, fontSize: 13 }}>
                     You need a hack.tez name to submit so players know who built it.
                 </p>
                 {!address ? (
-                    <button style={btnPrimary} onClick={() => void connect()}>
+                    <button className="arcade-btn arcade-btn--primary" onClick={() => void connect()}>
                         Connect wallet
                     </button>
                 ) : (
                     <p style={{ fontSize: 13 }}>
                         Claim a name on the{" "}
-                        <a href="/" style={{ color: "#ffe66d" }}>
+                        <a href="/" className="arcade-link">
                             home page
                         </a>
                         .
                     </p>
                 )}
-            </Card>
+            </div>
         );
     }
 
@@ -92,60 +92,60 @@ export default function GameSubmit() {
 
     if (success) {
         return (
-            <Card>
+            <div className="arcade-card">
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: "#7eff9f", boxShadow: "0 0 10px #7eff9f" }} />
-                    <h2 style={{ margin: 0, color: "#7eff9f", letterSpacing: 1 }}>SUBMITTED FOR REVIEW</h2>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--ok)", boxShadow: "0 0 10px var(--ok)" }} />
+                    <h2 style={{ margin: 0, color: "var(--ok)", letterSpacing: 1 }}>SUBMITTED FOR REVIEW</h2>
                 </div>
                 <p style={{ fontSize: 13, opacity: 0.9 }}>
-                    Your game <strong style={{ color: "#fff" }}>{success.slug}</strong> is in the admin queue. You'll
+                    Your game <strong>{success.slug}</strong> is in the admin queue. You'll
                     see it in the lobby once approved — usually within a day.
                 </p>
-                <p style={{ opacity: 0.6, fontSize: 11, fontFamily: "ui-monospace,monospace" }}>
+                <p className="arcade-meta" style={{ fontSize: 11 }}>
                     Bundle: {success.ipfsCid}
                 </p>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button style={btnPrimary} onClick={() => nav("/arcade/my-games")}>
+                    <button className="arcade-btn arcade-btn--primary" onClick={() => nav("/arcade/my-games")}>
                         My games
                     </button>
-                    <button style={btn} onClick={() => nav("/arcade")}>
+                    <button className="arcade-btn" onClick={() => nav("/arcade")}>
                         Back to lobby
                     </button>
                 </div>
-            </Card>
+            </div>
         );
     }
 
     return (
         <form onSubmit={onSubmit} style={{ maxWidth: 560, margin: "0 auto" }}>
-            <Card>
+            <div className="arcade-card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
                     <h2 style={{ margin: 0 }}>Submit a game</h2>
-                    <span style={{ fontSize: 11, opacity: 0.7 }}>
-                        as <strong style={{ color: "#aafff0" }}>{submitDomain}</strong>
+                    <span className="arcade-meta">
+                        as <strong style={{ color: "var(--accent)" }}>{submitDomain}</strong>
                     </span>
                 </div>
-                <p style={{ fontSize: 12, opacity: 0.75, margin: "6px 0 0" }}>
+                <p className="arcade-meta" style={{ marginTop: 6 }}>
                     Read the{" "}
-                    <a href="/skills/hackcade-sdk" style={{ color: "#ffe66d" }}>
+                    <a href="/skills/hackcade-sdk" className="arcade-link">
                         Hackcade SDK skill
                     </a>{" "}
                     or grab files directly:
                 </p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                    <a href={SDK_RAW_URL} target="_blank" rel="noopener noreferrer" style={pillLink}>
+                    <a href={SDK_RAW_URL} target="_blank" rel="noopener noreferrer" className="arcade-pill">
                         ↓ hackcade-sdk.js
                     </a>
-                    <a href={TEMPLATE_TREE_URL} target="_blank" rel="noopener noreferrer" style={pillLink}>
+                    <a href={TEMPLATE_TREE_URL} target="_blank" rel="noopener noreferrer" className="arcade-pill">
                         ↗ template/
                     </a>
                 </div>
-            </Card>
+            </div>
 
             <Section title="Basics">
                 <Field label="Title" hint={`${title.length}/${MAX_TITLE}`}>
                     <input
-                        style={inp}
+                        className="arcade-input"
                         value={title}
                         onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
                         required
@@ -154,14 +154,15 @@ export default function GameSubmit() {
                 </Field>
                 <Field label="Description" hint={`${description.length}/${MAX_DESC}`}>
                     <textarea
-                        style={{ ...inp, minHeight: 84, resize: "vertical" }}
+                        className="arcade-textarea"
+                        style={{ minHeight: 84, resize: "vertical" }}
                         value={description}
                         onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESC))}
                         placeholder="One or two sentences about gameplay."
                     />
                 </Field>
                 <Field label="Category">
-                    <select style={inp} value={category} onChange={(e) => setCategory(e.target.value)}>
+                    <select className="arcade-select" value={category} onChange={(e) => setCategory(e.target.value)}>
                         {CATEGORIES.map((c) => (
                             <option key={c} value={c}>
                                 {c}
@@ -171,7 +172,7 @@ export default function GameSubmit() {
                 </Field>
                 <Field label="Source URL" hint="optional">
                     <input
-                        style={inp}
+                        className="arcade-input"
                         value={sourceUrl}
                         onChange={(e) => setSourceUrl(e.target.value)}
                         placeholder="https://github.com/you/your-game"
@@ -186,12 +187,12 @@ export default function GameSubmit() {
                 open={showAntiCheat}
                 onToggle={() => setShowAntiCheat((s) => !s)}
             >
-                <p style={{ fontSize: 12, opacity: 0.7, margin: "0 0 6px" }}>
+                <p className="arcade-meta" style={{ margin: "0 0 6px" }}>
                     Server rejects submitted scores that exceed these caps. Leave blank if unsure.
                 </p>
                 <Field label="Max possible score">
                     <input
-                        style={inp}
+                        className="arcade-input"
                         type="number"
                         min={0}
                         value={maxPossibleScore}
@@ -200,7 +201,7 @@ export default function GameSubmit() {
                 </Field>
                 <Field label="Max score per second">
                     <input
-                        style={inp}
+                        className="arcade-input"
                         type="number"
                         min={0}
                         value={maxScorePerSecond}
@@ -213,10 +214,10 @@ export default function GameSubmit() {
                 <FilePicker file={zip} onChange={setZip} maxBytes={MAX_ZIP_BYTES} required />
                 {zip && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-                        <button type="button" style={btn} onClick={() => setPreviewOpen(true)}>
+                        <button type="button" className="arcade-btn" onClick={() => setPreviewOpen(true)}>
                             ▶ Preview locally
                         </button>
-                        <span style={{ fontSize: 11, opacity: 0.7 }}>
+                        <span className="arcade-meta">
                             Runs in your browser — nothing is uploaded. Recommended before submitting.
                         </span>
                     </div>
@@ -224,30 +225,18 @@ export default function GameSubmit() {
             </Section>
 
             {error && (
-                <div
-                    role="alert"
-                    style={{
-                        margin: "12px 0",
-                        padding: "8px 10px",
-                        border: "1px solid rgba(255,107,107,0.4)",
-                        borderRadius: 4,
-                        color: "#ff8a8a",
-                        fontSize: 12,
-                        background: "rgba(255,107,107,0.08)",
-                        fontFamily: "ui-monospace,monospace",
-                    }}
-                >
+                <div role="alert" className="arcade-err-block" style={{ margin: "12px 0" }}>
                     {error}
                 </div>
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
                 {validation && (
-                    <span style={{ fontSize: 12, color: "#ffe66d", alignSelf: "center", opacity: 0.85 }}>
+                    <span className="arcade-meta" style={{ color: "var(--warn)", alignSelf: "center" }}>
                         {validation}
                     </span>
                 )}
-                <button type="submit" style={btnPrimary} disabled={submitting || !!validation}>
+                <button type="submit" className="arcade-btn arcade-btn--primary" disabled={submitting || !!validation}>
                     {submitting ? "Submitting…" : "Submit for review"}
                 </button>
             </div>
@@ -263,24 +252,6 @@ export default function GameSubmit() {
                 </Suspense>
             </Modal>
         </form>
-    );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-    return (
-        <div
-            style={{
-                background: "rgba(0,0,0,0.45)",
-                border: "1px solid rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                padding: 16,
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-                marginBottom: 12,
-            }}
-        >
-            {children}
-        </div>
     );
 }
 
@@ -300,17 +271,7 @@ function Section({
     onToggle?: () => void;
 }) {
     return (
-        <div
-            style={{
-                background: "rgba(0,0,0,0.45)",
-                border: "1px solid rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                padding: 14,
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-                marginBottom: 12,
-            }}
-        >
+        <div className="arcade-card">
             <button
                 type="button"
                 onClick={collapsible ? onToggle : undefined}
@@ -321,8 +282,8 @@ function Section({
                     padding: 0,
                     width: "100%",
                     textAlign: "left",
-                    color: "#aafff0",
-                    fontFamily: "ui-monospace,monospace",
+                    color: "inherit",
+                    fontFamily: "var(--font)",
                     cursor: collapsible ? "pointer" : "default",
                     display: "flex",
                     alignItems: "center",
@@ -330,15 +291,13 @@ function Section({
                     marginBottom: open === false ? 0 : 10,
                 }}
             >
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                    {title}
-                </span>
-                {hint && <span style={{ opacity: 0.55, fontSize: 11 }}>{hint}</span>}
+                <span className="arcade-section-header">{title}</span>
+                {hint && <span className="arcade-meta">{hint}</span>}
                 {collapsible && (
-                    <span style={{ marginLeft: "auto", opacity: 0.6, fontSize: 11 }}>{open ? "▾" : "▸"}</span>
+                    <span className="arcade-meta" style={{ marginLeft: "auto" }}>{open ? "▾" : "▸"}</span>
                 )}
             </button>
-            {(open !== false) && (
+            {open !== false && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>
             )}
         </div>
@@ -356,44 +315,3 @@ function Field({ label, children, hint }: { label: string; hint?: string; childr
         </label>
     );
 }
-
-const inp: React.CSSProperties = {
-    background: "rgba(0,0,0,0.5)",
-    border: "1px solid rgba(0,255,170,0.3)",
-    borderRadius: 4,
-    padding: "8px 10px",
-    color: "#fff",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 13,
-};
-
-const btn: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.6)",
-    color: "#aafff0",
-    padding: "8px 16px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 13,
-};
-
-const btnPrimary: React.CSSProperties = {
-    ...btn,
-    background: "rgba(0,255,170,0.18)",
-    borderColor: "#7eff9f",
-    color: "#7eff9f",
-};
-
-const pillLink: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    padding: "4px 10px",
-    border: "1px solid rgba(0,255,170,0.4)",
-    borderRadius: 999,
-    color: "#aafff0",
-    textDecoration: "none",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 12,
-};

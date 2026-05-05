@@ -52,6 +52,38 @@ export async function storeGameBundle(
     return { key, fileCount: files.length, totalBytes };
 }
 
+/** Build the storage key for a game's cover image (one per game, survives version updates). */
+export function coverKey(gameId: string): string {
+    return `${gameId}/cover`;
+}
+
+export const COVER_MAX_BYTES = 2 * 1024 * 1024;
+export const COVER_ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
+/** Store a cover image blob. Overwrites any prior cover for this game. */
+export async function storeCover(
+    gameId: string,
+    bytes: Uint8Array,
+    contentType: string,
+): Promise<{ key: string; bytes: number; contentType: string }> {
+    if (!COVER_ALLOWED_TYPES.has(contentType)) {
+        throw new Error(`Unsupported cover content-type: ${contentType}`);
+    }
+    if (bytes.byteLength > COVER_MAX_BYTES) {
+        throw new Error(`Cover image too large (${bytes.byteLength} > ${COVER_MAX_BYTES})`);
+    }
+    const key = coverKey(gameId);
+    const store = arcadeBlobStore();
+    await store.set(key, bytes, { metadata: { contentType, path: "cover" } });
+    return { key, bytes: bytes.byteLength, contentType };
+}
+
+/** Delete a game's cover image. Safe to call when nothing exists. */
+export async function deleteCover(gameId: string): Promise<void> {
+    const store = arcadeBlobStore();
+    await store.delete(coverKey(gameId)).catch(() => {});
+}
+
 /** Delete every blob under the given (gameId, version). Safe to call when nothing exists. */
 export async function deleteBundle(gameId: string, version: number | string): Promise<void> {
     const key = bundleKey(gameId, version);

@@ -101,46 +101,43 @@ export default function EditGameForm({
     }
 
     return (
-        <form onSubmit={onSubmit} style={form}>
+        <form
+            onSubmit={onSubmit}
+            className="arcade-card"
+            style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, fontSize: 12, opacity: 0.85 }}>
                 <span>
-                    Editing <strong style={{ color: "#fff" }}>{game.title}</strong>
+                    Editing <strong>{game.title}</strong>
                 </span>
                 {game.ipfsCid && (
                     <a
                         href={gameIframeUrl(game.ipfsCid)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: "#aafff0", fontSize: 11, opacity: 0.8 }}
+                        className="arcade-link"
+                        style={{ fontSize: 11 }}
                     >
                         Preview current ↗
                     </a>
                 )}
             </div>
             {!isPending && (
-                <div
-                    style={{
-                        fontSize: 11,
-                        color: "#ffe66d",
-                        background: "rgba(255,230,109,0.08)",
-                        border: "1px solid rgba(255,230,109,0.3)",
-                        borderRadius: 4,
-                        padding: "6px 8px",
-                    }}
-                >
+                <div className="arcade-notice-block">
                     Already approved — zip swaps require an Update (not allowed here).
                 </div>
             )}
 
             <Field label="Description" hint={`${description.length}/${MAX_DESC}`}>
                 <textarea
-                    style={{ ...inp, minHeight: 70, resize: "vertical" }}
+                    className="arcade-textarea"
+                    style={{ minHeight: 70, resize: "vertical" }}
                     value={description}
                     onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESC))}
                 />
             </Field>
             <Field label="Category">
-                <select style={inp} value={category} onChange={(e) => setCategory(e.target.value)}>
+                <select className="arcade-select" value={category} onChange={(e) => setCategory(e.target.value)}>
                     {CATEGORIES.map((c) => (
                         <option key={c} value={c}>
                             {c}
@@ -149,11 +146,11 @@ export default function EditGameForm({
                 </select>
             </Field>
             <Field label="Source URL" hint="optional">
-                <input style={inp} value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+                <input className="arcade-input" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
             </Field>
             <Field label="Max possible score" hint="optional">
                 <input
-                    style={inp}
+                    className="arcade-input"
                     type="number"
                     min={0}
                     value={maxPossibleScore}
@@ -162,7 +159,7 @@ export default function EditGameForm({
             </Field>
             <Field label="Max score per second" hint="optional">
                 <input
-                    style={inp}
+                    className="arcade-input"
                     type="number"
                     min={0}
                     value={maxScorePerSecond}
@@ -182,16 +179,20 @@ export default function EditGameForm({
                 </Field>
             )}
 
-            {error && <div style={{ color: "#ff8a8a", fontSize: 12 }}>{error}</div>}
+            {error && (
+                <div role="alert" className="arcade-err-block">
+                    {error}
+                </div>
+            )}
 
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                <button type="submit" style={btnPrimary} disabled={busy || !dirty}>
+                <button type="submit" className="arcade-btn arcade-btn--primary" disabled={busy || !dirty}>
                     {busy ? "Saving…" : "Save changes"}
                 </button>
-                <button type="button" style={btn} onClick={reset} disabled={busy || !dirty} title="Revert">
+                <button type="button" className="arcade-btn" onClick={reset} disabled={busy || !dirty} title="Revert">
                     Reset
                 </button>
-                <button type="button" style={btn} onClick={onCancel} disabled={busy}>
+                <button type="button" className="arcade-btn" onClick={onCancel} disabled={busy}>
                     Cancel
                 </button>
             </div>
@@ -210,40 +211,3 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         </label>
     );
 }
-
-const form: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    padding: 14,
-    background: "rgba(0,0,0,0.45)",
-    border: "1px solid rgba(0,255,170,0.25)",
-    borderRadius: 6,
-    color: "#aafff0",
-    fontFamily: "ui-monospace,monospace",
-};
-const inp: React.CSSProperties = {
-    background: "rgba(0,0,0,0.5)",
-    border: "1px solid rgba(0,255,170,0.3)",
-    borderRadius: 4,
-    padding: "6px 8px",
-    color: "#fff",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 13,
-};
-const btn: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.5)",
-    color: "#aafff0",
-    padding: "6px 14px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 13,
-};
-const btnPrimary: React.CSSProperties = {
-    ...btn,
-    background: "rgba(0,255,170,0.18)",
-    borderColor: "#7eff9f",
-    color: "#7eff9f",
-};

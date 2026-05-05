@@ -21,6 +21,7 @@ export interface ArcadeGame {
     category: string;
     builder: { domain: string; label: string; address: string };
     ipfsCid: string;
+    coverKey: string | null;
     version: number;
     playCount: number;
     playerCount: number;
@@ -272,4 +273,10 @@ export async function rescindArcadeGame(slug: string): Promise<void> {
  */
 export function gameIframeUrl(key: string): string {
     return `/arcade-files/${key}/index.html`;
+}
+
+/** Build the URL for a game's cover image. Returns null if the game has no cover yet. */
+export function gameCoverUrl(coverKey: string | null | undefined): string | null {
+    if (!coverKey) return null;
+    return `/arcade-files/${coverKey}`;
 }

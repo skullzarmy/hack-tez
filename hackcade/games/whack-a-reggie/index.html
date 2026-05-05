@@ -8,16 +8,18 @@
 </head>
 <body>
 <header>
-  <span id="hud-player">guest</span>
-  <span id="hud-time">30</span>s
-  <span id="hud-score">0</span> pts
+  <div class="hud-left"><span id="hud-player">guest</span></div>
+  <div class="hud-mid"><span id="hud-time">30</span><span class="hud-unit">s</span></div>
+  <div class="hud-right"><span id="hud-score">0</span><span class="hud-unit">pts</span></div>
 </header>
 <div id="grid"></div>
 <div id="overlay">
   <h1>Whack-a-Reggie</h1>
-  <p>Tap the registrars before they vanish. 30 seconds. Go!</p>
+  <p>30 seconds. Smack as many Reggies as you can.</p>
   <button id="start">START</button>
+  <div id="signature">&lt;&lt;a <strong>FAFO<s>lab</s></strong> joint&gt;&gt;</div>
 </div>
+<div id="credits">hamster: <a href="https://openmoji.org" target="_blank" rel="noopener">OpenMoji</a> CC BY-SA 4.0</div>
 <script type="module" src="game.js"></script>
 </body>
 </html>

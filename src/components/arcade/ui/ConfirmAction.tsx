@@ -77,7 +77,14 @@ export default function ConfirmAction({
         onClose();
     }
 
-    const accent = variant === "danger" ? "#ff6b6b" : variant === "warning" ? "#ffe66d" : "#7eff9f";
+    const accentVar =
+        variant === "danger" ? "var(--err)" : variant === "warning" ? "var(--warn)" : "var(--ok)";
+    const confirmBtnClass =
+        variant === "danger"
+            ? "arcade-btn arcade-btn--danger"
+            : variant === "warning"
+              ? "arcade-btn arcade-btn--warn"
+              : "arcade-btn arcade-btn--primary";
 
     return (
         <Modal open={open} onClose={busy ? () => {} : onClose} dismissable={!busy} labelledBy={titleId} width={460}>
@@ -89,11 +96,11 @@ export default function ConfirmAction({
                             width: 8,
                             height: 8,
                             borderRadius: 2,
-                            background: accent,
-                            boxShadow: `0 0 10px ${accent}`,
+                            background: accentVar,
+                            boxShadow: `0 0 10px ${accentVar}`,
                         }}
                     />
-                    <h2 id={titleId} style={{ margin: 0, fontSize: 14, color: accent, letterSpacing: 1 }}>
+                    <h2 id={titleId} style={{ margin: 0, fontSize: 14, color: accentVar, letterSpacing: 1 }}>
                         {title.toUpperCase()}
                     </h2>
                 </div>
@@ -113,20 +120,8 @@ export default function ConfirmAction({
                             placeholder={reason.placeholder ?? ""}
                             rows={3}
                             disabled={busy}
-                            style={{
-                                marginTop: 4,
-                                width: "100%",
-                                background: "rgba(0,0,0,0.5)",
-                                border: "1px solid rgba(0,255,170,0.3)",
-                                borderRadius: 4,
-                                padding: "6px 8px",
-                                color: "#fff",
-                                fontFamily: "ui-monospace,monospace",
-                                fontSize: 13,
-                                resize: "vertical",
-                                minHeight: 70,
-                                boxSizing: "border-box",
-                            }}
+                            className="arcade-textarea"
+                            style={{ marginTop: 4, resize: "vertical", minHeight: 70 }}
                             onKeyDown={(e) => {
                                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                     e.preventDefault();
@@ -143,23 +138,12 @@ export default function ConfirmAction({
                     </label>
                 )}
                 {error && (
-                    <div
-                        role="alert"
-                        style={{
-                            marginTop: 12,
-                            padding: "8px 10px",
-                            border: "1px solid rgba(255,107,107,0.4)",
-                            borderRadius: 4,
-                            color: "#ff8a8a",
-                            fontSize: 12,
-                            background: "rgba(255,107,107,0.08)",
-                        }}
-                    >
+                    <div role="alert" className="arcade-err-block" style={{ marginTop: 12 }}>
                         {error}
                     </div>
                 )}
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-                    <button type="button" onClick={onClose} disabled={busy} style={btnGhost}>
+                    <button type="button" onClick={onClose} disabled={busy} className="arcade-btn">
                         {cancelLabel}
                     </button>
                     <button
@@ -167,14 +151,8 @@ export default function ConfirmAction({
                         type="button"
                         onClick={() => void handleConfirm()}
                         disabled={!canSubmit}
-                        style={{
-                            ...btnGhost,
-                            border: `1px solid ${accent}`,
-                            color: accent,
-                            background: canSubmit ? `${accent}14` : "transparent",
-                            opacity: canSubmit ? 1 : 0.5,
-                            cursor: canSubmit ? "pointer" : "not-allowed",
-                        }}
+                        className={confirmBtnClass}
+                        style={{ opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? "pointer" : "not-allowed" }}
                     >
                         {busy ? "Working…" : confirmLabel}
                     </button>
@@ -183,14 +161,3 @@ export default function ConfirmAction({
         </Modal>
     );
 }
-
-const btnGhost: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.5)",
-    color: "#aafff0",
-    padding: "8px 14px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 13,
-};

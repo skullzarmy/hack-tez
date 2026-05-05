@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useArcadeGames, type ArcadeGame } from "../../hooks/useArcade";
+import { useArcadeGames, gameCoverUrl, type ArcadeGame } from "../../hooks/useArcade";
 import { Hackatar } from "../Hackatar";
 import ArcadeLoader from "./ArcadeLoader";
 
@@ -34,7 +34,6 @@ export default function GameLobby() {
         if (sort === "newest") {
             list = [...list].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
         } else if (sort === "trending") {
-            // Heuristic: plays per day since createdAt.
             const score = (g: ArcadeGame) => {
                 const days = Math.max(1, (Date.now() - +new Date(g.createdAt)) / 86400_000);
                 return g.playCount / days;
@@ -49,14 +48,16 @@ export default function GameLobby() {
     if (loading && !games.length) return <ArcadeLoader message="LOADING ARCADE…" />;
     if (error)
         return (
-            <div style={{ padding: 16, color: "#ff6b6b", fontFamily: "ui-monospace,monospace" }}>Error: {error}</div>
+            <div style={{ padding: 16, fontFamily: "var(--font)" }} className="arcade-err-block">
+                Error: {error}
+            </div>
         );
 
     return (
-        <div style={{ padding: "0 4px", color: "#aafff0", fontFamily: "ui-monospace,monospace" }}>
+        <div style={{ padding: "0 4px" }} className="arcade-page">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-                <h1 style={{ margin: 0, letterSpacing: 2, fontSize: 28, color: "#aafff0" }}>HACKCADE</h1>
-                <span style={{ fontSize: 12, opacity: 0.6 }}>
+                <h1 style={{ margin: 0, letterSpacing: 2, fontSize: 28 }}>HACKCADE</h1>
+                <span className="arcade-meta">
                     {filtered.length} of {games.length} {games.length === 1 ? "game" : "games"}
                 </span>
             </div>
@@ -68,29 +69,14 @@ export default function GameLobby() {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search games or builders…"
-                            style={{
-                                flex: "1 1 220px",
-                                background: "rgba(0,0,0,0.5)",
-                                border: "1px solid rgba(0,255,170,0.3)",
-                                borderRadius: 4,
-                                padding: "8px 10px",
-                                color: "#fff",
-                                fontFamily: "ui-monospace,monospace",
-                                fontSize: 13,
-                            }}
+                            className="arcade-input"
+                            style={{ flex: "1 1 220px" }}
                         />
                         <select
                             value={sort}
                             onChange={(e) => setSort(e.target.value as SortId)}
-                            style={{
-                                background: "rgba(0,0,0,0.5)",
-                                border: "1px solid rgba(0,255,170,0.3)",
-                                borderRadius: 4,
-                                padding: "8px 10px",
-                                color: "#fff",
-                                fontFamily: "ui-monospace,monospace",
-                                fontSize: 13,
-                            }}
+                            className="arcade-select"
+                            style={{ flex: "0 0 auto", width: "auto" }}
                         >
                             {SORTS.map((s) => (
                                 <option key={s.id} value={s.id}>
@@ -120,7 +106,7 @@ export default function GameLobby() {
                     body={
                         <>
                             Be the first to{" "}
-                            <a href="/arcade/submit" style={{ color: "#ffe66d" }}>
+                            <a href="/arcade/submit" className="arcade-link">
                                 submit one
                             </a>
                             .
@@ -139,7 +125,8 @@ export default function GameLobby() {
                                     setSearch("");
                                     setCategory(null);
                                 }}
-                                style={resetBtn}
+                                className="arcade-link"
+                                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, font: "inherit", textDecoration: "underline" }}
                             >
                                 Clear filters
                             </button>
@@ -168,18 +155,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
         <button
             type="button"
             onClick={onClick}
-            style={{
-                background: active ? "rgba(0,255,170,0.18)" : "transparent",
-                border: `1px solid ${active ? "#7eff9f" : "rgba(0,255,170,0.3)"}`,
-                color: active ? "#7eff9f" : "#aafff0",
-                padding: "4px 12px",
-                borderRadius: 999,
-                cursor: "pointer",
-                fontFamily: "ui-monospace,monospace",
-                fontSize: 11,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-            }}
+            className={`arcade-chip${active ? " arcade-chip--active" : ""}`}
         >
             {children}
         </button>
@@ -192,67 +168,41 @@ function GameCard({ game }: { game: ArcadeGame }) {
     return (
         <button
             onClick={() => nav(`/arcade/play/${encodeURIComponent(game.slug)}`)}
-            style={{
-                position: "relative",
-                textAlign: "left",
-                background: "rgba(0,0,0,0.45)",
-                border: "1px solid rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                padding: 12,
-                cursor: "pointer",
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                transition: "border-color 120ms, transform 120ms",
-            }}
-            onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,170,0.55)";
-            }}
-            onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,170,0.25)";
-            }}
+            className="arcade-game-card"
         >
             {isNew && (
                 <span
-                    style={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        background: "#ffe66d",
-                        color: "#0a0f0d",
-                        fontSize: 9,
-                        fontWeight: 700,
-                        padding: "1px 6px",
-                        borderRadius: 999,
-                        letterSpacing: 1,
-                    }}
+                    className="arcade-warn-pill"
+                    style={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}
                 >
                     NEW
                 </span>
             )}
-            <div style={{ fontSize: 16, color: "#fff", fontWeight: 600, paddingRight: isNew ? 40 : 0 }}>
+            <div className="arcade-cover">
+                {gameCoverUrl(game.coverKey) ? (
+                    <img
+                        src={gameCoverUrl(game.coverKey) as string}
+                        alt={`${game.title} cover`}
+                        loading="lazy"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                ) : (
+                    <span style={{ fontSize: 28, opacity: 0.35 }}>🎮</span>
+                )}
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, paddingRight: isNew ? 40 : 0 }}>
                 {game.title}
             </div>
-            <div style={{ opacity: 0.7, fontSize: 12, minHeight: 32 }}>
+            <div className="arcade-meta" style={{ minHeight: 32, opacity: 0.7 }}>
                 {game.description?.slice(0, 80) || ""}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 <Hackatar label={game.builder.label} size={24} />
-                <span style={{ fontSize: 12, opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span className="arcade-meta" style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     by {game.builder.domain}
                 </span>
             </div>
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 11,
-                    opacity: 0.65,
-                    marginTop: 4,
-                }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }} className="arcade-meta">
                 <span>▶ {game.playCount.toLocaleString()}</span>
                 <span style={{ textTransform: "uppercase", letterSpacing: 1 }}>{game.category}</span>
             </div>
@@ -262,30 +212,9 @@ function GameCard({ game }: { game: ArcadeGame }) {
 
 function EmptyState({ title, body }: { title: string; body: React.ReactNode }) {
     return (
-        <div
-            style={{
-                padding: "32px 16px",
-                marginBottom: 16,
-                textAlign: "center",
-                background: "rgba(0,0,0,0.25)",
-                border: "1px dashed rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-            }}
-        >
-            <div style={{ fontSize: 14, color: "#fff", marginBottom: 6 }}>{title}</div>
+        <div className="arcade-empty" style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 14, marginBottom: 6 }}>{title}</div>
             <div style={{ opacity: 0.75, fontSize: 13 }}>{body}</div>
         </div>
     );
 }
-
-const resetBtn: React.CSSProperties = {
-    background: "transparent",
-    border: "none",
-    color: "#ffe66d",
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    textDecoration: "underline",
-    padding: 0,
-};

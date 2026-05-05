@@ -57,7 +57,6 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
     const [submitError, setSubmitError] = useState<string | null>(null);
     const submittedRef = useRef(false);
 
-    // Start a server session up-front for authed users.
     useEffect(() => {
         let cancelled = false;
         if (!domain) {
@@ -76,7 +75,6 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
         };
     }, [game.slug, domain]);
 
-    // Ready timeout watchdog (per iframe boot).
     useEffect(() => {
         if (status !== "booting") return;
         const id = window.setTimeout(() => {
@@ -112,7 +110,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
             setStatus("gameover");
             setFinal({ score });
 
-            if (!domain || !sessionId) return; // guest: local display only
+            if (!domain || !sessionId) return;
             if (msg.sessionId !== sessionId) {
                 setSubmitError("Score rejected: session mismatch");
                 return;
@@ -166,7 +164,6 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
     }, [sendInit, submitScore]);
 
     const replay = useCallback(async () => {
-        // Reset display state immediately so user gets feedback.
         submittedRef.current = false;
         setFinal(null);
         setSubmitError(null);
@@ -174,8 +171,6 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
         setLiveScore(0);
         setStatus("booting");
 
-        // For authed users: get the NEW sessionId BEFORE the iframe reloads,
-        // so the SDK never grabs a stale session via init.
         if (domain) {
             setSessionId(null);
             try {
@@ -187,61 +182,43 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                 return;
             }
         }
-        // Bumping the nonce remounts the iframe with a fresh document.
         setIframeNonce((n) => n + 1);
     }, [domain, game.slug]);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    padding: "8px 12px",
-                    background: "rgba(0,0,0,0.45)",
-                    borderRadius: 6,
-                    border: "1px solid rgba(0,255,170,0.25)",
-                    fontFamily: "ui-monospace,monospace",
-                    color: "#aafff0",
-                    fontSize: 13,
-                }}
-            >
+            {/* Themed wrapper header — always respects light/dark theme */}
+            <div className="arcade-player-header">
                 <button
                     type="button"
                     onClick={onExit}
-                    style={{
-                        background: "transparent",
-                        border: "1px solid rgba(0,255,170,0.4)",
-                        color: "#aafff0",
-                        padding: "4px 10px",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                    }}
+                    className="arcade-btn"
+                    style={{ padding: "4px 10px" }}
                 >
                     ← Lobby
                 </button>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ opacity: 0.7, letterSpacing: 1 }}>SCORE</span>
-                    <strong style={{ color: "#fff", fontSize: 18 }}>{liveScore.toLocaleString()}</strong>
+                    <span className="arcade-meta" style={{ letterSpacing: 1 }}>SCORE</span>
+                    <strong style={{ fontSize: 18 }}>{liveScore.toLocaleString()}</strong>
                 </div>
-                <div style={{ opacity: 0.7, fontSize: 12 }}>
+                <div className="arcade-meta">
                     {domain ? `Playing as ${domain}` : "Guest play (sign in to save scores)"}
                 </div>
             </div>
 
+            {/* Game surface stays dark — games are designed for dark canvases */}
             <div
                 style={{
                     position: "relative",
                     width: "100%",
-                    aspectRatio: "9 / 16",
+                    aspectRatio: "1 / 1",
                     maxHeight: "calc(100vh - 200px)",
+                    maxWidth: "calc(100vh - 200px)",
+                    margin: "0 auto",
                     background: "#000",
                     borderRadius: 8,
                     overflow: "hidden",
-                    border: "1px solid rgba(0,255,170,0.3)",
+                    border: "1px solid var(--border-2)",
                 }}
             >
                 <iframe
@@ -256,8 +233,8 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                 {status === "booting" && <ArcadeLoader title={game.title} message="LOADING FROM IPFS…" />}
                 {status === "error" && (
                     <Overlay>
-                        <div style={{ color: "#ff6b6b", fontSize: 16 }}>{error || "Failed to load"}</div>
-                        <button onClick={() => void replay()} style={btnStyle}>
+                        <div style={{ color: "var(--err)", fontSize: 16 }}>{error || "Failed to load"}</div>
+                        <button onClick={() => void replay()} className="arcade-btn">
                             Retry
                         </button>
                     </Overlay>
@@ -266,10 +243,10 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     <Overlay>
                         <GameoverContent final={final} submitting={submitting} domain={domain} submitError={submitError} />
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                            <button onClick={() => void replay()} style={btnPrimary}>
+                            <button onClick={() => void replay()} className="arcade-btn arcade-btn--primary">
                                 Play again
                             </button>
-                            <button onClick={onExit} style={btnStyle}>
+                            <button onClick={onExit} className="arcade-btn">
                                 Lobby
                             </button>
                         </div>
@@ -300,7 +277,7 @@ function GameoverContent({
     return (
         <>
             <style>{`@keyframes hackcadePulse { 0%,100% { transform: scale(1); text-shadow: 0 0 12px #ffe66d; } 50% { transform: scale(1.05); text-shadow: 0 0 24px #ffe66d; } }`}</style>
-            <div style={{ fontSize: 14, color: "#fff", letterSpacing: 2, opacity: 0.85 }}>GAME OVER</div>
+            <div style={{ fontSize: 14, letterSpacing: 2, opacity: 0.85, color: "#fff" }}>GAME OVER</div>
             <div
                 style={{
                     fontSize: 40,
@@ -311,7 +288,7 @@ function GameoverContent({
             >
                 {final.score.toLocaleString()}
             </div>
-            {submitting && <div style={{ opacity: 0.7, fontSize: 12 }}>Submitting…</div>}
+            {submitting && <div style={{ opacity: 0.7, fontSize: 12, color: "#aafff0" }}>Submitting…</div>}
             {!submitting && domain && final.rank != null && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     {isPB && (
@@ -337,7 +314,7 @@ function GameoverContent({
                 </div>
             )}
             {!submitting && !domain && (
-                <div style={{ opacity: 0.85, maxWidth: 320, textAlign: "center", fontSize: 13 }}>
+                <div style={{ opacity: 0.85, maxWidth: 320, textAlign: "center", fontSize: 13, color: "#aafff0" }}>
                     Claim a <strong>hack.tez</strong> name to save your score on the leaderboard.
                 </div>
             )}
@@ -368,21 +345,3 @@ function Overlay({ children }: { children: React.ReactNode }) {
         </div>
     );
 }
-
-const btnStyle: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.6)",
-    color: "#aafff0",
-    padding: "8px 16px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 14,
-};
-
-const btnPrimary: React.CSSProperties = {
-    ...btnStyle,
-    background: "rgba(0,255,170,0.18)",
-    borderColor: "#7eff9f",
-    color: "#7eff9f",
-};
