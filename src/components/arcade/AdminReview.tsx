@@ -8,12 +8,18 @@ import {
     useArcadePendingUpdates,
     type ArcadeGame,
 } from "../../hooks/useArcade";
+import ArcadeLoader from "./ArcadeLoader";
 
 const ADMIN_DOMAIN_GHOSTNET = "admin.hack.gho";
 const ADMIN_DOMAIN_MAINNET = "admin.hack.tez";
 
 function adminDomain() {
     return import.meta.env.VITE_TEZOS_NETWORK === "mainnet" ? ADMIN_DOMAIN_MAINNET : ADMIN_DOMAIN_GHOSTNET;
+}
+
+function tabCount(loading: boolean, n: number | undefined) {
+    if (loading && n === undefined) return "…";
+    return String(n ?? 0);
 }
 
 export default function AdminReview() {
@@ -29,69 +35,122 @@ export default function AdminReview() {
         return <div style={pad}>Admins only.</div>;
     }
 
+    const pendingItems = pending.data?.pending;
+    const updateItems = updates.data?.pendingUpdates;
+    const flaggedItems = flagged.data?.flagged;
+
     return (
         <div style={pad}>
             <h2 style={{ margin: 0, marginBottom: 12 }}>Arcade admin</h2>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                 <TabBtn active={tab === "pending"} onClick={() => setTab("pending")}>
-                    Pending ({pending.data?.pending?.length ?? 0})
+                    Pending ({tabCount(pending.loading, pendingItems?.length)})
                 </TabBtn>
                 <TabBtn active={tab === "updates"} onClick={() => setTab("updates")}>
-                    Updates ({updates.data?.pendingUpdates?.length ?? 0})
+                    Updates ({tabCount(updates.loading, updateItems?.length)})
                 </TabBtn>
                 <TabBtn active={tab === "flagged"} onClick={() => setTab("flagged")}>
-                    Flagged ({flagged.data?.flagged?.length ?? 0})
+                    Flagged ({tabCount(flagged.loading, flaggedItems?.length)})
                 </TabBtn>
             </div>
 
             {tab === "pending" && (
-                <div style={col}>
-                    {(pending.data?.pending ?? []).map((g) => (
-                        <PendingCard
-                            key={g.slug}
-                            game={g}
-                            onAction={async (a, body) => {
-                                await adminAction(g.slug, a, body);
-                                pending.reload();
-                            }}
-                        />
-                    ))}
-                    {!pending.data?.pending?.length && <Empty>No pending submissions.</Empty>}
-                </div>
+                <Section
+                    loading={pending.loading}
+                    error={pending.error}
+                    items={pendingItems}
+                    empty="No pending submissions."
+                    render={(items) => (
+                        <div style={col}>
+                            {items.map((g) => (
+                                <PendingCard
+                                    key={g.slug}
+                                    game={g}
+                                    onAction={async (a, body) => {
+                                        await adminAction(g.slug, a, body);
+                                        pending.reload();
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                />
             )}
             {tab === "updates" && (
-                <div style={col}>
-                    {(updates.data?.pendingUpdates ?? []).map((u: any) => (
-                        <UpdateCard
-                            key={u.id}
-                            update={u}
-                            onAction={async (a, body) => {
-                                await adminAction(u.slug, a, body);
-                                updates.reload();
-                            }}
-                        />
-                    ))}
-                    {!updates.data?.pendingUpdates?.length && <Empty>No pending updates.</Empty>}
-                </div>
+                <Section
+                    loading={updates.loading}
+                    error={updates.error}
+                    items={updateItems}
+                    empty="No pending updates."
+                    render={(items) => (
+                        <div style={col}>
+                            {items.map((u: any) => (
+                                <UpdateCard
+                                    key={u.id}
+                                    update={u}
+                                    onAction={async (a, body) => {
+                                        await adminAction(u.slug, a, body);
+                                        updates.reload();
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                />
             )}
             {tab === "flagged" && (
-                <div style={col}>
-                    {(flagged.data?.flagged ?? []).map((g) => (
-                        <PendingCard
-                            key={g.slug}
-                            game={g}
-                            flagged
-                            onAction={async (a, body) => {
-                                await adminAction(g.slug, a, body);
-                                flagged.reload();
-                            }}
-                        />
-                    ))}
-                    {!flagged.data?.flagged?.length && <Empty>No flags.</Empty>}
-                </div>
+                <Section
+                    loading={flagged.loading}
+                    error={flagged.error}
+                    items={flaggedItems}
+                    empty="No flags."
+                    render={(items) => (
+                        <div style={col}>
+                            {items.map((g) => (
+                                <PendingCard
+                                    key={g.slug}
+                                    game={g}
+                                    flagged
+                                    onAction={async (a, body) => {
+                                        await adminAction(g.slug, a, body);
+                                        flagged.reload();
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                />
             )}
         </div>
     );
+}
+
+function Section<T>({
+    error,
+    items,
+    empty,
+    render,
+}: {
+    loading: boolean;
+    error: string | null;
+    items: T[] | undefined;
+    empty: string;
+    render: (items: T[]) => React.ReactNode;
+}) {
+    if (error) {
+        return (
+            <div style={{ ...pad, color: "#ff6b6b", padding: 24, textAlign: "center" }}>
+                Error loading: {error}
+            </div>
+        );
+    }
+    if (items === undefined) {
+        return <ArcadeLoader message="LOADING…" />;
+    }
+    if (items.length === 0) {
+        return <Empty>{empty}</Empty>;
+    }
+    return <>{render(items)}</>;
 }
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
