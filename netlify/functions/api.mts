@@ -1273,6 +1273,12 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
         return wiki.default(req, ctx);
     }
 
+    // Delegate ALL /api/v1/arcade/* requests (any method) to the arcade function
+    if (resource === "arcade") {
+        const arcade = await import("./arcade.mts");
+        return arcade.default(req, ctx);
+    }
+
     if (req.method !== "GET") {
         return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
