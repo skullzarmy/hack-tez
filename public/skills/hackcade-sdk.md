@@ -45,7 +45,7 @@ curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/
 | Max files | 200 entries |
 | Max per file | 4 MB |
 | Allowed extensions | `html, htm, js, mjs, css, json, png, jpg, jpeg, gif, webp, svg, wav, mp3, ogg, woff, woff2, ttf, txt, map` |
-| Static only | No server-side code; iframe runs with `sandbox="allow-scripts"` (no same-origin, no top-nav, no popups) |
+| Static only | No server-side code; iframe runs with `sandbox="allow-scripts allow-same-origin"` (no top-nav, no popups, no forms). Games can use `localStorage` and `postMessage` with proper origins. |
 | SDK | `hackcade-sdk.js` is auto-injected by the platform — do not bundle a different copy; submission overwrites it with the canonical SDK |
 
 The platform will:

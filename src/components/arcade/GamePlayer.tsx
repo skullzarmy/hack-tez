@@ -1,7 +1,7 @@
 /**
  * GamePlayer — sandboxed iframe host for Hackcade games.
  *
- * Security: sandbox="allow-scripts" only. Server validates score submission
+ * Security: sandbox="allow-scripts allow-same-origin" (no top-nav, no popups, no forms).
  * via single-use sessionId.
  *
  * Lifecycle:
@@ -244,7 +244,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     ref={iframeRef}
                     src={gameIframeUrl(game.ipfsCid)}
                     title={game.title}
-                    sandbox="allow-scripts"
+                    sandbox="allow-scripts allow-same-origin"
                     allow="accelerometer; gyroscope; gamepad"
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
                 />
