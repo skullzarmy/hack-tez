@@ -1,12 +1,12 @@
 ---
 title: "Hackcade Game SDK"
 description: "Build arcade games for the hack.tez Hackcade. ESM SDK reference, two-way postMessage protocol, identity examples, anti-cheat constraints, local sandbox, and a working example."
-tags: [hackcade, games, sdk, arcade, ipfs, postmessage]
+tags: [hackcade, games, sdk, arcade, netlify-blobs, postmessage]
 ---
 
 # Hackcade Game SDK
 
-Hackcade games are static web bundles (HTML/JS/CSS/assets) that run inside a sandboxed iframe served from IPFS. The platform passes the player's hack.tez identity into the game and accepts score reports back.
+Hackcade games are static web bundles (HTML/JS/CSS/assets) that run inside a sandboxed iframe served from Netlify Blobs. The platform passes the player's hack.tez identity into the game and accepts score reports back.
 
 The SDK is intentionally tiny (~150 lines). It does **not** ship a renderer, physics, audio, or game loop — pick any tools you like (vanilla canvas, Phaser, PixiJS, Kaboom.js, plain DOM). The SDK is just the umbilical to the platform: identity in, score out, lifecycle in both directions.
 
@@ -52,7 +52,7 @@ The platform will:
 1. Strip macOS noise (`__MACOSX/`, `.DS_Store`, `._*`).
 2. Auto-inject `<script type="module" src="hackcade-sdk.js"></script>` into `index.html` if missing.
 3. Always overwrite `hackcade-sdk.js` with the canonical SDK so submitters can't tamper with player identity or session tokens.
-4. Pin the directory to IPFS via Pinata.
+4. Store the bundle in Netlify Blobs.
 
 ## SDK API
 
@@ -203,7 +203,7 @@ type GameMessage =
   | { type: "hackcade:gameover"; score: number; sessionId: string; metadata?: object };
 ```
 
-The IPFS gateway origin is shared with every IPFS-hosted page in the world, so the platform validates messages by `sessionId`, not by `event.origin`. The SDK echoes the sessionId for you automatically.
+The blob origin may be shared with other hosted blobs, so the platform validates messages by `sessionId`, not by `event.origin`. The SDK echoes the sessionId for you automatically.
 
 ## Local sandbox
 
@@ -293,7 +293,7 @@ A minimal tap-the-target game that reads identity, reports score live, and submi
 3. Fill in title, description, category, and (optional) `maxPossibleScore` / `maxScorePerSecond`.
 4. Upload your zip.
 5. **Click "▶ Preview locally"** to verify it boots and identity wires up.
-6. Submit. The platform validates, pins to IPFS, and queues your game for `admin.hack.tez` review.
+6. Submit. The platform validates, stores the bundle in Netlify Blobs, and queues your game for `admin.hack.tez` review.
 7. Watch your "My Games" panel — once approved, your game goes live in the lobby and players can start submitting scores.
 
 Updates work the same way: from your game's page, click **Update Game**, upload a new zip, optionally request a leaderboard wipe. The current version keeps serving until the new one is approved.

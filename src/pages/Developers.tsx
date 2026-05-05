@@ -153,17 +153,17 @@ function SectionHeading({ id, children }: { id: string; children: React.ReactNod
         <h2
             id={id}
             style={{
-                fontFamily: "var(--font)",
-                fontSize: "0.65rem",
+                fontFamily: "var(--font-mono)",
+                fontSize: "1.2rem",
                 fontWeight: 700,
-                letterSpacing: "0.12em",
+                letterSpacing: "-0.02em",
                 textTransform: "uppercase",
-                color: "var(--fg-3)",
+                color: "var(--fg)",
                 marginBottom: "1rem",
                 scrollMarginTop: `${NAV_OFFSET + 16}px`,
             }}
         >
-            {children}
+            // {children}
         </h2>
     );
 }
@@ -657,21 +657,7 @@ export default function Developers() {
 
                     {/* ---- Endpoints heading ---- */}
                     <div style={{ marginBottom: "2rem" }}>
-                        <h2
-                            id="endpoints"
-                            style={{
-                                fontFamily: "var(--font)",
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
-                                color: "var(--fg-3)",
-                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
-                                marginBottom: 0,
-                            }}
-                        >
-                            Endpoints
-                        </h2>
+                        <SectionHeading id="endpoints">Endpoints</SectionHeading>
                     </div>
 
                     {/* ---- GET /api/v1/domains ---- */}
@@ -1192,26 +1178,10 @@ export default function Developers() {
                         </div>
                     </section>
 
-                    {/* ================================================================ */}
-                    {/* Profiles & Identity                                              */}
-                    {/* ================================================================ */}
+                    {/* // Profiles & Identity                                              */}
 
                     <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
-                        <h2
-                            id="endpoints-profiles"
-                            style={{
-                                fontFamily: "var(--font)",
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
-                                color: "var(--fg-3)",
-                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
-                                marginBottom: 0,
-                            }}
-                        >
-                            Profiles &amp; Identity
-                        </h2>
+                        <SectionHeading id="endpoints-profiles">Profiles & Identity</SectionHeading>
                     </div>
 
                     {/* ---- GET /api/v1/profile/:name ---- */}
@@ -1431,21 +1401,7 @@ export default function Developers() {
                     {/* ================================================================ */}
 
                     <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
-                        <h2
-                            id="profile-spec"
-                            style={{
-                                fontFamily: "var(--font)",
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
-                                color: "var(--fg-3)",
-                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
-                                marginBottom: 0,
-                            }}
-                        >
-                            Profile Spec
-                        </h2>
+                        <SectionHeading id="profile-spec">Profile Spec</SectionHeading>
                     </div>
 
                     {/* ---- Key Namespace ---- */}
@@ -1960,21 +1916,7 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                     {/* ================================================================ */}
 
                     <div style={{ marginTop: "3rem", marginBottom: "2rem" }}>
-                        <h2
-                            id="wiki"
-                            style={{
-                                fontFamily: "var(--font)",
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
-                                color: "var(--fg-3)",
-                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
-                                marginBottom: 0,
-                            }}
-                        >
-                            Wiki API
-                        </h2>
+                        <SectionHeading id="wiki">Wiki API</SectionHeading>
                     </div>
 
                     {/* ---- GET /api/v1/wiki/articles ---- */}
@@ -2234,21 +2176,7 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                     {/* ================================================================ */}
 
                     <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
-                        <h2
-                            id="chat"
-                            style={{
-                                fontFamily: "var(--font)",
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
-                                color: "var(--fg-3)",
-                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
-                                marginBottom: 0,
-                            }}
-                        >
-                            Chat
-                        </h2>
+                        <SectionHeading id="chat">Chat</SectionHeading>
                     </div>
 
                     {/* ---- Overview ---- */}
@@ -2595,10 +2523,8 @@ ws.send(JSON.stringify({ type: "message", content: "gm hackers" }))
                             id="arcade"
                         >
                             <SectionHeading id="arcade-overview">Hackcade</SectionHeading>
-                            <p style={{ color: "var(--fg-muted)" }}>
-                                Hackcade is the hack.tez arcade platform. Anyone with a hack.tez domain can submit a
-                                static HTML/JS/CSS game zip; admins approve, the bundle is pinned to IPFS, and players
-                                compete on per-game leaderboards keyed by their hack.tez identity.
+                            <p style={{ color: "var(--fg-muted)", lineHeight: 1.6 }}>
+                                Hackcade is the native arcade platform for hack.tez. Builders submit their HTML/JS/CSS game bundles which are hosted on Netlify Blobs and served in sandboxed iframes. Players compete for high scores on a shared Neon Postgres-backed leaderboard, with identities mapped strictly to their `.hack.tez` subdomains.
                             </p>
                             <p style={{ color: "var(--fg-muted)" }}>
                                 The lobby is at <a href="/arcade">/arcade</a>. Full SDK reference, postMessage protocol,
