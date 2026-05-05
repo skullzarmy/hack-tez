@@ -11,7 +11,7 @@ import { lazy, Suspense, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useTezos } from "../context/TezosContext";
-import { Hackatar } from "../components/Hackatar";
+import ArcadeAvatar from "../components/arcade/ArcadeAvatar";
 import GameLobby from "../components/arcade/GameLobby";
 import GameSubmit from "../components/arcade/GameSubmit";
 import MyGames from "../components/arcade/MyGames";
@@ -149,7 +149,7 @@ function PlayRoute() {
                     <div style={{ minWidth: 0 }}>
                         <h2 style={{ margin: 0, color: "var(--fg)" }}>{game.title}</h2>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, fontSize: 13 }}>
-                            <Hackatar label={game.builder.label} size={20} />
+                            <ArcadeAvatar label={game.builder.label} size={20} />
                             <a
                                 href={`/u/${encodeURIComponent(game.builder.label)}`}
                                 className="arcade-link"
@@ -255,7 +255,7 @@ function Leaderboard({
                         >
                             #{i + 1}
                         </span>
-                        <Hackatar label={row.label} size={20} />
+                        <ArcadeAvatar label={row.label} size={20} />
                         <a
                             href={`/u/${encodeURIComponent(row.label)}`}
                             style={{

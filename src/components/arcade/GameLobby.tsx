@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useArcadeGames, gameCoverUrl, type ArcadeGame } from "../../hooks/useArcade";
-import { Hackatar } from "../Hackatar";
+import ArcadeAvatar from "./ArcadeAvatar";
 import ArcadeLoader from "./ArcadeLoader";
 
 const SORTS = [
@@ -196,7 +196,7 @@ function GameCard({ game }: { game: ArcadeGame }) {
                 {game.description?.slice(0, 80) || ""}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                <Hackatar label={game.builder.label} size={24} />
+                <ArcadeAvatar label={game.builder.label} size={24} />
                 <span className="arcade-meta" style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     by {game.builder.domain}
                 </span>
