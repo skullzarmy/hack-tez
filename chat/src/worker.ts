@@ -380,23 +380,74 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
   );
 }
 
+/**
+ * Grace window for refreshing an expired token without re-signing with the
+ * wallet. As long as the session row exists, isn't revoked, and was last
+ * touched within this window, /auth/refresh accepts the expired JWT and
+ * issues a fresh one. Beyond this, the user must reconnect their wallet.
+ */
+const REFRESH_GRACE_DAYS = 90;
+
 async function handleRefresh(request: Request, env: Env): Promise<Response> {
-  const user = await verifyJwt(request, env);
-  if (!user) return errorResponse(request, "Token invalid or expired", "AUTH_REQUIRED", 401);
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return errorResponse(request, "Missing bearer token", "AUTH_REQUIRED", 401);
+  }
+  const token = authHeader.slice(7);
+
+  // Verify with allowExpired so a token that's just past `exp` still surfaces
+  // its claims. We then gate on the auth_sessions row.
+  const result = await verifyJwtCore(token, {
+    secrets: getSecrets(env),
+    checkRevoked: (sid) => isSessionRevoked(env, sid),
+    allowExpired: true,
+  });
+  if (!result.ok) {
+    return errorResponse(request, "Token invalid", "AUTH_REQUIRED", 401);
+  }
+  const claims = result.claims;
+
+  if (result.expired) {
+    // Server-side grace window: the session row's last_seen_at must be recent.
+    let row: { last_seen_at?: string } | null = null;
+    try {
+      row = await env.DB
+        .prepare("SELECT last_seen_at FROM auth_sessions WHERE sid = ? AND revoked_at IS NULL")
+        .bind(claims.sid)
+        .first<{ last_seen_at?: string }>();
+    } catch {
+      return errorResponse(request, "Session lookup failed", "SESSION_LOOKUP_ERROR", 502);
+    }
+    if (!row?.last_seen_at) {
+      return errorResponse(request, "Session expired", "SESSION_EXPIRED", 401);
+    }
+    const lastSeenMs = Date.parse(row.last_seen_at + "Z");
+    if (!Number.isFinite(lastSeenMs)) {
+      return errorResponse(request, "Session expired", "SESSION_EXPIRED", 401);
+    }
+    const ageMs = Date.now() - lastSeenMs;
+    if (ageMs > REFRESH_GRACE_DAYS * 24 * 60 * 60 * 1000) {
+      return errorResponse(request, "Session expired", "SESSION_EXPIRED", 401);
+    }
+  }
 
   // Re-verify domain ownership before issuing a new token.
   const network = getNetwork(env);
   let domains: string[];
   try {
-    domains = await getOwnedDomains(user.address, network);
+    domains = await getOwnedDomains(claims.sub, network);
   } catch {
     return errorResponse(request, "Failed to verify domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
 
-  // Keep current active domain if still owned, otherwise pick first or null.
-  const activeDomain = user.activeDomain && domains.includes(user.activeDomain)
-    ? user.activeDomain
-    : domains.length > 0 ? domains[0] : null;
+  // Honor X-Active-Domain header (used by the domain picker to switch identity).
+  // Falls back to the previous active domain, then first owned, then null.
+  const requested = request.headers.get("X-Active-Domain");
+  const activeDomain = requested && domains.includes(requested)
+    ? requested
+    : claims.activeDomain && domains.includes(claims.activeDomain)
+      ? claims.activeDomain
+      : domains.length > 0 ? domains[0] : null;
 
   // Refresh keeps the same sid (it's the same session, just rolled forward).
   const kid = getCurrentKid(env);
@@ -404,7 +455,7 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
   const issued = await signJwt({
     secret: secrets[kid],
     kid,
-    claims: { sub: user.address, sid: user.sid, domains, activeDomain },
+    claims: { sub: claims.sub, sid: claims.sid, domains, activeDomain },
   });
 
   try {
@@ -414,7 +465,7 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
          SET exp_at = datetime(?, 'unixepoch'), kid = ?, last_seen_at = CURRENT_TIMESTAMP
          WHERE sid = ? AND revoked_at IS NULL`,
       )
-      .bind(issued.claims.exp, kid, user.sid)
+      .bind(issued.claims.exp, kid, claims.sid)
       .run();
   } catch {
     // Non-fatal; the token is still valid by signature.
@@ -422,7 +473,7 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
 
   return corsResponse(
     request,
-    JSON.stringify({ token: issued.token, domains, activeDomain, sid: user.sid, expiresAt: issued.claims.exp }),
+    JSON.stringify({ token: issued.token, domains, activeDomain, sid: claims.sid, expiresAt: issued.claims.exp }),
   );
 }
 

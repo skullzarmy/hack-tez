@@ -1,0 +1,75 @@
+/* Mobile-first, touch-friendly. No hover styles. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; overscroll-behavior: none; }
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0a0e0d;
+    color: #e6fff8;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+#stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(0,0,0,0.35);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #00ffc833;
+}
+
+#score { color: #00ffc8; font-variant-numeric: tabular-nums; }
+
+.screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.hidden { display: none !important; }
+
+button {
+    font: inherit;
+    background: #00ffc8;
+    color: #000;
+    border: 0;
+    padding: 1rem 2rem;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 56px; /* thumb-friendly */
+    min-width: 160px;
+}
+
+#target {
+    width: 40vmin;
+    height: 40vmin;
+    max-width: 280px;
+    max-height: 280px;
+    border-radius: 50%;
+    background: #00ffc8;
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 80ms ease;
+}
+#target:active { transform: scale(0.92); }

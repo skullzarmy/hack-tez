@@ -53,4 +53,36 @@ const DropdownMenuSeparator = React.forwardRef<
     );
 });
 
-export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator };
+const DropdownMenuItem = React.forwardRef<
+    React.ElementRef<typeof DropdownMenuPrimitive.Item>,
+    React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item>
+>(function DropdownMenuItem({ className, style, ...props }, ref) {
+    return (
+        <DropdownMenuPrimitive.Item
+            ref={ref}
+            className={joinClasses("radix-dropdown-item", className)}
+            style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.5rem 0.6rem",
+                borderRadius: "6px",
+                fontSize: "0.85rem",
+                color: "var(--fg-1, #eaeaea)",
+                cursor: "pointer",
+                outline: "none",
+                userSelect: "none",
+                ...style,
+            }}
+            {...props}
+        />
+    );
+});
+
+export {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuSeparator,
+    DropdownMenuItem,
+};

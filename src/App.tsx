@@ -22,6 +22,7 @@ const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Chat = lazy(() => import("./components/chat/ChatPage"));
 const WikiApp = lazy(() => import("./pages/WikiApp"));
+const Arcade = lazy(() => import("./pages/Arcade"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -194,6 +195,22 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     </a>
                                     )}
                                     <a
+                                        href="/arcade"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Arcade
+                                    </a>
+                                    <a
+                                        href="/wiki"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Wiki
+                                    </a>
+                                    <a
                                         href="/hackers"
                                         role="menuitem"
                                         className="nav-drawer-link"
@@ -207,15 +224,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         className="nav-drawer-link"
                                         onClick={() => setOpen(false)}
                                     >
-                                        Developers
-                                    </a>
-                                    <a
-                                        href="/wiki"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Wiki
+                                        Docs
                                     </a>
                                     <a
                                         href="/skills"
@@ -311,6 +320,7 @@ export function AppShell() {
                     <Route path="/manage" element={<Navigate to="/" replace />} />
                     <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
                     <Route path="/wiki/*" element={<Suspense fallback={null}><WikiApp /></Suspense>} />
+                    <Route path="/arcade/*" element={<Suspense fallback={null}><Arcade /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>

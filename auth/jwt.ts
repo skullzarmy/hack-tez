@@ -17,8 +17,8 @@ import {
   type VerifyResult,
 } from "./types.js";
 
-/** Default token lifetime: 2 hours. Rolling refresh extends sessions in use. */
-export const DEFAULT_TTL_SEC = 2 * 60 * 60;
+/** Default token lifetime: 30 days. Long-lived by user request — UX over strict rotation. */
+export const DEFAULT_TTL_SEC = 30 * 24 * 60 * 60;
 
 /**
  * Generate a fresh session id. Uses Web Crypto's randomUUID, which is
@@ -75,6 +75,14 @@ export interface VerifyParams {
   checkRevoked?: RevocationChecker;
   /** Allow `clockTolerance` seconds of skew (default 30). */
   clockToleranceSec?: number;
+  /**
+   * If true, accept tokens past their `exp` (signature, kid, version, sid,
+   * revocation are still enforced). Used by /auth/refresh's grace-window path
+   * so users coming back after >TTL idle don't have to re-sign with the wallet.
+   * Callers MUST gate the resulting `expired: true` claims on their own
+   * server-side window (e.g. last_seen_at within N days, exp_at within N days).
+   */
+  allowExpired?: boolean;
 }
 
 /**
@@ -99,6 +107,7 @@ export async function verifyJwt(token: string, params: VerifyParams): Promise<Ve
   }
 
   let payload: Record<string, unknown>;
+  let expired = false;
   try {
     const verified = await jwtVerify(token, secret, {
       algorithms: ["HS256"],
@@ -107,9 +116,24 @@ export async function verifyJwt(token: string, params: VerifyParams): Promise<Ve
     payload = verified.payload as Record<string, unknown>;
   } catch (err) {
     if (err instanceof joseErrors.JWTExpired) {
-      return { ok: false, error: { code: "EXPIRED", message: "token expired" } };
+      if (!params.allowExpired) {
+        return { ok: false, error: { code: "EXPIRED", message: "token expired" } };
+      }
+      // Re-verify with effectively unbounded clock tolerance to extract claims.
+      // Signature is still required to validate; we only suppress the exp check.
+      try {
+        const verified = await jwtVerify(token, secret, {
+          algorithms: ["HS256"],
+          clockTolerance: Number.MAX_SAFE_INTEGER,
+        });
+        payload = verified.payload as Record<string, unknown>;
+        expired = true;
+      } catch (err2) {
+        return { ok: false, error: { code: "BAD_SIGNATURE", message: errMsg(err2) } };
+      }
+    } else {
+      return { ok: false, error: { code: "BAD_SIGNATURE", message: errMsg(err) } };
     }
-    return { ok: false, error: { code: "BAD_SIGNATURE", message: errMsg(err) } };
   }
 
   const claims = payload as unknown as JwtClaims;
@@ -143,7 +167,7 @@ export async function verifyJwt(token: string, params: VerifyParams): Promise<Ve
     }
   }
 
-  return { ok: true, claims };
+  return { ok: true, claims, expired };
 }
 
 /**

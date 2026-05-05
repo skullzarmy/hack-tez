@@ -2225,6 +2225,513 @@ a:hover {
     text-align: left;
 }
 
+/* --- ARCADE ----------------------------------------------- */
+
+/* Keyframes (used by arcade modal + loader) */
+@keyframes hackcadeFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hackcadePop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* Main card / panel */
+.arcade-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    border-radius: 8px;
+    padding: 14px;
+    color: var(--fg);
+    font-family: var(--font);
+    margin-bottom: 12px;
+}
+
+/* Clickable game card in lobby */
+.arcade-game-card {
+    position: relative;
+    text-align: left;
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    color: var(--fg);
+    font-family: var(--font);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 120ms, transform 120ms;
+    width: 100%;
+}
+.arcade-game-card:hover {
+    border-color: var(--accent);
+}
+
+/* Square cover thumbnail wrapper */
+.arcade-cover {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Category filter chips */
+.arcade-chip {
+    background: transparent;
+    border: 1px solid var(--border-2);
+    color: var(--fg-2);
+    padding: 4px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.arcade-chip--active {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Form fields */
+.arcade-input,
+.arcade-select,
+.arcade-textarea {
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    border-radius: 4px;
+    padding: 8px 10px;
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.arcade-input:focus,
+.arcade-select:focus,
+.arcade-textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+.arcade-input[disabled],
+.arcade-select[disabled],
+.arcade-textarea[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Buttons */
+.arcade-btn {
+    background: transparent;
+    border: 1px solid var(--border-2);
+    color: var(--fg-2);
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    transition: border-color 120ms, color 120ms;
+}
+.arcade-btn:hover:not([disabled]) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.arcade-btn--primary {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.arcade-btn--sm {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+.arcade-btn--danger {
+    border-color: var(--err);
+    color: var(--err);
+}
+.arcade-btn--danger:hover:not([disabled]) {
+    background: var(--err-bg);
+    border-color: var(--err);
+    color: var(--err);
+}
+.arcade-btn--warn {
+    border-color: var(--warn);
+    color: var(--warn);
+}
+.arcade-btn[disabled],
+.arcade-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Tabs */
+.arcade-tablist {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+}
+.arcade-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--fg-2);
+    font-family: var(--font);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 120ms, border-color 120ms;
+}
+.arcade-tab:hover:not([disabled]):not(.arcade-tab--active) {
+    color: var(--fg);
+}
+.arcade-tab--active {
+    background: transparent;
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+.arcade-tab--sm {
+    padding: 4px 10px;
+    font-size: 11px;
+}
+.arcade-tab--md {
+    padding: 6px 14px;
+    font-size: 12px;
+}
+.arcade-tab[disabled] {
+    color: var(--fg-3);
+    cursor: not-allowed;
+}
+.arcade-tab__badge {
+    min-width: 18px;
+    padding: 0 5px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--warn);
+    color: var(--bg);
+}
+.arcade-tab--active .arcade-tab__badge {
+    background: var(--accent);
+    color: var(--accent-fg);
+}
+
+/* Status badges */
+.arcade-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    font-family: var(--font);
+    white-space: nowrap;
+    border: 1px solid var(--badge-border, var(--border-2));
+    color: var(--badge-color, var(--fg-2));
+    background: var(--badge-bg, transparent);
+}
+.arcade-badge__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--badge-color, currentColor);
+    box-shadow: 0 0 6px var(--badge-color, currentColor);
+    flex-shrink: 0;
+}
+.arcade-badge--live {
+    --badge-color: var(--ok);
+    --badge-bg: var(--ok-bg);
+    --badge-border: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+.arcade-badge--pending {
+    --badge-color: var(--warn);
+    --badge-bg: var(--warn-bg);
+    --badge-border: color-mix(in srgb, var(--warn) 40%, transparent);
+}
+.arcade-badge--flagged {
+    --badge-color: var(--warn);
+    --badge-bg: var(--warn-bg);
+    --badge-border: color-mix(in srgb, var(--warn) 40%, transparent);
+}
+.arcade-badge--rejected {
+    --badge-color: var(--err);
+    --badge-bg: var(--err-bg);
+    --badge-border: color-mix(in srgb, var(--err) 40%, transparent);
+}
+.arcade-badge--removed {
+    --badge-color: var(--fg-3);
+    --badge-bg: transparent;
+    --badge-border: var(--border);
+}
+.arcade-badge--draft {
+    --badge-color: var(--accent);
+    --badge-bg: var(--accent-bg);
+    --badge-border: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Modal overlay + body */
+.arcade-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: hackcadeFadeIn 120ms ease-out;
+}
+.arcade-modal-body {
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    color: var(--fg);
+    font-family: var(--font);
+    animation: hackcadePop 140ms ease-out;
+    outline: none;
+}
+.arcade-modal-title {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-2);
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--fg-2);
+}
+
+/* File picker drop area */
+.arcade-droparea {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-2);
+    border: 1.5px dashed var(--border-2);
+    border-radius: 6px;
+    padding: 16px;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms;
+    user-select: none;
+    outline: none;
+}
+.arcade-droparea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.arcade-droparea--over {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+}
+.arcade-droparea--err {
+    border-color: var(--err);
+}
+.arcade-droparea--disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.arcade-droparea__icon {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 20px;
+}
+
+/* Form section header */
+.arcade-section-header {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--fg);
+    font-family: var(--font);
+}
+
+/* Empty state placeholder */
+.arcade-empty {
+    padding: 32px 16px;
+    text-align: center;
+    border: 1px dashed var(--border-2);
+    border-radius: 8px;
+    color: var(--fg-2);
+    font-family: var(--font);
+}
+
+/* Muted meta line */
+.arcade-meta {
+    font-size: 11px;
+    color: var(--fg-3);
+    font-family: var(--font);
+}
+
+/* Small pill link / tag chip */
+.arcade-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    color: var(--fg-2);
+    text-decoration: none;
+    font-family: var(--font);
+    font-size: 12px;
+}
+.arcade-pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Accent link */
+.arcade-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+.arcade-link:hover {
+    text-decoration: underline;
+}
+
+/* "NEW" warn pill badge */
+.arcade-warn-pill {
+    background: var(--warn);
+    color: var(--bg);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    font-family: var(--font);
+}
+
+/* Error message block */
+.arcade-err-block {
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--err) 40%, transparent);
+    border-radius: 4px;
+    color: var(--err);
+    font-size: 12px;
+    background: var(--err-bg);
+    font-family: var(--font);
+}
+
+/* Warning / score-reset block */
+.arcade-warn-block {
+    font-size: 12px;
+    color: var(--err);
+    background: var(--err-bg);
+    border: 1px solid color-mix(in srgb, var(--err) 40%, transparent);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-family: var(--font);
+}
+
+/* Soft notice (already-approved info) */
+.arcade-notice-block {
+    font-size: 11px;
+    color: var(--warn);
+    background: var(--warn-bg);
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-family: var(--font);
+}
+
+/* Flagged reason block */
+.arcade-flag-block {
+    font-size: 12px;
+    color: var(--warn);
+    background: var(--warn-bg);
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-family: var(--font);
+}
+
+/* Row item card (my-games, admin list) */
+.arcade-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    color: var(--fg);
+    font-family: var(--font);
+}
+
+/* Nested sub-card (update comparison panels) */
+.arcade-subcard {
+    background: var(--bg);
+    border: 1px solid var(--border-2);
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: var(--font);
+}
+.arcade-subcard--accent {
+    border-color: var(--accent);
+}
+
+/* Preview wrapper with border */
+.arcade-preview-wrap {
+    border: 1px solid var(--border-2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Game player header bar */
+.arcade-player-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-2);
+    border-radius: 6px;
+    border: 1px solid var(--border-2);
+    font-family: var(--font);
+    color: var(--fg);
+    font-size: 13px;
+}
+
 /* --- UTILITY ----------------------------------------------- */
 .mono {
     font-family: var(--font);

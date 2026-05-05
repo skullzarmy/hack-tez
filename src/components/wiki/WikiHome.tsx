@@ -15,8 +15,7 @@ export default function WikiHome() {
     path: "/wiki",
   });
   const api = useWikiApi();
-  const { domain } = useTezos();
-  const isAdmin = domain === "admin.hack.tez";
+  const { domain, isAdmin } = useTezos();
   const { query, results, loading: searchLoading, search, clear } = useWikiSearch();
 
   const [recent, setRecent] = useState<WikiArticleSummary[]>([]);

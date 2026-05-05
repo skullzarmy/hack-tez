@@ -4,13 +4,14 @@
     "version": "0.1.0",
     "license": "Unlicense",
     "type": "module",
-  "scripts": {
+    "scripts": {
         "dev": "vite",
         "netlify:dev": "cross-env NODE_OPTIONS='--require ./scripts/netlify-dev-patch.cjs' VITE_HMR_CLIENT_PORT=8888 netlify dev",
         "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
         "preview": "vite preview",
-        "wiki:load": "tsx scripts/wiki/loader.mts"
-  },
+        "wiki:load": "tsx scripts/wiki/loader.mts",
+        "pack-game": "tsx scripts/pack-game.ts"
+    },
     "dependencies": {
         "@blocknote/core": "^0.48.1",
         "@blocknote/mantine": "^0.48.1",
@@ -34,6 +35,7 @@
         "blakejs": "^1.2.1",
         "dompurify": "^3.3.3",
         "emoji-picker-react": "^4.18.0",
+        "fflate": "^0.8.2",
         "gifenc": "^1.0.3",
         "jose": "^6.2.2",
         "lucide-react": "^1.7.0",

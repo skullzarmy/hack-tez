@@ -23,7 +23,7 @@ export const STATIC_ROUTE_META: Record<string, StaticRouteMeta> = {
             "Privacy policy and terms for hack.tez. Plain english. No bullshit. We don't sell your data — there's no data to sell.",
     },
     "/developers": {
-        title: "Developers — REST API & SDK — hack.tez",
+        title: "Docs — REST API & SDK — hack.tez",
         description:
             "Public REST API for hack.tez. Resolve domains, list hackers, fetch profiles, generate hackatars. JSON over HTTPS. No auth required for read endpoints.",
     },
