@@ -195,6 +195,22 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                     </a>
                                     )}
                                     <a
+                                        href="/arcade"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Arcade
+                                    </a>
+                                    <a
+                                        href="/wiki"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Wiki
+                                    </a>
+                                    <a
                                         href="/hackers"
                                         role="menuitem"
                                         className="nav-drawer-link"
@@ -208,23 +224,7 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         className="nav-drawer-link"
                                         onClick={() => setOpen(false)}
                                     >
-                                        Developers
-                                    </a>
-                                    <a
-                                        href="/wiki"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Wiki
-                                    </a>
-                                    <a
-                                        href="/arcade"
-                                        role="menuitem"
-                                        className="nav-drawer-link"
-                                        onClick={() => setOpen(false)}
-                                    >
-                                        Arcade
+                                        Docs
                                     </a>
                                     <a
                                         href="/skills"

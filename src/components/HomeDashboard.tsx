@@ -97,7 +97,7 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                 <div className="dashboard-links-grid">
                     <QuickLink href="/hackers" icon={<Users size={18} />} label="Hackers" />
                     <QuickLink href="/skills" icon={<BookOpen size={18} />} label="Skills" />
-                    <QuickLink href="/developers" icon={<Code size={18} />} label="Developers" />
+                    <QuickLink href="/developers" icon={<Code size={18} />} label="Docs" />
                     <QuickLink href="/manifesto" icon={<FileText size={18} />} label="Manifesto" />
                 </div>
             </section>
