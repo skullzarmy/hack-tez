@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { DAppClient } from "@tezos-x/octez.connect-sdk";
 import config, { hackchatUrl, siteUrl } from "../config/tezos";
 import { resolveDisplayName } from "../lib/domains";
@@ -41,6 +41,10 @@ interface TezosState {
     token: string | null;
     chatDomains: string[];
     activeDomain: string | null;
+    /** True if any of the wallet's owned domains is the network's admin domain
+     *  (admin.hack.tez on mainnet, admin.hack.gho on ghostnet). Centralized so
+     *  no component re-implements admin gating. */
+    isAdmin: boolean;
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     resetConnection: () => Promise<void>;
@@ -226,6 +230,14 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     const [chatDomains, setChatDomains] = useState<string[]>(seed?.domains ?? []);
     const [activeDomain, setActiveDomainState] = useState<string | null>(seed?.activeDomain ?? null);
     const tokenRef = useRef<string | null>(seed?.token ?? null);
+
+    // Single source of truth for admin gating. Network-aware: admin.hack.tez on
+    // mainnet, admin.hack.gho on ghostnet. Components must read this from
+    // context — never re-derive from chatDomains.
+    const isAdmin = useMemo(() => {
+        const adminDomain = `admin.hack.${config.tld}`;
+        return chatDomains.includes(adminDomain);
+    }, [chatDomains]);
 
     // Push the seed into authedFetch's module state immediately so any pre-mount
     // network call (unlikely but possible) sees it.
@@ -541,6 +553,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 token,
                 chatDomains,
                 activeDomain,
+                isAdmin,
                 connect,
                 disconnect,
                 resetConnection,

@@ -16,7 +16,7 @@ interface Props {
 
 export default function ArticleEditor({ slug }: Props) {
   const api = useWikiApi();
-  const { domain } = useTezos();
+  const { domain, isAdmin } = useTezos();
 
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -37,7 +37,6 @@ export default function ArticleEditor({ slug }: Props) {
   const [lockHours, setLockHours] = useState("24");
   const [status, setStatus] = useState<string>("published");
   const [isMod, setIsMod] = useState(false);
-  const isAdmin = domain === "admin.hack.tez";
 
   const hasFetchedRef = useRef(false);
 

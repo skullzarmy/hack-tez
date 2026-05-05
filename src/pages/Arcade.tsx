@@ -28,14 +28,8 @@ import {
 
 const Sandbox = lazy(() => import("../components/arcade/Sandbox"));
 
-const ADMIN_DOMAIN_GHOSTNET = "admin.hack.gho";
-const ADMIN_DOMAIN_MAINNET = "admin.hack.tez";
-const ADMIN_DOMAIN =
-    import.meta.env.VITE_TEZOS_NETWORK === "mainnet" ? ADMIN_DOMAIN_MAINNET : ADMIN_DOMAIN_GHOSTNET;
-
 export default function ArcadePage() {
-    const { chatDomains } = useTezos();
-    const isAdmin = chatDomains.includes(ADMIN_DOMAIN);
+    const { isAdmin } = useTezos();
 
     return (
         <div style={{ minHeight: "100vh", padding: "16px 12px", maxWidth: 1100, margin: "0 auto" }}>
