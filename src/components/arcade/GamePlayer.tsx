@@ -1,29 +1,24 @@
 /**
  * GamePlayer — sandboxed iframe host for Hackcade games.
  *
- * Security model:
- * - sandbox="allow-scripts" only. No same-origin, no top navigation, no forms.
- * - The IPFS gateway is shared by every IPFS-hosted app, so origin-based
- *   postMessage validation is useless. We instead require the iframe to echo
- *   `sessionId` (issued server-side, single-use) on every score message.
- * - Server-side validation (`POST /arcade/score`) re-checks sessionId, owner,
- *   freshness, and applies anti-cheat caps.
+ * Security: sandbox="allow-scripts" only. Server validates score submission
+ * via single-use sessionId.
  *
  * Lifecycle:
- * 1. (auth users) startArcadeSession() → { sessionId }
- * 2. iframe loads → 30s timer waits for `hackcade:ready`
- * 3. on ready → postMessage `hackcade:init` { player, sessionId }
- * 4. iframe posts `hackcade:score` (display only) and `hackcade:gameover`
- *    { sessionId, score, durationSeconds, metadata? }
- * 5. submitArcadeScore() → server validates + records.
+ *   1. (auth) startArcadeSession() → sessionId
+ *   2. iframe loads → 30s watchdog waits for `hackcade:ready`
+ *   3. on ready → postMessage init { player, sessionId }
+ *   4. iframe posts hackcade:score (display) + hackcade:gameover { score, durationSeconds }
+ *   5. submitArcadeScore() → server validates and records
  *
- * Guests skip steps 1+5; the SDK serves a guest player object and the result
- * screen prompts them to claim a hack.tez name.
+ * Replay flow (was racy): now waits for the new sessionId BEFORE reloading
+ * the iframe, eliminating the 409 ALREADY_SUBMITTED on quick replays.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArcadeGameDetail } from "../../hooks/useArcade";
 import { gameIframeUrl, startArcadeSession, submitArcadeScore } from "../../hooks/useArcade";
+import ArcadeLoader from "./ArcadeLoader";
 
 interface PlayerMessage {
     type: string;
@@ -33,9 +28,16 @@ interface PlayerMessage {
     metadata?: unknown;
 }
 
+interface FinalState {
+    score: number;
+    rank?: number;
+    isPersonalBest?: boolean;
+    previousBest?: number;
+    isFirstScore?: boolean;
+}
+
 interface Props {
     game: ArcadeGameDetail;
-    /** authed user's active hack.tez domain, or null for guest. */
     domain: string | null;
     address: string | null;
     onExit: () => void;
@@ -45,17 +47,17 @@ const READY_TIMEOUT_MS = 30_000;
 
 export default function GamePlayer({ game, domain, address, onExit }: Props) {
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const [status, setStatus] = useState<"booting" | "ready" | "playing" | "gameover" | "error">("booting");
+    const [status, setStatus] = useState<"booting" | "playing" | "gameover" | "error">("booting");
     const [error, setError] = useState<string | null>(null);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [iframeNonce, setIframeNonce] = useState(0);
     const [liveScore, setLiveScore] = useState(0);
-    const [final, setFinal] = useState<{ score: number; rank?: number; isPersonalBest?: boolean } | null>(null);
+    const [final, setFinal] = useState<FinalState | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const submittedRef = useRef(false);
 
-    // Start a server session up-front for authed users, so we have a sessionId
-    // ready before the iframe says "ready".
+    // Start a server session up-front for authed users.
     useEffect(() => {
         let cancelled = false;
         if (!domain) {
@@ -74,17 +76,18 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
         };
     }, [game.slug, domain]);
 
-    // Ready timeout watchdog.
+    // Ready timeout watchdog (per iframe boot).
     useEffect(() => {
         if (status !== "booting") return;
-        const id = setTimeout(() => {
-            if (status === "booting") {
-                setStatus("error");
+        const id = window.setTimeout(() => {
+            setStatus((curr) => {
+                if (curr !== "booting") return curr;
                 setError("Game failed to load within 30 seconds.");
-            }
+                return "error";
+            });
         }, READY_TIMEOUT_MS);
-        return () => clearTimeout(id);
-    }, [status]);
+        return () => window.clearTimeout(id);
+    }, [status, iframeNonce]);
 
     const sendInit = useCallback(() => {
         if (!iframeRef.current?.contentWindow) return;
@@ -123,7 +126,13 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     durationSeconds: duration,
                     metadata: msg.metadata,
                 });
-                setFinal({ score, rank: res.rank, isPersonalBest: res.isPersonalBest });
+                setFinal({
+                    score,
+                    rank: res.rank,
+                    isPersonalBest: res.isPersonalBest,
+                    previousBest: res.previousBest,
+                    isFirstScore: res.isFirstScore,
+                });
             } catch (e) {
                 setSubmitError(e instanceof Error ? e.message : "Submit failed");
             } finally {
@@ -133,14 +142,12 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
         [domain, sessionId],
     );
 
-    // Listen for iframe messages.
     useEffect(() => {
         function onMessage(e: MessageEvent) {
             if (e.source !== iframeRef.current?.contentWindow) return;
             const data = e.data as PlayerMessage | null;
             if (!data || typeof data.type !== "string") return;
             if (data.type === "hackcade:ready") {
-                setStatus((s) => (s === "booting" ? "ready" : s));
                 sendInit();
                 setStatus("playing");
                 return;
@@ -158,26 +165,31 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
         return () => window.removeEventListener("message", onMessage);
     }, [sendInit, submitScore]);
 
-    const replay = () => {
+    const replay = useCallback(async () => {
+        // Reset display state immediately so user gets feedback.
         submittedRef.current = false;
         setFinal(null);
         setSubmitError(null);
+        setError(null);
         setLiveScore(0);
         setStatus("booting");
-        // Force iframe reload
-        if (iframeRef.current) {
-            const src = iframeRef.current.src;
-            iframeRef.current.src = "";
-            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-            void iframeRef.current.offsetHeight;
-            iframeRef.current.src = src;
-        }
+
+        // For authed users: get the NEW sessionId BEFORE the iframe reloads,
+        // so the SDK never grabs a stale session via init.
         if (domain) {
-            startArcadeSession(game.slug)
-                .then((s) => setSessionId(s.sessionId))
-                .catch((e) => setError(e instanceof Error ? e.message : "session failed"));
+            setSessionId(null);
+            try {
+                const s = await startArcadeSession(game.slug);
+                setSessionId(s.sessionId);
+            } catch (e) {
+                setError(e instanceof Error ? e.message : "Failed to start session");
+                setStatus("error");
+                return;
+            }
         }
-    };
+        // Bumping the nonce remounts the iframe with a fresh document.
+        setIframeNonce((n) => n + 1);
+    }, [domain, game.slug]);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
@@ -212,10 +224,10 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     ← Lobby
                 </button>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span>SCORE</span>
-                    <strong style={{ color: "#fff", fontSize: 16 }}>{liveScore.toLocaleString()}</strong>
+                    <span style={{ opacity: 0.7, letterSpacing: 1 }}>SCORE</span>
+                    <strong style={{ color: "#fff", fontSize: 18 }}>{liveScore.toLocaleString()}</strong>
                 </div>
-                <div style={{ opacity: 0.7 }}>
+                <div style={{ opacity: 0.7, fontSize: 12 }}>
                     {domain ? `Playing as ${domain}` : "Guest play (sign in to save scores)"}
                 </div>
             </div>
@@ -233,6 +245,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                 }}
             >
                 <iframe
+                    key={iframeNonce}
                     ref={iframeRef}
                     src={gameIframeUrl(game.ipfsCid)}
                     title={game.title}
@@ -240,39 +253,20 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     allow="accelerometer; gyroscope; gamepad"
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
                 />
-                {(status === "booting" || status === "ready") && (
-                    <Overlay>
-                        <div>BOOTING…</div>
-                        <small style={{ opacity: 0.7 }}>Loading from IPFS — first run may be slow</small>
-                    </Overlay>
-                )}
+                {status === "booting" && <ArcadeLoader title={game.title} message="LOADING FROM IPFS…" />}
                 {status === "error" && (
                     <Overlay>
-                        <div style={{ color: "#ff6b6b" }}>{error || "Failed to load"}</div>
-                        <button onClick={replay} style={btnStyle}>
+                        <div style={{ color: "#ff6b6b", fontSize: 16 }}>{error || "Failed to load"}</div>
+                        <button onClick={() => void replay()} style={btnStyle}>
                             Retry
                         </button>
                     </Overlay>
                 )}
                 {status === "gameover" && final && (
                     <Overlay>
-                        <div style={{ fontSize: 18, color: "#fff" }}>GAME OVER</div>
-                        <div style={{ fontSize: 28, color: "#ffe66d" }}>{final.score.toLocaleString()}</div>
-                        {submitting && <div style={{ opacity: 0.7 }}>Submitting…</div>}
-                        {!submitting && domain && final.rank != null && (
-                            <div style={{ color: "#aafff0" }}>
-                                Rank #{final.rank}
-                                {final.isPersonalBest ? " — NEW BEST!" : ""}
-                            </div>
-                        )}
-                        {!submitting && !domain && (
-                            <div style={{ opacity: 0.85, maxWidth: 320, textAlign: "center" }}>
-                                Claim a <strong>hack.tez</strong> name to save your score on the leaderboard.
-                            </div>
-                        )}
-                        {submitError && <div style={{ color: "#ff6b6b" }}>{submitError}</div>}
-                        <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={replay} style={btnStyle}>
+                        <GameoverContent final={final} submitting={submitting} domain={domain} submitError={submitError} />
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <button onClick={() => void replay()} style={btnPrimary}>
                                 Play again
                             </button>
                             <button onClick={onExit} style={btnStyle}>
@@ -286,18 +280,84 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
     );
 }
 
+function GameoverContent({
+    final,
+    submitting,
+    domain,
+    submitError,
+}: {
+    final: FinalState;
+    submitting: boolean;
+    domain: string | null;
+    submitError: string | null;
+}) {
+    const isPB = final.isPersonalBest;
+    const delta =
+        isPB && final.previousBest != null && final.previousBest > 0
+            ? final.score - final.previousBest
+            : null;
+
+    return (
+        <>
+            <style>{`@keyframes hackcadePulse { 0%,100% { transform: scale(1); text-shadow: 0 0 12px #ffe66d; } 50% { transform: scale(1.05); text-shadow: 0 0 24px #ffe66d; } }`}</style>
+            <div style={{ fontSize: 14, color: "#fff", letterSpacing: 2, opacity: 0.85 }}>GAME OVER</div>
+            <div
+                style={{
+                    fontSize: 40,
+                    color: "#ffe66d",
+                    fontWeight: 700,
+                    animation: isPB ? "hackcadePulse 1.4s ease-in-out infinite" : undefined,
+                }}
+            >
+                {final.score.toLocaleString()}
+            </div>
+            {submitting && <div style={{ opacity: 0.7, fontSize: 12 }}>Submitting…</div>}
+            {!submitting && domain && final.rank != null && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    {isPB && (
+                        <div
+                            style={{
+                                color: "#7eff9f",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                letterSpacing: 1,
+                                padding: "3px 10px",
+                                border: "1px solid #7eff9f",
+                                borderRadius: 999,
+                                background: "rgba(126,255,159,0.1)",
+                            }}
+                        >
+                            ★ {final.isFirstScore ? "FIRST SCORE" : "NEW PERSONAL BEST"}
+                        </div>
+                    )}
+                    <div style={{ color: "#aafff0", fontSize: 13 }}>
+                        Rank #{final.rank}
+                        {delta != null && <span style={{ opacity: 0.7 }}> · +{delta.toLocaleString()} from previous</span>}
+                    </div>
+                </div>
+            )}
+            {!submitting && !domain && (
+                <div style={{ opacity: 0.85, maxWidth: 320, textAlign: "center", fontSize: 13 }}>
+                    Claim a <strong>hack.tez</strong> name to save your score on the leaderboard.
+                </div>
+            )}
+            {submitError && <div style={{ color: "#ff6b6b", fontSize: 12 }}>{submitError}</div>}
+        </>
+    );
+}
+
 function Overlay({ children }: { children: React.ReactNode }) {
     return (
         <div
             style={{
                 position: "absolute",
                 inset: 0,
-                background: "rgba(0,0,0,0.85)",
+                background: "rgba(0,0,0,0.88)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 12,
+                gap: 10,
                 color: "#aafff0",
                 fontFamily: "ui-monospace,monospace",
                 padding: 16,
@@ -318,4 +378,11 @@ const btnStyle: React.CSSProperties = {
     cursor: "pointer",
     fontFamily: "ui-monospace,monospace",
     fontSize: 14,
+};
+
+const btnPrimary: React.CSSProperties = {
+    ...btnStyle,
+    background: "rgba(0,255,170,0.18)",
+    borderColor: "#7eff9f",
+    color: "#7eff9f",
 };

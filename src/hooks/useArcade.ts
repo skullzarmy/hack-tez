@@ -159,7 +159,13 @@ export async function submitArcadeScore(args: {
     score: number;
     durationSeconds: number;
     metadata?: unknown;
-}): Promise<{ rank: number; isPersonalBest: boolean }> {
+}): Promise<{
+    rank: number;
+    isPersonalBest: boolean;
+    bestScore: number;
+    previousBest: number;
+    isFirstScore: boolean;
+}> {
     const res = await authedFetch(`${API_BASE}/score`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -169,7 +175,13 @@ export async function submitArcadeScore(args: {
         const j = await res.json().catch(() => ({}));
         throw new Error((j as any)?.error || `HTTP ${res.status}`);
     }
-    return (await res.json()) as { rank: number; isPersonalBest: boolean };
+    return (await res.json()) as {
+        rank: number;
+        isPersonalBest: boolean;
+        bestScore: number;
+        previousBest: number;
+        isFirstScore: boolean;
+    };
 }
 
 export async function flagArcadeGame(slug: string, reason: string): Promise<void> {

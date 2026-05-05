@@ -341,13 +341,25 @@ async function submitScore(req: Request): Promise<Response> {
     if (user instanceof Response) return user;
 
     const body = (await req.json().catch(() => null)) as
-        | { sessionId?: string; score?: number; durationMs?: number; metadata?: Record<string, unknown> }
+        | {
+              sessionId?: string;
+              score?: number;
+              durationMs?: number;
+              durationSeconds?: number;
+              metadata?: Record<string, unknown>;
+          }
         | null;
     if (!body?.sessionId || typeof body.score !== "number" || !isFinite(body.score)) {
         return err("Missing sessionId or score", "INVALID_INPUT", 400);
     }
     const score = Math.max(0, Math.floor(body.score));
-    const durationMs = typeof body.durationMs === "number" && body.durationMs > 0 ? Math.floor(body.durationMs) : null;
+    // Accept either durationMs (legacy) or durationSeconds (current SDK).
+    let durationMs: number | null = null;
+    if (typeof body.durationMs === "number" && body.durationMs > 0) {
+        durationMs = Math.floor(body.durationMs);
+    } else if (typeof body.durationSeconds === "number" && body.durationSeconds > 0) {
+        durationMs = Math.floor(body.durationSeconds * 1000);
+    }
 
     const sessions = await sql`
         SELECT id, game_id, player_domain, expires_at, score_submitted
@@ -379,6 +391,11 @@ async function submitScore(req: Request): Promise<Response> {
 
     const label = (user.activeDomain as string).split(".")[0];
     const scoreId = nanoid(24);
+
+    // Capture previous best BEFORE inserting so we can report personal-best delta.
+    const prevBestRow = await sql`SELECT MAX(score)::int AS best FROM arcade_scores
+                                  WHERE game_id=${game.id} AND player_domain=${user.activeDomain}`;
+    const prevBest = ((prevBestRow[0] as any)?.best as number | null) ?? 0;
 
     await sql`
         INSERT INTO arcade_scores (id, game_id, player_domain, player_label, player_address, score, duration_ms, metadata, session_id)
@@ -430,12 +447,17 @@ async function submitScore(req: Request): Promise<Response> {
         WHERE game_id=${game.id} AND score > ${best}`;
     const rank = Number((rankRow[0] as any).rank);
 
+    const isPersonalBest = score > prevBest;
     return json({
         ok: true,
         scoreId,
         rank,
         bestScore: best,
-        isNewHighScore: best === score && score > 0,
+        previousBest: prevBest,
+        isFirstScore: prevBest === 0,
+        isPersonalBest,
+        // Legacy alias kept for any older client.
+        isNewHighScore: isPersonalBest,
     });
 }
 
@@ -830,14 +852,33 @@ async function listPendingUpdates(req: Request): Promise<Response> {
     const user = await requireAdmin(req);
     if (user instanceof Response) return user;
     const rows = await sql`
-        SELECT g.slug, g.title, g.builder_domain, g.ipfs_cid AS current_cid, g.version AS current_version,
+        SELECT g.slug, g.title, g.description, g.category, g.builder_domain,
+               g.ipfs_cid AS current_cid, g.version AS current_version,
                v.id AS version_id, v.version AS new_version, v.ipfs_cid AS new_cid,
                v.uploaded_by, v.scores_reset, v.created_at
         FROM arcade_game_versions v
         JOIN arcade_games g ON g.id = v.game_id
         WHERE v.status='pending'
         ORDER BY v.created_at ASC`;
-    return json({ pendingUpdates: rows });
+    const pendingUpdates = rows.map((r: any) => ({
+        id: r.version_id,
+        versionId: r.version_id,
+        slug: r.slug,
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        builderDomain: r.builder_domain,
+        currentCid: r.current_cid,
+        currentVersion: Number(r.current_version),
+        newCid: r.new_cid,
+        newVersion: Number(r.new_version),
+        ipfsCid: r.new_cid,
+        version: Number(r.new_version),
+        uploadedBy: r.uploaded_by,
+        scoresReset: !!r.scores_reset,
+        createdAt: r.created_at,
+    }));
+    return json({ pendingUpdates });
 }
 
 async function approveGame(req: Request, slug: string): Promise<Response> {
