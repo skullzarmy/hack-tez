@@ -388,16 +388,20 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             c.subscribeToEvent(sdk.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
                 if (account) {
                     hydrateAccount(account.address);
-                } else {
-                    setAddress(null);
-                    setDomain(null);
-                    clearSession();
                 }
+                // Beacon emits ACTIVE_ACCOUNT_SET with `account=null` during
+                // transient reconnect/restore flux even when the wallet is
+                // still connected. Do NOT clear address/session here — that
+                // would silently nuke a valid JWT and force a re-sign-in.
+                // Real disconnects come via the explicit disconnect() call;
+                // real address changes are handled by the address-change
+                // effect below; server-rejected refreshes are handled by
+                // onAuthLost.
             });
         }
         setClient(c);
         return c;
-    }, [hydrateAccount, clearSession]);
+    }, [hydrateAccount]);
 
     // Session restore on mount.
     useEffect(() => {
