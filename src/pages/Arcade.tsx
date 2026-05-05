@@ -33,6 +33,22 @@ export default function ArcadePage() {
 
     return (
         <div style={{ minHeight: "100vh", padding: "16px 12px", maxWidth: 1100, margin: "0 auto" }}>
+            <header style={{ marginBottom: "1rem" }}>
+                <h1
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "clamp(1.4rem, 4vw, 2rem)",
+                        letterSpacing: "-0.02em",
+                        margin: 0,
+                        marginBottom: "0.25rem",
+                    }}
+                >
+                    // HACKCADE
+                </h1>
+                <p style={{ color: "var(--fg-3)", fontSize: "0.9rem", margin: 0 }}>
+                    Build it. Ship it. Brick it.
+                </p>
+            </header>
             <NavBar isAdmin={isAdmin} />
             <Routes>
                 <Route index element={<GameLobby />} />
@@ -62,22 +78,7 @@ function NavBar({ isAdmin }: { isAdmin: boolean }) {
         (flagged.data?.flagged?.length ?? 0);
 
     return (
-        <nav
-            style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                marginBottom: 16,
-                padding: 4,
-                borderRadius: 8,
-                background: "rgba(0,0,0,0.35)",
-                border: "1px solid rgba(0,255,170,0.18)",
-                fontFamily: "ui-monospace,monospace",
-                color: "#aafff0",
-                fontSize: 12,
-                flexWrap: "wrap",
-            }}
-        >
+        <nav className="arcade-tablist" style={{ marginBottom: 16 }}>
             <NavTab to="/arcade" label="Lobby" end />
             <NavTab to="/arcade/submit" label="Submit" />
             <NavTab to="/arcade/sandbox" label="Sandbox" />
@@ -92,38 +93,13 @@ function NavTab({ to, label, end, badge }: { to: string; label: string; end?: bo
         <NavLink
             to={to}
             end={end}
-            style={({ isActive }) => ({
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                borderRadius: 6,
-                background: isActive ? "rgba(0,255,170,0.14)" : "transparent",
-                color: isActive ? "#7eff9f" : "#aafff0",
-                textDecoration: "none",
-                letterSpacing: 0.5,
-                textTransform: "uppercase",
-            })}
+            className={({ isActive }) =>
+                `arcade-tab arcade-tab--md${isActive ? " arcade-tab--active" : ""}`
+            }
         >
             <span>{label}</span>
             {!!badge && badge > 0 && (
-                <span
-                    style={{
-                        minWidth: 18,
-                        padding: "0 5px",
-                        height: 16,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: 999,
-                        fontSize: 10,
-                        fontWeight: 700,
-                        background: "#ffe66d",
-                        color: "#0a0f0d",
-                    }}
-                >
-                    {badge > 99 ? "99+" : badge}
-                </span>
+                <span className="arcade-tab__badge">{badge > 99 ? "99+" : badge}</span>
             )}
         </NavLink>
     );
@@ -140,9 +116,9 @@ function PlayRoute() {
     if (loading && !data) return <ArcadeLoader message="LOADING GAME…" />;
     if (error || !data?.game)
         return (
-            <div style={{ padding: 16, color: "#ff6b6b", fontFamily: "ui-monospace,monospace" }}>
+            <div className="arcade-page" style={{ padding: 16, color: "var(--err)" }}>
                 {error || "Not found"}{" "}
-                <button style={btn} onClick={() => nav("/arcade")}>
+                <button className="arcade-btn arcade-btn--sm" onClick={() => nav("/arcade")}>
                     Back to lobby
                 </button>
             </div>
@@ -154,46 +130,41 @@ function PlayRoute() {
         <div style={{ display: "grid", gap: 16 }}>
             <GamePlayer game={game} domain={activeDomain} address={address} onExit={() => nav("/arcade")} />
 
-            <div
-                style={{
-                    background: "rgba(0,0,0,0.45)",
-                    border: "1px solid rgba(0,255,170,0.25)",
-                    borderRadius: 8,
-                    padding: 16,
-                    color: "#aafff0",
-                    fontFamily: "ui-monospace,monospace",
-                }}
-            >
+            <div className="arcade-card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
                     <div style={{ minWidth: 0 }}>
-                        <h2 style={{ margin: 0, color: "#fff" }}>{game.title}</h2>
+                        <h2 style={{ margin: 0, color: "var(--fg)" }}>{game.title}</h2>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, fontSize: 13 }}>
                             <Hackatar label={game.builder.label} size={20} />
                             <a
                                 href={`/u/${encodeURIComponent(game.builder.label)}`}
-                                style={{ color: "#aafff0", textDecoration: "none" }}
+                                className="arcade-link"
                             >
                                 by {game.builder.domain}
                             </a>
-                            <span style={{ opacity: 0.5 }}>·</span>
-                            <span style={{ opacity: 0.7 }}>{game.category}</span>
-                            <span style={{ opacity: 0.5 }}>·</span>
-                            <span style={{ opacity: 0.7 }}>v{game.version}</span>
+                            <span style={{ color: "var(--fg-3)" }}>·</span>
+                            <span style={{ color: "var(--fg-3)" }}>{game.category}</span>
+                            <span style={{ color: "var(--fg-3)" }}>·</span>
+                            <span style={{ color: "var(--fg-3)" }}>v{game.version}</span>
                         </div>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         {address &&
                             (flagDone ? (
-                                <span style={{ color: "#ffe66d", fontSize: 12 }}>✓ Reported</span>
+                                <span style={{ color: "var(--warn)", fontSize: 12 }}>✓ Reported</span>
                             ) : (
-                                <button style={btnSubtle} onClick={() => setFlagOpen(true)} title="Report this game">
+                                <button
+                                    className="arcade-btn arcade-btn--sm arcade-btn--warn"
+                                    onClick={() => setFlagOpen(true)}
+                                    title="Report this game"
+                                >
                                     Report
                                 </button>
                             ))}
                     </div>
                 </div>
                 {game.description && (
-                    <p style={{ opacity: 0.85, fontSize: 13, marginTop: 12, marginBottom: 0, lineHeight: 1.5 }}>
+                    <p style={{ color: "var(--fg-2)", fontSize: 13, marginTop: 12, marginBottom: 0, lineHeight: 1.5 }}>
                         {game.description}
                     </p>
                 )}
@@ -237,19 +208,12 @@ function Leaderboard({
     myDomain: string | null;
 }) {
     return (
-        <div
-            style={{
-                background: "rgba(0,0,0,0.45)",
-                border: "1px solid rgba(0,255,170,0.25)",
-                borderRadius: 8,
-                padding: 16,
-                color: "#aafff0",
-                fontFamily: "ui-monospace,monospace",
-            }}
-        >
-            <h3 style={{ margin: 0, marginBottom: 8, fontSize: 14, letterSpacing: 1 }}>LEADERBOARD</h3>
+        <div className="arcade-card">
+            <h3 style={{ margin: 0, marginBottom: 8, fontSize: 14, letterSpacing: 1, color: "var(--fg)" }}>
+                LEADERBOARD
+            </h3>
             {!board.length && (
-                <div style={{ opacity: 0.6, fontSize: 13, padding: "12px 0" }}>
+                <div style={{ color: "var(--fg-3)", fontSize: 13, padding: "12px 0" }}>
                     No scores yet — be the first to set one.
                 </div>
             )}
@@ -264,19 +228,24 @@ function Leaderboard({
                             alignItems: "center",
                             gap: 10,
                             padding: "8px 6px",
-                            borderTop: i ? "1px solid rgba(0,255,170,0.08)" : "none",
-                            background: isMe ? "rgba(255,230,109,0.06)" : "transparent",
+                            borderTop: i ? "1px solid var(--border)" : "none",
+                            background: isMe ? "var(--warn-bg)" : "transparent",
                             borderRadius: 4,
                         }}
                     >
-                        <span style={{ color: i === 0 ? "#ffe66d" : "#aafff0", fontWeight: i === 0 ? 700 : 400 }}>
+                        <span
+                            style={{
+                                color: i === 0 ? "var(--warn)" : "var(--fg-2)",
+                                fontWeight: i === 0 ? 700 : 400,
+                            }}
+                        >
                             #{i + 1}
                         </span>
                         <Hackatar label={row.label} size={20} />
                         <a
                             href={`/u/${encodeURIComponent(row.label)}`}
                             style={{
-                                color: isMe ? "#ffe66d" : "#aafff0",
+                                color: isMe ? "var(--warn)" : "var(--accent)",
                                 textDecoration: "none",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
@@ -284,32 +253,12 @@ function Leaderboard({
                             }}
                         >
                             {row.domain}
-                            {isMe && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.7 }}>(you)</span>}
+                            {isMe && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--fg-3)" }}>(you)</span>}
                         </a>
-                        <strong style={{ color: "#fff" }}>{row.score.toLocaleString()}</strong>
+                        <strong style={{ color: "var(--fg)" }}>{row.score.toLocaleString()}</strong>
                     </div>
                 );
             })}
         </div>
     );
 }
-
-const btn: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(0,255,170,0.6)",
-    color: "#aafff0",
-    padding: "6px 12px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-};
-const btnSubtle: React.CSSProperties = {
-    background: "transparent",
-    border: "1px solid rgba(255,184,107,0.5)",
-    color: "#ffb86b",
-    padding: "5px 12px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "ui-monospace,monospace",
-    fontSize: 12,
-};

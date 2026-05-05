@@ -2373,30 +2373,39 @@ a:hover {
 /* Tabs */
 .arcade-tablist {
     display: flex;
-    gap: 2px;
+    gap: 4px;
     flex-wrap: wrap;
-    padding: 4px;
-    border-radius: 8px;
-    background: var(--bg-2);
-    border: 1px solid var(--border-2);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
 }
 .arcade-tab {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     border: none;
-    border-radius: 6px;
+    border-radius: 0;
     background: transparent;
     color: var(--fg-2);
     font-family: var(--font);
+    font-weight: 600;
     letter-spacing: 0.5px;
     cursor: pointer;
     text-transform: uppercase;
-    transition: background 120ms;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 120ms, border-color 120ms;
+}
+.arcade-tab:hover:not([disabled]):not(.arcade-tab--active) {
+    color: var(--fg);
 }
 .arcade-tab--active {
-    background: var(--accent-bg);
+    background: transparent;
     color: var(--accent);
+    border-bottom-color: var(--accent);
 }
 .arcade-tab--sm {
     padding: 4px 10px;
@@ -2424,8 +2433,8 @@ a:hover {
     color: var(--bg);
 }
 .arcade-tab--active .arcade-tab__badge {
-    background: var(--ok);
-    color: var(--bg);
+    background: var(--accent);
+    color: var(--accent-fg);
 }
 
 /* Status badges */

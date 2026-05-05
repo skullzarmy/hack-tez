@@ -55,8 +55,7 @@ export default function GameLobby() {
 
     return (
         <div style={{ padding: "0 4px" }} className="arcade-page">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-                <h1 style={{ margin: 0, letterSpacing: 2, fontSize: 28 }}>HACKCADE</h1>
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
                 <span className="arcade-meta">
                     {filtered.length} of {games.length} {games.length === 1 ? "game" : "games"}
                 </span>
