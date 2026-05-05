@@ -221,6 +221,38 @@ export async function updateArcadeGame(slug: string, form: FormData): Promise<{ 
     return (await res.json()) as { version: number; ipfsCid: string };
 }
 
+/**
+ * Edit a submission's metadata. Pass FormData if you also want to swap the zip
+ * (only valid on pending submissions). Pass a plain object for metadata-only.
+ */
+export async function editArcadeGame(
+    slug: string,
+    body: FormData | Record<string, string | number | null>,
+): Promise<{ slug: string; ipfsCid?: string }> {
+    const init: RequestInit =
+        body instanceof FormData
+            ? { method: "POST", body }
+            : {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify(body),
+              };
+    const res = await authedFetch(`${API_BASE}/games/${encodeURIComponent(slug)}/edit`, init);
+    if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+    }
+    return (await res.json()) as { slug: string; ipfsCid?: string };
+}
+
+export async function rescindArcadeGame(slug: string): Promise<void> {
+    const res = await authedFetch(`${API_BASE}/games/${encodeURIComponent(slug)}/rescind`, { method: "POST" });
+    if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+    }
+}
+
 /** Build the IPFS gateway URL for a game's index. Trailing slash is required. */
 export function gameIframeUrl(cid: string): string {
     const gw = (import.meta.env.VITE_IPFS_GATEWAY as string | undefined) || "ipfs.fileship.xyz";

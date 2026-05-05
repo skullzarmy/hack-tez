@@ -10,6 +10,28 @@ Hackcade games are static web bundles (HTML/JS/CSS/assets) that run inside a san
 
 The SDK is intentionally tiny (~100 lines). It does **not** ship a renderer, physics, audio, or game loop — pick any tools you like (vanilla canvas, Phaser, PixiJS, Kaboom.js, plain DOM). The SDK is just the umbilical to the platform.
 
+## Get the SDK + template
+
+The SDK and a starter template live in the [hack-tez](https://github.com/skullzarmy/hack-tez) repo under `hackcade/`. Grab them directly:
+
+| File | Direct (raw) URL |
+|---|---|
+| Canonical SDK | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js> |
+| TypeScript types | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.d.ts> |
+| Template `index.html` | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/index.html> |
+| Template `style.css` | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/style.css> |
+| Template `game.js` | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/game.js> |
+| Browse template dir | <https://github.com/skullzarmy/hack-tez/tree/main/hackcade/template> |
+
+```bash
+# scaffold a new game in one go
+mkdir my-cool-game && cd my-cool-game
+for f in index.html style.css game.js; do
+  curl -O "https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/$f"
+done
+curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js
+```
+
 ## Bundle format
 
 | Requirement | Detail |
@@ -27,7 +49,7 @@ The platform will:
 1. Strip macOS noise (`__MACOSX/`, `.DS_Store`, `._*`).
 2. Auto-inject `<script src="hackcade-sdk.js"></script>` into `index.html` if missing (preferred location: just before `</head>`).
 3. Always overwrite `hackcade-sdk.js` with the canonical SDK so submitters can't tamper with player identity or session tokens.
-4. Pin the directory to IPFS via Pinata. The game then loads from `https://gateway.pinata.cloud/ipfs/<cid>/`.
+4. Pin the directory to IPFS via Pinata. The game then loads from `https://ipfs.fileship.xyz/ipfs/<cid>/` (gateway is configurable via `VITE_IPFS_GATEWAY`).
 
 ## SDK API
 

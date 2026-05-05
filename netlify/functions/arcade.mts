@@ -6,6 +6,8 @@
  *   GET  /games/:slug                      — game details + mini leaderboard
  *   POST /submit                  [JWT]    — upload zip, pin to IPFS, mark pending
  *   POST /games/:slug/update      [JWT]    — upload new zip, queue new pending version
+ *   POST /games/:slug/edit        [JWT]    — edit metadata (creator+admin); zip swap allowed on pending
+ *   POST /games/:slug/rescind     [JWT]    — creator deletes their own pending submission
  *   POST /session                 [JWT]    — start play session, returns sessionId
  *   POST /score                   [JWT]    — submit final score (sessionId required)
  *   GET  /leaderboard/:slug                — top 100 best-per-player
@@ -259,7 +261,8 @@ async function listMyGames(req: Request): Promise<Response> {
     const user = await requireDomainHolder(req);
     if (user instanceof Response) return user;
     const rows = await sql`
-        SELECT slug,title,description,category,status,ipfs_cid,version,play_count,player_count,
+        SELECT slug,title,description,category,source_url,status,ipfs_cid,version,play_count,player_count,
+               max_possible_score,max_score_per_second,
                rejected_reason,flagged_reason,created_at,updated_at
         FROM arcade_games
         WHERE builder_domain=${user.activeDomain}
@@ -286,6 +289,9 @@ async function listMyGames(req: Request): Promise<Response> {
             version: r.version,
             playCount: Number(r.play_count),
             playerCount: Number(r.player_count),
+            sourceUrl: r.source_url,
+            maxPossibleScore: r.max_possible_score,
+            maxScorePerSecond: r.max_score_per_second,
             rejectedReason: r.rejected_reason,
             flaggedReason: r.flagged_reason,
             createdAt: r.created_at,
@@ -623,6 +629,178 @@ async function updateGame(req: Request, slug: string): Promise<Response> {
     return json({ ok: true, slug, ipfsCid: pin.cid, version: newVersion, status: "pending" });
 }
 
+/**
+ * Edit a submission's metadata (and optionally swap the zip on a pending one).
+ *
+ * Allowed by:
+ *   - The original creator (matched via builder_domain) for any status.
+ *   - Admins, for any status.
+ *
+ * Behavior:
+ *   - Metadata fields (title, description, category, sourceUrl, maxPossibleScore,
+ *     maxScorePerSecond) update in place when provided. Title is immutable —
+ *     changing it would break the slug + leaderboard URL.
+ *   - If a `zip` part is included AND the game is currently `pending`, we
+ *     re-validate, re-pin, replace the IPFS CID on the row + the v1 version
+ *     row. This is in-place — no new version row, no version bump. (Approved
+ *     games must use the /update flow which queues a new version for review.)
+ */
+async function editGame(req: Request, slug: string): Promise<Response> {
+    const user = await requireDomainHolder(req);
+    if (user instanceof Response) return user;
+
+    const games = await sql`SELECT id, version, status, builder_domain FROM arcade_games WHERE slug=${slug}`;
+    if (!games.length) return err("Game not found", "NOT_FOUND", 404);
+    const game = games[0] as any;
+
+    const isCreator = game.builder_domain === user.activeDomain;
+    if (!isCreator && !isAdmin(user)) return err("Not the creator", "FORBIDDEN", 403);
+
+    const ct = req.headers.get("content-type") ?? "";
+    let fields: Record<string, string> = {};
+    let zipBytes: Uint8Array | null = null;
+
+    if (ct.toLowerCase().includes("multipart/form-data")) {
+        const parsed = await readSubmitForm(req).catch(() => null);
+        if (parsed && parsed.ok) {
+            fields = parsed.fields;
+            zipBytes = parsed.zipBytes.length ? parsed.zipBytes : null;
+        } else {
+            // multipart form without a zip is allowed
+            try {
+                const form = await req.formData();
+                for (const [k, v] of form.entries()) {
+                    if (typeof v === "string") fields[k] = v;
+                }
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "form parse failed";
+                return err(`Invalid multipart body: ${msg}`, "INVALID_INPUT", 400);
+            }
+        }
+    } else if (ct.toLowerCase().includes("application/json")) {
+        const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+        if (!body) return err("Invalid JSON body", "INVALID_INPUT", 400);
+        for (const [k, v] of Object.entries(body)) {
+            if (typeof v === "string") fields[k] = v;
+            else if (typeof v === "number") fields[k] = String(v);
+        }
+    } else {
+        return err("multipart/form-data or application/json required", "INVALID_INPUT", 400);
+    }
+
+    // Build update set (only include fields that were actually provided)
+    const updates: Record<string, string | number | null> = {};
+    if ("description" in fields) updates.description = clampStr(fields.description, 600);
+    if ("category" in fields) {
+        const cat = clampStr(fields.category, 24).toLowerCase();
+        updates.category = ALLOWED_CATEGORIES.has(cat) ? cat : "other";
+    }
+    if ("sourceUrl" in fields) updates.source_url = clampStr(fields.sourceUrl, 500) || null;
+    if ("maxPossibleScore" in fields)
+        updates.max_possible_score = parseOptionalNumber(fields.maxPossibleScore, 1_000_000_000);
+    if ("maxScorePerSecond" in fields)
+        updates.max_score_per_second = parseOptionalNumber(fields.maxScorePerSecond, 100_000);
+
+    let newCid: string | null = null;
+    let injectedSdk = false;
+
+    if (zipBytes) {
+        if (game.status !== "pending") {
+            return err("Zip swap only allowed on pending submissions; use the update flow", "NOT_PENDING", 409);
+        }
+        const pinataJwt = process.env.PINATA_JWT;
+        if (!pinataJwt) return err("IPFS pinning not configured", "PINATA_NOT_CONFIGURED", 503);
+
+        const sdkBytes = loadCanonicalSdk();
+        const validation = validateAndExtractGameZip(zipBytes, sdkBytes);
+        if (!validation.ok) return err(validation.error.message, validation.error.code, 422);
+        injectedSdk = validation.injectedSdk;
+
+        const folderName = `hackcade-${slug}-edit-${Date.now()}`;
+        try {
+            const pin = await pinDirectoryToIPFS(validation.files, {
+                pinataJwt,
+                folderName,
+                pinataName: folderName,
+                keyvalues: {
+                    builder: user.activeDomain ?? "",
+                    slug,
+                    version: String(game.version),
+                    edit: "true",
+                },
+            });
+            newCid = pin.cid;
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "pinning failed";
+            return err(msg, "PINATA_ERROR", 502);
+        }
+        updates.ipfs_cid = newCid;
+    }
+
+    if (!Object.keys(updates).length) return err("No editable fields provided", "INVALID_INPUT", 400);
+
+    // Build dynamic UPDATE — neon's tagged template can't compose so use sql.unsafe pattern via a single statement.
+    // Each field is a separate UPDATE to keep things simple + parameterized safely.
+    for (const [col, val] of Object.entries(updates)) {
+        switch (col) {
+            case "description":
+                await sql`UPDATE arcade_games SET description=${val as string}, updated_at=NOW() WHERE slug=${slug}`;
+                break;
+            case "category":
+                await sql`UPDATE arcade_games SET category=${val as string}, updated_at=NOW() WHERE slug=${slug}`;
+                break;
+            case "source_url":
+                await sql`UPDATE arcade_games SET source_url=${val as string | null}, updated_at=NOW() WHERE slug=${slug}`;
+                break;
+            case "max_possible_score":
+                await sql`UPDATE arcade_games SET max_possible_score=${val as number | null}, updated_at=NOW() WHERE slug=${slug}`;
+                break;
+            case "max_score_per_second":
+                await sql`UPDATE arcade_games SET max_score_per_second=${val as number | null}, updated_at=NOW() WHERE slug=${slug}`;
+                break;
+            case "ipfs_cid":
+                await sql`UPDATE arcade_games SET ipfs_cid=${val as string}, updated_at=NOW() WHERE slug=${slug}`;
+                await sql`UPDATE arcade_game_versions SET ipfs_cid=${val as string} WHERE game_id=${game.id} AND version=${game.version}`;
+                break;
+        }
+    }
+
+    await arcadeAudit("game_edit", slug, user.activeDomain!, {
+        fields: Object.keys(updates),
+        zipReplaced: !!newCid,
+        injectedSdk,
+        actorIsAdmin: !isCreator,
+    });
+
+    return json({ ok: true, slug, ipfsCid: newCid ?? undefined });
+}
+
+/**
+ * Rescind a pending submission entirely.
+ *
+ * Creator-only; admins should use /reject (which keeps an audit trail with a
+ * reason). Hard-deletes the game row + cascades the v1 version row. Scores
+ * shouldn't exist yet (game was pending, not playable) but we cascade those
+ * too via the schema FK.
+ */
+async function rescindGame(req: Request, slug: string): Promise<Response> {
+    const user = await requireDomainHolder(req);
+    if (user instanceof Response) return user;
+
+    const games = await sql`SELECT id, status, builder_domain FROM arcade_games WHERE slug=${slug}`;
+    if (!games.length) return err("Game not found", "NOT_FOUND", 404);
+    const game = games[0] as any;
+
+    if (game.builder_domain !== user.activeDomain) return err("Not the creator", "FORBIDDEN", 403);
+    if (game.status !== "pending") {
+        return err("Only pending submissions can be rescinded", "NOT_PENDING", 409);
+    }
+
+    await sql`DELETE FROM arcade_games WHERE id=${game.id}`;
+    await arcadeAudit("game_rescind", slug, user.activeDomain!);
+    return json({ ok: true });
+}
+
 async function flagGame(req: Request, slug: string): Promise<Response> {
     const user = await requireDomainHolder(req);
     if (user instanceof Response) return user;
@@ -645,7 +823,7 @@ async function listPending(req: Request): Promise<Response> {
         SELECT * FROM arcade_games
         WHERE status='pending'
         ORDER BY created_at ASC`;
-    return json({ pending: rows.map(toGameSummary) });
+    return json({ pending: rows.map((r) => toGameDetail(r as GameRow)) });
 }
 
 async function listPendingUpdates(req: Request): Promise<Response> {
@@ -842,7 +1020,7 @@ async function listFlagged(req: Request): Promise<Response> {
     if (user instanceof Response) return user;
     const rows = await sql`
         SELECT * FROM arcade_games WHERE status='flagged' ORDER BY updated_at DESC`;
-    return json({ flagged: rows.map((r) => ({ ...toGameSummary(r), flaggedReason: r.flagged_reason })) });
+    return json({ flagged: rows.map((r) => ({ ...toGameDetail(r as GameRow), flaggedReason: r.flagged_reason })) });
 }
 
 // ---------------------------------------------------------------------------
@@ -939,6 +1117,10 @@ export default async function handler(req: Request, _ctx: Context): Promise<Resp
         if (method === "GET" && path === "/my-games") return await listMyGames(req);
         if (method === "POST" && segments[0] === "games" && segments[2] === "update")
             return await updateGame(req, decodeURIComponent(segments[1]));
+        if (method === "POST" && segments[0] === "games" && segments[2] === "edit")
+            return await editGame(req, decodeURIComponent(segments[1]));
+        if (method === "POST" && segments[0] === "games" && segments[2] === "rescind")
+            return await rescindGame(req, decodeURIComponent(segments[1]));
         if (method === "POST" && segments[0] === "games" && segments[2] === "flag")
             return await flagGame(req, decodeURIComponent(segments[1]));
 

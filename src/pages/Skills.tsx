@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { Link } from "react-router-dom";
+import { Download } from "lucide-react";
 import { skills } from "../lib/skills";
 import { usePageMeta } from "../hooks/usePageMeta";
 
@@ -76,6 +77,27 @@ export default function Skills() {
                                     >
                                         /skills/{skill.slug}
                                     </span>
+                                    <a
+                                        href={`/skills/${skill.filename}`}
+                                        download={skill.filename}
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={`Download ${skill.filename}`}
+                                        style={{
+                                            marginLeft: "auto",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: "0.7rem",
+                                            color: "var(--fg-muted)",
+                                            border: "1px solid var(--border)",
+                                            padding: "0.2em 0.55em",
+                                            textDecoration: "none",
+                                            background: "var(--bg)",
+                                        }}
+                                    >
+                                        <Download size={12} aria-hidden="true" /> .md
+                                    </a>
                                 </div>
                                 {skill.description && (
                                     <p

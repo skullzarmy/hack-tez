@@ -19,16 +19,39 @@ hackcade/
 
 ## Quickstart
 
+**Option A — clone the template directly via curl:**
+
 ```bash
-cp -R hackcade/template my-cool-game
-cd my-cool-game
+mkdir my-cool-game && cd my-cool-game
+curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/index.html
+curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/style.css
+curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/game.js
+curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js
 # edit index.html, game.js, style.css …
 zip -r ../my-cool-game.zip .   # zip the contents (index.html at root)
+```
+
+**Option B — clone the repo and copy:**
+
+```bash
+git clone https://github.com/skullzarmy/hack-tez.git
+cp -R hack-tez/hackcade/template my-cool-game
+cd my-cool-game
+zip -r ../my-cool-game.zip .
 ```
 
 Then sign in with your hack.tez wallet, hit **Submit Game** on `/arcade`, drop the zip. `admin.hack.tez` reviews and approves. Done.
 
 > **Heads up:** The platform always overwrites `hackcade-sdk.js` in your bundle with the canonical SDK from this folder. Don't try to ship a tampered SDK — submitters can't fake the player object or session token.
+
+### Direct downloads
+
+| File | Direct (raw) URL |
+|---|---|
+| Canonical SDK | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js> |
+| TypeScript types | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.d.ts> |
+| Template (browse) | <https://github.com/skullzarmy/hack-tez/tree/main/hackcade/template> |
+| Skills doc (LLM) | <https://raw.githubusercontent.com/skullzarmy/hack-tez/main/src/skills/hackcade-sdk.md> |
 
 ---
 
@@ -113,8 +136,11 @@ The session token (`sessionId`) is bound to one play. The SDK echoes it on every
 
 ## Submission, updates, moderation
 
-- Submit → status `pending` → admin previews + approves → `active` (live in the lobby).
-- Update: upload a new zip from your game's page. Optional "reset leaderboard" checkbox. The current version keeps serving until the new one is approved.
-- Removal: scores are preserved for audit; affected player stats are recomputed.
+- **Submit** → status `pending` → admin previews + approves → `active` (live in the lobby).
+- **Edit (pending)** → creator can change description, category, source URL, score caps, and even swap the zip in place — no version bump, still pending.
+- **Edit (active/flagged)** → creator can edit metadata only. To ship a new build, use Update.
+- **Update** → upload a new zip from your game's page. Optional "reset leaderboard" checkbox. Current version keeps serving until the new one is approved.
+- **Rescind (pending)** → creator can hard-delete their own pending submission before review.
+- **Removal** → admin-only, on `flagged` games. Scores are preserved for audit; affected player stats are recomputed.
 
 See `src/skills/hackcade-sdk.md` for the full protocol, anti-cheat details, and a complete working example.

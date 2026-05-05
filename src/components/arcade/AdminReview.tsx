@@ -9,6 +9,7 @@ import {
     type ArcadeGame,
 } from "../../hooks/useArcade";
 import ArcadeLoader from "./ArcadeLoader";
+import EditGameForm, { type EditableGame } from "./EditGameForm";
 
 const ADMIN_DOMAIN_GHOSTNET = "admin.hack.gho";
 const ADMIN_DOMAIN_MAINNET = "admin.hack.tez";
@@ -70,6 +71,7 @@ export default function AdminReview() {
                                         await adminAction(g.slug, a, body);
                                         pending.reload();
                                     }}
+                                    onEdited={() => pending.reload()}
                                 />
                             ))}
                         </div>
@@ -115,6 +117,7 @@ export default function AdminReview() {
                                         await adminAction(g.slug, a, body);
                                         flagged.reload();
                                     }}
+                                    onEdited={() => flagged.reload()}
                                 />
                             ))}
                         </div>
@@ -176,12 +179,15 @@ function PendingCard({
     game,
     flagged = false,
     onAction,
+    onEdited,
 }: {
     game: ArcadeGame;
     flagged?: boolean;
     onAction: (action: "approve" | "reject" | "remove" | "unflag", body?: Record<string, unknown>) => Promise<void>;
+    onEdited?: () => void;
 }) {
     const [showPreview, setShowPreview] = useState(false);
+    const [editing, setEditing] = useState(false);
     const [reason, setReason] = useState("");
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -208,6 +214,9 @@ function PendingCard({
                 <button style={btn} onClick={() => setShowPreview((s) => !s)}>
                     {showPreview ? "Hide preview" : "Preview"}
                 </button>
+                <button style={btn} onClick={() => setEditing((s) => !s)} disabled={busy}>
+                    {editing ? "Close edit" : "Edit"}
+                </button>
                 {!flagged && (
                     <button style={btnPos} disabled={busy} onClick={() => run("approve")}>
                         Approve
@@ -229,6 +238,16 @@ function PendingCard({
                 onChange={(e) => setReason(e.target.value)}
             />
             {err && <div style={{ color: "#ff6b6b", fontSize: 12 }}>{err}</div>}
+            {editing && (
+                <EditGameForm
+                    game={{ ...(game as EditableGame), status: flagged ? "flagged" : "pending" }}
+                    onSaved={() => {
+                        setEditing(false);
+                        onEdited?.();
+                    }}
+                    onCancel={() => setEditing(false)}
+                />
+            )}
             {showPreview && (
                 <iframe
                     src={gameIframeUrl(game.ipfsCid)}

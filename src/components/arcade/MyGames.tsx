@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { useTezos } from "../../context/TezosContext";
-import { useMyGames, type ArcadeGame } from "../../hooks/useArcade";
+import { rescindArcadeGame, useMyGames, type ArcadeGame } from "../../hooks/useArcade";
 import ArcadeLoader from "./ArcadeLoader";
+import EditGameForm, { type EditableGame } from "./EditGameForm";
 
 export default function MyGames() {
     const { activeDomain, address, chatDomains, connect } = useTezos();
     const domain = activeDomain ?? chatDomains[0] ?? null;
-    const { data, loading, error } = useMyGames(domain);
+    const { data, loading, error, reload } = useMyGames(domain);
 
     if (!address) {
         return (
@@ -43,14 +45,14 @@ export default function MyGames() {
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {games.map((g) => (
-                    <Row key={g.slug} game={g} />
+                    <Row key={g.slug} game={g} onChanged={reload} />
                 ))}
             </div>
         </div>
     );
 }
 
-function Row({ game }: { game: ArcadeGame }) {
+function Row({ game, onChanged }: { game: ArcadeGame; onChanged: () => void }) {
     const status = game.status ?? "active";
     const color =
         status === "active"
@@ -60,6 +62,26 @@ function Row({ game }: { game: ArcadeGame }) {
               : status === "rejected" || status === "removed"
                 ? "#ff6b6b"
                 : "#aafff0";
+    const [editing, setEditing] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState<string | null>(null);
+    const canEdit = status === "pending" || status === "active" || status === "flagged";
+    const canRescind = status === "pending";
+
+    async function rescind() {
+        if (!window.confirm(`Rescind "${game.title}"? This permanently deletes your pending submission.`)) return;
+        setBusy(true);
+        setErr(null);
+        try {
+            await rescindArcadeGame(game.slug);
+            onChanged();
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : "rescind failed");
+        } finally {
+            setBusy(false);
+        }
+    }
+
     return (
         <div style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -69,13 +91,34 @@ function Row({ game }: { game: ArcadeGame }) {
             <div style={{ opacity: 0.7, fontSize: 12 }}>
                 {game.playCount.toLocaleString()} plays · {game.playerCount.toLocaleString()} players · v{game.version}
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {status === "active" && (
                     <a style={btnLink} href={`/arcade/play/${encodeURIComponent(game.slug)}`}>
                         Play
                     </a>
                 )}
+                {canEdit && (
+                    <button style={btn} onClick={() => setEditing((s) => !s)} disabled={busy}>
+                        {editing ? "Close" : "Edit"}
+                    </button>
+                )}
+                {canRescind && (
+                    <button style={btnDanger} onClick={rescind} disabled={busy}>
+                        {busy ? "…" : "Rescind"}
+                    </button>
+                )}
             </div>
+            {err && <div style={{ color: "#ff6b6b", fontSize: 12 }}>{err}</div>}
+            {editing && (
+                <EditGameForm
+                    game={game as EditableGame}
+                    onSaved={() => {
+                        setEditing(false);
+                        onChanged();
+                    }}
+                    onCancel={() => setEditing(false)}
+                />
+            )}
         </div>
     );
 }
@@ -100,3 +143,4 @@ const btn: React.CSSProperties = {
     fontFamily: "ui-monospace,monospace",
 };
 const btnLink: React.CSSProperties = { ...btn, textDecoration: "none", display: "inline-block" };
+const btnDanger: React.CSSProperties = { ...btn, borderColor: "rgba(255,107,107,0.6)", color: "#ff6b6b" };

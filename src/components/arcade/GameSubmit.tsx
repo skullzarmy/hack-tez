@@ -2,9 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTezos } from "../../context/TezosContext";
 import { submitArcadeGame } from "../../hooks/useArcade";
+import FilePicker from "./FilePicker";
 
 const CATEGORIES = ["action", "puzzle", "arcade", "rpg", "shooter", "platform", "other"];
 const MAX_ZIP_BYTES = 5 * 1024 * 1024;
+const SDK_RAW_URL =
+    "https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js";
+const TEMPLATE_TREE_URL = "https://github.com/skullzarmy/hack-tez/tree/main/hackcade/template";
 
 export default function GameSubmit() {
     const nav = useNavigate();
@@ -109,8 +113,16 @@ export default function GameSubmit() {
                 <a href="/skills/hackcade-sdk" style={{ color: "#ffe66d" }}>
                     Hackcade SDK skill
                 </a>{" "}
-                for how to build a game.
+                or grab files directly:
             </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
+                <a href={SDK_RAW_URL} target="_blank" rel="noopener noreferrer" style={pillLink}>
+                    ↓ hackcade-sdk.js
+                </a>
+                <a href={TEMPLATE_TREE_URL} target="_blank" rel="noopener noreferrer" style={pillLink}>
+                    ↗ template/
+                </a>
+            </div>
 
             <Field label="Title (max 80)">
                 <input style={inp} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} required />
@@ -154,13 +166,7 @@ export default function GameSubmit() {
                 />
             </Field>
             <Field label="Game zip (≤ 5 MB)">
-                <input
-                    style={inp}
-                    type="file"
-                    accept=".zip,application/zip"
-                    onChange={(e) => setZip(e.target.files?.[0] ?? null)}
-                    required
-                />
+                <FilePicker file={zip} onChange={setZip} maxBytes={MAX_ZIP_BYTES} required />
             </Field>
             {error && <div style={{ color: "#ff6b6b" }}>{error}</div>}
             <button style={{ ...btn, alignSelf: "flex-start" }} type="submit" disabled={submitting}>
@@ -195,5 +201,17 @@ const btn: React.CSSProperties = {
     padding: "8px 16px",
     borderRadius: 4,
     cursor: "pointer",
+    fontFamily: "ui-monospace,monospace",
+};
+
+const pillLink: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "4px 10px",
+    border: "1px solid rgba(0,255,170,0.4)",
+    borderRadius: 999,
+    color: "#aafff0",
+    textDecoration: "none",
     fontFamily: "ui-monospace,monospace",
 };

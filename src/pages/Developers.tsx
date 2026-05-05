@@ -71,6 +71,15 @@ const NAV: NavSection[] = [
             { id: "chat-ws", label: "WebSocket Protocol" },
         ],
     },
+    {
+        id: "arcade",
+        label: "Hackcade",
+        children: [
+            { id: "arcade-overview", label: "Overview" },
+            { id: "arcade-sdk", label: "SDK + Template" },
+            { id: "arcade-endpoints", label: "REST Endpoints" },
+        ],
+    },
     { id: "quickstart", label: "Quick Start" },
     { id: "llm-skill", label: "LLM Skill" },
 ];
@@ -2572,6 +2581,121 @@ ws.send(JSON.stringify({ type: "message", content: "gm hackers" }))
   "timestamp": "2025-01-15T12:00:00.000Z"
 }`}
                             />
+                        </div>
+                    </section>
+
+                    {/* ---- Hackcade ---- */}
+                    <section style={{ marginTop: "3rem" }}>
+                        <div
+                            style={{
+                                borderTop: "1px solid var(--border)",
+                                paddingTop: "2.5rem",
+                                scrollMarginTop: `${NAV_OFFSET + 16}px`,
+                            }}
+                            id="arcade"
+                        >
+                            <SectionHeading id="arcade-overview">Hackcade</SectionHeading>
+                            <p style={{ color: "var(--fg-muted)" }}>
+                                Hackcade is the hack.tez arcade platform. Anyone with a hack.tez domain can submit a
+                                static HTML/JS/CSS game zip; admins approve, the bundle is pinned to IPFS, and players
+                                compete on per-game leaderboards keyed by their hack.tez identity.
+                            </p>
+                            <p style={{ color: "var(--fg-muted)" }}>
+                                The lobby is at <a href="/arcade">/arcade</a>. Full SDK reference, postMessage protocol,
+                                anti-cheat constraints, and a worked example live in the{" "}
+                                <a href="/skills/hackcade-sdk">Hackcade SDK skill doc</a>.
+                            </p>
+
+                            <div id="arcade-sdk" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px`, marginTop: "2rem" }}>
+                                <h3 style={{ fontFamily: "var(--font-mono)", fontSize: "1rem" }}>SDK + Template</h3>
+                                <p style={{ color: "var(--fg-muted)" }}>
+                                    The SDK is auto-injected into your bundle on submission, but you can grab it (and a
+                                    starter template) directly from the repo:
+                                </p>
+                                <CodeBlock
+                                    lang="bash"
+                                    code={`# scaffold a new game
+mkdir my-cool-game && cd my-cool-game
+for f in index.html style.css game.js; do
+  curl -O "https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/template/$f"
+done
+curl -O https://raw.githubusercontent.com/skullzarmy/hack-tez/main/hackcade/sdk/hackcade-sdk.js
+
+# build, then zip (index.html must be at the root)
+zip -r ../my-cool-game.zip .`}
+                                />
+                                <ul style={{ color: "var(--fg-muted)", fontSize: "0.9rem", lineHeight: 1.7 }}>
+                                    <li>
+                                        SDK source:{" "}
+                                        <a
+                                            href="https://github.com/skullzarmy/hack-tez/tree/main/hackcade/sdk"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            hackcade/sdk
+                                        </a>
+                                    </li>
+                                    <li>
+                                        Template:{" "}
+                                        <a
+                                            href="https://github.com/skullzarmy/hack-tez/tree/main/hackcade/template"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            hackcade/template
+                                        </a>
+                                    </li>
+                                    <li>
+                                        Builder docs:{" "}
+                                        <a
+                                            href="https://github.com/skullzarmy/hack-tez/blob/main/hackcade/README.md"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            hackcade/README.md
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div
+                                id="arcade-endpoints"
+                                style={{ scrollMarginTop: `${NAV_OFFSET + 16}px`, marginTop: "2rem" }}
+                            >
+                                <h3 style={{ fontFamily: "var(--font-mono)", fontSize: "1rem" }}>REST Endpoints</h3>
+                                <p style={{ color: "var(--fg-muted)" }}>
+                                    Base path: <code>/api/v1/arcade</code>. JWT-gated routes use the same auth layer as
+                                    chat (see <a href="#chat-auth">Chat → Authentication</a>).
+                                </p>
+                                <CodeBlock
+                                    lang="http"
+                                    code={`# Public reads
+GET    /api/v1/arcade/games                  # active games
+GET    /api/v1/arcade/games/:slug            # game detail + mini leaderboard
+GET    /api/v1/arcade/leaderboard/:slug      # top 100 (best per player)
+GET    /api/v1/arcade/recent                 # recent plays
+GET    /api/v1/arcade/player/:domain         # player stats
+
+# Authenticated (JWT — domain holders)
+POST   /api/v1/arcade/submit                 # multipart zip upload
+POST   /api/v1/arcade/games/:slug/edit       # edit metadata; pending allows zip swap
+POST   /api/v1/arcade/games/:slug/rescind    # creator deletes own pending submission
+POST   /api/v1/arcade/games/:slug/update     # new pending version (active games)
+POST   /api/v1/arcade/games/:slug/flag       # community flag
+POST   /api/v1/arcade/session                # start a play session
+POST   /api/v1/arcade/score                  # submit final score
+GET    /api/v1/arcade/my-games               # caller's submissions
+
+# Admin-only (admin.hack.tez)
+GET    /api/v1/arcade/pending                # pending new games
+GET    /api/v1/arcade/pending-updates        # pending version updates
+GET    /api/v1/arcade/flagged                # flagged games
+POST   /api/v1/arcade/games/:slug/approve
+POST   /api/v1/arcade/games/:slug/reject
+POST   /api/v1/arcade/games/:slug/remove
+POST   /api/v1/arcade/games/:slug/approve-update`}
+                                />
+                            </div>
                         </div>
                     </section>
 
