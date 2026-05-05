@@ -223,6 +223,6 @@ export async function updateArcadeGame(slug: string, form: FormData): Promise<{ 
 
 /** Build the IPFS gateway URL for a game's index. Trailing slash is required. */
 export function gameIframeUrl(cid: string): string {
-    const gw = (import.meta.env.VITE_IPFS_GATEWAY as string | undefined) || "gateway.pinata.cloud";
+    const gw = (import.meta.env.VITE_IPFS_GATEWAY as string | undefined) || "ipfs.fileship.xyz";
     return `https://${gw}/ipfs/${cid}/`;
 }
