@@ -41,6 +41,10 @@ export default async function handler(req: Request): Promise<Response> {
             "Content-Type": contentType,
             // Bundle contents are immutable per (gameId, version) tuple — version is bumped on update.
             "Cache-Control": "public, max-age=31536000, immutable",
+            // Override the site-wide DENY / frame-ancestors 'none' so the game can be embedded
+            // in same-origin iframes (GamePlayer, AdminReview, EditGameForm preview).
+            "X-Frame-Options": "SAMEORIGIN",
+            "Content-Security-Policy": "frame-ancestors 'self'",
         },
     });
 }
