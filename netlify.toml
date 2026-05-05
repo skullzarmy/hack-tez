@@ -50,3 +50,11 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Hackcade game bundles must be embeddable in same-origin iframes.
+# Override the global frame-ancestors 'none' / X-Frame-Options DENY.
+[[headers]]
+  for = "/arcade-files/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "frame-ancestors 'self'"
