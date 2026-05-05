@@ -1,113 +1,191 @@
 /**
- * Hackcade SDK — postMessage bridge between game iframe and hack.tez platform.
+ * Hackcade SDK — postMessage bridge between game iframe and the hack.tez Hackcade.
  *
- * This is NOT a game engine. It is a thin umbilical to the platform:
- *   - Identity (current player domain, label, address, avatar URL)
- *   - Score reporting (live updates + final submission)
- *   - Lifecycle events (start, pause, resume)
+ * ESM only. Import as a module:
  *
- * Use any rendering / physics / input / audio you like. The SDK does not care.
+ *     <script type="module">
+ *       import sdk from "./hackcade-sdk.js";
+ *       const player = await sdk.ready();
+ *       sdk.events.addEventListener("start", () => start());
+ *       sdk.updateScore(123);
+ *       sdk.gameOver(456, { level: 3 });
+ *     </script>
  *
- * Usage:
- *   const sdk = window.hackcade;
- *   const player = await sdk.getPlayer();   // identity
- *   await sdk.ready();                       // signal we're loaded
- *   sdk.on('start', () => startGame());
- *   sdk.updateScore(123);                    // live score in the chrome
- *   sdk.gameOver(456, { level: 3 });         // final score → leaderboard
+ * The SDK is intentionally tiny — it does NOT ship a renderer, physics, audio,
+ * or input. Use anything you like. The SDK is just the umbilical to the
+ * platform: identity in, score out, lifecycle in both directions.
+ *
+ * Two-way protocol:
+ *   game → platform:  hackcade:ready, hackcade:score, hackcade:gameover, hackcade:event
+ *   platform → game:  hackcade:init, hackcade:start, hackcade:pause, hackcade:resume, hackcade:visibility
+ *
+ * @typedef {object} HackcadePlayer
+ * @property {string} domain      Full name, e.g. "skull.hack.tez". Empty for guests.
+ * @property {string} label       Label only, e.g. "skull". "guest" for unauthenticated.
+ * @property {string} address     tz1... wallet address. Empty for guests.
+ * @property {string} avatarUrl   Profile picture or hackatar URL.
+ * @property {string} hackatarUrl Generative hackatar URL (always set for authed players).
+ *
+ * @typedef {"start"|"pause"|"resume"|"visibility"} HackcadeEventName
  */
-(function () {
-    "use strict";
 
-    if (window.hackcade) return; // already injected
+const events = new EventTarget();
 
-    /** @typedef {{domain:string,label:string,address:string,avatarUrl:string,hackatarUrl:string}} HackcadePlayer */
+let _player = /** @type {HackcadePlayer|null} */ (null);
+let _session = /** @type {string|null} */ (null);
+let _ready = false;
+let _resolveReady = /** @type {((p: HackcadePlayer) => void) | null} */ (null);
+const _readyPromise = /** @type {Promise<HackcadePlayer>} */ (
+    new Promise((res) => {
+        _resolveReady = res;
+    })
+);
 
-    /** @type {string|null} */
-    let sessionId = null;
-    /** @type {HackcadePlayer|null} */
-    let player = null;
-    let initResolver = null;
-    /** @type {Promise<HackcadePlayer>} */
-    const initPromise = new Promise((resolve) => { initResolver = resolve; });
+function send(msg) {
+    try {
+        window.parent.postMessage(msg, "*");
+    } catch {
+        /* parent gone */
+    }
+}
 
-    /** @type {Record<string, Set<() => void>>} */
-    const listeners = { start: new Set(), pause: new Set(), resume: new Set() };
+window.addEventListener("message", (e) => {
+    const data = e && e.data;
+    if (!data || typeof data !== "object") return;
+    const type = data.type;
+    if (typeof type !== "string" || !type.startsWith("hackcade:")) return;
 
-    function send(msg) {
-        try {
-            window.parent.postMessage(msg, "*");
-        } catch (_) {
-            // parent gone or cross-origin issue — drop silently
+    if (type === "hackcade:init") {
+        _session = typeof data.sessionId === "string" ? data.sessionId : null;
+        _player = data.player || makeGuest();
+        _ready = true;
+        if (_resolveReady) {
+            _resolveReady(_player);
+            _resolveReady = null;
         }
+        events.dispatchEvent(new CustomEvent("init", { detail: { player: _player, session: _session } }));
+        return;
     }
 
-    window.addEventListener("message", (e) => {
-        const data = e && e.data;
-        if (!data || typeof data !== "object") return;
-        const type = data.type;
-        if (typeof type !== "string" || !type.startsWith("hackcade:")) return;
+    const name = type.slice("hackcade:".length);
+    if (name === "start" || name === "pause" || name === "resume" || name === "visibility") {
+        events.dispatchEvent(new CustomEvent(name, { detail: data }));
+    }
+});
 
-        if (type === "hackcade:init") {
-            sessionId = typeof data.sessionId === "string" ? data.sessionId : null;
-            player = data.player || null;
-            if (initResolver) {
-                initResolver(player);
-                initResolver = null;
-            }
-            return;
-        }
-
-        if (type === "hackcade:start" || type === "hackcade:pause" || type === "hackcade:resume") {
-            const event = type.slice("hackcade:".length);
-            const set = listeners[event];
-            if (set) set.forEach((cb) => { try { cb(); } catch (_) {} });
-        }
-    });
-
-    const sdk = {
-        /** Tell the platform we're loaded and ready. Resolves once init has arrived. */
-        async ready() {
-            send({ type: "hackcade:ready" });
-            await initPromise;
-        },
-
-        /** Get the current player. Resolves after init. Guests have empty domain/label="guest"/empty address. */
-        async getPlayer() {
-            if (player) return player;
-            return initPromise;
-        },
-
-        /** Whether the current player is a guest (no hack.tez domain). */
-        isGuest() {
-            return !player || !player.domain;
-        },
-
-        /** Live score — shown in the platform chrome above the iframe. */
-        updateScore(score) {
-            if (typeof score !== "number" || !isFinite(score)) return;
-            send({ type: "hackcade:score", score: Math.floor(score), sessionId });
-        },
-
-        /** Final score — submits to the leaderboard (if authenticated). */
-        gameOver(finalScore, metadata) {
-            if (typeof finalScore !== "number" || !isFinite(finalScore)) finalScore = 0;
-            send({
-                type: "hackcade:gameover",
-                score: Math.floor(finalScore),
-                sessionId,
-                metadata: metadata && typeof metadata === "object" ? metadata : undefined,
-            });
-        },
-
-        /** Subscribe to platform lifecycle events. Returns an unsubscribe fn. */
-        on(event, callback) {
-            const set = listeners[event];
-            if (!set || typeof callback !== "function") return () => {};
-            set.add(callback);
-            return () => set.delete(callback);
-        },
+function makeGuest() {
+    return {
+        domain: "",
+        label: "guest",
+        address: "",
+        avatarUrl: "",
+        hackatarUrl: "",
     };
+}
 
-    Object.defineProperty(window, "hackcade", { value: sdk, writable: false, configurable: false });
-})();
+const sdk = {
+    /** Live `EventTarget` for `init`, `start`, `pause`, `resume`, `visibility`. */
+    events,
+
+    /** Synchronous accessor for the current player. `null` until `ready()` resolves. */
+    get player() {
+        return _player;
+    },
+
+    /** Synchronous accessor for the current session id. `null` until `ready()` resolves. */
+    get session() {
+        return _session;
+    },
+
+    /** Whether the platform has sent `init`. */
+    get isReady() {
+        return _ready;
+    },
+
+    /**
+     * Tell the platform we're loaded. Resolves with the player once `init` arrives.
+     * Call this once during boot. Safe to await many times.
+     * @returns {Promise<HackcadePlayer>}
+     */
+    async ready() {
+        send({ type: "hackcade:ready" });
+        return _readyPromise;
+    },
+
+    /**
+     * Get the current player. Resolves after `init`.
+     * @returns {Promise<HackcadePlayer>}
+     */
+    async getPlayer() {
+        if (_player) return _player;
+        return _readyPromise;
+    },
+
+    /** True if the player has no hack.tez domain. */
+    isGuest() {
+        return !_player || !_player.domain;
+    },
+
+    /**
+     * Friendly greeting helper: "Hi, skull.hack.tez" or "Hi, guest".
+     * @returns {string}
+     */
+    greeting() {
+        if (!_player || !_player.domain) return "Hi, guest";
+        return `Hi, ${_player.domain}`;
+    },
+
+    /**
+     * Update the live score shown in the platform chrome above the iframe.
+     * Call as often as you like during play.
+     * @param {number} score
+     */
+    updateScore(score) {
+        if (typeof score !== "number" || !isFinite(score)) return;
+        send({ type: "hackcade:score", score: Math.floor(score), sessionId: _session });
+    },
+
+    /**
+     * Submit the final score to the leaderboard. The platform will only persist
+     * scores for authenticated players (guests' results are dropped).
+     * @param {number} finalScore
+     * @param {object} [options]
+     * @param {number} [options.durationSeconds]  Duration of the round in seconds.
+     * @param {number} [options.durationMs]       Or in milliseconds.
+     * @param {Record<string, unknown>} [options.metadata]  Free-form metadata for the entry.
+     */
+    gameOver(finalScore, options) {
+        let score = Math.floor(typeof finalScore === "number" && isFinite(finalScore) ? finalScore : 0);
+        const durationSeconds = options && typeof options.durationSeconds === "number"
+            ? options.durationSeconds
+            : undefined;
+        const durationMs = options && typeof options.durationMs === "number" ? options.durationMs : undefined;
+        const metadata = options && options.metadata && typeof options.metadata === "object"
+            ? options.metadata
+            : undefined;
+        send({
+            type: "hackcade:gameover",
+            score,
+            sessionId: _session,
+            durationSeconds,
+            durationMs,
+            metadata,
+        });
+    },
+
+    /**
+     * Convenience event subscription. Same as `events.addEventListener` but returns
+     * an unsubscribe function.
+     * @param {HackcadeEventName | "init"} event
+     * @param {(detail: any) => void} handler
+     * @returns {() => void}
+     */
+    on(event, handler) {
+        const wrapped = (e) => handler(e.detail);
+        events.addEventListener(event, wrapped);
+        return () => events.removeEventListener(event, wrapped);
+    },
+};
+
+export default sdk;
+export { events };

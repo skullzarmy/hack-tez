@@ -9,10 +9,11 @@ This directory contains:
 ```
 hackcade/
 ├── sdk/                       # Canonical SDK (don't fork — the platform overwrites your copy on submit)
-│   ├── hackcade-sdk.js        # ~100 LOC postMessage bridge
+│   ├── hackcade-sdk.js        # ESM postMessage bridge (~150 LOC)
 │   └── hackcade-sdk.d.ts      # TypeScript types
 ├── template/                  # Bare-minimum starting point — copy and edit
-└── games/                     # Built-in starter games (zip-ready bundles)
+└── games/                     # Reference games (zip-ready bundles)
+    └── whack-a-reggie/        # Canonical reference — read this for a real example
 ```
 
 ---
@@ -57,16 +58,29 @@ Then sign in with your hack.tez wallet, hit **Submit Game** on `/arcade`, drop t
 
 ## SDK at a glance
 
+The SDK is **ESM only**. Import it as a module:
+
+```html
+<script type="module" src="game.js"></script>
+```
+
 ```js
-const sdk = window.hackcade;
+// game.js
+import sdk from "./hackcade-sdk.js";
 
-await sdk.ready();                               // tell platform we're booted
-const player = await sdk.getPlayer();            // { domain, label, address, avatarUrl, hackatarUrl }
+// Boot: signal ready, then read identity.
+const player = await sdk.ready();
+document.getElementById("hi").textContent = sdk.greeting();   // "Hi, skull.hack.tez"
 
-sdk.updateScore(123);                            // live score in chrome
-sdk.gameOver(456, { level: 3 });                 // final → leaderboard
+// Live score (shown in platform chrome).
+sdk.updateScore(123);
 
-const off = sdk.on("pause", () => pauseGame());  // returns unsubscribe fn
+// Final score → leaderboard.
+sdk.gameOver(456, { durationMs: 30_000, metadata: { level: 3 } });
+
+// Two-way: react to platform pause/resume.
+sdk.on("pause", pauseGame);
+sdk.on("resume", resumeGame);
 ```
 
 Full API + protocol + worked example: see [`src/skills/hackcade-sdk.md`](../src/skills/hackcade-sdk.md). It's the LLM-ready skill — point your AI agent at it and let it write your game.
@@ -102,10 +116,14 @@ Most hack.tez users are on phones. Build for a thumb in portrait orientation:
 
 ## Local development
 
-The SDK is bundled in every game folder. To test standalone (no platform), mock the parent:
+Easiest path: use the **`/arcade/sandbox`** page on the live site (or your local dev server) — drop your zip in, it runs entirely in your browser with mocked identity, lifecycle controls, and a full event log. No server, no submission needed.
+
+The same sandbox is also embedded in the Submit form as **▶ Preview locally** — always preview before you submit.
+
+If you want to run truly standalone (no hack.tez at all), the SDK degrades gracefully: `ready()` will hang because there's no parent. Mock the parent yourself:
 
 ```js
-// dev-mock.js — load BEFORE hackcade-sdk.js during local dev
+// dev-mock.js — load BEFORE the SDK module during local dev
 window.addEventListener("message", (e) => {
     if (e.data?.type === "hackcade:ready") {
         window.postMessage({
@@ -116,8 +134,6 @@ window.addEventListener("message", (e) => {
     }
 });
 ```
-
-Then just open `index.html` in a browser. (For mobile testing, `npx serve .`.)
 
 ---
 

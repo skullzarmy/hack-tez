@@ -1,4 +1,6 @@
 /* Flappy Bower — tap-to-flap. Each cleared pipe pair = 1 point. */
+import sdk from "./hackcade-sdk.js";
+
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 const hud = document.getElementById('hud-score');
@@ -49,7 +51,7 @@ function update(dt) {
   for (const p of pipes) {
     p.x -= 180 * dt;
     if (!p.passed && p.x + PIPE_W < bird.x) {
-      p.passed = true; score++; hud.textContent = score; window.hackcade.updateScore(score);
+      p.passed = true; score++; hud.textContent = score; sdk.updateScore(score);
     }
     if (
       bird.x + bird.r > p.x && bird.x - bird.r < p.x + PIPE_W &&
@@ -77,7 +79,7 @@ function die() {
   if (!alive) return;
   alive = false;
   const dur = Math.round((performance.now() - t0) / 1000);
-  window.hackcade.gameOver({ score, durationSeconds: dur });
+  sdk.gameOver(score, { durationSeconds: dur });
   overlay.classList.remove('hidden');
   overlay.querySelector('p').textContent = `Score: ${score} · ${dur}s. Tap Start to retry.`;
   startBtn.textContent = 'PLAY AGAIN';
@@ -90,4 +92,4 @@ startBtn.addEventListener('click', () => {
   requestAnimationFrame(loop);
 });
 
-window.hackcade.ready();
+sdk.ready();

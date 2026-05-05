@@ -1,6 +1,7 @@
 html,body{margin:0;height:100%;background:#0a0a14;color:#aafff0;font-family:ui-monospace,monospace;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none;}
 header{display:flex;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,.4);font-size:14px;}
 #hud-score{color:#ffe66d;}
+#hud-player{opacity:.7;font-size:12px;}
 #grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:8px;padding:12px;height:calc(100% - 50px);box-sizing:border-box;}
 .hole{background:#16162a;border-radius:50%;position:relative;overflow:hidden;}
 .reggie{position:absolute;inset:10%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7dffce,#0d9c70);transform:translateY(120%);transition:transform .25s;cursor:pointer;}

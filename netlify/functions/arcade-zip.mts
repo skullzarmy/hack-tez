@@ -49,7 +49,7 @@ export type ValidationResult =
     | { ok: true; files: ExtractedFile[]; injectedSdk: boolean }
     | { ok: false; error: ValidationError };
 
-const SDK_TAG = '<script src="hackcade-sdk.js"></script>';
+const SDK_TAG = '<script type="module" src="hackcade-sdk.js"></script>';
 
 function ext(path: string): string {
     const i = path.lastIndexOf(".");

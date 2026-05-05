@@ -1,5 +1,7 @@
 /* Hackatar Match — flip pairs of hackatars in as few moves as possible.
    Score = max(0, 5000 - moves * 60 - elapsedSeconds * 10) */
+import sdk from "./hackcade-sdk.js";
+
 const board = document.getElementById('board');
 const hudMoves = document.getElementById('hud-moves');
 const hudTime = document.getElementById('hud-time');
@@ -15,7 +17,7 @@ function setTime(n) { elapsed = n; hudTime.textContent = `${n}s`; }
 
 function previewScore() {
   const s = Math.max(0, 5000 - moves * 60 - elapsed * 10);
-  window.hackcade.updateScore(s);
+  sdk.updateScore(s);
   return s;
 }
 
@@ -76,11 +78,11 @@ function end() {
   started = false;
   clearInterval(tick);
   const final = previewScore();
-  window.hackcade.gameOver({ score: final, durationSeconds: elapsed, metadata: { moves } });
+  sdk.gameOver(final, { durationSeconds: elapsed, metadata: { moves } });
   overlay.classList.remove('hidden');
   overlay.querySelector('p').textContent = `Score: ${final} · ${moves} moves · ${elapsed}s`;
   startBtn.textContent = 'PLAY AGAIN';
 }
 
 startBtn.addEventListener('click', start);
-window.hackcade.ready();
+sdk.ready();

@@ -7,7 +7,7 @@
  *   /arcade/admin      → moderation (gated)
  */
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { useTezos } from "../context/TezosContext";
 import { Hackatar } from "../components/Hackatar";
@@ -26,6 +26,8 @@ import {
     useArcadePendingUpdates,
 } from "../hooks/useArcade";
 
+const Sandbox = lazy(() => import("../components/arcade/Sandbox"));
+
 const ADMIN_DOMAIN_GHOSTNET = "admin.hack.gho";
 const ADMIN_DOMAIN_MAINNET = "admin.hack.tez";
 const ADMIN_DOMAIN =
@@ -42,6 +44,11 @@ export default function ArcadePage() {
                 <Route index element={<GameLobby />} />
                 <Route path="play/:slug" element={<PlayRoute />} />
                 <Route path="submit" element={<GameSubmit />} />
+                <Route path="sandbox" element={
+                    <Suspense fallback={<ArcadeLoader message="LOADING SANDBOX…" />}>
+                        <Sandbox />
+                    </Suspense>
+                } />
                 <Route path="my-games" element={<MyGames />} />
                 {isAdmin && <Route path="admin" element={<AdminReview />} />}
                 <Route path="*" element={<Navigate to="/arcade" replace />} />
@@ -79,6 +86,7 @@ function NavBar({ isAdmin }: { isAdmin: boolean }) {
         >
             <NavTab to="/arcade" label="Lobby" end />
             <NavTab to="/arcade/submit" label="Submit" />
+            <NavTab to="/arcade/sandbox" label="Sandbox" />
             <NavTab to="/arcade/my-games" label="My games" />
             {isAdmin && <NavTab to="/arcade/admin" label="Admin" badge={adminCount} />}
         </nav>

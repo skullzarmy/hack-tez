@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTezos } from "../../context/TezosContext";
 import { submitArcadeGame } from "../../hooks/useArcade";
 import FilePicker from "./FilePicker";
+import Modal from "./ui/Modal";
+
+const Sandbox = lazy(() => import("./Sandbox"));
 
 const CATEGORIES = ["action", "puzzle", "arcade", "rpg", "shooter", "platform", "other"];
 const MAX_ZIP_BYTES = 5 * 1024 * 1024;
@@ -26,6 +29,7 @@ export default function GameSubmit() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<{ slug: string; ipfsCid: string } | null>(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
 
     const validation = useMemo(() => {
         if (!title.trim()) return "Title is required";
@@ -207,6 +211,16 @@ export default function GameSubmit() {
 
             <Section title="Game build" hint="≤ 5 MB zip">
                 <FilePicker file={zip} onChange={setZip} maxBytes={MAX_ZIP_BYTES} required />
+                {zip && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                        <button type="button" style={btn} onClick={() => setPreviewOpen(true)}>
+                            ▶ Preview locally
+                        </button>
+                        <span style={{ fontSize: 11, opacity: 0.7 }}>
+                            Runs in your browser — nothing is uploaded. Recommended before submitting.
+                        </span>
+                    </div>
+                )}
             </Section>
 
             {error && (
@@ -237,6 +251,17 @@ export default function GameSubmit() {
                     {submitting ? "Submitting…" : "Submit for review"}
                 </button>
             </div>
+
+            <Modal
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                title="Local preview"
+                width={760}
+            >
+                <Suspense fallback={<div style={{ padding: 24, fontSize: 12, opacity: 0.8 }}>Loading sandbox…</div>}>
+                    {zip && <Sandbox initialZip={zip} compact />}
+                </Suspense>
+            </Modal>
         </form>
     );
 }
