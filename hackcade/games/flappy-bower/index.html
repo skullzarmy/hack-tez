@@ -8,14 +8,51 @@
 <script type="module" src="game.js"></script>
 </head>
 <body>
-<header>
-  <span id="hud-score">0</span>
+<canvas id="game" aria-label="Flappy Bower game canvas"></canvas>
+
+<header id="hud">
+  <div class="pill" title="Score">
+    <span class="pill-label">SCORE</span>
+    <span id="hud-score">0</span>
+  </div>
+  <div class="pill" title="Best">
+    <span class="pill-label">BEST</span>
+    <span id="hud-best">0</span>
+  </div>
+  <button id="mute" class="iconbtn" type="button" aria-pressed="false" aria-label="Toggle sound">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path id="mute-on" d="M11 5L6 9H2v6h4l5 4V5z M15.54 8.46a5 5 0 0 1 0 7.07 M19.07 4.93a10 10 0 0 1 0 14.14" />
+      <path id="mute-off" d="M11 5L6 9H2v6h4l5 4V5z M22 9l-6 6 M16 9l6 6" style="display:none" />
+    </svg>
+  </button>
 </header>
-<canvas id="game"></canvas>
-<div id="overlay">
-  <h1>Flappy Bower</h1>
-  <p>Tap to flap. Avoid the pipes. Each pipe pair = 1 point.</p>
-  <button id="start">START</button>
+
+<div id="overlay" class="overlay">
+  <div class="overlay-card">
+    <h1 class="title">FLAPPY <span class="accent">BOWER</span></h1>
+    <p class="sub">Tap, click, or press <kbd>SPACE</kbd> to flap.<br/>Thread the neon gates. Survive.</p>
+    <button id="start" class="bigbtn" type="button">START</button>
+  </div>
 </div>
+
+<div id="ready" class="ready hidden">
+  <div class="ready-text">GET READY</div>
+  <div class="ready-count" id="ready-count">3</div>
+</div>
+
+<div id="end" class="overlay hidden">
+  <div class="overlay-card">
+    <div class="end-title" id="end-title">GAME OVER</div>
+    <div class="stats">
+      <div class="stat"><span class="stat-label">SCORE</span><span class="stat-value" id="end-score">0</span></div>
+      <div class="stat"><span class="stat-label">BEST</span><span class="stat-value" id="end-best">0</span></div>
+      <div class="stat"><span class="stat-label">TIME</span><span class="stat-value" id="end-time">0s</span></div>
+    </div>
+    <div id="end-badge" class="badge hidden">NEW BEST!</div>
+    <button id="retry" class="bigbtn" type="button">PLAY AGAIN</button>
+  </div>
+</div>
+
+<div id="flash" class="flash"></div>
 </body>
 </html>

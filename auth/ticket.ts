@@ -95,7 +95,7 @@ export async function verifyWsTicket(
   if (typeof claims.sid !== "string" || !claims.sid) {
     return { ok: false, error: { code: "MALFORMED", message: "missing sid" } };
   }
-  return { ok: true, claims };
+  return { ok: true, claims, expired: false };
 }
 
 function errMsg(err: unknown): string {

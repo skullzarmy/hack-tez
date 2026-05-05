@@ -10,7 +10,13 @@
 <header>
   <div class="hud-left"><span id="hud-player">guest</span></div>
   <div class="hud-mid"><span id="hud-time">30</span><span class="hud-unit">s</span></div>
-  <div class="hud-right"><span id="hud-score">0</span><span class="hud-unit">pts</span></div>
+  <div class="hud-right">
+    <span id="hud-score">0</span><span class="hud-unit">pts</span>
+    <button id="sound-toggle" type="button" aria-label="Toggle sound" aria-pressed="true" title="Toggle sound">
+      <svg id="sound-on-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+      <svg id="sound-off-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    </button>
+  </div>
 </header>
 <div id="grid"></div>
 <div id="overlay">

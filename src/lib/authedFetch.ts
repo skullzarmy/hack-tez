@@ -22,7 +22,8 @@ const CHANNEL_NAME = "hack-tez-auth";
 const REFRESH_LOCK = "hack-tez-auth-refresh";
 
 /** Refresh proactively when token has less than this much life left. */
-export const REFRESH_THRESHOLD_MS = 30 * 60 * 1000;
+// Refresh when <3 days remain on the 30-day token. Plenty of slack for offline users.
+export const REFRESH_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000;
 
 export interface SessionSnapshot {
   token: string | null;

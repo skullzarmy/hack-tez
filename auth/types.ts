@@ -73,5 +73,5 @@ export type AuthError =
 
 /** Result of verifyJwt: either claims or a structured error. */
 export type VerifyResult =
-  | { ok: true; claims: JwtClaims }
+  | { ok: true; claims: JwtClaims; expired: boolean }
   | { ok: false; error: AuthError };

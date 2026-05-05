@@ -73,6 +73,26 @@ export default function FilePicker({
 
     const previewUrl = objectUrl ?? initialPreviewUrl;
 
+    // Keep native input.files in sync with the controlled `file` prop so that
+    // (a) clearing via the Remove button drops the input value, and
+    // (b) re-mounting with an existing file still satisfies `required`.
+    useEffect(() => {
+        const input = inputRef.current;
+        if (!input) return;
+        if (!file) {
+            if (input.value) input.value = "";
+            return;
+        }
+        if (input.files && input.files[0] === file) return;
+        try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+        } catch {
+            // ignore
+        }
+    }, [file]);
+
     const cls =
         "arcade-droparea" +
         (over ? " arcade-droparea--over" : "") +
@@ -81,6 +101,17 @@ export default function FilePicker({
 
     function handleFiles(list: FileList | null) {
         if (!list || !list.length) return;
+        // Mirror the file into the native input so HTML5 form validation
+        // (required) sees a value even when the user dropped instead of clicked.
+        if (inputRef.current && inputRef.current.files !== list) {
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(list[0]);
+                inputRef.current.files = dt.files;
+            } catch {
+                // DataTransfer not supported in this env — ignore; click-to-pick still works.
+            }
+        }
         onChange(list[0]);
     }
 

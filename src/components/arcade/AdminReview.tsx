@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTezos } from "../../context/TezosContext";
 import {
     useArcadePending,
     useArcadePendingUpdates,
@@ -135,12 +136,7 @@ function PendingCard({ game, reload }: { game: ArcadeGame; reload: () => void })
 
             {showPreview && (
                 <div className="arcade-preview-wrap">
-                    <iframe
-                        title={`Preview ${game.title}`}
-                        src={gameIframeUrl(game.ipfsCid)}
-                        style={{ width: "100%", height: 360, border: "none", background: "#000" }}
-                        sandbox="allow-scripts allow-same-origin"
-                    />
+                    <PreviewIframe cid={game.ipfsCid} title={game.title} />
                 </div>
             )}
 
@@ -219,12 +215,9 @@ function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => v
                         {showCurrent ? "Hide" : "Preview"}
                     </button>
                     {showCurrent && (
-                        <iframe
-                            title="Current"
-                            src={gameIframeUrl(update.currentCid)}
-                            style={{ width: "100%", height: 240, border: "none", marginTop: 8, background: "#000" }}
-                            sandbox="allow-scripts allow-same-origin"
-                        />
+                        <div style={{ marginTop: 8 }}>
+                            <PreviewIframe cid={update.currentCid} title={`${update.title} v${update.currentVersion}`} />
+                        </div>
                     )}
                 </div>
                 <div className="arcade-subcard arcade-subcard--accent">
@@ -236,12 +229,9 @@ function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => v
                         {showNew ? "Hide" : "Preview"}
                     </button>
                     {showNew && (
-                        <iframe
-                            title="New"
-                            src={gameIframeUrl(update.newCid)}
-                            style={{ width: "100%", height: 240, border: "none", marginTop: 8, background: "#000" }}
-                            sandbox="allow-scripts allow-same-origin"
-                        />
+                        <div style={{ marginTop: 8 }}>
+                            <PreviewIframe cid={update.newCid} title={`${update.title} v${update.newVersion}`} />
+                        </div>
                     )}
                 </div>
             </div>
@@ -334,6 +324,60 @@ function FlaggedCard({ game, reload }: { game: ArcadeGame; reload: () => void })
                     reload();
                 }}
                 onClose={() => setConfirmKind(null)}
+            />
+        </div>
+    );
+}
+
+function PreviewIframe({ cid, title }: { cid: string; title: string }) {
+    const { activeDomain, address } = useTezos();
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+    const sendInit = () => {
+        if (!iframeRef.current?.contentWindow) return;
+        const player = activeDomain
+            ? { domain: activeDomain, label: activeDomain.split(".")[0], address: address ?? null, isGuest: false }
+            : { domain: null, label: "guest", address: null, isGuest: true };
+        iframeRef.current.contentWindow.postMessage(
+            { type: "hackcade:init", player, sessionId: `admin-preview-${Date.now()}`, gameSlug: title },
+            "*",
+        );
+    };
+
+    useEffect(() => {
+        function onMessage(e: MessageEvent) {
+            if (e.source !== iframeRef.current?.contentWindow) return;
+            const data = e.data as { type?: string } | null;
+            if (data?.type === "hackcade:ready") sendInit();
+            // Ignore score / gameover in preview mode.
+        }
+        window.addEventListener("message", onMessage);
+        return () => window.removeEventListener("message", onMessage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeDomain, address]);
+
+    return (
+        <div
+            style={{
+                position: "relative",
+                width: "100%",
+                aspectRatio: "1 / 1",
+                maxWidth: 600,
+                maxHeight: "calc(100vh - 240px)",
+                margin: "0 auto",
+                background: "#000",
+                borderRadius: 8,
+                overflow: "hidden",
+                border: "1px solid var(--border-2)",
+            }}
+        >
+            <iframe
+                ref={iframeRef}
+                title={`Preview ${title}`}
+                src={gameIframeUrl(cid)}
+                sandbox="allow-scripts allow-same-origin"
+                allow="accelerometer; gyroscope; gamepad"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
             />
         </div>
     );

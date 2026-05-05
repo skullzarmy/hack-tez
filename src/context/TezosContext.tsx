@@ -4,6 +4,7 @@ import config, { hackchatUrl, siteUrl } from "../config/tezos";
 import { resolveDisplayName } from "../lib/domains";
 import {
     setSession,
+    getSession,
     subscribeToSession,
     setAuthHandlers,
     refreshSession,
@@ -253,30 +254,54 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     const [chatDomains, setChatDomains] = useState<string[]>(seed?.domains ?? []);
     const [activeDomain, setActiveDomainState] = useState<string | null>(seed?.activeDomain ?? null);
     const tokenRef = useRef<string | null>(seed?.token ?? null);
+    // User's last explicit picker choice. Survives across in-flight refreshes
+    // so a stale-in-flight /auth/refresh response (still echoing the old
+    // activeDomain because it was sent before the click) cannot snap the user
+    // back. applySession() honors this intent over the server's echo.
+    const activeDomainIntentRef = useRef<string | null>(seed?.activeDomain ?? null);
 
-    // Single source of truth for admin gating. Network-aware: admin.hack.tez on
-    // mainnet, admin.hack.gho on ghostnet. Components must read this from
-    // context — never re-derive from chatDomains.
+    // Admin gating follows the ACTIVE domain, not just ownership. Owning
+    // admin.hack.tez but having skllz.hack.tez active should NOT show admin UI.
+    // Switch identity via the wallet menu's domain picker to surface admin tools.
     const isAdmin = useMemo(() => {
         const adminDomain = `admin.hack.${config.tld}`;
-        return chatDomains.includes(adminDomain);
-    }, [chatDomains]);
+        return activeDomain === adminDomain;
+    }, [activeDomain]);
 
     // Push the seed into authedFetch's module state immediately so any pre-mount
-    // network call (unlikely but possible) sees it.
-    if (seed && typeof window !== "undefined") {
+    // network call (unlikely but possible) sees it. Must run EXACTLY ONCE — if
+    // re-run after a token rotation, the stale seed snapshot would replay
+    // through the cross-tab subscriber and stomp the live session (this was
+    // the wallet-picker snap-back bug).
+    const seedPushedRef = useRef(false);
+    if (!seedPushedRef.current && seed && typeof window !== "undefined") {
+        seedPushedRef.current = true;
         const snapshot = getSessionSnapshotIfStale(seed);
         if (snapshot) setSession(snapshot, { broadcast: false });
     }
 
     const applySession = useCallback((session: AuthSession, opts: { broadcast?: boolean } = {}) => {
-        setToken(session.token);
-        setChatDomains(session.domains);
-        setActiveDomainState(session.activeDomain);
-        tokenRef.current = session.token;
-        saveAuthSession(session);
+        // Honor user's most-recent picker choice if it's still owned. Defends
+        // against stale in-flight refresh responses overwriting the user's
+        // domain switch.
+        const intent = activeDomainIntentRef.current;
+        const effectiveActive = intent && session.domains.includes(intent)
+            ? intent
+            : session.activeDomain;
+        const effective: AuthSession = effectiveActive === session.activeDomain
+            ? session
+            : { ...session, activeDomain: effectiveActive };
+        setToken(effective.token);
+        setChatDomains(effective.domains);
+        setActiveDomainState(effective.activeDomain);
+        tokenRef.current = effective.token;
+        // Keep the intent in sync with what we actually applied so future
+        // applySession calls have a fresh anchor (rather than locking forever
+        // on the very first user pick).
+        activeDomainIntentRef.current = effective.activeDomain;
+        saveAuthSession(effective);
         setSession(
-            { token: session.token, activeDomain: session.activeDomain, domains: session.domains },
+            { token: effective.token, activeDomain: effective.activeDomain, domains: effective.domains },
             { broadcast: opts.broadcast },
         );
     }, []);
@@ -286,6 +311,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         setChatDomains([]);
         setActiveDomainState(null);
         tokenRef.current = null;
+        activeDomainIntentRef.current = null;
         clearAuthStorage();
         setSession({ token: null, activeDomain: null, domains: [] }, { broadcast: opts.broadcast });
     }, []);
@@ -320,7 +346,11 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     // No local token to refresh — treat as definitively logged out.
                     return { ok: false, permanent: true };
                 }
-                const result = await callRefresh(t);
+                // Pass current activeDomain as X-Active-Domain so a refresh
+                // triggered concurrently with a domain switch doesn't reset
+                // the user's identity to whatever's in the (stale) JWT claims.
+                const active = getSession().activeDomain ?? undefined;
+                const result = await callRefresh(t, active);
                 if (result.ok) {
                     applySession(result.session);
                 }
@@ -516,14 +546,26 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
     const setActiveDomain = useCallback(
         (newDomain: string) => {
-            // Optimistic update.
+            // Record user intent BEFORE any async work so concurrent
+            // applySession calls (from in-flight refreshes) honor it.
+            activeDomainIntentRef.current = newDomain;
+            // Optimistic React state update.
             setActiveDomainState(newDomain);
             const stored = loadAuthSession();
             if (stored) {
                 stored.activeDomain = newDomain;
                 saveAuthSession(stored);
             }
+            // Push the new activeDomain into authedFetch's module state
+            // immediately so concurrent authedFetches send the correct
+            // X-Active-Domain header.
             const t = tokenRef.current;
+            if (t) {
+                setSession(
+                    { token: t, activeDomain: newDomain, domains: chatDomains },
+                    { broadcast: false },
+                );
+            }
             if (!t) return;
             void (async () => {
                 const result = await callRefresh(t, newDomain);
@@ -532,7 +574,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 // next authedFetch will reconcile if the server disagrees.
             })();
         },
-        [applySession],
+        [applySession, chatDomains],
     );
 
     const disconnect = useCallback(async () => {

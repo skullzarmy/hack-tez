@@ -56,6 +56,10 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const submittedRef = useRef(false);
+    // Set when iframe has fired hackcade:ready. We use this to know whether
+    // a late-arriving sessionId needs a re-init (the iframe loaded faster
+    // than the network call to /arcade/session).
+    const readyReceivedRef = useRef(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -89,6 +93,10 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
 
     const sendInit = useCallback(() => {
         if (!iframeRef.current?.contentWindow) return;
+        // Don't bind the SDK to a null sessionId — when the real one arrives
+        // we'd never re-send init, the iframe would echo null on gameover,
+        // and the parent would reject the score as a session mismatch.
+        if (domain && !sessionId) return;
         iframeRef.current.contentWindow.postMessage(
             {
                 type: "hackcade:init",
@@ -101,6 +109,12 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
             "*",
         );
     }, [domain, address, sessionId, game.slug]);
+
+    // If sessionId arrives AFTER the iframe already shouted hackcade:ready,
+    // push the init now so the SDK records the real sessionId.
+    useEffect(() => {
+        if (readyReceivedRef.current && sessionId) sendInit();
+    }, [sessionId, sendInit]);
 
     const submitScore = useCallback(
         async (msg: PlayerMessage) => {
@@ -146,6 +160,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
             const data = e.data as PlayerMessage | null;
             if (!data || typeof data.type !== "string") return;
             if (data.type === "hackcade:ready") {
+                readyReceivedRef.current = true;
                 sendInit();
                 setStatus("playing");
                 return;
@@ -165,6 +180,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
 
     const replay = useCallback(async () => {
         submittedRef.current = false;
+        readyReceivedRef.current = false;
         setFinal(null);
         setSubmitError(null);
         setError(null);
@@ -214,6 +230,8 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     aspectRatio: "1 / 1",
                     maxHeight: "calc(100vh - 200px)",
                     maxWidth: "calc(100vh - 200px)",
+                    minHeight: 360,
+                    minWidth: 360,
                     margin: "0 auto",
                     background: "#000",
                     borderRadius: 8,
@@ -230,7 +248,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     allow="accelerometer; gyroscope; gamepad"
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
                 />
-                {status === "booting" && <ArcadeLoader title={game.title} message="LOADING FROM IPFS…" />}
+                {status === "booting" && <ArcadeLoader title={game.title} message="LOADING…" />}
                 {status === "error" && (
                     <Overlay>
                         <div style={{ color: "var(--err)", fontSize: 16 }}>{error || "Failed to load"}</div>

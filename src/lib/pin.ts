@@ -1,7 +1,7 @@
 import type { DAppClient } from "@tezos-x/octez.connect-sdk";
 import { buildPinMessage, signMessage } from "./signing";
 
-export const IPFS_GATEWAY_BASE = "https://ipfs.porcupin.xyz/ipfs/";
+export const IPFS_GATEWAY_BASE = "https://ipfs.fileship.xyz/ipfs/";
 const PIN_ENDPOINTS = ["/api/v1/pin", "/.netlify/functions/pin"] as const;
 
 /** Convert an `ipfs://<CID>` URI to a gateway URL. Non-ipfs:// strings pass through unchanged. */

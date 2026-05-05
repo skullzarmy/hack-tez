@@ -51,6 +51,10 @@ export default async function handler(req: Request): Promise<Response> {
                 "Cache-Control": "public, max-age=0, must-revalidate",
                 "X-Frame-Options": "SAMEORIGIN",
                 "Content-Security-Policy": "frame-ancestors 'self'",
+                // Sandbox iframes (allow-scripts without allow-same-origin) load in
+                // opaque "null" origin; ES module imports require CORS.
+                "Access-Control-Allow-Origin": "*",
+                "Cross-Origin-Resource-Policy": "cross-origin",
             },
         });
     }
@@ -67,6 +71,10 @@ export default async function handler(req: Request): Promise<Response> {
             // in same-origin iframes (GamePlayer, AdminReview, EditGameForm preview).
             "X-Frame-Options": "SAMEORIGIN",
             "Content-Security-Policy": "frame-ancestors 'self'",
+            // Sandbox iframes (allow-scripts without allow-same-origin) load in
+            // opaque "null" origin; ES module imports require CORS.
+            "Access-Control-Allow-Origin": "*",
+            "Cross-Origin-Resource-Policy": "cross-origin",
         },
     });
 }

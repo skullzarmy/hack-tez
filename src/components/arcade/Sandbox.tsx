@@ -9,7 +9,12 @@
  *   2. for each non-html asset → URL.createObjectURL(blob) keyed by relative path
  *   3. rewrite index.html: src/href to blob URLs, also any "./hackcade-sdk.js"
  *      reference points at our canonical SDK (loaded as ?raw at build time)
- *   4. iframe srcdoc = rewritten html. sandbox="allow-scripts" only.
+ *   4. iframe srcdoc = rewritten html. sandbox="allow-scripts allow-same-origin"
+ *      (same-origin needed so the iframe can fetch blob: URLs minted in the
+ *      parent — without it the browser refuses with "Not allowed to load local
+ *      resource: blob:…". This Sandbox is a local dev/preview tool only; the
+ *      production /play route uses arcade-files.mts + sandbox="allow-scripts"
+ *      with proper CORS headers and a real origin, no srcdoc/blob involved.)
  *   5. mock identity panel + event log + lifecycle controls.
  *
  * Limitations (acceptable for a preview tool):
@@ -208,6 +213,12 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
 
                 const textAssets = new Map<string, { bytes: Uint8Array; isModule: boolean }>();
 
+                // Collect CSS contents to inline as <style> tags. Inlining
+                // avoids the blob-URL-vs-iframe-origin matrix of pain entirely:
+                // <link href="blob:..."> can fail under sandbox+srcdoc combos,
+                // but inline <style> always works.
+                const cssInline = new Map<string, string>();
+
                 for (const [rawPath, bytes] of Object.entries(entries)) {
                     const path = normalizePath(rawPath);
                     if (!path || path.endsWith("/")) continue;
@@ -217,7 +228,7 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     if (ext === "js" || ext === "mjs") {
                         textAssets.set(path, { bytes, isModule: true });
                     } else if (ext === "css") {
-                        textAssets.set(path, { bytes, isModule: false });
+                        cssInline.set(path, strFromU8(bytes));
                     } else {
                         const blob = new Blob([bytes as BlobPart], { type: mimeFor(path) });
                         const url = URL.createObjectURL(blob);
@@ -255,6 +266,22 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
 
                 let html = strFromU8(indexHtmlBytes);
                 html = rewriteHtml(html, indexDir, pathToBlobUrl);
+
+                // Replace each <link rel="stylesheet" href="..."> for a known
+                // CSS asset with an inline <style> containing the file's contents.
+                if (cssInline.size > 0) {
+                    html = html.replace(
+                        /<link\b[^>]*\bhref\s*=\s*['"]([^'"]+)['"][^>]*>/gi,
+                        (full, href: string) => {
+                            if (!/rel\s*=\s*['"]?stylesheet/i.test(full)) return full;
+                            if (/^(?:[a-z]+:|\/\/|data:|blob:|#)/i.test(href)) return full;
+                            const cssPath = resolveRelative(indexDir + href.replace(/^\.?\//, ""));
+                            const css = cssInline.get(cssPath);
+                            if (!css) return full;
+                            return `<style data-source="${cssPath}">\n${css}\n</style>`;
+                        }
+                    );
+                }
 
                 if (!/hackcade-sdk\.js/i.test(html) && !html.includes(sdkUrl)) {
                     const tag = `<script type="module" src="${sdkUrl}"></script>`;
@@ -353,7 +380,7 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                             ref={iframeRef}
                             title="Hackcade sandbox preview"
                             srcDoc={srcDoc}
-                            sandbox="allow-scripts"
+                            sandbox="allow-scripts allow-same-origin"
                             style={{
                                 width: "100%",
                                 aspectRatio: "9 / 16",

@@ -38,7 +38,7 @@ function resolveAvatarUrl(picture: string | undefined): string | null {
     if (!picture) return null;
     if (picture.startsWith("ipfs://")) {
         const cid = picture.replace("ipfs://", "");
-        return `https://ipfs.porcupin.xyz/ipfs/${cid}`;
+        return `https://ipfs.fileship.xyz/ipfs/${cid}`;
     }
     if (picture.startsWith("https://")) return picture;
     return null;
