@@ -126,7 +126,7 @@ function PendingCard({ game, reload }: { game: ArcadeGame; reload: () => void })
                 <button style={btn} onClick={() => setShowPreview((s) => !s)}>
                     {showPreview ? "Hide preview" : "Preview"}
                 </button>
-                <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.55 }}>cid: {short(game.ipfsCid)}</span>
+                <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.55 }}>bundle: {short(game.ipfsCid)}</span>
             </div>
 
             {showPreview && (

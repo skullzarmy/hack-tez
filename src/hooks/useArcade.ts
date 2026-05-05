@@ -265,8 +265,11 @@ export async function rescindArcadeGame(slug: string): Promise<void> {
     }
 }
 
-/** Build the IPFS gateway URL for a game's index. Trailing slash is required. */
-export function gameIframeUrl(cid: string): string {
-    const gw = (import.meta.env.VITE_IPFS_GATEWAY as string | undefined) || "ipfs.fileship.xyz";
-    return `https://${gw}/ipfs/${cid}/`;
+/**
+ * Build the URL for a game's index. The stored value (`ipfsCid` for
+ * historical reasons) is now a Netlify Blobs key like `<gameId>/v<version>`,
+ * served same-origin via `/arcade-files/*`.
+ */
+export function gameIframeUrl(key: string): string {
+    return `/arcade-files/${key}/index.html`;
 }

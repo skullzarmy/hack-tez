@@ -34,7 +34,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sql, verifyJwt, isAdmin, slugify, type JwtPayload } from "./wiki-db.mts";
 import { validateAndExtractGameZip } from "./arcade-zip.mts";
-import { pinDirectoryToIPFS } from "./arcade-pinata.mts";
+import { storeGameBundle, deleteBundle } from "./arcade-storage.mts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -516,9 +516,6 @@ async function submitGame(req: Request): Promise<Response> {
     const user = await requireDomainHolder(req);
     if (user instanceof Response) return user;
 
-    const pinataJwt = process.env.PINATA_JWT;
-    if (!pinataJwt) return err("IPFS pinning not configured", "PINATA_NOT_CONFIGURED", 503);
-
     const parsed = await readSubmitForm(req);
     if (!parsed.ok) return parsed.res;
     const { fields, zipBytes } = parsed;
@@ -547,27 +544,18 @@ async function submitGame(req: Request): Promise<Response> {
         slug = `${slugify(title)}-${nanoid(4).toLowerCase()}`;
     }
 
-    // Pin to IPFS.
-    const folderName = `hackcade-${slug}`;
-    let pin;
-    try {
-        pin = await pinDirectoryToIPFS(validation.files, {
-            pinataJwt,
-            folderName,
-            pinataName: folderName,
-            keyvalues: {
-                builder: user.activeDomain ?? "",
-                slug,
-                version: "1",
-            },
-        });
-    } catch (e) {
-        const msg = e instanceof Error ? e.message : "pinning failed";
-        return err(msg, "PINATA_ERROR", 502);
-    }
-
     const builderLabel = (user.activeDomain as string).split(".")[0];
     const id = nanoid(24);
+
+    // Store bundle to Netlify Blobs under <gameId>/v1.
+    let stored;
+    try {
+        stored = await storeGameBundle(id, 1, validation.files);
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : "storage failed";
+        return err(msg, "STORAGE_ERROR", 502);
+    }
+
     await sql`
         INSERT INTO arcade_games
             (id, slug, title, description, category, source_url,
@@ -575,27 +563,24 @@ async function submitGame(req: Request): Promise<Response> {
              ipfs_cid, version, max_possible_score, max_score_per_second, status)
         VALUES (${id}, ${slug}, ${title}, ${description}, ${category}, ${sourceUrl},
                 ${user.activeDomain}, ${builderLabel}, ${user.address},
-                ${pin.cid}, 1, ${maxPossibleScore}, ${maxScorePerSecond}, 'pending')`;
+                ${stored.key}, 1, ${maxPossibleScore}, ${maxScorePerSecond}, 'pending')`;
     await sql`
         INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
-        VALUES (${id}, 1, ${pin.cid}, ${user.activeDomain}, FALSE, 'pending')`;
+        VALUES (${id}, 1, ${stored.key}, ${user.activeDomain}, FALSE, 'pending')`;
 
     await arcadeAudit("game_submit", slug, user.activeDomain!, {
-        cid: pin.cid,
-        files: pin.fileCount,
-        bytes: pin.totalBytes,
+        bundleKey: stored.key,
+        files: stored.fileCount,
+        bytes: stored.totalBytes,
         injectedSdk: validation.injectedSdk,
     });
 
-    return json({ ok: true, slug, ipfsCid: pin.cid, status: "pending", injectedSdk: validation.injectedSdk });
+    return json({ ok: true, slug, ipfsCid: stored.key, status: "pending", injectedSdk: validation.injectedSdk });
 }
 
 async function updateGame(req: Request, slug: string): Promise<Response> {
     const user = await requireDomainHolder(req);
     if (user instanceof Response) return user;
-
-    const pinataJwt = process.env.PINATA_JWT;
-    if (!pinataJwt) return err("IPFS pinning not configured", "PINATA_NOT_CONFIGURED", 503);
 
     const games = await sql`SELECT id, version, builder_domain FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
@@ -619,36 +604,26 @@ async function updateGame(req: Request, slug: string): Promise<Response> {
     if (!validation.ok) return err(validation.error.message, validation.error.code, 422);
 
     const newVersion = Number(game.version) + 1;
-    const folderName = `hackcade-${slug}-v${newVersion}`;
-    let pin;
+    let stored;
     try {
-        pin = await pinDirectoryToIPFS(validation.files, {
-            pinataJwt,
-            folderName,
-            pinataName: folderName,
-            keyvalues: {
-                builder: user.activeDomain ?? "",
-                slug,
-                version: String(newVersion),
-            },
-        });
+        stored = await storeGameBundle(game.id, newVersion, validation.files);
     } catch (e) {
-        const msg = e instanceof Error ? e.message : "pinning failed";
-        return err(msg, "PINATA_ERROR", 502);
+        const msg = e instanceof Error ? e.message : "storage failed";
+        return err(msg, "STORAGE_ERROR", 502);
     }
 
     await sql`
         INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
-        VALUES (${game.id}, ${newVersion}, ${pin.cid}, ${user.activeDomain}, ${scoresReset}, 'pending')`;
+        VALUES (${game.id}, ${newVersion}, ${stored.key}, ${user.activeDomain}, ${scoresReset}, 'pending')`;
 
     await arcadeAudit("game_update_submit", slug, user.activeDomain!, {
-        cid: pin.cid,
+        bundleKey: stored.key,
         version: newVersion,
         scoresReset,
         injectedSdk: validation.injectedSdk,
     });
 
-    return json({ ok: true, slug, ipfsCid: pin.cid, version: newVersion, status: "pending" });
+    return json({ ok: true, slug, ipfsCid: stored.key, version: newVersion, status: "pending" });
 }
 
 /**
@@ -730,31 +705,19 @@ async function editGame(req: Request, slug: string): Promise<Response> {
         if (game.status !== "pending") {
             return err("Zip swap only allowed on pending submissions; use the update flow", "NOT_PENDING", 409);
         }
-        const pinataJwt = process.env.PINATA_JWT;
-        if (!pinataJwt) return err("IPFS pinning not configured", "PINATA_NOT_CONFIGURED", 503);
 
         const sdkBytes = loadCanonicalSdk();
         const validation = validateAndExtractGameZip(zipBytes, sdkBytes);
         if (!validation.ok) return err(validation.error.message, validation.error.code, 422);
         injectedSdk = validation.injectedSdk;
 
-        const folderName = `hackcade-${slug}-edit-${Date.now()}`;
         try {
-            const pin = await pinDirectoryToIPFS(validation.files, {
-                pinataJwt,
-                folderName,
-                pinataName: folderName,
-                keyvalues: {
-                    builder: user.activeDomain ?? "",
-                    slug,
-                    version: String(game.version),
-                    edit: "true",
-                },
-            });
-            newCid = pin.cid;
+            // storeGameBundle wipes prior files at this prefix before writing the new ones.
+            const stored = await storeGameBundle(game.id, game.version, validation.files);
+            newCid = stored.key;
         } catch (e) {
-            const msg = e instanceof Error ? e.message : "pinning failed";
-            return err(msg, "PINATA_ERROR", 502);
+            const msg = e instanceof Error ? e.message : "storage failed";
+            return err(msg, "STORAGE_ERROR", 502);
         }
         updates.ipfs_cid = newCid;
     }
@@ -819,6 +782,8 @@ async function rescindGame(req: Request, slug: string): Promise<Response> {
     }
 
     await sql`DELETE FROM arcade_games WHERE id=${game.id}`;
+    // Best-effort blob cleanup — failures shouldn't block the rescind.
+    await deleteBundle(game.id, 1).catch(() => {});
     await arcadeAudit("game_rescind", slug, user.activeDomain!);
     return json({ ok: true });
 }
@@ -1016,7 +981,11 @@ async function rejectUpdate(req: Request, slug: string): Promise<Response> {
         RETURNING id, version`;
     if (!rows.length) return err("No pending update", "NOT_FOUND", 404);
 
-    await arcadeAudit("game_update_reject", slug, user.activeDomain!, { reason, version: Number((rows[0] as any).version) });
+    // Best-effort blob cleanup for the rejected version's bundle.
+    const rejectedVersion = Number((rows[0] as any).version);
+    await deleteBundle(gameId, rejectedVersion).catch(() => {});
+
+    await arcadeAudit("game_update_reject", slug, user.activeDomain!, { reason, version: rejectedVersion });
     return json({ ok: true });
 }
 

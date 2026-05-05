@@ -102,7 +102,7 @@ export default function GameSubmit() {
                     see it in the lobby once approved — usually within a day.
                 </p>
                 <p style={{ opacity: 0.6, fontSize: 11, fontFamily: "ui-monospace,monospace" }}>
-                    IPFS: {success.ipfsCid}
+                    Bundle: {success.ipfsCid}
                 </p>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                     <button style={btnPrimary} onClick={() => nav("/arcade/my-games")}>

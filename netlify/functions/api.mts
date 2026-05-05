@@ -1125,7 +1125,7 @@ async function handleAvatar(label: string, reqUrl: URL, net: ReturnType<typeof g
     let sourceUrl: string | null = null;
     if (profile.picture?.startsWith("ipfs://")) {
         const cid = profile.picture.replace("ipfs://", "");
-        sourceUrl = `https://ipfs.fileship.xyz/ipfs/${cid}`;
+        sourceUrl = `https://ipfs.porcupin.xyz/ipfs/${cid}`;
     } else if (profile.picture?.startsWith("https://")) {
         sourceUrl = profile.picture;
     } else if (typeof gravatar === "string" && gravatar.trim().length > 0) {
