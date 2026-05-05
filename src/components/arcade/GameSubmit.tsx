@@ -133,7 +133,10 @@ export default function GameSubmit() {
                 </div>
                 <p className="arcade-meta" style={{ marginTop: 6 }}>
                     Read the{" "}
-                    <a href="/skills/hackcade-sdk" className="arcade-link">
+                    <a href="/developers#arcade" target="_blank" rel="noopener noreferrer" className="arcade-link">
+                        Docs
+                    </a>{", "}
+                    <a href="/skills/hackcade-sdk" target="_blank" rel="noopener noreferrer" className="arcade-link">
                         Hackcade SDK skill
                     </a>{" "}
                     or grab files directly:
@@ -144,6 +147,9 @@ export default function GameSubmit() {
                     </a>
                     <a href={TEMPLATE_TREE_URL} target="_blank" rel="noopener noreferrer" className="arcade-pill">
                         ↗ template/
+                    </a>
+                    <a href="/arcade/sandbox" target="_blank" rel="noopener noreferrer" className="arcade-pill">
+                        ↗ Open Sandbox
                     </a>
                 </div>
             </div>

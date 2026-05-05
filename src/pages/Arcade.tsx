@@ -81,7 +81,6 @@ function NavBar({ isAdmin }: { isAdmin: boolean }) {
         <nav className="arcade-tablist" style={{ marginBottom: 16 }}>
             <NavTab to="/arcade" label="Lobby" end />
             <NavTab to="/arcade/submit" label="Submit" />
-            <NavTab to="/arcade/sandbox" label="Sandbox" />
             <NavTab to="/arcade/my-games" label="My games" />
             {isAdmin && <NavTab to="/arcade/admin" label="Admin" badge={adminCount} />}
         </nav>
