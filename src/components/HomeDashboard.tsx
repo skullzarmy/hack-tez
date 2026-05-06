@@ -4,9 +4,8 @@ import { Link } from "react-router-dom";
 import {
     MessageCircle,
     Users,
+    Gamepad2,
     BookOpen,
-    Code,
-    FileText,
 } from "lucide-react";
 import { useTezos } from "../context/TezosContext";
 import { useOnboarding } from "../context/OnboardingContext";
@@ -96,9 +95,9 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                 </h2>
                 <div className="dashboard-links-grid">
                     <QuickLink href="/hackers" icon={<Users size={18} />} label="Hackers" />
-                    <QuickLink href="/skills" icon={<BookOpen size={18} />} label="Skills" />
-                    <QuickLink href="/developers" icon={<Code size={18} />} label="Docs" />
-                    <QuickLink href="/manifesto" icon={<FileText size={18} />} label="Manifesto" />
+                    <QuickLink href="/chat" icon={<MessageCircle size={18} />} label="Chat" />
+                    <QuickLink href="/arcade" icon={<Gamepad2 size={18} />} label="Arcade" />
+                    <QuickLink href="/wiki" icon={<BookOpen size={18} />} label="Wiki" />
                 </div>
             </section>
 
