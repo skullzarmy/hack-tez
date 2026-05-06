@@ -7,7 +7,7 @@ import {
     Gamepad2,
     BookOpen,
 } from "lucide-react";
-import { useTezos } from "../context/TezosContext";
+
 import { useOnboarding } from "../context/OnboardingContext";
 import { useRecentActivity, truncateAddr } from "../hooks/useRecentActivity";
 import { useDomainCount } from "../hooks/useDomainCount";
@@ -72,7 +72,7 @@ interface HomeDashboardProps {
 }
 
 export default function HomeDashboard({ subdomains, loading, refresh }: HomeDashboardProps) {
-    const { activeDomain } = useTezos();
+
     const { step: onboardingStep } = useOnboarding();
     const { events, isLoading: activityLoading } = useRecentActivity();
     const totalDomains = useDomainCount();
@@ -100,21 +100,6 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                     <QuickLink href="/wiki" icon={<BookOpen size={18} />} label="Wiki" />
                 </div>
             </section>
-
-            {/* ── HACKCHAT ──────────────────────────────────────────── */}
-            {activeDomain && (
-                <section className="dashboard-section">
-                    <Link to="/chat" className="dashboard-chat-card">
-                        <div className="dashboard-chat-glow" aria-hidden="true" />
-                        <MessageCircle size={28} className="dashboard-chat-icon" />
-                        <div className="dashboard-chat-body">
-                            <div className="dashboard-chat-title">hackchat</div>
-                            <div className="dashboard-chat-subtitle">talk to the community</div>
-                        </div>
-                        <span className="dashboard-chat-cta">Enter →</span>
-                    </Link>
-                </section>
-            )}
 
             {/* ── YOUR DOMAINS ──────────────────────────────────────── */}
             <section className="dashboard-section">
