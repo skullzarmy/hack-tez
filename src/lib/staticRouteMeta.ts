@@ -32,4 +32,9 @@ export const STATIC_ROUTE_META: Record<string, StaticRouteMeta> = {
         description:
             "Markdown reference docs for the hack.tez stack: SmartPy, Taquito, Tezos Domains, Beacon SDK, octez.connect, and the hack.tez API. Drop into Cursor, Claude, or your AI editor.",
     },
+    "/arcade": {
+        title: "Hackcade — hack.tez Arcade",
+        description:
+            "Build it. Ship it. Play it. Community-built HTML games with hack.tez identity and on-chain leaderboards.",
+    },
 };

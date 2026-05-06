@@ -52,7 +52,7 @@ const skills: SkillMeta[] = skillSlugs.map((slug) => {
     };
 });
 
-const routes = ["/manifesto", "/policies", "/developers", "/skills", ...skillSlugs.map((slug) => `/skills/${slug}`)];
+const routes = ["/manifesto", "/policies", "/developers", "/skills", "/arcade", ...skillSlugs.map((slug) => `/skills/${slug}`)];
 
 const serverEntry = join(root, "dist-server/entry-server.js");
 const { render } = (await import(serverEntry)) as { render: (url: string) => Promise<string> };
