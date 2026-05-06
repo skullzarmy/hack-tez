@@ -31,11 +31,6 @@ const Sandbox = lazy(() => import("../components/arcade/Sandbox"));
 
 export default function ArcadePage() {
     const { isAdmin } = useTezos();
-    usePageMeta({
-        title: "Hackcade — hack.tez Arcade",
-        description: "Build it. Ship it. Play it. Community-built HTML games with hack.tez identity and on-chain leaderboards.",
-        path: "/arcade",
-    });
 
     return (
         <div style={{ minHeight: "100vh", padding: "16px 12px", maxWidth: 1100, margin: "0 auto" }}>

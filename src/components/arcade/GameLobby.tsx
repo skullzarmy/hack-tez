@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useArcadeGames, gameCoverUrl, type ArcadeGame } from "../../hooks/useArcade";
+import { usePageMeta } from "../../hooks/usePageMeta";
 import ArcadeAvatar from "./ArcadeAvatar";
 import ArcadeLoader from "./ArcadeLoader";
 
@@ -12,6 +13,11 @@ const SORTS = [
 type SortId = (typeof SORTS)[number]["id"];
 
 export default function GameLobby() {
+    usePageMeta({
+        title: "Hackcade — hack.tez Arcade",
+        description: "Build it. Ship it. Play it. Community-built HTML games with hack.tez identity and on-chain leaderboards.",
+        path: "/arcade",
+    });
     const { data, loading, error } = useArcadeGames();
     const games = data?.games ?? [];
     const [search, setSearch] = useState("");
