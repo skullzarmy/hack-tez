@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Name That Artist — TTC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <main id="stage">
+        <!-- Starburst background -->
+        <div class="rays-container">
+            <div class="rays"></div>
+        </div>
+
+        <!-- HUD -->
+        <header class="hud" id="hud">
+            <div class="hud__left">
+                <span id="player-name" class="hud__player">…</span>
+            </div>
+            <div class="hud__center hidden" id="hud-center">
+                <span id="round-indicator" class="hud__round">—</span>
+            </div>
+            <div class="hud__right">
+                <span class="hud__label">SCORE</span>
+                <span id="hud-score" class="hud__score">0</span>
+            </div>
+        </header>
+
+        <!-- Loading Screen -->
+        <section id="screen-loading" class="screen">
+            <h2 class="screen__title">Loading Collection</h2>
+            <div class="load-progress-wrap">
+                <div id="load-progress-bar" class="load-progress-bar"></div>
+            </div>
+            <p id="load-status" class="screen__sub">Initializing…</p>
+        </section>
+
+        <!-- Menu / Difficulty Select -->
+        <section id="screen-menu" class="screen hidden">
+            <div class="menu__logo">
+                <div class="sparkle" style="top: -10%; left: 0%; animation-delay: 0s;"></div>
+                <div class="sparkle" style="top: 80%; left: 95%; animation-delay: 0.5s;"></div>
+                <div class="sparkle" style="top: 20%; left: 105%; animation-delay: 1.2s;"></div>
+                <h1 class="menu__title">
+                    <span class="big-letter">N</span>AME 
+                    <span class="big-letter">T</span>HAT<br/>
+                    <span class="big-letter">A</span>RTIST
+                </h1>
+            </div>
+            <div class="difficulty-grid">
+                <button class="diff-card" data-difficulty="easy">
+                    <span class="diff-card__name">EASY</span>
+                    <span class="diff-card__info">10 rds · 15s</span>
+                </button>
+                <button class="diff-card" data-difficulty="medium">
+                    <span class="diff-card__name">MED</span>
+                    <span class="diff-card__info">20 rds · 10s</span>
+                </button>
+                <button class="diff-card" data-difficulty="hard">
+                    <span class="diff-card__name">HARD</span>
+                    <span class="diff-card__info">30 rds · 7s</span>
+                </button>
+            </div>
+            <p id="token-count" class="menu__count hidden"></p>
+        </section>
+
+        <!-- Playing Screen -->
+        <section id="screen-play" class="screen hidden">
+            <div class="timer-bar">
+                <div id="timer-fill" class="timer-bar__fill"></div>
+            </div>
+            <div class="play__layout">
+                <div class="art-frame" id="art-frame">
+                    <img id="art-image" class="art-frame__img" alt="NFT artwork" />
+                    <div id="art-loader" class="art-frame__loader">
+                        <div class="loader-ring loader-ring--sm"></div>
+                    </div>
+                </div>
+                <div class="choices" id="choices">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            <div class="play__footer">
+                <span id="timer-text" class="timer-text">20s</span>
+            </div>
+        </section>
+
+        <!-- Round Result -->
+        <section id="screen-result" class="screen hidden">
+            <div id="result-content" class="result-card">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Game Over -->
+        <section id="screen-gameover" class="screen hidden">
+            <div class="gameover">
+                <h2 class="gameover__title">Game Over</h2>
+                <div id="final-score" class="gameover__score">0</div>
+                <div id="final-stats" class="gameover__stats"></div>
+                <div class="gameover__actions">
+                    <button id="btn-play-again" class="btn btn--primary" type="button">Play Again</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Persistent Sponsor Footer -->
+        <footer class="sponsor-bar">
+            <span class="sponsor-bar__text">HOSTED BY</span>
+            <img src="ron_west_TTC_logo_05.png" alt="TTC Logo" class="sponsor-bar__logo" />
+        </footer>
+    </main>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
