@@ -190,8 +190,7 @@
   <!-- Tagline (terminal-style) -->
   <g transform="translate(80, 360)" font-weight="700">
     <text x="0" y="0" font-size="28" fill="#ffffff" letter-spacing="0">
-      <tspan fill="#00ffc8">$</tspan>
-      <tspan dx="14">build</tspan>
+      <tspan>build</tspan>
       <tspan fill="#666" dx="6">·</tspan>
       <tspan dx="6">ship</tspan>
       <tspan fill="#666" dx="6">·</tspan>
