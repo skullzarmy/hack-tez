@@ -7,7 +7,7 @@
  *   /arcade/admin      → moderation (gated)
  */
 
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useTezos } from "../context/TezosContext";
@@ -21,11 +21,20 @@ import ArcadeLoader from "../components/arcade/ArcadeLoader";
 import ConfirmAction from "../components/arcade/ui/ConfirmAction";
 import {
     flagArcadeGame,
+    gameCoverUrl,
     useArcadeFlagged,
     useArcadeGame,
     useArcadePending,
     useArcadePendingUpdates,
 } from "../hooks/useArcade";
+
+const SITE_URL = (import.meta.env?.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") || "https://hacktez.com";
+
+function absUrl(p: string): string {
+    if (!p) return p;
+    if (/^https?:\/\//i.test(p)) return p;
+    return `${SITE_URL}${p.startsWith("/") ? p : `/${p}`}`;
+}
 
 const Sandbox = lazy(() => import("../components/arcade/Sandbox"));
 
@@ -114,12 +123,61 @@ function PlayRoute() {
     const [flagDone, setFlagDone] = useState(false);
 
     const game = data?.game ?? null;
+    const coverUrl = game ? gameCoverUrl(game.coverKey) : null;
+    const pageImage = coverUrl ?? "/arcade-og.png";
+
+    const playStructuredData = useMemo(() => {
+        if (!game) return undefined;
+        const url = `${SITE_URL}/arcade/play/${encodeURIComponent(slug ?? game.slug)}`;
+        const breadcrumb = {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+                { "@type": "ListItem", position: 1, name: "hack.tez", item: `${SITE_URL}/` },
+                { "@type": "ListItem", position: 2, name: "Hackcade", item: `${SITE_URL}/arcade` },
+                { "@type": "ListItem", position: 3, name: game.title, item: url },
+            ],
+        };
+        const videoGame: Record<string, unknown> = {
+            "@context": "https://schema.org",
+            "@type": "VideoGame",
+            name: game.title,
+            description: game.description || `Play ${game.title} on the hack.tez Hackcade.`,
+            url,
+            image: absUrl(coverUrl ?? "/arcade-og.png"),
+            genre: game.category,
+            applicationCategory: "GameApplication",
+            operatingSystem: "Web",
+            playMode: "SinglePlayer",
+            gamePlatform: "Web browser",
+            datePublished: game.createdAt,
+            dateModified: game.updatedAt,
+            author: {
+                "@type": "Person",
+                name: game.builder.domain,
+                url: `${SITE_URL}/u/${encodeURIComponent(game.builder.label)}`,
+            },
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        };
+        if (game.playCount > 0) {
+            videoGame.interactionStatistic = {
+                "@type": "InteractionCounter",
+                interactionType: { "@type": "PlayAction" },
+                userInteractionCount: game.playCount,
+            };
+        }
+        return [breadcrumb, videoGame];
+    }, [game, slug, coverUrl]);
+
     usePageMeta(
         game
             ? {
                   title: `${game.title} — Hackcade — hack.tez`,
-                  description: game.description || `Play ${game.title} on the hack.tez Hackcade.`,
+                  description: game.description || `Play ${game.title} on the hack.tez Hackcade — a community-built HTML5 game.`,
                   path: `/arcade/play/${slug}`,
+                  image: pageImage,
+                  imageAlt: `${game.title} — Hackcade cover art`,
+                  structuredData: playStructuredData,
               }
             : null,
     );

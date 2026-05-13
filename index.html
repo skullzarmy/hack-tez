@@ -21,6 +21,7 @@
         <meta property="og:image:type" content="image/png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="hack.tez — Claim Your Free Tezos Subdomain" />
         <meta property="og:site_name" content="hack.tez" />
         <meta property="og:locale" content="en_US" />
 
@@ -30,6 +31,7 @@
         <meta name="twitter:title" content="hack.tez — Claim Your Free Tezos Subdomain" />
         <meta name="twitter:description" content="For hackers, builders, artists, and tezonians. yourname.hack.tez — 1 claim per wallet. Just gas." />
         <meta name="twitter:image" content="%VITE_SITE_URL%/og-image.png" />
+        <meta name="twitter:image:alt" content="hack.tez — Claim Your Free Tezos Subdomain" />
 
         <!-- Theme -->
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
@@ -64,6 +66,7 @@
         {
             "@context": "https://schema.org",
             "@type": "WebApplication",
+            "@id": "%VITE_SITE_URL%/#webapp",
             "name": "hack.tez",
             "url": "%VITE_SITE_URL%/",
             "description": "Claim your free subdomain on hack.tez. For hackers, builders, artists, and tezonians on the Tezos blockchain.",
@@ -76,6 +79,35 @@
                 "description": "Free subdomain registration (user pays only blockchain gas ~0.02 XTZ)"
             },
             "keywords": "Tezos, blockchain, subdomain, NFT, web3, hack.tez, free domain"
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "@id": "%VITE_SITE_URL%/#website",
+            "name": "hack.tez",
+            "alternateName": "hack.tez Arcade",
+            "url": "%VITE_SITE_URL%/",
+            "publisher": { "@id": "%VITE_SITE_URL%/#org" },
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": {
+                    "@type": "EntryPoint",
+                    "urlTemplate": "%VITE_SITE_URL%/arcade?q={search_term_string}"
+                },
+                "query-input": "required name=search_term_string"
+            }
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "@id": "%VITE_SITE_URL%/#org",
+            "name": "hack.tez",
+            "url": "%VITE_SITE_URL%/",
+            "logo": "%VITE_SITE_URL%/web-app-manifest-512x512.png"
         }
         </script>
     </head>

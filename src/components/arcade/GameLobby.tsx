@@ -12,14 +12,48 @@ const SORTS = [
 ] as const;
 type SortId = (typeof SORTS)[number]["id"];
 
+const SITE_URL = (import.meta.env?.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") || "https://hacktez.com";
+
 export default function GameLobby() {
-    usePageMeta({
-        title: "Hackcade — hack.tez Arcade",
-        description: "Build it. Ship it. Play it. Community-built HTML games with hack.tez identity and on-chain leaderboards.",
-        path: "/arcade",
-    });
     const { data, loading, error } = useArcadeGames();
     const games = data?.games ?? [];
+
+    const lobbyStructuredData = useMemo(() => {
+        const breadcrumb = {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+                { "@type": "ListItem", position: 1, name: "hack.tez", item: `${SITE_URL}/` },
+                { "@type": "ListItem", position: 2, name: "Hackcade", item: `${SITE_URL}/arcade` },
+            ],
+        };
+        if (!games.length) return [breadcrumb];
+        // Canonical SEO ordering: most played first
+        const ranked = [...games].sort((a, b) => b.playCount - a.playCount);
+        const itemList = {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: "Hackcade Games",
+            numberOfItems: ranked.length,
+            itemListElement: ranked.map((g, i) => ({
+                "@type": "ListItem",
+                position: i + 1,
+                url: `${SITE_URL}/arcade/play/${encodeURIComponent(g.slug)}`,
+                name: g.title,
+            })),
+        };
+        return [breadcrumb, itemList];
+    }, [games]);
+
+    usePageMeta({
+        title: "Hackcade — hack.tez Arcade",
+        description:
+            "Build it. Ship it. Play it. Community-built HTML5 games — sign in with your hack.tez domain and climb the leaderboards.",
+        path: "/arcade",
+        image: "/arcade-og.png",
+        imageAlt: "HACKCADE — community-built HTML5 games on hack.tez",
+        structuredData: lobbyStructuredData,
+    });
     const [search, setSearch] = useState("");
     const [category, setCategory] = useState<string | null>(null);
     const [sort, setSort] = useState<SortId>("popular");

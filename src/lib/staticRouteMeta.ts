@@ -35,6 +35,7 @@ export const STATIC_ROUTE_META: Record<string, StaticRouteMeta> = {
     "/arcade": {
         title: "Hackcade — hack.tez Arcade",
         description:
-            "Build it. Ship it. Play it. Community-built HTML games with hack.tez identity and on-chain leaderboards.",
+            "Build it. Ship it. Play it. Community-built HTML5 games — sign in with your hack.tez domain and climb the leaderboards.",
+        image: "/arcade-og.png",
     },
 };

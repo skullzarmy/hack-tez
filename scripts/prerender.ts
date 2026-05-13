@@ -59,9 +59,9 @@ const { render } = (await import(serverEntry)) as { render: (url: string) => Pro
 
 const template = readFileSync(join(root, "dist/index.html"), "utf-8");
 
-function metaForRoute(route: string): { title: string; description: string } {
+function metaForRoute(route: string): { title: string; description: string; image?: string } {
     const staticMeta = STATIC_ROUTE_META[route];
-    if (staticMeta) return { title: staticMeta.title, description: staticMeta.description };
+    if (staticMeta) return { title: staticMeta.title, description: staticMeta.description, image: staticMeta.image };
     if (route.startsWith("/skills/")) {
         const slug = route.slice("/skills/".length);
         const skill = skills.find((s) => s.slug === slug);
@@ -81,7 +81,11 @@ for (const route of routes) {
     let full = template.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 
     const meta = metaForRoute(route);
-    full = applyPageMetaToHtml(full, { title: meta.title, description: meta.description, path: route }, SITE_URL);
+    full = applyPageMetaToHtml(
+        full,
+        { title: meta.title, description: meta.description, path: route, image: meta.image },
+        SITE_URL,
+    );
 
     const dir = join(root, "dist", route.slice(1));
     mkdirSync(dir, { recursive: true });
@@ -91,3 +95,77 @@ for (const route of routes) {
 }
 
 console.log(`\nPre-rendered ${count} routes.`);
+
+// ---------------------------------------------------------------------------
+// Generate dist/sitemap.xml — overwrites the static fallback in public/.
+// Combines all prerendered routes, key SPA routes, and the live game catalogue
+// (fetched from the arcade API; safe-falls back to empty if unreachable).
+// ---------------------------------------------------------------------------
+
+interface SitemapEntry {
+    loc: string;
+    changefreq?: "hourly" | "daily" | "weekly" | "monthly" | "yearly";
+    priority?: string;
+    lastmod?: string;
+}
+
+const today = new Date().toISOString().slice(0, 10);
+
+const staticEntries: SitemapEntry[] = [
+    { loc: "/",            changefreq: "daily",   priority: "1.0", lastmod: today },
+    { loc: "/arcade",      changefreq: "hourly",  priority: "0.9", lastmod: today },
+    { loc: "/arcade/submit", changefreq: "monthly", priority: "0.5" },
+    { loc: "/wiki",        changefreq: "daily",   priority: "0.8" },
+    { loc: "/hackers",     changefreq: "daily",   priority: "0.8" },
+    { loc: "/chat",        changefreq: "weekly",  priority: "0.6" },
+    { loc: "/developers",  changefreq: "monthly", priority: "0.7" },
+    { loc: "/skills",      changefreq: "weekly",  priority: "0.7" },
+    { loc: "/manifesto",   changefreq: "monthly", priority: "0.6" },
+    { loc: "/policies",    changefreq: "yearly",  priority: "0.3" },
+    ...skillSlugs.map<SitemapEntry>((slug) => ({
+        loc: `/skills/${slug}`,
+        changefreq: "monthly",
+        priority: "0.5",
+    })),
+];
+
+// Live game catalogue — soft failure if the API isn't reachable from CI.
+const gameEntries: SitemapEntry[] = [];
+const apiBase = (process.env.VITE_API_BASE_URL || `${SITE_URL}/api/v1/arcade`).replace(/\/$/, "");
+try {
+    const res = await fetch(`${apiBase}/games`, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+        const body = (await res.json()) as { games?: Array<{ slug: string; updatedAt?: string }> };
+        for (const g of body.games ?? []) {
+            gameEntries.push({
+                loc: `/arcade/play/${encodeURIComponent(g.slug)}`,
+                changefreq: "weekly",
+                priority: "0.6",
+                lastmod: g.updatedAt?.slice(0, 10),
+            });
+        }
+        console.log(`\nIncluded ${gameEntries.length} games in sitemap from ${apiBase}/games`);
+    } else {
+        console.warn(`\nSitemap: arcade API responded ${res.status} — skipping game entries`);
+    }
+} catch (err) {
+    console.warn(`\nSitemap: could not reach arcade API (${(err as Error).message}) — skipping game entries`);
+}
+
+const allEntries = [...staticEntries, ...gameEntries];
+const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allEntries
+    .map((e) => {
+        const tags = [`<loc>${SITE_URL}${e.loc}</loc>`];
+        if (e.lastmod) tags.push(`<lastmod>${e.lastmod}</lastmod>`);
+        if (e.changefreq) tags.push(`<changefreq>${e.changefreq}</changefreq>`);
+        if (e.priority) tags.push(`<priority>${e.priority}</priority>`);
+        return `  <url>${tags.join("")}</url>`;
+    })
+    .join("\n")}
+</urlset>
+`;
+
+writeFileSync(join(root, "dist/sitemap.xml"), xml);
+console.log(`Wrote dist/sitemap.xml (${allEntries.length} URLs).`);

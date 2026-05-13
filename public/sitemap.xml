@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Static fallback sitemap.
+
+  The build step (scripts/prerender.ts) overwrites this file in dist/ with a
+  generated sitemap that includes every prerendered route plus the live game
+  catalogue from the arcade API. Keep this fallback in sync at a coarse level
+  so the dev server and any early-cache fetches still resolve real URLs.
+-->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://hack.tez.page/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://hack.tez.page/manage</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
+  <url><loc>https://hacktez.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://hacktez.com/arcade</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://hacktez.com/wiki</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://hacktez.com/chat</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://hacktez.com/hackers</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://hacktez.com/developers</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://hacktez.com/skills</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://hacktez.com/skills/beacon-sdk</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/skills/hack-tez-api</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/skills/hackcade-sdk</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/skills/octez-connect</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/skills/smartpy</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/skills/taquito</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/skills/tezos-domains</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://hacktez.com/manifesto</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://hacktez.com/policies</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>
