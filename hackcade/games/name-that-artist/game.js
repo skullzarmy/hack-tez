@@ -160,6 +160,7 @@ const TOKENS_QUERY = `
                 token {
                     token_id
                     name
+                    mime
                     display_uri
                     thumbnail_uri
                     artifact_uri
@@ -212,6 +213,9 @@ async function fetchAllTokens(onProgress) {
             const artists = (t.creators || []).map((c) => c.creator_address);
             const primaryArtist = artists[0] || null;
             const key = `${t.fa_contract}:${t.token_id}`;
+
+            // Strict MIME type check to ensure we only get cleanly loading images
+            if (t.mime && !t.mime.startsWith("image/")) continue;
 
             // Skip blacklisted
             if (BLACKLISTED_CONTRACTS.has(t.fa_contract)) continue;
@@ -318,31 +322,38 @@ function preloadImage(url) {
     });
 }
 
-async function preloadGameImages(rounds, onProgress) {
-    const total = rounds.length;
-    if (total === 0) {
+async function preloadGameImages(candidates, targetCount, onProgress) {
+    const totalCandidates = candidates.length;
+    if (totalCandidates === 0) {
         onProgress?.(`Preloading artwork…`, 100);
-        return;
+        return [];
     }
 
-    const initialBatchSize = Math.min(5, total);
-    let loaded = 0;
+    let processed = 0;
+    const batchSize = 5;
+    const successfulRounds = [];
 
-    // 1. Await only the first batch sequentially to unblock the game quickly
-    for (let i = 0; i < initialBatchSize; i++) {
-        await preloadImage(rounds[i].token.imageUrl);
-        loaded++;
-        onProgress?.(`Preloading artwork… ${loaded}/${initialBatchSize}`, (loaded / initialBatchSize) * 100);
-    }
+    for (let i = 0; i < totalCandidates; i += batchSize) {
+        if (successfulRounds.length >= targetCount) break;
 
-    // 2. Fire off the rest in the background sequentially so we don't trigger IPFS rate limits
-    if (total > initialBatchSize) {
-        (async () => {
-            for (let i = initialBatchSize; i < total; i++) {
-                await preloadImage(rounds[i].token.imageUrl);
+        const batch = candidates.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map(async (r) => {
+            const ok = await preloadImage(r.token.imageUrl);
+            return { r, ok };
+        }));
+
+        for (const res of results) {
+            processed++;
+            if (res.ok && successfulRounds.length < targetCount) {
+                successfulRounds.push(res.r);
             }
-        })();
+        }
+        
+        const pct = Math.min(100, (successfulRounds.length / targetCount) * 100);
+        onProgress?.(`Preloading artwork… ${successfulRounds.length}/${targetCount}`, pct);
     }
+
+    return successfulRounds;
 }
 
 // ──────────────────────────────────────────────
@@ -625,6 +636,33 @@ function endGame() {
     const accuracy = totalRounds > 0 ? Math.round((correctCount / totalRounds) * 100) : 0;
     const durationSec = Math.round((Date.now() - startedAt) / 1000);
 
+    const avgScore = totalRounds > 0 ? score / totalRounds : 0;
+
+    let grade = "F";
+    let gradeClass = "grade--F";
+
+    if (accuracy === 100 && avgScore >= 85) { grade = "S"; gradeClass = "grade--S"; }
+    else if ((accuracy >= 90 && avgScore >= 70) || accuracy === 100) { grade = "A"; gradeClass = "grade--A"; }
+    else if ((accuracy >= 80 && avgScore >= 50) || accuracy >= 90) { grade = "B"; gradeClass = "grade--B"; }
+    else if ((accuracy >= 60 && avgScore >= 30) || accuracy >= 70) { grade = "C"; gradeClass = "grade--C"; }
+
+    const titles = { S: "Perfect!", A: "Amazing!", B: "Great Job!", C: "Not Bad!", F: "Game Over" };
+    const $title = document.getElementById("gameover-title");
+    if ($title) $title.textContent = titles[grade] || "Game Over";
+
+    const $gameoverCard = document.querySelector(".gameover");
+    if ($gameoverCard) {
+        $gameoverCard.className = `gameover theme--${grade}`;
+    }
+
+    const $badge = document.getElementById("grade-badge");
+    const $letter = document.getElementById("grade-letter");
+    if ($badge && $letter) {
+        $badge.className = `grade-badge ${gradeClass}`; // apply class to badge for stamp color!
+        $letter.className = `grade-letter ${gradeClass}`;
+        $letter.textContent = grade;
+    }
+
     $finalScore.textContent = score.toLocaleString();
     $finalStats.innerHTML = `
         <div class="stat-pill stat-pill--correct">
@@ -647,6 +685,13 @@ function endGame() {
 
     showScreen($overScreen);
 
+    if ($badge) {
+        setTimeout(() => {
+            $badge.classList.add("show");
+            if (grade === "S") triggerConfetti();
+        }, 300);
+    }
+
     // Submit to Hackcade leaderboard
     sdk.gameOver(score, {
         durationSeconds: durationSec,
@@ -658,6 +703,22 @@ function endGame() {
             totalRounds,
         },
     });
+}
+
+function triggerConfetti() {
+    const container = document.getElementById("confetti-container");
+    if (!container) return;
+    container.innerHTML = "";
+    const colors = ["#ffd700", "#ffb142", "#fff", "#00ffcc", "#ff0844"];
+    for (let i = 0; i < 100; i++) {
+        const piece = document.createElement("div");
+        piece.className = "confetti-piece";
+        piece.style.left = `${Math.random() * 100}%`;
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDuration = `${Math.random() * 2 + 2}s`;
+        piece.style.animationDelay = `${Math.random() * 2}s`;
+        container.appendChild(piece);
+    }
 }
 
 function formatDuration(sec) {
@@ -714,17 +775,17 @@ async function startGameFlow(diff) {
             return;
         }
 
-        // 3. Select rounds
+        // 3. Select candidates (fetch 1.5x what we need to account for IPFS failures)
         updateLoading("Building rounds…", 60);
-        gameRounds = selectRounds(Math.min(cfg.rounds, allTokens.length));
+        const targetRounds = Math.min(cfg.rounds, allTokens.length);
+        const candidates = selectRounds(Math.min(Math.floor(targetRounds * 1.5), allTokens.length));
 
-        if (gameRounds.length < cfg.rounds) {
-            // Adjust if not enough unique tokens
-            updateLoading(`Only ${gameRounds.length} rounds available (wanted ${cfg.rounds})`, 60);
+        // 4. Preload images, filtering out bad ones, until we hit our target
+        gameRounds = await preloadGameImages(candidates, targetRounds, (msg, pct) => updateLoading(msg, 60 + (pct * 0.4))); // 60-100%
+
+        if (gameRounds.length < Math.min(3, targetRounds)) {
+            throw new Error("Most images failed to load. Please try again or check your connection.");
         }
-
-        // 4. Preload ALL images for this game
-        await preloadGameImages(gameRounds, (msg, pct) => updateLoading(msg, 60 + (pct * 0.4))); // 60-100%
 
         updateLoading("Ready!", 100);
         await sleep(300);

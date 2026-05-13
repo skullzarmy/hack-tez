@@ -98,8 +98,13 @@
 
         <!-- Game Over -->
         <section id="screen-gameover" class="screen hidden">
+            <div id="confetti-container" class="confetti-container"></div>
             <div class="gameover">
-                <h2 class="gameover__title">Game Over</h2>
+                <div class="grade-badge" id="grade-badge">
+                    <div class="grade-letter" id="grade-letter">A</div>
+                    <div class="grade-label">Grade</div>
+                </div>
+                <h2 id="gameover-title" class="gameover__title">Game Over</h2>
                 <div id="final-score" class="gameover__score">0</div>
                 <div id="final-stats" class="gameover__stats"></div>
                 <div class="gameover__actions">

@@ -295,14 +295,28 @@ html, body {
 .result-card__detail { font-size: clamp(14px, 3vh, 16px); color: #a980d4; margin: 0; }
 
 /* ─── Game Over ─── */
+.gameover.theme--S { --theme-color: #ffd700; box-shadow: 0 0 50px rgba(255, 215, 0, 0.4); }
+.gameover.theme--A { --theme-color: #00ffcc; box-shadow: 0 0 50px rgba(0, 255, 204, 0.4); }
+.gameover.theme--B { --theme-color: #4facfe; box-shadow: 0 0 50px rgba(79, 172, 254, 0.4); }
+.gameover.theme--C { --theme-color: #f6d365; box-shadow: 0 0 50px rgba(246, 211, 101, 0.4); }
+.gameover.theme--F { --theme-color: #ff0844; box-shadow: 0 0 50px rgba(255, 8, 68, 0.4); }
+
 .gameover {
     display: flex; flex-direction: column; align-items: center; gap: clamp(16px, 4vh, 32px); 
     padding: clamp(24px, 5vh, 40px);
-    background: var(--surface); border: 2px solid var(--primary); border-radius: 16px;
-    box-shadow: 0 0 50px rgba(255, 0, 127, 0.3);
+    background: var(--surface); border: 2px solid var(--theme-color, var(--primary)); border-radius: 16px;
+    box-shadow: 0 0 50px rgba(255, 0, 127, 0.3); /* fallback */
     width: 100%; max-width: 500px; flex-shrink: 0;
+    position: relative;
+    transition: border-color 0.5s, box-shadow 0.5s;
 }
-.gameover__title { font-size: clamp(32px, 6vh, 50px); font-weight: 900; color: var(--primary); margin: 0; text-transform: uppercase; text-shadow: 0 0 20px var(--primary); }
+.gameover__title { 
+    font-size: clamp(32px, 6vh, 50px); font-weight: 900; 
+    color: var(--theme-color, var(--primary)); 
+    margin: 0; text-transform: uppercase; 
+    text-shadow: 0 0 20px var(--theme-color, var(--primary)); 
+    transition: color 0.5s, text-shadow 0.5s;
+}
 .gameover__score { font-size: clamp(60px, 12vh, 100px); font-weight: 900; color: #fff; text-shadow: 0 0 30px #fff; margin-top: -16px; }
 .gameover__stats { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; }
 .stat-pill { background: rgba(0,0,0,0.5); padding: 12px 20px; border-radius: 8px; text-align: center; border: 1px solid var(--surface-border); flex: 1; min-width: 100px; }
@@ -327,3 +341,63 @@ html, body {
 }
 .sponsor-bar__text { font-size: clamp(14px, 3vh, 18px); font-weight: 800; color: var(--secondary); letter-spacing: 2px; }
 .sponsor-bar__logo { height: clamp(24px, 5vh, 40px); width: auto; display: block; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5)); }
+
+/* ─── Game Over Grade & Confetti ─── */
+.grade-badge {
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: clamp(90px, 16vh, 120px);
+    height: clamp(90px, 16vh, 120px);
+    background: rgba(20, 5, 30, 0.95);
+    border: 3px solid currentColor;
+    border-radius: 50%;
+    transform: scale(0) rotate(15deg);
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 10px currentColor;
+    z-index: 20;
+}
+.grade-badge.show {
+    transform: scale(1) rotate(15deg);
+    animation: stampPulse 1.5s ease infinite alternate;
+}
+@keyframes stampPulse {
+    from { transform: scale(1) rotate(15deg); }
+    to { transform: scale(1.05) rotate(15deg); }
+}
+
+.grade-letter {
+    font-size: clamp(40px, 8vh, 60px);
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 0 10px currentColor;
+    margin-top: -4px;
+}
+.grade-label {
+    font-size: clamp(10px, 2vh, 14px);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+}
+
+.grade--S { color: #ffd700; text-shadow: 0 0 30px #ffd700, 0 0 10px #fff; animation: glowS 1.5s infinite alternate; }
+@keyframes glowS { from { text-shadow: 0 0 20px #ffd700, 0 0 10px #fff; } to { text-shadow: 0 0 40px #ffd700, 0 0 20px #fff, 0 0 10px #ffa500; } }
+.grade--A { color: #00ffcc; }
+.grade--B { color: #4facfe; }
+.grade--C { color: #f6d365; }
+.grade--F { color: #ff0844; }
+
+.confetti-container {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 100;
+}
+.confetti-piece {
+    position: absolute; top: -20px;
+    width: 10px; height: 20px;
+    background: #ffd700;
+    animation: fall linear forwards;
+}
+@keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); }
+}
