@@ -1,7 +1,7 @@
 import { createBot, setupBot } from "./bot.ts";
 import { initNotifier } from "./services/notifier.ts";
 import { startPoller } from "./services/poller.ts";
-import { NETWORK, POLL_INTERVAL_MS, ADMIN_USER_ID } from "./config.ts";
+import { NETWORK, POLL_INTERVAL_MS, ADMIN_USER_ID, BSKY_IDENTIFIER, BSKY_APP_PASSWORD } from "./config.ts";
 import { hasPollCursor, setPollCursor } from "./db/index.ts";
 import { fetchLatestClaimId, fetchLatestCommitId } from "./services/tzkt.ts";
 
@@ -36,6 +36,11 @@ async function main(): Promise<void> {
     console.log(`   TzKT API:  ${NETWORK.tzktApi}`);
     console.log(`   Poll:      ${POLL_INTERVAL_MS / 1000}s`);
     console.log(`   Admin ID:  ${ADMIN_USER_ID}`);
+    if (BSKY_IDENTIFIER && BSKY_APP_PASSWORD) {
+        console.log(`   Bluesky:   @${BSKY_IDENTIFIER} ✓`);
+    } else {
+        console.log(`   Bluesky:   not configured (set BSKY_IDENTIFIER + BSKY_APP_PASSWORD to enable)`);
+    }
 
     const hasClaimCursor = hasPollCursor("last_claim_id");
     const hasCommitCursor = hasPollCursor("last_commit_id");
