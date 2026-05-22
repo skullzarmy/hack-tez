@@ -112,16 +112,22 @@ export async function createSubdomainCname(label: string): Promise<void> {
 }
 
 export async function ensureDomainAlias(label: string): Promise<void> {
-    const alias = `${label}.hacktez.com`;
+    await ensureDomainAliasesBatch([label]);
+}
+
+/** Batch-add multiple label.hacktez.com aliases in a single GET + PATCH — avoids race conditions. */
+export async function ensureDomainAliasesBatch(labels: string[]): Promise<void> {
+    const aliases = labels.map((l) => `${l}.hacktez.com`);
     const siteRes = await fetch(`${BASE}/sites/${SITE_ID}`, { headers: authHeaders() });
     if (!siteRes.ok) throw new Error(`Netlify site fetch failed: ${siteRes.status}`);
     const site = (await siteRes.json()) as { domain_aliases?: string[] };
-    const existing = site.domain_aliases ?? [];
-    if (existing.includes(alias)) return;
+    const existing = new Set(site.domain_aliases ?? []);
+    const toAdd = aliases.filter((a) => !existing.has(a));
+    if (toAdd.length === 0) return;
     const patchRes = await fetch(`${BASE}/sites/${SITE_ID}`, {
         method: "PATCH",
         headers: authHeaders(),
-        body: JSON.stringify({ domain_aliases: [...existing, alias] }),
+        body: JSON.stringify({ domain_aliases: [...existing, ...toAdd] }),
     });
     if (!patchRes.ok) throw new Error(`Netlify domain alias update failed: ${patchRes.status}`);
 }
