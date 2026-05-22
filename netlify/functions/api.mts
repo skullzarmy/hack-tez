@@ -34,6 +34,14 @@ import {
     renderSingleFrame,
 } from "../../src/lib/hackatar/index.ts";
 import { textToPath } from "./textToPath.ts";
+import { Redis } from "@upstash/redis";
+import {
+    createAtprotoRecord,
+    deleteAtprotoRecord,
+    getAtprotoRecord,
+    findRecordByDid,
+} from "./netlifyDns.ts";
+import { verifySignature, getPkhfromPk } from "@taquito/utils";
 // ---------------------------------------------------------------------------
 // Network config (mirrors src/config/tezos.ts without Vite import.meta.env)
 // ---------------------------------------------------------------------------
@@ -41,7 +49,7 @@ import { textToPath } from "./textToPath.ts";
 type TezosNetwork = "mainnet" | "ghostnet";
 
 interface NetworkConfig {
-    tld: string;
+    tld: "tez" | "gho";
     tzktApi: string;
     domainsGraphql: string;
     registrarAddress: string;
@@ -73,11 +81,47 @@ function getNetwork(): NetworkConfig & { name: TezosNetwork } {
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
 };
 
 const SHARE_CARD_DEBUG_VERSION = "share-card-debug-2026-04-10-v1";
+
+// ---------------------------------------------------------------------------
+// Upstash Redis — shared cache across serverless invocations
+// ---------------------------------------------------------------------------
+
+function getRedis(): Redis | null {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) return null;
+    return new Redis({ url, token });
+}
+
+/** SWR cache entry stored in Redis */
+interface RedisCacheEntry {
+    json: string;
+    builtAt: number;
+}
+
+/** Soft freshness window — serve cached if within this age (seconds) */
+const DOMAINS_CACHE_FRESH_SEC = 60;
+/** Hard TTL in Redis — auto-expire after this (seconds) */
+const DOMAINS_CACHE_TTL_SEC = 600;
+
+/**
+ * Convert a typed array (Uint8Array, Buffer, etc.) to a clean ArrayBuffer.
+ *
+ * TS 5.7+ widened `TypedArray.buffer` to `ArrayBufferLike` (= ArrayBuffer |
+ * SharedArrayBuffer).  At runtime, views created by gifenc / Resvg / Node
+ * Buffer are never backed by SharedArrayBuffer, but the type system doesn't
+ * know that.  One cast here eliminates the mismatch at every Response / Blob /
+ * store.set boundary.
+ */
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+    const { buffer, byteOffset, byteLength } = data;
+    return (buffer as ArrayBuffer).slice(byteOffset, byteOffset + byteLength);
+}
 
 function json(body: unknown, status = 200, extra?: HeadersInit): Response {
     return new Response(JSON.stringify(body), {
@@ -780,6 +824,20 @@ async function getAllRegistrationHashes(
     }
 }
 
+/** Type alias for the paginated TED domains response — extracted to break
+ *  circular type inference when `page` and `after` reference each other. */
+interface TedDomainsPage {
+    domains: {
+        items: Array<{
+            name: string;
+            owner: string;
+            address: string | null;
+            data: Array<{ key: string; value: unknown }>;
+        }>;
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    };
+}
+
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 1000; // safety cap on internal pagination
 
@@ -791,28 +849,80 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
     if (Number.isNaN(rawLimit) || rawLimit < 1) return err("limit must be a positive integer", "INVALID_INPUT");
     const limit = Math.min(rawLimit, MAX_LIMIT);
 
+    // ---------------------------------------------------------------------------
+    // Redis SWR cache — only for the default full-list request
+    // ---------------------------------------------------------------------------
+    const redis = getRedis();
+    const cacheKey = `hackers:v1:${net.name}:${limit}`;
+
+    if (redis) {
+        try {
+            const cached = await redis.get<RedisCacheEntry>(cacheKey);
+            if (cached?.json && cached?.builtAt) {
+                const ageSeconds = (Date.now() - cached.builtAt) / 1000;
+                if (ageSeconds < DOMAINS_CACHE_FRESH_SEC) {
+                    // Fresh — serve directly from Redis
+                    return new Response(cached.json, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...CORS_HEADERS,
+                            "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+                            "X-Cache": "HIT",
+                        },
+                    });
+                }
+                // Stale — serve immediately, then revalidate in background
+                const staleResponse = new Response(cached.json, {
+                    status: 200,
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...CORS_HEADERS,
+                        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+                        "X-Cache": "STALE",
+                    },
+                });
+                // Fire-and-forget: rebuild and update cache
+                buildDomainsAndCache(parent, limit, net, redis, cacheKey).catch(() => {});
+                return staleResponse;
+            }
+        } catch {
+            // Redis unavailable — fall through to live build
+        }
+    }
+
+    // Cache miss or Redis unavailable — build from upstream
+    const responseBody = await buildDomainsResponse(parent, limit, net);
+
+    // Write to Redis (fire-and-forget)
+    if (redis) {
+        const entry: RedisCacheEntry = { json: JSON.stringify(responseBody), builtAt: Date.now() };
+        redis.set(cacheKey, entry, { ex: DOMAINS_CACHE_TTL_SEC }).catch(() => {});
+    }
+
+    return json(
+        responseBody,
+        200,
+        {
+            "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+            "X-Cache": "MISS",
+        },
+    );
+}
+
+/** Build the full domains response payload from upstream APIs */
+async function buildDomainsResponse(
+    parent: string,
+    limit: number,
+    net: ReturnType<typeof getNetwork>,
+): Promise<{ data: unknown[]; count: number; limit: number; network: string }> {
     // TED GraphQL caps `first` at 50 — paginate via cursor to satisfy larger limits.
-    const items: Array<{
-        name: string;
-        owner: string;
-        address: string | null;
-        data: Array<{ key: string; value: unknown }>;
-    }> = [];
+    const items: TedDomainsPage["domains"]["items"] = [];
     let after: string | null = null;
     const fetchAll = (async () => {
         while (items.length < limit) {
             const pageSize = Math.min(50, limit - items.length);
-            const page = await tedGql<{
-                domains: {
-                    items: Array<{
-                        name: string;
-                        owner: string;
-                        address: string | null;
-                        data: Array<{ key: string; value: unknown }>;
-                    }>;
-                    pageInfo: { hasNextPage: boolean; endCursor: string | null };
-                };
-            }>(
+            const page: TedDomainsPage = await tedGql(
                 net.domainsGraphql,
                 `query AllDomains($parent: String!, $first: Int!, $after: String) {
                   domains(where: { name: { endsWith: $parent } }, first: $first, after: $after, order: { field: NAME, direction: ASC }) {
@@ -847,20 +957,30 @@ async function handleDomains(url: URL, net: ReturnType<typeof getNetwork>): Prom
                 address: d.address,
                 registeredAt: reg?.timestamp ?? null,
                 opHash: reg?.hash ?? null,
+                profile: parseProfileFromData(d.data ?? []),
             },
         ];
     });
 
-    return json(
-        {
-            data: domains,
-            count: domains.length,
-            limit,
-            network: net.name,
-        },
-        200,
-        { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
-    );
+    return {
+        data: domains,
+        count: domains.length,
+        limit,
+        network: net.name,
+    };
+}
+
+/** Background revalidation — build fresh data and write to Redis */
+async function buildDomainsAndCache(
+    parent: string,
+    limit: number,
+    net: ReturnType<typeof getNetwork>,
+    redis: Redis,
+    cacheKey: string,
+): Promise<void> {
+    const responseBody = await buildDomainsResponse(parent, limit, net);
+    const entry: RedisCacheEntry = { json: JSON.stringify(responseBody), builtAt: Date.now() };
+    await redis.set(cacheKey, entry, { ex: DOMAINS_CACHE_TTL_SEC });
 }
 
 /** All registrar addresses: current + any legacy contracts (env: comma-separated) */
@@ -998,7 +1118,7 @@ async function handleConfig(net: ReturnType<typeof getNetwork>): Promise<Respons
 const { GIFEncoder, quantize, applyPalette } = gifenc;
 const HACKATAR_SIZE = 192;
 
-function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, delayMs: number): Uint8Array {
+function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, delayMs: number): ArrayBuffer {
     const gif = GIFEncoder();
     for (const frame of frames) {
         const palette = quantize(frame, 256, { format: "rgba4444" });
@@ -1006,7 +1126,7 @@ function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, delayMs: n
         gif.writeFrame(indexed, w, h, { palette, delay: delayMs, transparent: true, transparentIndex: 0 });
     }
     gif.finish();
-    return gif.bytes();
+    return toArrayBuffer(gif.bytes());
 }
 
 async function handleHackatar(label: string, url: URL, net: ReturnType<typeof getNetwork>): Promise<Response> {
@@ -1051,7 +1171,7 @@ async function handleHackatar(label: string, url: URL, net: ReturnType<typeof ge
     const prng = createPrng(seed);
     const traits = selectTraits(prng);
 
-    let rendered: { imageBytes: Uint8Array; altBlobKey: string; altImageBytes: Uint8Array };
+    let rendered: { imageBytes: ArrayBuffer; altBlobKey: string; altImageBytes: ArrayBuffer };
     try {
         if (isStatic) {
             const frame = renderSingleFrame(traits, HACKATAR_SIZE);
@@ -1229,11 +1349,13 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
     });
 
     // No font loading needed - text is pre-converted to vector paths
-    const pngData = new Resvg(svg, {
-        fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
-    })
-        .render()
-        .asPng();
+    const pngData = toArrayBuffer(
+        new Resvg(svg, {
+            fitTo: { mode: "width", value: PROFILE_SHARE_SIZES.og.width },
+        })
+            .render()
+            .asPng(),
+    );
 
     return new Response(pngData, {
         headers: {
@@ -1245,6 +1367,236 @@ async function handleShareCard(label: string, reqUrl: URL, net: ReturnType<typeo
             "X-Share-Card-Path-Count": String(pathNodeCount),
             "X-Share-Card-Mode": "vector-paths",
             ...CORS_HEADERS,
+        },
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Bluesky handle linking handlers
+// ---------------------------------------------------------------------------
+
+const DID_RE = /^did:(plc|web):[a-zA-Z0-9._:%-]+$/;
+const BLUESKY_TIMESTAMP_WINDOW_SEC = 5 * 60;
+
+/** Pack a string as a Micheline expression: 05 01 <4-byte-big-endian-length> <utf8-bytes> */
+function packMichelineStringBsky(str: string): string {
+    const bytes = new TextEncoder().encode(str);
+    const lenHex = bytes.length.toString(16).padStart(8, "0");
+    return (
+        "0501" +
+        lenHex +
+        Array.from(bytes)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("")
+    );
+}
+
+function buildBlueskyChallenge(action: string, label: string, timestamp: string, nonce: string): string {
+    return `hack.tez — Bluesky ${action} · ${label}.hacktez.com · ${timestamp} · ${nonce}`;
+}
+
+async function verifyBlueskyAuth(
+    body: Record<string, unknown>,
+    action: string,
+    label: string,
+): Promise<{ address: string } | Response> {
+    const { address, publicKey, signature, timestamp, nonce } = body as {
+        address?: string;
+        publicKey?: string;
+        signature?: string;
+        timestamp?: string;
+        nonce?: string;
+    };
+
+    if (!address || !publicKey || !signature || !timestamp || !nonce) {
+        return err("Missing auth fields", "BAD_REQUEST");
+    }
+
+    // Validate timestamp window
+    const ts = new Date(timestamp).getTime();
+    if (isNaN(ts)) return err("Invalid timestamp", "BAD_REQUEST");
+    const nowMs = Date.now();
+    if (Math.abs(nowMs - ts) > BLUESKY_TIMESTAMP_WINDOW_SEC * 1000) {
+        return err("Timestamp expired", "TIMESTAMP_INVALID", 401);
+    }
+
+    // Verify publicKey hashes to address
+    let derivedAddress: string;
+    try {
+        derivedAddress = getPkhfromPk(publicKey);
+    } catch {
+        return err("Invalid public key", "INVALID_PUBLIC_KEY", 401);
+    }
+    if (derivedAddress !== address) {
+        return err("Public key does not match address", "KEY_MISMATCH", 401);
+    }
+
+    // Verify signature
+    const message = buildBlueskyChallenge(action, label, timestamp, nonce);
+    const payloadHex = packMichelineStringBsky(message);
+    let sigValid: boolean;
+    try {
+        sigValid = verifySignature(payloadHex, publicKey, signature);
+    } catch {
+        return err("Signature verification failed", "INVALID_SIGNATURE", 401);
+    }
+    if (!sigValid) return err("Invalid signature", "INVALID_SIGNATURE", 401);
+
+    return { address };
+}
+
+async function verifyLabelOwnership(
+    label: string,
+    address: string,
+    net: NetworkConfig & { name: TezosNetwork },
+): Promise<boolean> {
+    const fullName = `${label}.hack.${net.tld}`;
+    const data = await tedGql<{ domain: { owner: string } | null }>(
+        net.domainsGraphql,
+        `query DomainOwner($name: String!) {
+          domain(name: $name) { owner }
+        }`,
+        { name: fullName },
+    );
+    return data.domain?.owner === address;
+}
+
+async function handleBlueskyLink(req: Request, net: NetworkConfig & { name: TezosNetwork }): Promise<Response> {
+    let body: Record<string, unknown>;
+    try {
+        body = await req.json();
+    } catch {
+        return err("Invalid JSON body", "BAD_REQUEST");
+    }
+
+    const label = body.label as string | undefined;
+    if (!label) return err("Missing label", "BAD_REQUEST");
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_LABEL");
+
+    const authResult = await verifyBlueskyAuth(body, "link", label);
+    if (authResult instanceof Response) return authResult;
+    const { address } = authResult;
+
+    const did = body.did as string | undefined;
+    if (!did || !DID_RE.test(did)) {
+        return err("Invalid or missing DID", "INVALID_DID");
+    }
+
+    // Verify label ownership
+    let ownsLabel: boolean;
+    try {
+        ownsLabel = await verifyLabelOwnership(label, address, net);
+    } catch {
+        return err("Failed to verify domain ownership", "UPSTREAM_ERROR", 502);
+    }
+    if (!ownsLabel) {
+        return err(`Address does not own ${label}.hack.${net.tld}`, "NOT_OWNER", 403);
+    }
+
+    // DID uniqueness — ensure this DID isn't already linked to a different label
+    let existingDid: { hostname: string } | null;
+    try {
+        existingDid = await findRecordByDid(did);
+    } catch {
+        return err("Failed to check DID uniqueness", "UPSTREAM_ERROR", 502);
+    }
+    if (existingDid) {
+        const existingLabel = existingDid.hostname
+            .replace("_atproto.", "")
+            .replace(".hacktez.com", "");
+        if (existingLabel !== label) {
+            return err(
+                `DID is already linked to ${existingLabel}.hacktez.com`,
+                "DID_CONFLICT",
+                409,
+            );
+        }
+    }
+
+    // Delete any existing record for this label before creating a new one
+    try {
+        await deleteAtprotoRecord(label);
+    } catch {
+        // Non-fatal — proceed to create
+    }
+
+    let record: { id: string };
+    try {
+        record = await createAtprotoRecord(label, did);
+    } catch {
+        return err("Failed to create DNS record", "DNS_ERROR", 502);
+    }
+
+    return json({
+        data: {
+            label,
+            did,
+            hostname: `_atproto.${label}.hacktez.com`,
+            recordId: record.id,
+            status: "created",
+        },
+    });
+}
+
+async function handleBlueskyUnlink(req: Request, net: NetworkConfig & { name: TezosNetwork }): Promise<Response> {
+    let body: Record<string, unknown>;
+    try {
+        body = await req.json();
+    } catch {
+        return err("Invalid JSON body", "BAD_REQUEST");
+    }
+
+    const label = body.label as string | undefined;
+    if (!label) return err("Missing label", "BAD_REQUEST");
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_LABEL");
+
+    const authResult = await verifyBlueskyAuth(body, "unlink", label);
+    if (authResult instanceof Response) return authResult;
+    const { address } = authResult;
+
+    let ownsLabel: boolean;
+    try {
+        ownsLabel = await verifyLabelOwnership(label, address, net);
+    } catch {
+        return err("Failed to verify domain ownership", "UPSTREAM_ERROR", 502);
+    }
+    if (!ownsLabel) {
+        return err(`Address does not own ${label}.hack.${net.tld}`, "NOT_OWNER", 403);
+    }
+
+    try {
+        await deleteAtprotoRecord(label);
+    } catch {
+        return err("Failed to remove DNS record", "DNS_ERROR", 502);
+    }
+
+    return json({ data: { label, status: "removed" } });
+}
+
+async function handleBlueskyStatus(label: string): Promise<Response> {
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_LABEL");
+
+    let record: { id: string; value: string } | null;
+    try {
+        record = await getAtprotoRecord(label);
+    } catch {
+        return err("Failed to check DNS record", "DNS_ERROR", 502);
+    }
+
+    if (!record) {
+        return json({ data: { label, linked: false } });
+    }
+
+    const did = record.value.replace(/^did=/, "");
+    return json({
+        data: {
+            label,
+            linked: true,
+            did,
+            handle: `${label}.hacktez.com`,
         },
     });
 }
@@ -1277,6 +1629,19 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     if (resource === "arcade") {
         const arcade = await import("./arcade.mts");
         return arcade.default(req, ctx);
+    }
+
+    // Bluesky handle linking
+    //   POST /api/v1/bluesky/link    — label in request body
+    //   POST /api/v1/bluesky/unlink  — label in request body
+    //   GET  /api/v1/bluesky/:label  — check status
+    if (resource === "bluesky") {
+        const net = getNetwork();
+        if (req.method === "POST" && param === "link") return handleBlueskyLink(req, net);
+        if (req.method === "POST" && param === "unlink") return handleBlueskyUnlink(req, net);
+        if (req.method === "GET" && param) return handleBlueskyStatus(decodeURIComponent(param));
+        if (req.method === "POST") return err("Unknown bluesky action", "NOT_FOUND", 404);
+        return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
     }
 
     if (req.method !== "GET") {

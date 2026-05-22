@@ -46,9 +46,29 @@ export function Hackatar({
   const staticUrl = `/api/v1/hackatar/${encodedLabel}?static=1`;
   const animatedUrl = `/api/v1/hackatar/${encodedLabel}`;
 
-  // Preload animated GIF in background so hover swap is instant
+  // Preload animated GIF in background once the element is near-viewport
+  const containerRef = useRef<HTMLImageElement | null>(null);
+  const [isNearViewport, setIsNearViewport] = useState(false);
+
   useEffect(() => {
-    if (animated) return; // always-animated mode doesn't need preload
+    const el = containerRef.current;
+    if (!el || animated) return; // always-animated mode doesn't need lazy preload
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" }, // start preloading 200px before visible
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [animated]);
+
+  useEffect(() => {
+    if (animated || !isNearViewport) return;
 
     let cancelled = false;
     setGifReady(false);
@@ -67,7 +87,7 @@ export function Hackatar({
       img.onload = null;
       preloadRef.current = null;
     };
-  }, [animatedUrl, animated]);
+  }, [animatedUrl, animated, isNearViewport]);
 
   // External `playing` prop takes priority, then self-hover
   const wantsAnimate = animated || playing === true || (playing === undefined && hoverAnimate && hovering);
@@ -75,8 +95,10 @@ export function Hackatar({
 
   return (
     <img
+      ref={containerRef}
       src={showAnimated ? animatedUrl : staticUrl}
       alt={`${label} hackatar`}
+      loading="lazy"
       className={className}
       onMouseEnter={playing === undefined ? () => setHovering(true) : undefined}
       onMouseLeave={playing === undefined ? () => setHovering(false) : undefined}

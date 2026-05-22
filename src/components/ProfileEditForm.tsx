@@ -5,6 +5,13 @@ import { useTezos } from "../context/TezosContext";
 import { getDomainRecord } from "../lib/domains";
 import { submitProfileUpdate, waitForOperation } from "../lib/contract";
 import { ipfsUriToGatewayUrl } from "../lib/pin";
+import {
+    resolveBlueskyHandle,
+    linkBlueskyHandle,
+    unlinkBlueskyHandle,
+    getBlueskyStatus,
+    isValidDid,
+} from "../lib/bluesky";
 import type { DomainRecord } from "../lib/domains";
 import type { HackProfile, ProjectEntry, BuilderStatus } from "../types/profile";
 import { isValidUrl } from "../types/profile";
@@ -684,6 +691,7 @@ function generateProjectKey(): string {
 
 export interface ProfileEditState {
     editing: boolean;
+    label: string;
     form: HackProfile;
     projectKeys: string[];
     submitting: boolean;
@@ -982,6 +990,7 @@ export function useProfileEdit(
 
     return {
         editing,
+        label,
         form,
         projectKeys,
         submitting,
@@ -1005,10 +1014,282 @@ export function useProfileEdit(
     };
 }
 
+// ── Bluesky Section ─────────────────────────────────────────────────
+
+function BlueskySection({
+    label,
+    currentDid,
+    onDidChange,
+}: {
+    label: string;
+    currentDid: string | undefined;
+    onDidChange: (did: string | undefined) => void;
+}) {
+    const { client } = useTezos();
+    const [bskyHandle, setBskyHandle] = useState("");
+    const [resolvedDid, setResolvedDid] = useState<string | null>(null);
+    const [resolveError, setResolveError] = useState<string | null>(null);
+    const [resolving, setResolving] = useState(false);
+    type LinkPhase = "idle" | "signing" | "dns" | "saving" | "done" | "dns_only";
+    type UnlinkPhase = "idle" | "signing" | "dns" | "saving" | "done" | "dns_only";
+    const [linkPhase, setLinkPhase] = useState<LinkPhase>("idle");
+    const [unlinkPhase, setUnlinkPhase] = useState<UnlinkPhase>("idle");
+    const [actionErr, setActionErr] = useState<string | null>(null);
+    const [dnsLinked, setDnsLinked] = useState<boolean | null>(null);
+
+    // Check DNS status on mount
+    useEffect(() => {
+        getBlueskyStatus(label).then((s) => setDnsLinked(s.linked));
+    }, [label]);
+
+    async function handleResolve() {
+        setResolveError(null);
+        setResolvedDid(null);
+        setResolving(true);
+        const did = await resolveBlueskyHandle(bskyHandle);
+        setResolving(false);
+        if (!did) {
+            setResolveError("Could not resolve handle — check spelling or try your DID directly");
+        } else {
+            setResolvedDid(did);
+        }
+    }
+
+    function isWalletCancel(e: unknown): boolean {
+        const msg = e instanceof Error ? e.message.toLowerCase() : "";
+        return msg.includes("abort") || msg.includes("cancel") || msg.includes("declined");
+    }
+
+    async function handleLink() {
+        if (!client || !resolvedDid) return;
+        setActionErr(null);
+        setLinkPhase("signing");
+        try {
+            // Phase 1: wallet signs the auth message, then DNS record is created
+            const res = await linkBlueskyHandle({ label, did: resolvedDid, client });
+            if (!res.ok) {
+                const body = await res.json() as { error?: string };
+                setActionErr(body.error ?? "Link failed");
+                setLinkPhase("idle");
+                return;
+            }
+            setLinkPhase("dns");
+            setDnsLinked(true);
+            onDidChange(resolvedDid);
+
+            // Phase 2: on-chain save — wallet will prompt for transaction approval
+            setLinkPhase("saving");
+            await submitProfileUpdate(label, { bluesky: resolvedDid }, client);
+            setLinkPhase("done");
+        } catch (e) {
+            if (isWalletCancel(e) && dnsLinked) {
+                // DNS is live but they cancelled the on-chain tx
+                setLinkPhase("dns_only");
+                setActionErr("DNS is active but profile wasn't saved on-chain. Hit Save Profile to finish.");
+            } else if (isWalletCancel(e)) {
+                setLinkPhase("idle");
+            } else {
+                setLinkPhase("dns_only");
+                setActionErr("DNS linked but on-chain save failed — hit Save Profile to finish.");
+            }
+        }
+    }
+
+    async function handleUnlink() {
+        if (!client) return;
+        setActionErr(null);
+        setUnlinkPhase("signing");
+        try {
+            const res = await unlinkBlueskyHandle({ label, client });
+            if (!res.ok) {
+                const body = await res.json() as { error?: string };
+                setActionErr(body.error ?? "Unlink failed");
+                setUnlinkPhase("idle");
+                return;
+            }
+            setUnlinkPhase("dns");
+            setDnsLinked(false);
+            onDidChange(undefined);
+            setResolvedDid(null);
+
+            setUnlinkPhase("saving");
+            await submitProfileUpdate(label, { bluesky: undefined }, client);
+            setUnlinkPhase("done");
+        } catch (e) {
+            if (isWalletCancel(e)) {
+                setUnlinkPhase("dns_only");
+                setActionErr("DNS removed but profile wasn't saved on-chain. Hit Save Profile to finish.");
+            } else {
+                setUnlinkPhase("dns_only");
+                setActionErr("DNS removed but on-chain save failed — hit Save Profile to finish.");
+            }
+        }
+    }
+
+    const btnBase: React.CSSProperties = {
+        padding: "0.35rem 0.75rem",
+        borderRadius: "4px",
+        fontSize: "0.75rem",
+        fontFamily: "var(--font-mono)",
+        cursor: "pointer",
+        border: "1px solid var(--border)",
+        background: "var(--bg-2)",
+        color: "var(--fg)",
+    };
+
+    const stepStyle: React.CSSProperties = {
+        fontSize: "0.72rem",
+        lineHeight: 1.7,
+        color: "var(--fg-2)",
+    };
+
+    const stepHighlight: React.CSSProperties = {
+        fontFamily: "var(--font-mono)",
+        background: "var(--bg-3)",
+        borderRadius: "3px",
+        padding: "0 4px",
+        color: "var(--fg)",
+    };
+
+    return (
+        <div style={{ ...SECTION_STYLE, border: "1px solid var(--border)", borderRadius: "6px", padding: "0.75rem" }}>
+            <span style={LABEL_STYLE}>Claim your hacktez.com Bluesky handle</span>
+
+            {/* Already linked status */}
+            {currentDid && dnsLinked && linkPhase !== "done" && (
+                <div style={{
+                    fontSize: "0.72rem",
+                    color: "var(--ok)",
+                    background: "var(--ok-bg, rgba(34,197,94,0.08))",
+                    border: "1px solid rgba(34,197,94,0.2)",
+                    borderRadius: "4px",
+                    padding: "0.5rem 0.65rem",
+                    lineHeight: 1.6,
+                }}>
+                    <div style={{ fontWeight: 600, marginBottom: "0.2rem" }}>
+                        ✓ DNS record active — <span style={{ fontFamily: "var(--font-mono)" }}>{label}.hacktez.com</span>
+                    </div>
+                    <div style={{ color: "var(--fg-3)", fontSize: "0.68rem" }}>
+                        If you haven't already: in Bluesky go to <strong>Settings → Account → Handle</strong>, choose
+                        {" "}<em>I have my own domain</em>, enter{" "}
+                        <span style={stepHighlight}>{label}.hacktez.com</span>, then click <strong>Verify my domain</strong>.
+                    </div>
+                </div>
+            )}
+
+            {currentDid && !dnsLinked && linkPhase === "idle" && (
+                <div style={{ fontSize: "0.72rem", color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}>
+                    DID on-chain: {currentDid} · <span style={{ color: "var(--warn)" }}>DNS not active</span>
+                </div>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                    <label htmlFor="bsky-handle" style={LABEL_STYLE}>
+                        Your Bluesky handle or DID
+                    </label>
+                    <input
+                        id="bsky-handle"
+                        type="text"
+                        value={bskyHandle}
+                        onChange={(e) => {
+                            setBskyHandle(e.target.value);
+                            setResolvedDid(null);
+                            setResolveError(null);
+                        }}
+                        style={INPUT_BASE}
+                        placeholder="alice.bsky.social or did=did:plc:..."
+                    />
+                </div>
+                <button
+                    type="button"
+                    onClick={handleResolve}
+                    disabled={!bskyHandle || resolving}
+                    style={{ ...btnBase, whiteSpace: "nowrap" }}
+                >
+                    {resolving ? "Resolving…" : "Resolve DID"}
+                </button>
+            </div>
+
+            {resolveError && (
+                <div style={{ fontSize: "0.72rem", color: "var(--err)" }}>{resolveError}</div>
+            )}
+
+            {resolvedDid && (
+                <div style={{ fontSize: "0.72rem", color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}>
+                    DID: {resolvedDid} <span style={{ color: "var(--ok)" }}>✓ resolved</span>
+                </div>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {resolvedDid && !dnsLinked && linkPhase !== "done" && (
+                    <button
+                        type="button"
+                        onClick={handleLink}
+                        disabled={linkPhase !== "idle" || !isValidDid(resolvedDid)}
+                        style={{ ...btnBase, background: "var(--accent)", color: "var(--bg)", border: "none" }}
+                    >
+                        {linkPhase === "signing" && "Approve in wallet…"}
+                        {linkPhase === "dns"     && "Creating DNS record…"}
+                        {linkPhase === "saving"  && "Saving on-chain…"}
+                        {(linkPhase === "idle" || linkPhase === "dns_only") && `Link ${label}.hacktez.com`}
+                    </button>
+                )}
+                {dnsLinked && linkPhase !== "done" && (
+                    <button
+                        type="button"
+                        onClick={handleUnlink}
+                        disabled={unlinkPhase !== "idle"}
+                        style={{ ...btnBase, color: "var(--err)" }}
+                    >
+                        {unlinkPhase === "signing" && "Approve in wallet…"}
+                        {unlinkPhase === "dns"     && "Removing DNS record…"}
+                        {unlinkPhase === "saving"  && "Saving on-chain…"}
+                        {(unlinkPhase === "idle" || unlinkPhase === "dns_only") && "Unlink"}
+                    </button>
+                )}
+            </div>
+
+            {linkPhase === "done" && (
+                <div style={{
+                    background: "var(--ok-bg, rgba(34,197,94,0.08))",
+                    border: "1px solid rgba(34,197,94,0.2)",
+                    borderRadius: "4px",
+                    padding: "0.65rem 0.75rem",
+                    lineHeight: 1.6,
+                }}>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ok)", marginBottom: "0.5rem" }}>
+                        ✓ Linked and saved — now finish in Bluesky
+                    </div>
+                    <ol style={{ ...stepStyle, margin: 0, paddingLeft: "1.25rem" }}>
+                        <li>Open Bluesky and go to <strong>Settings</strong></li>
+                        <li>Tap <strong>Account</strong></li>
+                        <li>Tap <strong>Handle</strong></li>
+                        <li>Choose <em>I have my own domain</em></li>
+                        <li>Enter <span style={stepHighlight}>{label}.hacktez.com</span></li>
+                        <li>Tap <strong>Verify my domain</strong> — done!</li>
+                    </ol>
+                </div>
+            )}
+
+            {unlinkPhase === "done" && (
+                <div style={{ fontSize: "0.72rem", color: "var(--fg-3)", lineHeight: 1.5 }}>
+                    Unlinked and saved. Your Bluesky handle will revert once Bluesky re-checks the domain.
+                </div>
+            )}
+
+            {actionErr && (
+                <div style={{ fontSize: "0.72rem", color: "var(--err)" }}>{actionErr}</div>
+            )}
+        </div>
+    );
+}
+
 // ── Edit Form Renderer ───────────────────────────────────────────────
 
 export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
     const {
+        label,
         form,
         projectKeys,
         submitting,
@@ -1129,6 +1410,13 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
                     />
                 </div>
             </div>
+
+            {/* ── Bluesky ─────────────────────────────────────── */}
+            <BlueskySection
+                label={label}
+                currentDid={form.bluesky}
+                onDidChange={(did) => updateField("bluesky", did)}
+            />
 
             {/* ── Skills ──────────────────────────────────────── */}
             <div style={SECTION_STYLE}>

@@ -544,9 +544,9 @@ export default function Developers() {
                                 non-200 HTTP status.
                             </p>
                             <p>
-                                Responses are CDN-cached at the edge (
-                                <code style={{ color: "var(--fg)" }}>s-maxage=30–60s</code>). Data reflects on-chain
-                                state with a short delay.
+                                Responses are CDN-cached at the edge. The{" "}
+                                <code style={{ color: "var(--fg)" }}>/domains</code> list is additionally cached in
+                                Redis with stale-while-revalidate. Data reflects on-chain state with a short delay.
                             </p>
                             <p>
                                 CORS: <code style={{ color: "var(--fg)" }}>Access-Control-Allow-Origin: *</code> — safe
@@ -694,8 +694,9 @@ export default function Developers() {
                                     maxWidth: "560px",
                                 }}
                             >
-                                Paginated list of all hack.{tld} registrations, newest first. Backed by on-chain
-                                transaction history — includes registration timestamp and op hash.
+                                Paginated list of all hack.{tld} registrations with inline profile data. Backed by
+                                TED GraphQL and TzKT — includes profile, registration timestamp, and op hash. Served
+                                from Redis cache when warm (~5 ms).
                             </p>
                             <ParamTable
                                 params={[
@@ -704,7 +705,7 @@ export default function Developers() {
                                         kind: "query",
                                         type: "integer",
                                         default: "50",
-                                        description: "Results per page (max 50)",
+                                        description: "Results per page (max 1000)",
                                     },
                                 ]}
                             />
@@ -724,6 +725,12 @@ export default function Developers() {
                                                 address: "tz1...",
                                                 registeredAt: "2025-03-27T08:01:29Z",
                                                 opHash: "oo...",
+                                                profile: {
+                                                    name: "Alice",
+                                                    bio: "building on tezos",
+                                                    status: "building",
+                                                    skills: ["typescript", "smartpy"],
+                                                },
                                             },
                                         ],
                                         count: 1,

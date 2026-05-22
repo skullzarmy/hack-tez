@@ -24,6 +24,7 @@ export interface HackProfile {
   picture?: string;
   github?: string;
   twitter?: string;
+  bluesky?: string;
   repositoryUrl?: string;
 
   // hack.tez keys
@@ -43,6 +44,7 @@ export const PROFILE_KEY_MAP = {
   picture: "openid:picture",
   github: "github:username",
   twitter: "twitter:handle",
+  bluesky: "bluesky:did",
   repositoryUrl: "project:repository_url",
   bio: "hack:bio",
   location: "hack:location",
@@ -162,6 +164,9 @@ export function parseProfileFromData(
           break;
         case "twitter":
           profile.twitter = value;
+          break;
+        case "bluesky":
+          profile.bluesky = value;
           break;
         case "repositoryUrl":
           profile.repositoryUrl = value;
