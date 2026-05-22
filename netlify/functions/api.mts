@@ -1659,13 +1659,13 @@ async function handleProvisionAll(net: NetworkConfig & { name: TezosNetwork }): 
             };
         }>(
             net.domainsGraphql,
-            `query AllDomainNames($parent: String!, $first: Int!, $after: String) {
+            `query AllDomainNames($parent: String!, $after: String) {
               domains(where: { name: { endsWith: $parent } }, first: 50, after: $after) {
                 items { name }
                 pageInfo { hasNextPage endCursor }
               }
             }`,
-            { parent: `.${parent}`, first: 50, after },
+            { parent: `.${parent}`, after },
         );
         items.push(...page.domains.items);
         if (!page.domains.pageInfo.hasNextPage || !page.domains.pageInfo.endCursor) break;
