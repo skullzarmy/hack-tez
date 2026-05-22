@@ -1,4 +1,5 @@
 const BASE = "https://api.netlify.com/api/v1";
+const SITE_ID = process.env.NETLIFY_SITE_ID ?? "dbfc0e10-e21d-4e08-ad37-cf7e51de7a4c";
 
 function zoneId(): string {
     const id = process.env.NETLIFY_DNS_ZONE_ID;
@@ -90,4 +91,37 @@ export async function findRecordByDid(
     );
     if (!target) return null;
     return { hostname: target.hostname };
+}
+
+export async function createSubdomainCname(label: string): Promise<void> {
+    const hostnameValue = `${label}.hacktez.com`;
+    const records = await listRecords();
+    const existing = records.find((r) => r.type === "CNAME" && r.hostname === hostnameValue);
+    if (existing) return;
+    const res = await fetch(`${BASE}/dns_zones/${zoneId()}/dns_records`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+            type: "CNAME",
+            hostname: hostnameValue,
+            value: "hacktez.netlify.app",
+            ttl: 3600,
+        }),
+    });
+    if (!res.ok) throw new Error(`Netlify DNS CNAME create failed: ${res.status}`);
+}
+
+export async function ensureDomainAlias(label: string): Promise<void> {
+    const alias = `${label}.hacktez.com`;
+    const siteRes = await fetch(`${BASE}/sites/${SITE_ID}`, { headers: authHeaders() });
+    if (!siteRes.ok) throw new Error(`Netlify site fetch failed: ${siteRes.status}`);
+    const site = (await siteRes.json()) as { domain_aliases?: string[] };
+    const existing = site.domain_aliases ?? [];
+    if (existing.includes(alias)) return;
+    const patchRes = await fetch(`${BASE}/sites/${SITE_ID}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ domain_aliases: [...existing, alias] }),
+    });
+    if (!patchRes.ok) throw new Error(`Netlify domain alias update failed: ${patchRes.status}`);
 }

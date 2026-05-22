@@ -40,6 +40,8 @@ import {
     deleteAtprotoRecord,
     getAtprotoRecord,
     findRecordByDid,
+    createSubdomainCname,
+    ensureDomainAlias,
 } from "./netlifyDns.ts";
 import { verifySignature, getPkhfromPk } from "@taquito/utils";
 // ---------------------------------------------------------------------------
@@ -1602,6 +1604,47 @@ async function handleBlueskyStatus(label: string): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Subdomain provisioning
+// ---------------------------------------------------------------------------
+
+/** POST /api/v1/domain/:label/provision — create CNAME + domain alias for label.hacktez.com */
+async function handleProvision(label: string, net: NetworkConfig & { name: TezosNetwork }): Promise<Response> {
+    const labelErr = validateLabel(label);
+    if (labelErr) return err(labelErr, "INVALID_LABEL");
+
+    // Verify domain is registered before provisioning
+    let domainExists: boolean;
+    try {
+        const data = await tedGql<{ domain: { name: string } | null }>(
+            net.domainsGraphql,
+            `query CheckDomain($name: String!) { domain(name: $name) { name } }`,
+            { name: `${label}.hack.${net.tld}` },
+        );
+        domainExists = data.domain !== null;
+    } catch {
+        return err("Failed to verify domain registration", "UPSTREAM_ERROR", 502);
+    }
+
+    if (!domainExists) return err("Domain not registered", "NOT_FOUND", 404);
+
+    const errors: string[] = [];
+    await Promise.all([
+        createSubdomainCname(label).catch((e) => {
+            errors.push(`CNAME: ${e instanceof Error ? e.message : String(e)}`);
+        }),
+        ensureDomainAlias(label).catch((e) => {
+            errors.push(`Alias: ${e instanceof Error ? e.message : String(e)}`);
+        }),
+    ]);
+
+    if (errors.length > 0) {
+        return json({ data: { label, status: "partial", errors } }, 207);
+    }
+
+    return json({ data: { label, status: "provisioned", subdomain: `${label}.hacktez.com` } });
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -1629,6 +1672,13 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     if (resource === "arcade") {
         const arcade = await import("./arcade.mts");
         return arcade.default(req, ctx);
+    }
+
+    // Subdomain provisioning — POST /api/v1/domain/:label/provision
+    if (resource === "domain" && param && segments[2] === "provision") {
+        if (req.method !== "POST") return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
+        const net = getNetwork();
+        return handleProvision(decodeURIComponent(param), net);
     }
 
     // Bluesky handle linking

@@ -132,6 +132,9 @@ export default function PendingCommitsPanel({
         onClaim?.(subdomain);
         onRelease?.();
 
+        // Provision label.hacktez.com subdomain (CNAME + domain alias) — fire and forget
+        fetch(`/api/v1/domain/${encodeURIComponent(commit.label)}/provision`, { method: "POST" }).catch(() => {});
+
         // Refresh JWT so the newly claimed domain is included
         void refreshToken();
     };
