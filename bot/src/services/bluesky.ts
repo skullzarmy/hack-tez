@@ -34,14 +34,15 @@ function buildLinkFacets(text: string): BskyFacet[] {
     const enc = new TextEncoder();
     const urlRe = /https?:\/\/[^\s]+/g;
     const facets: BskyFacet[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = urlRe.exec(text)) !== null) {
+    let match = urlRe.exec(text);
+    while (match !== null) {
         const byteStart = enc.encode(text.slice(0, match.index)).length;
         const byteEnd = byteStart + enc.encode(match[0]).length;
         facets.push({
             index: { byteStart, byteEnd },
             features: [{ $type: "app.bsky.richtext.facet#link", uri: match[0] }],
         });
+        match = urlRe.exec(text);
     }
     return facets;
 }
