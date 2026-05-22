@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExternalLink, Pencil, Eye, ChevronDown, ChevronUp, Globe } from "lucide-react";
-import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
+import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import config from "../config/tezos";
 import type { SubdomainRecord } from "../lib/domains";
 import type { BuilderStatus } from "../types/profile";
@@ -124,8 +124,19 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
             )}
 
             {/* Social links */}
-            {(profile.github || profile.twitter || profile.website) && (
+            {(profile.github || profile.twitter || profile.bluesky || profile.website) && (
                 <div className="domain-tile-socials">
+                    {profile.bluesky && (
+                        <a
+                            href={`https://bsky.app/profile/${encodeURIComponent(profile.bluesky)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`${label}.hacktez.com on Bluesky`}
+                            className="domain-tile-social"
+                        >
+                            <SiBluesky size={16} />
+                        </a>
+                    )}
                     {profile.github && (
                         <a
                             href={`https://github.com/${profile.github}`}

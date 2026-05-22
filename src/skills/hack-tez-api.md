@@ -33,19 +33,19 @@ hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (
 **Local dev:** `http://localhost:8888`
 **Response envelope (success):** `{ "data": ..., "network": "ghostnet" | "mainnet" }`
 **Response envelope (error):** `{ "error": "...", "code": "INVALID_INPUT" | "UPSTREAM_ERROR" | "METHOD_NOT_ALLOWED" }`
-**Cache:** responses are CDN-cached at the edge (`s-maxage=30–60s`)
+**Cache:** responses are CDN-cached at the edge; the `/domains` list is additionally cached in Upstash Redis with serve-stale-while-revalidate (60 s fresh, 10 min hard TTL)
 
 ---
 
 ### GET /api/v1/domains
 
-Paginated list of all hack.tez registrations, newest first. Backed by on-chain transaction history (TzKT) so includes registration timestamp and operation hash.
+Paginated list of all hack.tez registrations. Backed by TED GraphQL (domain + profile data) and TzKT (registration timestamps and operation hashes). Response is served from Redis cache when warm (~5 ms) with background revalidation.
 
 **Query parameters:**
 
-| Param   | Type    | Default | Max | Description       |
-| ------- | ------- | ------- | --- | ----------------- |
-| `limit` | integer | 50      | 50  | Number of results |
+| Param   | Type    | Default | Max  | Description       |
+| ------- | ------- | ------- | ---- | ----------------- |
+| `limit` | integer | 50      | 1000 | Number of results |
 
 **Response:**
 
@@ -58,7 +58,16 @@ Paginated list of all hack.tez registrations, newest first. Backed by on-chain t
             "owner": "tz1Qi77tcJn9foeHHP1QHj6UX1m1vLVLMbuY",
             "address": "tz1Qi77tcJn9foeHHP1QHj6UX1m1vLVLMbuY",
             "registeredAt": "2025-03-27T08:01:29Z",
-            "opHash": "oo..."
+            "opHash": "oo...",
+            "profile": {
+                "name": "skllz",
+                "bio": "building hack.tez",
+                "status": "building",
+                "skills": ["typescript", "smartpy"],
+                "picture": "ipfs://bafybei...",
+                "github": "skullzarmy",
+                "twitter": "skaborern"
+            }
         }
     ],
     "count": 1,
@@ -70,10 +79,15 @@ Paginated list of all hack.tez registrations, newest first. Backed by on-chain t
 **Usage:**
 
 ```typescript
-// Fetch up to 50 registrations
+// Fetch up to 50 registrations (includes profile data)
 const res = await fetch("https://hacktez.com/api/v1/domains?limit=50");
 const { data, count } = await res.json();
+
+// Each item has: name, label, owner, address, registeredAt, opHash, profile
+data.forEach((d) => console.log(d.label, d.profile.status));
 ```
+
+**Cache:** `s-maxage=120, stale-while-revalidate=300` + Redis SWR (60 s fresh / 10 min hard TTL)
 
 ---
 
@@ -557,8 +571,13 @@ async function getDisplayName(address: string): Promise<string> {
 ### Fetch all registrations
 
 ```typescript
-// The /domains endpoint returns up to 50 results in a single call.
-// For most use cases, one request is sufficient.
-const { data, count } = await fetch("https://hacktez.com/api/v1/domains?limit=50").then((r) => r.json());
+// The /domains endpoint returns up to 1000 results.
+// Default limit is 50; includes profile data for each domain.
+const { data, count } = await fetch("https://hacktez.com/api/v1/domains?limit=200").then((r) => r.json());
 console.log(`Got ${data.length} of ${count} total domains`);
+
+// Profile data is included — no need for separate /profile calls
+data.forEach((d) => {
+    console.log(d.label, d.profile.bio, d.profile.skills);
+});
 ```

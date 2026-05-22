@@ -196,6 +196,9 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
                         {profile?.twitter && (
                             <ProfileLink href={`https://x.com/${profile.twitter}`} label="X" />
                         )}
+                        {profile?.bluesky && (
+                            <ProfileLink href={`https://bsky.app/profile/${encodeURIComponent(profile.bluesky)}`} label="Bluesky" />
+                        )}
                     </div>
                 </div>
             )}
