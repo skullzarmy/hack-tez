@@ -60,3 +60,11 @@ export const NETWORK: NetworkConfig = {
     ...NETWORK_CONFIGS[NETWORK_RAW],
     registrarAddress: REGISTRAR_ADDRESS,
 };
+
+// ── Bluesky ───────────────────────────────────────────────────────────────────
+
+/** Handle or DID for the @hacktez.com Bluesky account (optional). */
+export const BSKY_IDENTIFIER = process.env.BSKY_IDENTIFIER ?? "";
+
+/** Bluesky app password (Settings → Privacy → App Passwords). */
+export const BSKY_APP_PASSWORD = process.env.BSKY_APP_PASSWORD ?? "";

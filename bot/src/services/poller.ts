@@ -12,6 +12,7 @@ import {
     parseCommitHash,
 } from "./tzkt.ts";
 import { broadcastClaim, broadcastCommit } from "./notifier.ts";
+import { announceClaim } from "./bluesky.ts";
 import { NETWORK, POLL_INTERVAL_MS } from "../config.ts";
 import type { ClaimEvent, CommitEvent } from "../types/index.ts";
 
@@ -29,17 +30,23 @@ async function pollClaims(): Promise<void> {
             const label = decodeHexLabel(params.label);
             const recipients = findClaimRecipients(label);
 
+            const event: ClaimEvent = {
+                type: "claim",
+                label,
+                owner: op.sender.address,
+                targetAddress: params.target_address,
+                txHash: op.hash,
+                timestamp: op.timestamp,
+                network: NETWORK.name,
+                tld: NETWORK.tld,
+            };
+
+            // Bluesky announcement — always fires on any new claim, independent of TG subscribers
+            announceClaim(event).catch((err) => {
+                console.error(`[bluesky] Announcement failed for ${label}:`, err);
+            });
+
             if (recipients.length > 0) {
-                const event: ClaimEvent = {
-                    type: "claim",
-                    label,
-                    owner: op.sender.address,
-                    targetAddress: params.target_address,
-                    txHash: op.hash,
-                    timestamp: op.timestamp,
-                    network: NETWORK.name,
-                    tld: NETWORK.tld,
-                };
                 await broadcastClaim(
                     recipients.map((r) => r.chat_id),
                     event
