@@ -42,7 +42,6 @@ import {
     findRecordByDid,
     createSubdomainCname,
     ensureDomainAlias,
-    ensureDomainAliasesBatch,
 } from "./netlifyDns.ts";
 import { verifySignature, getPkhfromPk } from "@taquito/utils";
 // ---------------------------------------------------------------------------
@@ -1645,70 +1644,6 @@ async function handleProvision(label: string, net: NetworkConfig & { name: Tezos
     return json({ data: { label, status: "provisioned", subdomain: `${label}.hacktez.com` } });
 }
 
-/** POST /api/v1/domains/provision-all — backfill CNAME + domain aliases for every registered label */
-async function handleProvisionAll(net: NetworkConfig & { name: TezosNetwork }): Promise<Response> {
-    // Fetch all registered labels from TED (paginate up to 2000)
-    const parent = `hack.${net.tld}`;
-    const items: Array<{ name: string }> = [];
-    let after: string | null = null;
-    while (items.length < 2000) {
-        const page = await tedGql<{
-            domains: {
-                items: Array<{ name: string }>;
-                pageInfo: { hasNextPage: boolean; endCursor: string | null };
-            };
-        }>(
-            net.domainsGraphql,
-            `query AllDomainNames($parent: String!, $after: String) {
-              domains(where: { name: { endsWith: $parent } }, first: 50, after: $after) {
-                items { name }
-                pageInfo { hasNextPage endCursor }
-              }
-            }`,
-            { parent: `.${parent}`, after },
-        );
-        items.push(...page.domains.items);
-        if (!page.domains.pageInfo.hasNextPage || !page.domains.pageInfo.endCursor) break;
-        after = page.domains.pageInfo.endCursor;
-    }
-
-    const labels = items
-        .map((d) => d.name.replace(`.${parent}`, ""))
-        .filter((l) => !l.includes(".") && LABEL_RE.test(l));
-
-    if (labels.length === 0) return json({ data: { provisioned: 0, labels: [] } });
-
-    // Create CNAMEs in parallel (each is an independent DNS record — no race condition)
-    const cnameErrors: string[] = [];
-    await Promise.all(
-        labels.map((label) =>
-            createSubdomainCname(label).catch((e) => {
-                cnameErrors.push(`${label}: ${e instanceof Error ? e.message : String(e)}`);
-            }),
-        ),
-    );
-
-    // Single GET + PATCH for all aliases — no race condition
-    let aliasError: string | null = null;
-    try {
-        await ensureDomainAliasesBatch(labels);
-    } catch (e) {
-        aliasError = e instanceof Error ? e.message : String(e);
-    }
-
-    const hasErrors = cnameErrors.length > 0 || aliasError !== null;
-    return json(
-        {
-            data: {
-                provisioned: labels.length,
-                labels,
-                cnameErrors: cnameErrors.length > 0 ? cnameErrors : undefined,
-                aliasError: aliasError ?? undefined,
-            },
-        },
-        hasErrors ? 207 : 200,
-    );
-}
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -1738,13 +1673,6 @@ export default async function handler(req: Request, ctx: Context): Promise<Respo
     if (resource === "arcade") {
         const arcade = await import("./arcade.mts");
         return arcade.default(req, ctx);
-    }
-
-    // Batch subdomain provisioning — POST /api/v1/domains/provision-all
-    if (resource === "domains" && param === "provision-all") {
-        if (req.method !== "POST") return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
-        const net = getNetwork();
-        return handleProvisionAll(net);
     }
 
     // Subdomain provisioning — POST /api/v1/domain/:label/provision
