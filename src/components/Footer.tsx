@@ -21,7 +21,17 @@ export default function Footer({ compact }: { compact?: boolean }) {
 					</span>
 				</span>
 				<span className="footer-oss">
-					hack.tez is open source — copy it. use it.{" "}
+					hack.tez is open source and{" "}
+					<a
+						href="https://unlicense.org"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="footer-link"
+						aria-label="Unlicense — public domain (opens in new tab)"
+					>
+						unlicensed
+					</a>{" "}
+					— public domain. copy it. use it.{" "}
 					<a
 						href="https://github.com/skullzarmy/hack-tez/"
 						target="_blank"
