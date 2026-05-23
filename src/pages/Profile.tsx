@@ -12,7 +12,7 @@ import { useTedContracts } from "../hooks/useTedContracts";
 import { Hackatar } from "../components/Hackatar";
 import { ProfileShareStudio } from "../components/ProfileShareStudio";
 import { Globe, ExternalLink, ArrowLeft } from "lucide-react";
-import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
+import { SiBluesky, SiGithub, SiX } from "@icons-pack/react-simple-icons";
 import { usePageMeta } from "../hooks/usePageMeta";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -472,7 +472,7 @@ export default function Profile() {
     const displayName = profile.name || profile.nickname || label;
     const websiteUrl = safeHref(profile.website);
 
-    const hasLinks = !!(profile.github || profile.twitter || profile.website);
+    const hasLinks = !!(profile.github || profile.twitter || profile.bluesky || profile.website);
 
     return (
         <>
@@ -656,6 +656,13 @@ export default function Profile() {
                                         href={`https://x.com/${profile.twitter}`}
                                         label="X / Twitter"
                                         icon={<SiX size={14} />}
+                                    />
+                                )}
+                                {profile.bluesky && (
+                                    <LinkIcon
+                                        href={`https://bsky.app/profile/${encodeURIComponent(profile.bluesky)}`}
+                                        label="Bluesky"
+                                        icon={<SiBluesky size={14} />}
                                     />
                                 )}
                                 {websiteUrl && (
