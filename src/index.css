@@ -1999,14 +1999,20 @@ a:hover {
 }
 .footer-inner {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 1rem;
+    gap: 0.5rem;
     font-family: var(--font);
     font-size: 0.65rem;
     color: var(--fg-3);
     letter-spacing: 0.06em;
+    text-align: center;
+}
+.footer-oss {
+    font-size: 0.6rem;
+    color: var(--fg-3);
+    letter-spacing: 0.05em;
 }
 .footer-copy {
     display: flex;
