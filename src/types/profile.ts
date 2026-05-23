@@ -33,6 +33,15 @@ export interface HackProfile {
   status?: BuilderStatus;
   skills?: string[];
   projects?: ProjectEntry[];
+
+  // hack.tez social keys — one per platform, ecosystem-safe
+  mastodon?: string;
+  farcaster?: string;
+  telegram?: string;
+  discord?: string;
+  instagram?: string;
+  youtube?: string;
+  twitch?: string;
 }
 
 // ── Key Mapping ──────────────────────────────────────────────────────
@@ -51,6 +60,13 @@ export const PROFILE_KEY_MAP = {
   status: "hack:status",
   skills: "hack:skills",
   projects: "hack:projects",
+  mastodon: "hack:mastodon",
+  farcaster: "hack:farcaster",
+  telegram: "hack:telegram",
+  discord: "hack:discord",
+  instagram: "hack:instagram",
+  youtube: "hack:youtube",
+  twitch: "hack:twitch",
 } as const satisfies Record<keyof HackProfile, string>;
 
 type ProfileField = keyof typeof PROFILE_KEY_MAP;
@@ -108,6 +124,11 @@ function parseProjects(v: unknown): ProjectEntry[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+// Simple string hack: fields (single-value social platforms)
+const HACK_STRING_FIELDS = new Set<ProfileField>([
+  "mastodon", "farcaster", "telegram", "discord", "instagram", "youtube", "twitch",
+]);
+
 /**
  * Parse a TED GraphQL `data` array into a HackProfile.
  * TED GraphQL returns values already JSON-parsed (strings, arrays, etc.).
@@ -126,6 +147,10 @@ export function parseProfileFromData(
 
     if (isHackKey(key)) {
       // TED already JSON-parsed these — use values directly
+      if (HACK_STRING_FIELDS.has(field)) {
+        if (typeof value === "string") (profile as Record<string, unknown>)[field] = value;
+        continue;
+      }
       switch (field) {
         case "bio":
           if (typeof value === "string") profile.bio = value.slice(0, 160);

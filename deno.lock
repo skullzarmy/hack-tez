@@ -16,6 +16,7 @@
         "npm:@blocknote/react@~0.48.1",
         "npm:@floating-ui/react-dom@^2.1.8",
         "npm:@fontsource/space-mono@^5.2.9",
+        "npm:@formkit/auto-animate@0.9",
         "npm:@icons-pack/react-simple-icons@^13.13.0",
         "npm:@mantine/core@^8.3.18",
         "npm:@mantine/hooks@^8.3.18",
