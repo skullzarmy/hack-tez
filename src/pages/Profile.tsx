@@ -660,7 +660,7 @@ export default function Profile() {
                                 )}
                                 {profile.bluesky && (
                                     <LinkIcon
-                                        href={`https://bsky.app/profile/${encodeURIComponent(profile.bluesky)}`}
+                                        href={`https://bsky.app/profile/${profile.bluesky}`}
                                         label="Bluesky"
                                         icon={<SiBluesky size={14} />}
                                     />
