@@ -381,9 +381,9 @@ export default function Home() {
 							<span className="feature-eyebrow">// 06 — Early Access</span>
 							<h3 className="feature-title">Beta Access</h3>
 							<p className="feature-body">
-								The hack.tez community is the first call for beta testers on
-								upcoming FAFO projects. Get in early, break things, and shape
-								what gets built next before anyone else sees it.
+								Be the FO to our FA. The hack.tez community is the first call
+								for beta testers on upcoming FAFO projects — help us find out
+								what breaks, what sticks, and what gets built next.
 							</p>
 							<span className="feature-unlock">// domain required</span>
 							<a
