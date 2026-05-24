@@ -352,7 +352,7 @@ export default function Home() {
 							</p>
 							<span className="feature-unlock">// domain required</span>
 							<a
-								href="https://bsky.app"
+								href="https://bsky.app/profile/hacktez.com"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="feature-link"
