@@ -415,30 +415,27 @@ export default function Home() {
 					</h2>
 					<p className="section-body" style={{ marginBottom: "1rem" }}>
 						<strong>
-							hack.tez is phase one. The name you claim is a real on-chain
-							record. It resolves. It routes. Contracts can query it.
+							hack.tez is a thinktank, a cabal, and a secret society — the kind
+							with a neon sign out front, doors propped open, and a full bar.
 						</strong>
 					</p>
 					<p className="section-body" style={{ marginBottom: "1rem" }}>
-						Manage your record at{" "}
-						<a
-							href="https://tezos.domains"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							Tezos Domains
-						</a>
-						. Set an address, configure your record. It's yours.
+						The name you claim is a real on-chain record. It resolves. It
+						routes. Contracts can query it. But the name is just the keycard.
+					</p>
+					<p className="section-body" style={{ marginBottom: "1rem" }}>
+						Builders, breakers, artists, and degens — working in public,
+						on-chain, together. The arcade. The wiki. The chat. The beta
+						programs. One name unlocks all of it.
 					</p>
 					<p className="section-body">
 						You pay gas (~0.02 ꜩ). That's it. 1 claim per wallet.
 					</p>
 					<p className="section-body" style={{ marginTop: "2rem" }}>
 						FAFOlab retains ownership of the main hack.tez domain and provides
-						this service with no warranty or guarantee.{" "}
+						this service with no warranty or guarantee.
 					</p>
 					<p className="section-body" style={{ marginTop: "2rem" }}>
-						{" "}
 						The future is not promised. We're building it anyway.
 					</p>
 					<p
