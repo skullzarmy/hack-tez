@@ -411,16 +411,25 @@ export default function Home() {
 							marginBottom: "1rem",
 						}}
 					>
-						// MORE THAN A NAME
+						// THINKTANK. CABAL. OPEN BAR.
 					</h2>
 					<p className="section-body" style={{ marginBottom: "1rem" }}>
 						<strong>
-							hack.tez is phase one. The name you claim is a real on-chain
-							record. It resolves. It routes. Contracts can query it.
+							Part thinktank. Part cabal. Part secret society. Except the sign
+							is neon, the doors are open, and the bar is free.
 						</strong>
 					</p>
 					<p className="section-body" style={{ marginBottom: "1rem" }}>
-						Manage your record at{" "}
+						The name you claim is real on-chain infrastructure — it resolves, it
+						routes, contracts can query it. But the name is just the keycard.
+						What's behind the door is the actual thing: builders working in
+						public, knowledge pooled in the wiki, games in the arcade,
+						conversations in the chat, and early access to what's coming next.
+					</p>
+					<p className="section-body" style={{ marginBottom: "1rem" }}>
+						Selective about vibes, not credentials. No gatekeeping, no
+						committee, no waiting list. Just gas (~0.02 ꜩ) and a Tezos wallet.
+						You can even manage your record directly at{" "}
 						<a
 							href="https://tezos.domains"
 							target="_blank"
@@ -428,17 +437,13 @@ export default function Home() {
 						>
 							Tezos Domains
 						</a>
-						. Set an address, configure your record. It's yours.
-					</p>
-					<p className="section-body">
-						You pay gas (~0.02 ꜩ). That's it. 1 claim per wallet.
+						.
 					</p>
 					<p className="section-body" style={{ marginTop: "2rem" }}>
 						FAFOlab retains ownership of the main hack.tez domain and provides
-						this service with no warranty or guarantee.{" "}
+						this service with no warranty or guarantee.
 					</p>
-					<p className="section-body" style={{ marginTop: "2rem" }}>
-						{" "}
+					<p className="section-body" style={{ marginTop: "0.5rem" }}>
 						The future is not promised. We're building it anyway.
 					</p>
 					<p
