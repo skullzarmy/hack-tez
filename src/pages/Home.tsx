@@ -438,6 +438,26 @@ export default function Home() {
 					<p className="section-body" style={{ marginTop: "2rem" }}>
 						The future is not promised. We're building it anyway.
 					</p>
+					<p className="section-body" style={{ marginTop: "2rem" }}>
+						Everything you see here is free, open, unlicensed, and in our{" "}
+						<a
+							href="https://github.com/skullzarmy/hack-tez/"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							monorepo
+						</a>
+						. Feel free to take anything that helps. Throw us a #tezosCRP
+						nomination at{" "}
+						<a
+							href="https://tezoscommons.org/rewards/"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Tezos Commons
+						</a>{" "}
+						to say thanks.
+					</p>
 					<p
 						className="section-body"
 						style={{
