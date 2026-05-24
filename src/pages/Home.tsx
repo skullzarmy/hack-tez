@@ -360,6 +360,41 @@ export default function Home() {
 								explore bsky.app <ArrowRight size={11} aria-hidden="true" />
 							</a>
 						</div>
+
+						{/* HackChat */}
+						<div className="feature-card" role="listitem">
+							<span className="feature-eyebrow">// 05 — Community</span>
+							<h3 className="feature-title">HackChat</h3>
+							<p className="feature-body">
+								Member-only community chat. Connect with other builders on
+								hack.tez — share what you're working on, find collaborators, ask
+								questions. Your domain is your key.
+							</p>
+							<span className="feature-unlock">// domain required</span>
+							<a href="/chat" className="feature-link">
+								open hackchat <ArrowRight size={11} aria-hidden="true" />
+							</a>
+						</div>
+
+						{/* Beta Access */}
+						<div className="feature-card" role="listitem">
+							<span className="feature-eyebrow">// 06 — Early Access</span>
+							<h3 className="feature-title">Beta Access</h3>
+							<p className="feature-body">
+								The hack.tez community is the first call for beta testers on
+								upcoming FAFO projects. Get in early, break things, and shape
+								what gets built next before anyone else sees it.
+							</p>
+							<span className="feature-unlock">// domain required</span>
+							<a
+								href="https://fafolab.xyz"
+								target="_blank"
+								rel="noopener noreferrer"
+								className="feature-link"
+							>
+								see what's cooking <ArrowRight size={11} aria-hidden="true" />
+							</a>
+						</div>
 					</div>
 				</div>
 			</section>
