@@ -302,7 +302,7 @@ export default function Home() {
 								browser. On-chain. Always yours.
 							</p>
 							<span className="feature-unlock">// domain required</span>
-							<a href="/u/hacktez" className="feature-link">
+							<a href="/u/skllz" className="feature-link">
 								see an example <ArrowRight size={11} aria-hidden="true" />
 							</a>
 						</div>
