@@ -13,10 +13,18 @@ import {
 } from "./tzkt.ts";
 import { broadcastClaim, broadcastCommit } from "./notifier.ts";
 import { announceClaim } from "./bluesky.ts";
-import { NETWORK, POLL_INTERVAL_MS } from "../config.ts";
+import { reconcileStarterPack } from "./starter-pack.ts";
+import {
+    NETWORK,
+    POLL_INTERVAL_MS,
+    BSKY_IDENTIFIER,
+    BSKY_APP_PASSWORD,
+    RECONCILE_EVERY_N_TICKS,
+} from "../config.ts";
 import type { ClaimEvent, CommitEvent } from "../types/index.ts";
 
 let running = false;
+let tickCount = 0;
 
 // ── Claim polling ─────────────────────────────────────────────────────────────
 
@@ -96,6 +104,17 @@ async function pollCommits(): Promise<void> {
 
 async function tick(): Promise<void> {
     await Promise.allSettled([pollClaims(), pollCommits()]);
+    tickCount += 1;
+    if (
+        BSKY_IDENTIFIER &&
+        BSKY_APP_PASSWORD &&
+        RECONCILE_EVERY_N_TICKS > 0 &&
+        tickCount % RECONCILE_EVERY_N_TICKS === 1 // run on first tick + every Nth
+    ) {
+        reconcileStarterPack().catch((err) => {
+            console.error("[starter-pack] Unhandled error:", err);
+        });
+    }
 }
 
 export async function startPoller(): Promise<void> {

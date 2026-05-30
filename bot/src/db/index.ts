@@ -50,6 +50,20 @@ export function hasPollCursor(key: "last_claim_id" | "last_commit_id"): boolean 
     return Boolean(row);
 }
 
+// ── Generic meta kv ───────────────────────────────────────────────────────────
+// Reuses the poll_state table — it's already (key TEXT PRIMARY KEY, value TEXT).
+
+export function getMeta(key: string): string | null {
+    const row = db.query<{ value: string }, [string]>("SELECT value FROM poll_state WHERE key = ?").get(key);
+    return row ? row.value : null;
+}
+
+export function setMeta(key: string, value: string): void {
+    db.query(
+        "INSERT INTO poll_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ).run(key, value);
+}
+
 // ── Subscription queries ──────────────────────────────────────────────────────
 
 /** Create or return existing subscription (all alerts on by default). */

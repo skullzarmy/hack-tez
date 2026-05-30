@@ -23,6 +23,7 @@ import {
 import { ProfileShareStudio } from "../components/ProfileShareStudio";
 import config from "../config/tezos";
 import { useTezos } from "../context/TezosContext";
+import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useTedContracts } from "../hooks/useTedContracts";
 import type { DomainRecord } from "../lib/domains";
@@ -622,6 +623,7 @@ export default function Profile() {
 
 	const avatar = resolveAvatarUrl(profile, gravatar, label);
 	const displayName = profile.name || profile.nickname || label;
+	const bskyDisplayHandle = useBlueskyHandle(profile.bluesky);
 
 	const hasLinks = SOCIAL_PLATFORMS.some((p) => !!profile[p.field]);
 
@@ -818,7 +820,11 @@ export default function Profile() {
 								{SOCIAL_PLATFORMS.filter((p) => !!profile[p.field]).map((p) => {
 									const handle = profile[p.field] as string;
 									const href = p.buildUrl(handle);
-									const lbl = `${p.label}: ${handle}`;
+									const displayValue =
+										p.field === "bluesky" && bskyDisplayHandle
+											? `@${bskyDisplayHandle}`
+											: handle;
+									const lbl = `${p.label}: ${displayValue}`;
 									if (!href) {
 										return (
 											<span

@@ -24,6 +24,36 @@ function pickTemplate(label: string, tld: string): string {
 
 // ── AT Protocol helpers ────────────────────────────────────────────────────────
 
+export interface BskySession {
+    accessJwt: string;
+    did: string;
+    handle: string;
+}
+
+/** Authenticate and return a Bluesky session. Returns null if credentials missing or auth fails. */
+export async function createBskySession(): Promise<BskySession | null> {
+    if (!BSKY_IDENTIFIER || !BSKY_APP_PASSWORD) return null;
+    try {
+        const res = await fetch(
+            "https://bsky.social/xrpc/com.atproto.server.createSession",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ identifier: BSKY_IDENTIFIER, password: BSKY_APP_PASSWORD }),
+            },
+        );
+        if (!res.ok) {
+            console.error(`[bluesky] Auth failed: ${res.status}`);
+            return null;
+        }
+        const body = (await res.json()) as { accessJwt: string; did: string; handle: string };
+        return { accessJwt: body.accessJwt, did: body.did, handle: body.handle };
+    } catch (err) {
+        console.error("[bluesky] Auth error:", err);
+        return null;
+    }
+}
+
 interface BskyFacet {
     index: { byteStart: number; byteEnd: number };
     features: Array<{ $type: string; uri: string }>;
@@ -58,28 +88,8 @@ export async function announceClaim(ev: ClaimEvent): Promise<void> {
     const text = `${message}\n${profileUrl}`;
     const facets = buildLinkFacets(text);
 
-    let accessJwt: string;
-    let did: string;
-    try {
-        const sessionRes = await fetch(
-            "https://bsky.social/xrpc/com.atproto.server.createSession",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: BSKY_IDENTIFIER, password: BSKY_APP_PASSWORD }),
-            },
-        );
-        if (!sessionRes.ok) {
-            console.error(`[bluesky] Auth failed: ${sessionRes.status}`);
-            return;
-        }
-        const session = (await sessionRes.json()) as { accessJwt: string; did: string };
-        accessJwt = session.accessJwt;
-        did = session.did;
-    } catch (err) {
-        console.error("[bluesky] Auth error:", err);
-        return;
-    }
+    const session = await createBskySession();
+    if (!session) return;
 
     try {
         const postRes = await fetch(
@@ -88,10 +98,10 @@ export async function announceClaim(ev: ClaimEvent): Promise<void> {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${accessJwt}`,
+                    Authorization: `Bearer ${session.accessJwt}`,
                 },
                 body: JSON.stringify({
-                    repo: did,
+                    repo: session.did,
                     collection: "app.bsky.feed.post",
                     record: {
                         $type: "app.bsky.feed.post",

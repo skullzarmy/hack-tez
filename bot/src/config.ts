@@ -68,3 +68,21 @@ export const BSKY_IDENTIFIER = process.env.BSKY_IDENTIFIER ?? "";
 
 /** Bluesky app password (Settings → Privacy → App Passwords). */
 export const BSKY_APP_PASSWORD = process.env.BSKY_APP_PASSWORD ?? "";
+
+/** Display name for the auto-managed starter pack list. */
+export const BSKY_STARTER_PACK_NAME = optionalEnv("BSKY_STARTER_PACK_NAME", "hack.tez hackers");
+
+/** Description for the starter pack. */
+export const BSKY_STARTER_PACK_DESC = optionalEnv(
+    "BSKY_STARTER_PACK_DESC",
+    "Builders on hack.tez — Tezos subdomains linked to their Bluesky.",
+);
+
+/** Base URL of the hack.tez API used to discover linked DIDs. */
+export const HACKTEZ_API_BASE = optionalEnv("HACKTEZ_API_BASE", "https://hacktez.com");
+
+/** Run the starter-pack reconciler every N polling ticks (default: 60 → every ~30 min at 30s polls). */
+export const RECONCILE_EVERY_N_TICKS = parseInt(
+    optionalEnv("RECONCILE_EVERY_N_TICKS", "60"),
+    10,
+);

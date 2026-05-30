@@ -1241,6 +1241,7 @@ async function handleConfig(
 				maxPerWallet: Number(storage.max_per_wallet ?? 1),
 				paused: Boolean(storage.paused),
 				registrarAddress: net.registrarAddress,
+				bskyStarterPackUrl: process.env.BSKY_STARTER_PACK_URL ?? null,
 			},
 			network: net.name,
 		},

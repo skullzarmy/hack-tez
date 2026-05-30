@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ExternalLink, Pencil, Eye, ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import config from "../config/tezos";
+import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import type { SubdomainRecord } from "../lib/domains";
 import type { BuilderStatus } from "../types/profile";
 import { Hackatar } from "./Hackatar";
@@ -73,6 +74,7 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
     const label = domain.name.replace(`.hack.${config.tld}`, "");
     const { profile } = domain;
     const displayName = profile.name || profile.nickname || label;
+    const bskyHandle = useBlueskyHandle(profile.bluesky);
 
     const bio = profile.bio
         ? profile.bio.length > 100
@@ -131,7 +133,7 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
                             href={`https://bsky.app/profile/${encodeURIComponent(profile.bluesky)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title={`${label}.hacktez.com on Bluesky`}
+                            title={bskyHandle ? `@${bskyHandle} on Bluesky` : "Bluesky"}
                             className="domain-tile-social"
                         >
                             <SiBluesky size={16} />

@@ -7,7 +7,7 @@ import type { HackerEntry } from "../hooks/useHackerProfiles";
 import type { BuilderStatus } from "../types/profile";
 import { Hackatar } from "../components/Hackatar";
 import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
-import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
+import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import { usePageMeta } from "../hooks/usePageMeta";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -484,6 +484,18 @@ export default function Hackers() {
     });
     const { hackers, isLoading, refresh, lastUpdated } = useHackerProfiles();
     const [searchParams, setSearchParams] = useSearchParams();
+    const [starterPackUrl, setStarterPackUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/v1/config")
+            .then((r) => r.json())
+            .then((body) => {
+                if (!cancelled) setStarterPackUrl(body?.data?.bskyStarterPackUrl ?? null);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     const query = searchParams.get("q") ?? "";
     const activeStatus = (searchParams.get("status") as BuilderStatus | null) ?? null;
@@ -555,7 +567,27 @@ export default function Hackers() {
                     >
                         // HACKERS
                     </h1>
-                    <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem" }}>Who's here.</p>
+                    <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem", marginBottom: starterPackUrl ? "0.6rem" : 0 }}>Who's here.</p>
+                    {starterPackUrl && (
+                        <a
+                            href={starterPackUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.4rem",
+                                fontFamily: "var(--font)",
+                                fontSize: "0.72rem",
+                                color: "var(--accent)",
+                                textDecoration: "none",
+                                letterSpacing: "0.02em",
+                            }}
+                        >
+                            <SiBluesky size={12} />
+                            Follow all hackers on Bluesky <ArrowRight size={11} aria-hidden="true" />
+                        </a>
+                    )}
                 </header>
                 <div
                     style={{

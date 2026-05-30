@@ -1577,6 +1577,7 @@ function BlueskySection({
 	const [unlinkPhase, setUnlinkPhase] = useState<UnlinkPhase>("idle");
 	const [actionErr, setActionErr] = useState<string | null>(null);
 	const [dnsLinked, setDnsLinked] = useState<boolean | null>(null);
+	const [handleDetailsOpen, setHandleDetailsOpen] = useState(false);
 
 	// Check DNS status on mount
 	useEffect(() => {
@@ -1715,7 +1716,7 @@ function BlueskySection({
 				padding: "0.75rem",
 			}}
 		>
-			<span style={LABEL_STYLE}>Claim your hacktez.com Bluesky handle</span>
+			<span style={LABEL_STYLE}>Link your Bluesky</span>
 
 			{/* Already linked status */}
 			{currentDid && dnsLinked && linkPhase !== "done" && (
@@ -1730,18 +1731,43 @@ function BlueskySection({
 						lineHeight: 1.6,
 					}}
 				>
-					<div style={{ fontWeight: 600, marginBottom: "0.2rem" }}>
-						✓ DNS record active —{" "}
-						<span style={{ fontFamily: "var(--font-mono)" }}>
-							{label}.hacktez.com
-						</span>
-					</div>
-					<div style={{ color: "var(--fg-3)", fontSize: "0.68rem" }}>
-						If you haven't already: in Bluesky go to{" "}
-						<strong>Settings → Account → Handle</strong>, choose{" "}
-						<em>I have my own domain</em>, enter{" "}
-						<span style={stepHighlight}>{label}.hacktez.com</span>, then click{" "}
-						<strong>Verify my domain</strong>.
+					<div style={{ fontWeight: 600 }}>✓ Linked</div>
+					<div style={{ marginTop: "0.4rem" }}>
+						<button
+							type="button"
+							onClick={() => setHandleDetailsOpen((o) => !o)}
+							style={{
+								background: "none",
+								border: "none",
+								padding: 0,
+								color: "var(--fg-2)",
+								fontSize: "0.7rem",
+								fontFamily: "inherit",
+								cursor: "pointer",
+								textAlign: "left",
+							}}
+						>
+							You can also use{" "}
+							<span style={{ fontFamily: "var(--font-mono)" }}>
+								{label}.hacktez.com
+							</span>{" "}
+							as your Bluesky handle. {handleDetailsOpen ? "▴" : "▾"}
+						</button>
+						{handleDetailsOpen && (
+							<div
+								style={{
+									color: "var(--fg-3)",
+									fontSize: "0.68rem",
+									marginTop: "0.35rem",
+								}}
+							>
+								DNS is set up. In Bluesky →{" "}
+								<strong>Settings → Account → Handle</strong>, choose{" "}
+								<em>I have my own domain</em>, enter{" "}
+								<span style={stepHighlight}>{label}.hacktez.com</span>, hit{" "}
+								<strong>Verify</strong>.
+							</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -1783,7 +1809,7 @@ function BlueskySection({
 					disabled={!bskyHandle || resolving}
 					style={{ ...btnBase, whiteSpace: "nowrap" }}
 				>
-					{resolving ? "Resolving…" : "Resolve DID"}
+					{resolving ? "Looking up…" : "Look up"}
 				</button>
 			</div>
 
@@ -1823,7 +1849,7 @@ function BlueskySection({
 						{linkPhase === "dns" && "Creating DNS record…"}
 						{linkPhase === "saving" && "Saving on-chain…"}
 						{(linkPhase === "idle" || linkPhase === "dns_only") &&
-							`Link ${label}.hacktez.com`}
+							"Link Bluesky"}
 					</button>
 				)}
 				{dnsLinked && linkPhase !== "done" && (
@@ -1856,31 +1882,57 @@ function BlueskySection({
 							fontSize: "0.75rem",
 							fontWeight: 600,
 							color: "var(--ok)",
-							marginBottom: "0.5rem",
 						}}
 					>
-						✓ Linked and saved — now finish in Bluesky
+						✓ Linked and saved
 					</div>
-					<ol style={{ ...stepStyle, margin: 0, paddingLeft: "1.25rem" }}>
-						<li>
-							Open Bluesky and go to <strong>Settings</strong>
-						</li>
-						<li>
-							Tap <strong>Account</strong>
-						</li>
-						<li>
-							Tap <strong>Handle</strong>
-						</li>
-						<li>
-							Choose <em>I have my own domain</em>
-						</li>
-						<li>
-							Enter <span style={stepHighlight}>{label}.hacktez.com</span>
-						</li>
-						<li>
-							Tap <strong>Verify my domain</strong> — done!
-						</li>
-					</ol>
+					<div style={{ marginTop: "0.4rem" }}>
+						<button
+							type="button"
+							onClick={() => setHandleDetailsOpen((o) => !o)}
+							style={{
+								background: "none",
+								border: "none",
+								padding: 0,
+								color: "var(--fg-2)",
+								fontSize: "0.72rem",
+								fontFamily: "inherit",
+								cursor: "pointer",
+								textAlign: "left",
+							}}
+						>
+							You can also use{" "}
+							<span style={{ fontFamily: "var(--font-mono)" }}>
+								{label}.hacktez.com
+							</span>{" "}
+							as your Bluesky handle. {handleDetailsOpen ? "▴" : "▾"}
+						</button>
+						{handleDetailsOpen && (
+							<ol
+								style={{
+									...stepStyle,
+									margin: "0.4rem 0 0",
+									paddingLeft: "1.25rem",
+								}}
+							>
+								<li>
+									Open Bluesky → <strong>Settings</strong>
+								</li>
+								<li>
+									Tap <strong>Account</strong> → <strong>Handle</strong>
+								</li>
+								<li>
+									Choose <em>I have my own domain</em>
+								</li>
+								<li>
+									Enter <span style={stepHighlight}>{label}.hacktez.com</span>
+								</li>
+								<li>
+									Tap <strong>Verify</strong>
+								</li>
+							</ol>
+						)}
+					</div>
 				</div>
 			)}
 
