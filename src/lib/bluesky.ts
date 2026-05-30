@@ -2,41 +2,7 @@ import type { DAppClient } from "@tezos-x/octez.connect-sdk";
 import { signMessage } from "./signing";
 
 const BSKY_RESOLVE_URL = "https://bsky.social/xrpc/com.atproto.identity.resolveHandle";
-const BSKY_GET_PROFILE_URL = "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile";
 const DID_RE = /^did:(plc|web):[a-zA-Z0-9._:%-]+$/;
-
-// In-memory cache (per page load) for reverse DID → handle lookups.
-const handleCache = new Map<string, string | null>();
-const inflightHandles = new Map<string, Promise<string | null>>();
-
-/** Reverse-resolve a DID to its current Bluesky handle. Returns null on failure. */
-export async function resolveDidToHandle(did: string): Promise<string | null> {
-    if (!DID_RE.test(did)) return null;
-    if (handleCache.has(did)) return handleCache.get(did) ?? null;
-    const existing = inflightHandles.get(did);
-    if (existing) return existing;
-
-    const promise = (async () => {
-        try {
-            const res = await fetch(`${BSKY_GET_PROFILE_URL}?actor=${encodeURIComponent(did)}`);
-            if (!res.ok) {
-                handleCache.set(did, null);
-                return null;
-            }
-            const body = (await res.json()) as { handle?: string };
-            const handle = body.handle ?? null;
-            handleCache.set(did, handle);
-            return handle;
-        } catch {
-            handleCache.set(did, null);
-            return null;
-        } finally {
-            inflightHandles.delete(did);
-        }
-    })();
-    inflightHandles.set(did, promise);
-    return promise;
-}
 
 export function isValidDid(did: string): boolean {
     return DID_RE.test(did);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { resolveDidToHandle } from "../lib/bluesky";
+import { resolveDidToHandle } from "../lib/blueskyResolve";
 
 /**
  * Reverse-resolve a Bluesky DID to its current handle.
