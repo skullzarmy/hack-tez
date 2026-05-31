@@ -558,6 +558,11 @@ export default function Profile() {
 		};
 	}, [label, fullName, refreshKey]);
 
+	// Hooks must run on every render — call before any early returns.
+	// The hook handles undefined input (returns null), so passing the
+	// pre-load value of profile.bluesky is safe.
+	const bskyDisplayHandle = useBlueskyHandle(record?.profile.bluesky);
+
 	// ── Loading State ────────────────────────────────────────────────
 	if (loading) return <ProfileSkeleton />;
 
@@ -623,7 +628,6 @@ export default function Profile() {
 
 	const avatar = resolveAvatarUrl(profile, gravatar, label);
 	const displayName = profile.name || profile.nickname || label;
-	const bskyDisplayHandle = useBlueskyHandle(profile.bluesky);
 
 	const hasLinks = SOCIAL_PLATFORMS.some((p) => !!profile[p.field]);
 
