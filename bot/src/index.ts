@@ -4,7 +4,7 @@ import { startPoller } from "./services/poller.ts";
 import { NETWORK, POLL_INTERVAL_MS, ADMIN_USER_ID, BSKY_IDENTIFIER, BSKY_APP_PASSWORD } from "./config.ts";
 import { hasPollCursor, setPollCursor } from "./db/index.ts";
 import { fetchLatestClaimId, fetchLatestCommitId } from "./services/tzkt.ts";
-import { getStarterPackUrl } from "./services/starter-pack.ts";
+import { getStarterPackUrl, getListUrl } from "./services/starter-pack.ts";
 
 const args = new Set(process.argv.slice(2));
 const BOOTSTRAP_LATEST = args.has("--bootstrap-latest");
@@ -41,6 +41,8 @@ async function main(): Promise<void> {
         console.log(`   Bluesky:   @${BSKY_IDENTIFIER} ✓`);
         const packUrl = getStarterPackUrl();
         if (packUrl) console.log(`   Pack:      ${packUrl}`);
+        const listUrl = getListUrl();
+        if (listUrl) console.log(`   List:      ${listUrl}`);
     } else {
         console.log(`   Bluesky:   not configured (set BSKY_IDENTIFIER + BSKY_APP_PASSWORD to enable)`);
     }

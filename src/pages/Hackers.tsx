@@ -485,13 +485,16 @@ export default function Hackers() {
     const { hackers, isLoading, refresh, lastUpdated } = useHackerProfiles();
     const [searchParams, setSearchParams] = useSearchParams();
     const [starterPackUrl, setStarterPackUrl] = useState<string | null>(null);
+    const [listUrl, setListUrl] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
         fetch("/api/v1/config")
             .then((r) => r.json())
             .then((body) => {
-                if (!cancelled) setStarterPackUrl(body?.data?.bskyStarterPackUrl ?? null);
+                if (cancelled) return;
+                setStarterPackUrl(body?.data?.bskyStarterPackUrl ?? null);
+                setListUrl(body?.data?.bskyListUrl ?? null);
             })
             .catch(() => {});
         return () => { cancelled = true; };
@@ -567,26 +570,55 @@ export default function Hackers() {
                     >
                         // HACKERS
                     </h1>
-                    <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem", marginBottom: starterPackUrl ? "0.6rem" : 0 }}>Who's here.</p>
-                    {starterPackUrl && (
-                        <a
-                            href={starterPackUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                    <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem", marginBottom: (starterPackUrl || listUrl) ? "0.6rem" : 0 }}>Who's here.</p>
+                    {(starterPackUrl || listUrl) && (
+                        <div
                             style={{
-                                display: "inline-flex",
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "0.4rem 1rem",
                                 alignItems: "center",
-                                gap: "0.4rem",
                                 fontFamily: "var(--font)",
                                 fontSize: "0.72rem",
-                                color: "var(--accent)",
-                                textDecoration: "none",
                                 letterSpacing: "0.02em",
                             }}
                         >
-                            <SiBluesky size={12} />
-                            Follow all hackers on Bluesky <ArrowRight size={11} aria-hidden="true" />
-                        </a>
+                            {starterPackUrl && (
+                                <a
+                                    href={starterPackUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "0.4rem",
+                                        color: "var(--accent)",
+                                        textDecoration: "none",
+                                    }}
+                                >
+                                    <SiBluesky size={12} />
+                                    Follow all on Bluesky <ArrowRight size={11} aria-hidden="true" />
+                                </a>
+                            )}
+                            {listUrl && (
+                                <a
+                                    href={listUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "0.4rem",
+                                        color: "var(--fg-2)",
+                                        textDecoration: "none",
+                                    }}
+                                    title="Open the list on Bluesky and pin it to your home as a feed"
+                                >
+                                    <SiBluesky size={12} />
+                                    Pin as a feed <ArrowRight size={11} aria-hidden="true" />
+                                </a>
+                            )}
+                        </div>
                     )}
                 </header>
                 <div

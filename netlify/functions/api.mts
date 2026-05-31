@@ -1242,6 +1242,7 @@ async function handleConfig(
 				paused: Boolean(storage.paused),
 				registrarAddress: net.registrarAddress,
 				bskyStarterPackUrl: process.env.BSKY_STARTER_PACK_URL ?? null,
+				bskyListUrl: process.env.BSKY_LIST_URL ?? null,
 			},
 			network: net.name,
 		},

@@ -19,6 +19,7 @@ import { getMeta, setMeta } from "../db/index.ts";
 import { createBskySession, type BskySession } from "./bluesky.ts";
 
 const LIST_URI_KEY = "bsky_list_uri";
+const LIST_URL_KEY = "bsky_list_url";
 const PACK_URI_KEY = "bsky_starter_pack_uri";
 const PACK_URL_KEY = "bsky_starter_pack_url";
 
@@ -112,10 +113,12 @@ async function listRecords<T>(
 
 async function bootstrapStarterPack(session: BskySession): Promise<{
     listUri: string;
+    listUrl: string;
     packUri: string;
     packUrl: string;
 }> {
     let listUri = getMeta(LIST_URI_KEY);
+    let listUrl = getMeta(LIST_URL_KEY);
     let packUri = getMeta(PACK_URI_KEY);
     let packUrl = getMeta(PACK_URL_KEY);
 
@@ -130,6 +133,16 @@ async function bootstrapStarterPack(session: BskySession): Promise<{
         listUri = created.uri;
         setMeta(LIST_URI_KEY, listUri);
         console.log(`[starter-pack] Created list: ${listUri}`);
+    }
+
+    // Backfill list URL on existing installs that bootstrapped before we
+    // started storing it. URL format: profile/<handle>/lists/<rkey>.
+    if (!listUrl) {
+        const rkey = listUri.split("/").pop() ?? "";
+        listUrl = `https://bsky.app/profile/${session.handle}/lists/${rkey}`;
+        setMeta(LIST_URL_KEY, listUrl);
+        console.log(`[starter-pack] List URL: ${listUrl}`);
+        console.log("[starter-pack] ☝️  set BSKY_LIST_URL in Netlify env to surface as a pinnable feed");
     }
 
     if (!packUri) {
@@ -153,6 +166,7 @@ async function bootstrapStarterPack(session: BskySession): Promise<{
 
     return {
         listUri,
+        listUrl,
         packUri,
         packUrl: packUrl ?? "",
     };
@@ -258,4 +272,8 @@ export async function reconcileStarterPack(): Promise<void> {
 
 export function getStarterPackUrl(): string | null {
     return getMeta(PACK_URL_KEY);
+}
+
+export function getListUrl(): string | null {
+    return getMeta(LIST_URL_KEY);
 }
