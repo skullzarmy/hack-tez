@@ -6,6 +6,7 @@ import {
     Users,
     Gamepad2,
     BookOpen,
+    FlaskConical,
 } from "lucide-react";
 
 import { useOnboarding } from "../context/OnboardingContext";
@@ -95,9 +96,19 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                 </h2>
                 <div className="dashboard-links-grid">
                     <QuickLink href="/hackers" icon={<Users size={18} />} label="Hackers" />
-                    <QuickLink href="/chat" icon={<MessageCircle size={18} />} label="Chat" />
                     <QuickLink href="/arcade" icon={<Gamepad2 size={18} />} label="Arcade" />
                     <QuickLink href="/wiki" icon={<BookOpen size={18} />} label="Wiki" />
+                </div>
+            </section>
+
+            {/* ── MEMBERS ───────────────────────────────────────────── */}
+            <section className="dashboard-section">
+                <h2 className="dashboard-h2">
+                    // MEMBERS
+                </h2>
+                <div className="dashboard-links-grid">
+                    <QuickLink href="/chat" icon={<MessageCircle size={18} />} label="Chat" />
+                    <QuickLink href="/labs" icon={<FlaskConical size={18} />} label="Labs" />
                 </div>
             </section>
 
