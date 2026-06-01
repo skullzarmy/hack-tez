@@ -38,3 +38,6 @@ dist-server
 contract/output/
 __pycache__
 dist-zips/
+
+# Labs release zips — uploaded to Netlify Blobs via scripts/upload-lab-release.ts
+labs-zips/

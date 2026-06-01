@@ -23,6 +23,8 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Chat = lazy(() => import("./components/chat/ChatPage"));
 const WikiApp = lazy(() => import("./pages/WikiApp"));
 const Arcade = lazy(() => import("./pages/Arcade"));
+const Labs = lazy(() => import("./pages/Labs"));
+const LabDetail = lazy(() => import("./pages/LabDetail"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -203,6 +205,14 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                                         Arcade
                                     </a>
                                     <a
+                                        href="/labs"
+                                        role="menuitem"
+                                        className="nav-drawer-link"
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        Labs
+                                    </a>
+                                    <a
                                         href="/wiki"
                                         role="menuitem"
                                         className="nav-drawer-link"
@@ -321,6 +331,8 @@ export function AppShell() {
                     <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
                     <Route path="/wiki/*" element={<Suspense fallback={null}><WikiApp /></Suspense>} />
                     <Route path="/arcade/*" element={<Suspense fallback={null}><Arcade /></Suspense>} />
+                    <Route path="/labs" element={<Suspense fallback={null}><Labs /></Suspense>} />
+                    <Route path="/labs/:slug" element={<Suspense fallback={null}><LabDetail /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
                 </Routes>
