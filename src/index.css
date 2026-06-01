@@ -1144,12 +1144,15 @@ a:hover {
 .nav-logo {
     font-family: var(--font);
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 1.875rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--fg);
     text-decoration: none;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
 }
 .nav-logo .dot-tez {
     opacity: 0.55;
@@ -1175,10 +1178,18 @@ a:hover {
     color: var(--fg);
 }
 .nav-actions {
+    --nav-action-h: 36px;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
+}
+.nav-actions > .theme-switcher,
+.nav-actions > .wallet-chip,
+.nav-actions > .btn,
+.nav-actions .nav-hamburger {
+    height: var(--nav-action-h);
+    box-sizing: border-box;
 }
 
 /* --- HAMBURGER -------------------------------------------- */
@@ -1189,7 +1200,7 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.4rem 0.5rem;
+    padding: 0 0.5rem;
     line-height: 1;
     color: var(--fg);
     transition: color 0.15s;
@@ -1204,6 +1215,7 @@ a:hover {
 /* nav-menu wraps hamburger + drawer for positioning */
 .nav-menu {
     position: relative;
+    display: flex;
 }
 .nav-drawer {
     position: absolute;
@@ -1268,8 +1280,8 @@ a:hover {
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    padding: 0.4rem 0.55rem;
-    min-height: 24px;
+    padding: 0 0.55rem;
+    height: 100%;
     text-transform: uppercase;
     transition:
         color 0.15s,
