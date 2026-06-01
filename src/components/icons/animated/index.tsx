@@ -57,6 +57,9 @@ export const LazyMoonIcon = lazy(() =>
 export const LazyCpuIcon = lazy(() =>
     import("./cpu").then((m) => ({ default: m.CpuIcon })),
 );
+export const LazyDownloadIcon = lazy(() =>
+    import("./download").then((m) => ({ default: m.DownloadIcon })),
+);
 
 /* ── Error boundary: if the chunk 404s or throws, render the static icon ─ */
 

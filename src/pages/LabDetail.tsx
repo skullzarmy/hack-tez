@@ -11,6 +11,11 @@ import { useTezos } from "../context/TezosContext";
 import { authedFetch } from "../lib/authedFetch";
 import ConnectWallet from "../components/ConnectWallet";
 import { usePageMeta } from "../hooks/usePageMeta";
+import {
+    AnimatedIcon,
+    LazyDownloadIcon,
+    useAnimatedIconTrigger,
+} from "../components/icons/animated";
 
 const STATUS_STYLE: Record<LabStatus, { color: string; bg: string; label: string }> = {
     alpha: { color: "var(--warn)", bg: "var(--warn-bg)", label: "alpha" },
@@ -87,6 +92,7 @@ export default function LabDetail() {
     const { slug } = useParams<{ slug: string }>();
     const lab = slug ? getLab(slug) : undefined;
     const { domain, activeDomain, restoring } = useTezos();
+    const downloadTrigger = useAnimatedIconTrigger();
     const identity = activeDomain ?? domain;
     const [dl, setDl] = useState<DownloadState>({ status: "idle" });
 
@@ -333,6 +339,7 @@ export default function LabDetail() {
                             type="button"
                             onClick={handleDownload}
                             disabled={dl.status === "downloading" || !lab.file}
+                            {...(dl.status === "downloading" ? {} : downloadTrigger.handlers)}
                             style={{
                                 display: "inline-flex",
                                 alignItems: "center",
@@ -347,7 +354,12 @@ export default function LabDetail() {
                                 opacity: !lab.file ? 0.5 : 1,
                             }}
                         >
-                            <Download size={14} aria-hidden="true" />
+                            <AnimatedIcon
+                                ref={downloadTrigger.iconRef}
+                                Lazy={LazyDownloadIcon}
+                                fallback={<Download size={14} aria-hidden="true" />}
+                                size={14}
+                            />
                             {dl.status === "downloading" ? "downloading…" : "download zip"}
                         </button>
                     </div>
