@@ -8,6 +8,7 @@ import {
 import type { PushPermissionState } from "../lib/pushSubscription";
 import { useTezos } from "../context/TezosContext";
 import { Bell, BellOff, BellRing } from "lucide-react";
+import { AnimatedIcon, LazyBellIcon, useAnimatedIconTrigger } from "./icons/animated";
 
 interface PushSubscribeButtonProps {
     className?: string;
@@ -72,9 +73,10 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
         );
     }
 
-    const Icon = subscribed ? BellRing : Bell;
+    const FallbackIcon = subscribed ? BellRing : Bell;
     const label = subscribed ? "This device subscribed" : "Notify this device";
     const btnClass = className ?? "btn btn-ghost btn-sm";
+    const { iconRef, handlers } = useAnimatedIconTrigger();
 
     return (
         <button
@@ -83,8 +85,15 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
             onClick={() => void handleToggle()}
             disabled={loading || !checked || !token}
             title={subscribed ? "Unsubscribe this device from push notifications" : "Get notified of DMs, mentions, and announcements on this device"}
+            {...handlers}
         >
-            <Icon size={14} /> {label}
+            <AnimatedIcon
+                ref={iconRef}
+                Lazy={LazyBellIcon}
+                fallback={<FallbackIcon size={14} aria-hidden="true" />}
+                size={14}
+            />
+            {label}
         </button>
     );
 }

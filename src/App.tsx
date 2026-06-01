@@ -4,8 +4,18 @@ import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type Er
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { TezosProvider, useTezos } from "./context/TezosContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
+import { Menu, X, Sun, Moon, Cpu } from "lucide-react";
 import ConnectWallet from "./components/ConnectWallet";
 import ConnectHint from "./components/onboarding/ConnectHint";
+import {
+    AnimatedIcon,
+    StateAnimatedIcon,
+    LazyMenuIcon,
+    LazySunIcon,
+    LazyMoonIcon,
+    LazyCpuIcon,
+    useAnimatedIconTrigger,
+} from "./components/icons/animated";
 import ChatHint from "./components/onboarding/ChatHint";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
@@ -106,6 +116,10 @@ function useTheme() {
 }
 
 function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+    const autoTrigger = useAnimatedIconTrigger();
+    const darkTrigger = useAnimatedIconTrigger();
+    const lightTrigger = useAnimatedIconTrigger();
+
     return (
         <div className="theme-switcher" role="group" aria-label="Color theme">
             <button
@@ -115,8 +129,14 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
                 onClick={() => setTheme("auto")}
                 title="Auto (system default)"
                 aria-label="Auto"
+                {...autoTrigger.handlers}
             >
-                ⊙
+                <AnimatedIcon
+                    ref={autoTrigger.iconRef}
+                    Lazy={LazyCpuIcon}
+                    fallback={<Cpu size={14} aria-hidden="true" />}
+                    size={14}
+                />
             </button>
             <button
                 type="button"
@@ -125,8 +145,14 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
                 onClick={() => setTheme("dark")}
                 title="Dark mode"
                 aria-label="Dark"
+                {...darkTrigger.handlers}
             >
-                ◑
+                <AnimatedIcon
+                    ref={darkTrigger.iconRef}
+                    Lazy={LazyMoonIcon}
+                    fallback={<Moon size={14} aria-hidden="true" />}
+                    size={14}
+                />
             </button>
             <button
                 type="button"
@@ -135,8 +161,14 @@ function ThemeSwitcher({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme)
                 onClick={() => setTheme("light")}
                 title="Light mode"
                 aria-label="Light"
+                {...lightTrigger.handlers}
             >
-                ○
+                <AnimatedIcon
+                    ref={lightTrigger.iconRef}
+                    Lazy={LazySunIcon}
+                    fallback={<Sun size={14} aria-hidden="true" />}
+                    size={14}
+                />
             </button>
         </div>
     );
@@ -165,9 +197,13 @@ function Nav({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }
                             aria-controls="nav-drawer"
                             onClick={() => setOpen((o) => !o)}
                         >
-                            <span className="nav-hamburger-bar" />
-                            <span className="nav-hamburger-bar" />
-                            <span className="nav-hamburger-bar" />
+                            <StateAnimatedIcon
+                                Lazy={LazyMenuIcon}
+                                active={open}
+                                fallback={<Menu size={24} aria-hidden="true" />}
+                                fallbackActive={<X size={24} aria-hidden="true" />}
+                                size={24}
+                            />
                         </button>
                         {open && (
                             <div

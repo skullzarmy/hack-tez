@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, Eye, ChevronDown, ChevronUp, Globe } from "lucide-react";
+import { Link as LinkIcon, SquarePen, Eye, ArrowDown, ArrowUp, Globe } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import config from "../config/tezos";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
@@ -7,6 +7,15 @@ import type { SubdomainRecord } from "../lib/domains";
 import type { BuilderStatus } from "../types/profile";
 import { Hackatar } from "./Hackatar";
 import SubdomainManager from "./SubdomainManager";
+import {
+    AnimatedIcon,
+    LazyEyeIcon,
+    LazySquarePenIcon,
+    LazyLinkIcon,
+    LazyArrowDownIcon,
+    LazyArrowUpIcon,
+    useAnimatedIconTrigger,
+} from "./icons/animated";
 
 const TED_APP_URL = config.tedAppUrl;
 
@@ -75,6 +84,11 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
     const { profile } = domain;
     const displayName = profile.name || profile.nickname || label;
     const bskyHandle = useBlueskyHandle(profile.bluesky);
+
+    const viewTrigger = useAnimatedIconTrigger();
+    const editTrigger = useAnimatedIconTrigger();
+    const tedTrigger = useAnimatedIconTrigger();
+    const expandTrigger = useAnimatedIconTrigger();
 
     const bio = profile.bio
         ? profile.bio.length > 100
@@ -177,11 +191,23 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
 
             {/* Actions */}
             <div className="domain-tile-actions">
-                <a href={`/u/${label}`} className="btn btn-ghost btn-sm domain-tile-action">
-                    <Eye size={14} aria-hidden="true" /> View
+                <a href={`/u/${label}`} className="btn btn-ghost btn-sm domain-tile-action" {...viewTrigger.handlers}>
+                    <AnimatedIcon
+                        ref={viewTrigger.iconRef}
+                        Lazy={LazyEyeIcon}
+                        fallback={<Eye size={14} aria-hidden="true" />}
+                        size={14}
+                    />
+                    View
                 </a>
-                <a href={`/u/${label}?edit=true`} className="btn btn-ghost btn-sm domain-tile-action">
-                    <Pencil size={14} aria-hidden="true" /> Edit
+                <a href={`/u/${label}?edit=true`} className="btn btn-ghost btn-sm domain-tile-action" {...editTrigger.handlers}>
+                    <AnimatedIcon
+                        ref={editTrigger.iconRef}
+                        Lazy={LazySquarePenIcon}
+                        fallback={<SquarePen size={14} aria-hidden="true" />}
+                        size={14}
+                    />
+                    Edit
                 </a>
                 <a
                     href={`${TED_APP_URL}/domain/${domain.name}`}
@@ -189,8 +215,15 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
                     rel="noopener noreferrer"
                     className="btn btn-ghost btn-sm domain-tile-action"
                     aria-label={`Manage ${domain.name} on Tezos Domains`}
+                    {...tedTrigger.handlers}
                 >
-                    TED <ExternalLink size={14} aria-hidden="true" />
+                    TED
+                    <AnimatedIcon
+                        ref={tedTrigger.iconRef}
+                        Lazy={LazyLinkIcon}
+                        fallback={<LinkIcon size={14} aria-hidden="true" />}
+                        size={14}
+                    />
                 </a>
             </div>
 
@@ -199,8 +232,14 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
                 className="btn btn-ghost btn-sm domain-tile-expand"
+                {...expandTrigger.handlers}
             >
-                {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                <AnimatedIcon
+                    ref={expandTrigger.iconRef}
+                    Lazy={expanded ? LazyArrowUpIcon : LazyArrowDownIcon}
+                    fallback={expanded ? <ArrowUp size={14} aria-hidden="true" /> : <ArrowDown size={14} aria-hidden="true" />}
+                    size={14}
+                />
                 Sub-subdomains
             </button>
             {expanded && <SubdomainManager domain={domain} onMutate={onMutate} />}

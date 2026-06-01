@@ -4,10 +4,21 @@ import { Link } from "react-router-dom";
 import {
     MessageCircle,
     Users,
-    Gamepad2,
+    ChessKnight,
     BookOpen,
     FlaskConical,
+    RefreshCw,
 } from "lucide-react";
+import {
+    AnimatedIcon,
+    LazyUsersIcon,
+    LazyMessageCircleIcon,
+    LazyFlaskIcon,
+    LazyBookTextIcon,
+    LazyChessKnightIcon,
+    LazyRefreshCwIcon,
+    useAnimatedIconTrigger,
+} from "./icons/animated";
 
 import { useOnboarding } from "../context/OnboardingContext";
 import { useRecentActivity, truncateAddr } from "../hooks/useRecentActivity";
@@ -55,10 +66,21 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
     );
 }
 
-function QuickLink({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {
+function AnimatedQuickLink({
+    href,
+    label,
+    Lazy,
+    fallback,
+}: {
+    href: string;
+    label: string;
+    Lazy: Parameters<typeof AnimatedIcon>[0]["Lazy"];
+    fallback: ReactNode;
+}) {
+    const { iconRef, handlers } = useAnimatedIconTrigger();
     return (
-        <Link to={href} className="dashboard-quick-link">
-            {icon}
+        <Link to={href} className="dashboard-quick-link" {...handlers}>
+            <AnimatedIcon ref={iconRef} Lazy={Lazy} fallback={fallback} size={18} />
             {label}
         </Link>
     );
@@ -78,6 +100,7 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
     const { events, isLoading: activityLoading } = useRecentActivity();
     const totalDomains = useDomainCount();
     const [refreshing, setRefreshing] = useState(false);
+    const refreshTrigger = useAnimatedIconTrigger();
 
     const handleRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -95,9 +118,24 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                     // EXPLORE
                 </h2>
                 <div className="dashboard-links-grid">
-                    <QuickLink href="/hackers" icon={<Users size={18} />} label="Hackers" />
-                    <QuickLink href="/arcade" icon={<Gamepad2 size={18} />} label="Arcade" />
-                    <QuickLink href="/wiki" icon={<BookOpen size={18} />} label="Wiki" />
+                    <AnimatedQuickLink
+                        href="/hackers"
+                        label="Hackers"
+                        Lazy={LazyUsersIcon}
+                        fallback={<Users size={18} aria-hidden="true" />}
+                    />
+                    <AnimatedQuickLink
+                        href="/arcade"
+                        label="Arcade"
+                        Lazy={LazyChessKnightIcon}
+                        fallback={<ChessKnight size={18} aria-hidden="true" />}
+                    />
+                    <AnimatedQuickLink
+                        href="/wiki"
+                        label="Wiki"
+                        Lazy={LazyBookTextIcon}
+                        fallback={<BookOpen size={18} aria-hidden="true" />}
+                    />
                 </div>
             </section>
 
@@ -107,8 +145,18 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                     // MEMBERS
                 </h2>
                 <div className="dashboard-links-grid">
-                    <QuickLink href="/chat" icon={<MessageCircle size={18} />} label="Chat" />
-                    <QuickLink href="/labs" icon={<FlaskConical size={18} />} label="Labs" />
+                    <AnimatedQuickLink
+                        href="/chat"
+                        label="Chat"
+                        Lazy={LazyMessageCircleIcon}
+                        fallback={<MessageCircle size={18} aria-hidden="true" />}
+                    />
+                    <AnimatedQuickLink
+                        href="/labs"
+                        label="Labs"
+                        Lazy={LazyFlaskIcon}
+                        fallback={<FlaskConical size={18} aria-hidden="true" />}
+                    />
                 </div>
             </section>
 
@@ -126,10 +174,20 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                             className="btn btn-ghost btn-sm dashboard-refresh"
                             aria-label="Refresh subdomain list"
                             disabled={refreshing}
+                            {...(refreshing ? {} : refreshTrigger.handlers)}
                         >
-                            <span className={`dashboard-refresh-icon${refreshing ? " dashboard-refresh-icon--spinning" : ""}`}>
-                                ↻
-                            </span>{" "}
+                            {refreshing ? (
+                                <span className="dashboard-refresh-icon dashboard-refresh-icon--spinning">
+                                    <RefreshCw size={14} aria-hidden="true" />
+                                </span>
+                            ) : (
+                                <AnimatedIcon
+                                    ref={refreshTrigger.iconRef}
+                                    Lazy={LazyRefreshCwIcon}
+                                    fallback={<RefreshCw size={14} aria-hidden="true" />}
+                                    size={14}
+                                />
+                            )}
                             Refresh
                         </button>
                     </div>

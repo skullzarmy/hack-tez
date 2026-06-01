@@ -1186,27 +1186,20 @@ a:hover {
     background: none;
     border: 1px solid var(--border-2);
     cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 0.55rem 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.5rem;
     line-height: 1;
-    min-width: 24px;
-    min-height: 24px;
+    color: var(--fg);
+    transition: color 0.15s;
 }
 .nav-hamburger:focus-visible {
     outline: 2px solid var(--fg);
     outline-offset: 2px;
 }
-.nav-hamburger-bar {
-    display: block;
-    width: 16px;
-    height: 2px;
-    background: var(--fg);
-    transition: background 0.15s;
-}
-.nav-hamburger:hover .nav-hamburger-bar {
-    background: var(--fg-2);
+.nav-hamburger:hover {
+    color: var(--fg-2);
 }
 /* nav-menu wraps hamburger + drawer for positioning */
 .nav-menu {
@@ -1268,11 +1261,14 @@ a:hover {
     border-right: 1px solid var(--border-2);
     color: var(--fg-3);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-family: var(--font);
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    padding: 0.45rem 0.65rem;
+    padding: 0.4rem 0.55rem;
     min-height: 24px;
     text-transform: uppercase;
     transition:
