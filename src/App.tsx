@@ -36,6 +36,7 @@ const Arcade = lazy(() => import("./pages/Arcade"));
 const Labs = lazy(() => import("./pages/Labs"));
 const LabDetail = lazy(() => import("./pages/LabDetail"));
 const ColdMilk = lazy(() => import("./pages/labs/ColdMilk"));
+const Gaspedal = lazy(() => import("./pages/labs/Gaspedal"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -370,6 +371,7 @@ export function AppShell() {
                     <Route path="/arcade/*" element={<Suspense fallback={null}><Arcade /></Suspense>} />
                     <Route path="/labs" element={<Suspense fallback={null}><Labs /></Suspense>} />
                     <Route path="/labs/coldmilk" element={<Suspense fallback={null}><ColdMilk /></Suspense>} />
+                    <Route path="/labs/gaspedal" element={<Suspense fallback={null}><Gaspedal /></Suspense>} />
                     <Route path="/labs/:slug" element={<Suspense fallback={null}><LabDetail /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
