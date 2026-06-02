@@ -8,9 +8,12 @@ import { usePageMeta } from "../../hooks/usePageMeta";
 import ConnectWallet from "../../components/ConnectWallet";
 import config from "../../config/tezos";
 import {
+    computeRedemption,
+    enrichSpicyLPs,
     findUserSpicyLPs,
     formatBalance,
     formatTez,
+    formatTokenAmount,
     getWTZBalance,
     submitBreakLPs,
     submitUnwrapWTZ,
@@ -126,9 +129,18 @@ export default function ColdMilk() {
         setScanError(null);
         try {
             const [lps, wtz] = await Promise.all([findUserSpicyLPs(address), getWTZBalance(address)]);
+            // Show balances immediately, then enrich with token/reserve details in background.
             setPositions(lps.map((lp) => ({ ...lp, selected: true })));
             setWtzBalance(wtz);
             setHasScanned(true);
+            if (lps.length > 0) {
+                const enriched = await enrichSpicyLPs(lps);
+                // Merge enriched details onto current rows, preserving selection state.
+                const byAddr = new Map(enriched.map((e) => [e.pair.address, e.details]));
+                setPositions((rows) =>
+                    rows.map((r) => ({ ...r, details: byAddr.get(r.pair.address) ?? r.details })),
+                );
+            }
         } catch (err) {
             setScanError(err instanceof Error ? err.message : "scan failed");
         } finally {
@@ -403,8 +415,35 @@ export default function ColdMilk() {
                                                             whiteSpace: "nowrap",
                                                         }}
                                                     >
-                                                        {row.pair.alias}
+                                                        {(() => {
+                                                            const d = row.details;
+                                                            const synth = d ? `${d.token0.symbol}/${d.token1.symbol}` : null;
+                                                            // Prefer synthesized "T0/T1" label when alias is missing or
+                                                            // is just the raw KT1 (the case for v2 SpicyPro pairs).
+                                                            const isPlaceholder = row.pair.alias === row.pair.address;
+                                                            return synth && isPlaceholder ? synth : row.pair.alias;
+                                                        })()}
                                                     </span>
+                                                    {row.details ? (
+                                                        (() => {
+                                                            const { amount0, amount1 } = computeRedemption(row.balance, row.details);
+                                                            const { token0, token1 } = row.details;
+                                                            return (
+                                                                <span
+                                                                    style={{
+                                                                        display: "block",
+                                                                        fontFamily: "var(--font-mono)",
+                                                                        fontSize: "0.7rem",
+                                                                        color: "var(--ok)",
+                                                                        marginTop: "0.15rem",
+                                                                    }}
+                                                                >
+                                                                    ≈ {formatTokenAmount(amount0, token0.decimals)} {token0.symbol} +{" "}
+                                                                    {formatTokenAmount(amount1, token1.decimals)} {token1.symbol}
+                                                                </span>
+                                                            );
+                                                        })()
+                                                    ) : null}
                                                     <span
                                                         style={{
                                                             display: "block",

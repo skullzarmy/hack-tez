@@ -24,8 +24,10 @@ export const SPICY_ROUTER = "KT1PwoZxyv4XkPEGnTqWYvjA1UYiPTgAGyqL";
 /** Hardcoded mainnet TzKT — coldmilk is mainnet-only. */
 export const SPICY_TZKT = "https://api.tzkt.io";
 
-/** All Spicy pair contracts share this code hash — useful as a cheap filter. */
-export const SPICY_PAIR_CODE_HASH = -1797525020;
+/** Known Spicy pair code hashes — v1 and v2 ("SpicyPro"). Kept for reference;
+ *  the scanner filters by creator alone since both versions expose the same
+ *  transfer + remove_liquidity flow. */
+export const SPICY_PAIR_CODE_HASHES = [-1797525020, -1411290358] as const;
 
 /** WTZ FA2 token contract (mainnet). token_id is 0. */
 export const WTZ_FA2 = "KT1PnUZCp3u2KzWr93pn4DD7HAJnm3rWVrgn";
@@ -42,10 +44,31 @@ export interface SpicyPair {
     alias: string;
 }
 
+export interface TokenRef {
+    contract: string;
+    tokenId: string;
+    /** Symbol from FA2 metadata. Falls back to "?" if missing. */
+    symbol: string;
+    /** Decimals from FA2 metadata. 0 if missing — most FA1.2 / NFT tokens are 0. */
+    decimals: number;
+}
+
+export interface SpicyPairDetails {
+    token0: TokenRef;
+    token1: TokenRef;
+    /** Raw reserve nats from pair storage. */
+    reserve0: string;
+    reserve1: string;
+    /** Total supply of LP tokens (raw nat) — used to compute redemption share. */
+    totalSupply: string;
+}
+
 export interface SpicyLPBalance {
     pair: SpicyPair;
     /** Raw balance of the SSLP token (token_id 0). Always a positive nat as a string. */
     balance: string;
+    /** Enriched pair details — undefined while loading or if enrichment failed. */
+    details?: SpicyPairDetails;
 }
 
 interface TzktContractRow {
@@ -57,8 +80,22 @@ interface TzktTokenBalanceRow {
     token: {
         contract: { address: string; alias?: string };
         tokenId: string;
+        totalSupply?: string;
     };
     balance: string;
+}
+
+interface TzktTokenRow {
+    contract: { address: string };
+    tokenId: string;
+    metadata?: { symbol?: string; name?: string; decimals?: string };
+}
+
+interface TzktPairStorage {
+    token0: { token_id: string; fa2_address: string };
+    token1: { token_id: string; fa2_address: string };
+    reserve0: string;
+    reserve1: string;
 }
 
 /** Fetch every Spicy pair contract address (one network round-trip, cached on the module). */
@@ -68,10 +105,13 @@ export async function getAllSpicyPairs(): Promise<SpicyPair[]> {
     if (pairsCache) return pairsCache;
     if (pairsCachePromise) return pairsCachePromise;
     pairsCachePromise = (async () => {
+        // Don't filter by codeHash — Spicy has two pair versions in production
+        // (v1 codeHash -1797525020, "SpicyPro" v2 codeHash -1411290358) and
+        // both expose the same transfer + remove_liquidity flow. Filtering by
+        // creator alone catches all of them.
         const url =
             `${SPICY_TZKT}/v1/contracts` +
             `?creator=${SPICY_ROUTER}` +
-            `&codeHash=${SPICY_PAIR_CODE_HASH}` +
             `&select=address,alias&limit=1000`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`spicy: failed to list pairs (${res.status})`);
@@ -86,13 +126,14 @@ export async function getAllSpicyPairs(): Promise<SpicyPair[]> {
     }
 }
 
-/** Find every Spicy LP position the address currently holds (token_id 0, balance > 0). */
-export async function findUserSpicyLPs(address: string): Promise<SpicyLPBalance[]> {
+/** Find every Spicy LP position the address currently holds (token_id 0, balance > 0).
+ *  Returned positions have `balance` only; call enrichSpicyLPs to add token/reserve details. */
+export async function findUserSpicyLPs(address: string): Promise<Array<SpicyLPBalance & { totalSupply: string }>> {
     const pairs = await getAllSpicyPairs();
     const pairByAddress = new Map(pairs.map((p) => [p.address, p]));
     const addresses = pairs.map((p) => p.address);
 
-    const results: SpicyLPBalance[] = [];
+    const results: Array<SpicyLPBalance & { totalSupply: string }> = [];
     for (let i = 0; i < addresses.length; i += TZKT_IN_CHUNK_SIZE) {
         const chunk = addresses.slice(i, i + TZKT_IN_CHUNK_SIZE);
         const url =
@@ -109,11 +150,142 @@ export async function findUserSpicyLPs(address: string): Promise<SpicyLPBalance[
             if (row.token.tokenId !== "0") continue;
             const pair = pairByAddress.get(row.token.contract.address);
             if (!pair) continue;
-            results.push({ pair, balance: row.balance });
+            results.push({
+                pair,
+                balance: row.balance,
+                totalSupply: row.token.totalSupply ?? "0",
+            });
         }
     }
     results.sort((a, b) => a.pair.alias.localeCompare(b.pair.alias));
     return results;
+}
+
+/** Fetch pair storage + underlying token metadata for the given positions, in
+ *  parallel. Mutates is non-destructive — returns a new array with `details`
+ *  populated where possible. Failures per-pair are tolerated; that pair just
+ *  has `details: undefined`. */
+export async function enrichSpicyLPs(
+    positions: Array<SpicyLPBalance & { totalSupply: string }>,
+): Promise<SpicyLPBalance[]> {
+    if (positions.length === 0) return positions;
+
+    // Step 1: fetch storage for each pair in parallel.
+    const storageResults = await Promise.all(
+        positions.map(async (p) => {
+            try {
+                const res = await fetch(`${SPICY_TZKT}/v1/contracts/${p.pair.address}/storage`);
+                if (!res.ok) return null;
+                return (await res.json()) as TzktPairStorage;
+            } catch {
+                return null;
+            }
+        }),
+    );
+
+    // Step 2: collect unique (contract, tokenId) pairs across all underlying tokens.
+    const tokenKeys = new Set<string>();
+    for (const s of storageResults) {
+        if (!s) continue;
+        tokenKeys.add(`${s.token0.fa2_address}|${s.token0.token_id}`);
+        tokenKeys.add(`${s.token1.fa2_address}|${s.token1.token_id}`);
+    }
+
+    // Step 3: batch-fetch metadata. Group token IDs by contract to minimize requests.
+    const tokenMeta = new Map<string, TokenRef>();
+    const byContract = new Map<string, Set<string>>();
+    for (const key of tokenKeys) {
+        const [contract, id] = key.split("|");
+        if (!byContract.has(contract)) byContract.set(contract, new Set());
+        byContract.get(contract)?.add(id);
+    }
+    await Promise.all(
+        Array.from(byContract.entries()).map(async ([contract, ids]) => {
+            try {
+                const idList = Array.from(ids).join(",");
+                const res = await fetch(
+                    `${SPICY_TZKT}/v1/tokens?contract=${contract}&tokenId.in=${idList}&limit=${ids.size}`,
+                );
+                if (!res.ok) return;
+                const rows = (await res.json()) as TzktTokenRow[];
+                for (const r of rows) {
+                    const key = `${r.contract.address}|${r.tokenId}`;
+                    const decRaw = r.metadata?.decimals;
+                    tokenMeta.set(key, {
+                        contract: r.contract.address,
+                        tokenId: r.tokenId,
+                        symbol: r.metadata?.symbol ?? r.metadata?.name ?? "?",
+                        decimals: decRaw ? Number.parseInt(decRaw, 10) || 0 : 0,
+                    });
+                }
+            } catch {
+                /* per-contract failure is tolerated */
+            }
+        }),
+    );
+
+    // Step 4: stitch storage + metadata back onto each position.
+    return positions.map((p, i) => {
+        const storage = storageResults[i];
+        if (!storage) return p;
+        const k0 = `${storage.token0.fa2_address}|${storage.token0.token_id}`;
+        const k1 = `${storage.token1.fa2_address}|${storage.token1.token_id}`;
+        const token0: TokenRef = tokenMeta.get(k0) ?? {
+            contract: storage.token0.fa2_address,
+            tokenId: storage.token0.token_id,
+            symbol: "?",
+            decimals: 0,
+        };
+        const token1: TokenRef = tokenMeta.get(k1) ?? {
+            contract: storage.token1.fa2_address,
+            tokenId: storage.token1.token_id,
+            symbol: "?",
+            decimals: 0,
+        };
+        return {
+            ...p,
+            details: {
+                token0,
+                token1,
+                reserve0: storage.reserve0,
+                reserve1: storage.reserve1,
+                totalSupply: p.totalSupply,
+            },
+        };
+    });
+}
+
+/** Compute the user's underlying token share when they burn `lpBalance` LP.
+ *  Returns raw nats (not decimal-adjusted) as strings. Uses BigInt for precision. */
+export function computeRedemption(
+    lpBalance: string,
+    details: SpicyPairDetails,
+): { amount0: string; amount1: string } {
+    try {
+        const bal = BigInt(lpBalance);
+        const supply = BigInt(details.totalSupply);
+        if (supply === 0n) return { amount0: "0", amount1: "0" };
+        const r0 = BigInt(details.reserve0);
+        const r1 = BigInt(details.reserve1);
+        return {
+            amount0: ((bal * r0) / supply).toString(),
+            amount1: ((bal * r1) / supply).toString(),
+        };
+    } catch {
+        return { amount0: "0", amount1: "0" };
+    }
+}
+
+/** Format a raw nat balance using the given token decimals (max 4 fraction digits). */
+export function formatTokenAmount(raw: string, decimals: number, maxFractionDigits = 4): string {
+    if (!/^\d+$/.test(raw)) return raw;
+    if (decimals <= 0) return formatBalance(raw);
+    const padded = raw.padStart(decimals + 1, "0");
+    const whole = padded.slice(0, -decimals);
+    const frac = padded.slice(-decimals).replace(/0+$/, "");
+    const wholeFmt = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (!frac) return wholeFmt;
+    return `${wholeFmt}.${frac.slice(0, maxFractionDigits)}`;
 }
 
 /** Group a raw integer string with thousands separators. Spicy LP is a raw nat;
