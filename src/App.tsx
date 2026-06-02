@@ -35,6 +35,7 @@ const WikiApp = lazy(() => import("./pages/WikiApp"));
 const Arcade = lazy(() => import("./pages/Arcade"));
 const Labs = lazy(() => import("./pages/Labs"));
 const LabDetail = lazy(() => import("./pages/LabDetail"));
+const ColdMilk = lazy(() => import("./pages/labs/ColdMilk"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -368,6 +369,7 @@ export function AppShell() {
                     <Route path="/wiki/*" element={<Suspense fallback={null}><WikiApp /></Suspense>} />
                     <Route path="/arcade/*" element={<Suspense fallback={null}><Arcade /></Suspense>} />
                     <Route path="/labs" element={<Suspense fallback={null}><Labs /></Suspense>} />
+                    <Route path="/labs/coldmilk" element={<Suspense fallback={null}><ColdMilk /></Suspense>} />
                     <Route path="/labs/:slug" element={<Suspense fallback={null}><LabDetail /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />

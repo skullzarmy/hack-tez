@@ -9,10 +9,14 @@ export interface LabMeta {
     kind: string;
     repo?: string;
     privacy?: string;
+    /** Optional — interactive labs (in-app tools) have no downloadable file. */
     file: string;
     browsers: string[];
     wallets: string[];
     updated?: string;
+    /** Interactive labs render their own route (e.g. /labs/coldmilk) instead of the
+     *  default markdown + download detail page. */
+    interactive: boolean;
     raw: string;
 }
 
@@ -68,6 +72,7 @@ function parseLab(filePath: string, raw: string): LabMeta {
         browsers: Array.isArray(data.browsers) ? data.browsers : [],
         wallets: Array.isArray(data.wallets) ? data.wallets : [],
         updated: data.updated as string | undefined,
+        interactive: typeof data.interactive === "string" ? data.interactive === "true" : false,
         raw: content,
     };
 }

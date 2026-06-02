@@ -300,8 +300,8 @@ export default function LabDetail() {
                 )
             ) : (
                 <>
-                    {/* Download bar */}
-                    <div
+                    {/* Download bar — interactive labs have no zip to ship */}
+                    {!lab.interactive && lab.file ? <div
                         style={{
                             marginTop: "1.5rem",
                             padding: "1.25rem 1.5rem",
@@ -362,8 +362,8 @@ export default function LabDetail() {
                             />
                             {dl.status === "downloading" ? "downloading…" : "download zip"}
                         </button>
-                    </div>
-                    {dl.status === "error" && (
+                    </div> : null}
+                    {!lab.interactive && dl.status === "error" && (
                         <p
                             role="alert"
                             style={{
