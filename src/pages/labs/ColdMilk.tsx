@@ -10,7 +10,10 @@ import config from "../../config/tezos";
 import {
     findUserSpicyLPs,
     formatBalance,
+    formatTez,
+    getWTZBalance,
     submitBreakLPs,
+    submitUnwrapWTZ,
     SPICY_TZKT,
     type SpicyLPBalance,
 } from "../../lib/spicy";
@@ -99,11 +102,13 @@ export default function ColdMilk() {
     const { client, address, domain, restoring } = useTezos();
 
     const [positions, setPositions] = useState<PositionRow[]>([]);
+    const [wtzBalance, setWtzBalance] = useState<string>("0");
     const [loading, setLoading] = useState(false);
     const [scanError, setScanError] = useState<string | null>(null);
     const [hasScanned, setHasScanned] = useState(false);
     const [breakState, setBreakState] = useState<Record<string, BreakResult>>({});
     const [bulkState, setBulkState] = useState<BreakResult>({ status: "idle" });
+    const [unwrapState, setUnwrapState] = useState<BreakResult>({ status: "idle" });
 
     usePageMeta({
         title: "ColdMilk — break Spicy LP — Labs — hack.tez",
@@ -120,8 +125,9 @@ export default function ColdMilk() {
         setLoading(true);
         setScanError(null);
         try {
-            const lps = await findUserSpicyLPs(address);
+            const [lps, wtz] = await Promise.all([findUserSpicyLPs(address), getWTZBalance(address)]);
             setPositions(lps.map((lp) => ({ ...lp, selected: true })));
+            setWtzBalance(wtz);
             setHasScanned(true);
         } catch (err) {
             setScanError(err instanceof Error ? err.message : "scan failed");
@@ -176,8 +182,21 @@ export default function ColdMilk() {
         }
     }
 
+    async function unwrapWTZ() {
+        if (!client || !address || wtzBalance === "0") return;
+        setUnwrapState({ status: "signing" });
+        try {
+            const { transactionHash } = await submitUnwrapWTZ(client, address, wtzBalance);
+            setUnwrapState({ status: "done", txHash: transactionHash });
+        } catch (err) {
+            setUnwrapState({ status: "error", error: err instanceof Error ? err.message : "unwrap failed" });
+        }
+    }
+
     const selectedCount = positions.filter((r) => r.selected).length;
     const bulkBusy = bulkState.status === "signing" || bulkState.status === "broadcasting";
+    const unwrapBusy = unwrapState.status === "signing" || unwrapState.status === "broadcasting";
+    const hasWTZ = wtzBalance !== "0" && wtzBalance !== "";
 
     return (
         <div className="container" style={{ paddingBlock: "3rem", maxWidth: "780px" }}>
@@ -558,6 +577,110 @@ export default function ColdMilk() {
                         )}
                     </section>
 
+                    {hasWTZ && (
+                        <section style={{ marginTop: "1.5rem" }}>
+                            <div
+                                style={{
+                                    border: "1px solid var(--border)",
+                                    background: "var(--bg-card)",
+                                    padding: "0.85rem 1rem",
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: "0.75rem",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <span style={{ minWidth: 0 }}>
+                                    <span
+                                        style={{
+                                            display: "block",
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: "0.85rem",
+                                            color: "var(--fg)",
+                                        }}
+                                    >
+                                        WTZ
+                                    </span>
+                                    <span
+                                        style={{
+                                            display: "block",
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: "0.7rem",
+                                            color: "var(--fg-muted)",
+                                            marginTop: "0.15rem",
+                                        }}
+                                    >
+                                        {formatTez(wtzBalance)} ꜩ · wrapped
+                                    </span>
+                                </span>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "0.6rem",
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    {unwrapState.status === "done" && unwrapState.txHash && (
+                                        <a
+                                            href={`https://tzkt.io/${unwrapState.txHash}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.7rem",
+                                                color: "var(--ok)",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "0.3em",
+                                            }}
+                                        >
+                                            unwrapped <ExternalLink size={11} aria-hidden="true" />
+                                        </a>
+                                    )}
+                                    {unwrapState.status === "error" && (
+                                        <span
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.68rem",
+                                                color: "var(--err, #ff6b6b)",
+                                                maxWidth: "22ch",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                            title={unwrapState.error}
+                                        >
+                                            {unwrapState.error}
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => void unwrapWTZ()}
+                                        disabled={unwrapBusy || unwrapState.status === "done"}
+                                        style={{
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: "0.78rem",
+                                            padding: "0.4rem 0.85rem",
+                                            border: "1px solid var(--fg)",
+                                            background:
+                                                unwrapState.status === "done" ? "var(--bg)" : "var(--fg)",
+                                            color: unwrapState.status === "done" ? "var(--fg)" : "var(--bg)",
+                                            cursor: unwrapBusy ? "wait" : "pointer",
+                                            opacity: unwrapState.status === "done" ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {unwrapBusy
+                                            ? "signing…"
+                                            : unwrapState.status === "done"
+                                              ? "done"
+                                              : "unwrap to tez"}
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+                    )}
                 </>
             )}
         </div>

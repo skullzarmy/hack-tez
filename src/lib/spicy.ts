@@ -27,6 +27,14 @@ export const SPICY_TZKT = "https://api.tzkt.io";
 /** All Spicy pair contracts share this code hash — useful as a cheap filter. */
 export const SPICY_PAIR_CODE_HASH = -1797525020;
 
+/** WTZ FA2 token contract (mainnet). token_id is 0. */
+export const WTZ_FA2 = "KT1PnUZCp3u2KzWr93pn4DD7HAJnm3rWVrgn";
+
+/** WTZ swap proxy — exposes unwrap(nat, address) and wrap(address). The proxy
+ *  is the admin of the WTZ FA2 so unwrap calls just burn from the caller's
+ *  balance directly; no operator setup or transfer-to-proxy required. */
+export const WTZ_PROXY = "KT1SJPWa6g8CFGBhLk8aMnQZuFNFts1zTHvV";
+
 const TZKT_IN_CHUNK_SIZE = 80;
 
 export interface SpicyPair {
@@ -115,6 +123,16 @@ export function formatBalance(raw: string): string {
     return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+/** Format a mutez-style nat as a tez decimal (6 places, trailing zeros trimmed).
+ *  WTZ is 1:1 with tez at 6 decimals so this is the right formatter for it. */
+export function formatTez(rawMutez: string): string {
+    if (!/^\d+$/.test(rawMutez)) return rawMutez;
+    const padded = rawMutez.padStart(7, "0");
+    const whole = padded.slice(0, -6);
+    const frac = padded.slice(-6).replace(/0+$/, "");
+    return frac ? `${whole}.${frac}` : whole;
+}
+
 interface MichelineTransferTx {
     prim: "Pair";
     args: [
@@ -184,6 +202,48 @@ export function buildBreakLPOps(params: {
             },
         },
     ];
+}
+
+/** Fetch the connected wallet's WTZ balance (raw mutez-equivalent nat string).
+ *  Returns "0" if no balance row exists. */
+export async function getWTZBalance(address: string): Promise<string> {
+    const url =
+        `${SPICY_TZKT}/v1/tokens/balances` +
+        `?account=${encodeURIComponent(address)}` +
+        `&token.contract=${WTZ_FA2}` +
+        `&token.tokenId=0` +
+        `&limit=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`spicy: WTZ balance lookup failed (${res.status})`);
+    const rows = (await res.json()) as TzktTokenBalanceRow[];
+    return rows[0]?.balance ?? "0";
+}
+
+/** Submit an unwrap of the given WTZ amount to the given recipient. The proxy
+ *  burns the WTZ from the caller's balance and sends raw tez to recipient. */
+export async function submitUnwrapWTZ(
+    client: DAppClient,
+    recipient: string,
+    amount: string,
+): Promise<{ transactionHash: string }> {
+    if (amount === "0" || amount === "") throw new Error("nothing to unwrap");
+    const result = await client.requestOperation({
+        operationDetails: [
+            {
+                kind: "transaction" as TezosOperationType.TRANSACTION,
+                destination: WTZ_PROXY,
+                amount: "0",
+                parameters: {
+                    entrypoint: "unwrap",
+                    value: {
+                        prim: "Pair",
+                        args: [{ int: amount }, { string: recipient }],
+                    },
+                },
+            },
+        ],
+    });
+    return { transactionHash: (result as { transactionHash: string }).transactionHash };
 }
 
 /** Submit a break for one or more LP positions in a single op group. */
