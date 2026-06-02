@@ -2,8 +2,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Lock, RefreshCw } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { getLab } from "../../lib/labs";
 import { useTezos } from "../../context/TezosContext";
 import { usePageMeta } from "../../hooks/usePageMeta";
@@ -65,14 +63,10 @@ function AccessGate() {
         >
             <Lock size={28} aria-hidden="true" style={{ color: "var(--fg-muted)" }} />
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", color: "var(--fg)" }}>// members only</p>
-            <p style={{ color: "var(--fg-muted)", fontSize: "0.82rem", maxWidth: "44ch" }}>
-                Connect a wallet that owns a hack.tez subdomain to use this experiment.
-            </p>
             <ConnectWallet />
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--fg-muted)" }}>
-                no subdomain?{" "}
                 <Link to="/" style={{ color: "var(--fg)" }}>
-                    claim one →
+                    claim a subdomain →
                 </Link>
             </p>
         </div>
@@ -92,12 +86,9 @@ function NetworkGate() {
                 color: "var(--fg)",
             }}
         >
-            <p style={{ marginBottom: "0.4rem", color: "var(--warn)" }}>// mainnet only</p>
-            <p style={{ color: "var(--fg-muted)", fontSize: "0.78rem", lineHeight: 1.5 }}>
-                SpicySwap is deployed on Tezos mainnet only. This build of hack.tez is configured for{" "}
-                <span style={{ color: "var(--fg)" }}>{config.name}</span>. Switch your local{" "}
-                <code>VITE_TEZOS_NETWORK</code> to <code>mainnet</code> (and reconnect a mainnet wallet) to break Spicy
-                LP positions.
+            <p style={{ marginBottom: "0.35rem", color: "var(--warn)" }}>// mainnet only</p>
+            <p style={{ color: "var(--fg-muted)", fontSize: "0.78rem" }}>
+                connected to <span style={{ color: "var(--fg)" }}>{config.name}</span>.
             </p>
         </div>
     );
@@ -250,29 +241,6 @@ export default function ColdMilk() {
                 </div>
             </div>
 
-            <div
-                style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "1.25rem",
-                    paddingBlock: "1rem",
-                    borderBottom: "1px solid var(--border)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.72rem",
-                    color: "var(--fg-muted)",
-                }}
-            >
-                <span>
-                    kind: <span style={{ color: "var(--fg)" }}>tool</span>
-                </span>
-                <span>
-                    network: <span style={{ color: "var(--fg)" }}>mainnet</span>
-                </span>
-                <span>
-                    target: <span style={{ color: "var(--fg)" }}>SpicySwap pairs</span>
-                </span>
-            </div>
-
             {restoring ? (
                 <p
                     style={{
@@ -295,22 +263,11 @@ export default function ColdMilk() {
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "space-between",
-                                flexWrap: "wrap",
-                                gap: "0.75rem",
+                                justifyContent: "flex-end",
+                                gap: "0.5rem",
                                 marginBottom: "0.75rem",
                             }}
                         >
-                            <h2
-                                style={{
-                                    fontFamily: "var(--font-mono)",
-                                    fontSize: "0.95rem",
-                                    margin: 0,
-                                    color: "var(--fg)",
-                                }}
-                            >
-                                // your LP positions
-                            </h2>
                             <button
                                 type="button"
                                 onClick={() => void scan()}
@@ -329,7 +286,7 @@ export default function ColdMilk() {
                                 }}
                             >
                                 <RefreshCw size={12} aria-hidden="true" />
-                                {loading ? "scanning…" : "rescan"}
+                                {loading ? "…" : "rescan"}
                             </button>
                         </div>
 
@@ -343,7 +300,7 @@ export default function ColdMilk() {
                                     marginBottom: "0.75rem",
                                 }}
                             >
-                                // scan failed: {scanError}
+                                // {scanError}
                             </p>
                         )}
 
@@ -355,7 +312,7 @@ export default function ColdMilk() {
                                     fontSize: "0.78rem",
                                 }}
                             >
-                                // scanning ~234 Spicy pairs for your LP balances…
+                                // scanning…
                             </p>
                         )}
 
@@ -367,8 +324,7 @@ export default function ColdMilk() {
                                     fontSize: "0.78rem",
                                 }}
                             >
-                                // no Spicy LP positions found on this wallet. if your LP is staked in a farm, withdraw
-                                from the farm first.
+                                // no Spicy LP found. staked-in-farm LP isn't visible here.
                             </p>
                         )}
 
@@ -439,7 +395,7 @@ export default function ColdMilk() {
                                                             marginTop: "0.15rem",
                                                         }}
                                                     >
-                                                        {formatBalance(row.balance, row.decimals)} SSLP ·{" "}
+                                                        {formatBalance(row.balance)} LP ·{" "}
                                                         <a
                                                             href={`${SPICY_TZKT.replace("api.", "")}/${row.pair.address}/operations`}
                                                             target="_blank"
@@ -542,7 +498,7 @@ export default function ColdMilk() {
                                         color: "var(--fg-muted)",
                                     }}
                                 >
-                                    // {selectedCount} selected — break all in one signature
+                                    // {selectedCount} selected
                                 </span>
                                 <div
                                     style={{
@@ -602,11 +558,6 @@ export default function ColdMilk() {
                         )}
                     </section>
 
-                    {lab?.raw && (
-                        <div className="prose prose-invert max-w-none skill-prose" style={{ marginTop: "2.5rem" }}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{lab.raw}</ReactMarkdown>
-                        </div>
-                    )}
                 </>
             )}
         </div>

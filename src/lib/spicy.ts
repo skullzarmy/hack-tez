@@ -38,8 +38,6 @@ export interface SpicyLPBalance {
     pair: SpicyPair;
     /** Raw balance of the SSLP token (token_id 0). Always a positive nat as a string. */
     balance: string;
-    /** SSLP token metadata decimals — for display formatting. */
-    decimals: number;
 }
 
 interface TzktContractRow {
@@ -51,7 +49,6 @@ interface TzktTokenBalanceRow {
     token: {
         contract: { address: string; alias?: string };
         tokenId: string;
-        metadata?: { name?: string; symbol?: string; decimals?: string };
     };
     balance: string;
 }
@@ -104,24 +101,18 @@ export async function findUserSpicyLPs(address: string): Promise<SpicyLPBalance[
             if (row.token.tokenId !== "0") continue;
             const pair = pairByAddress.get(row.token.contract.address);
             if (!pair) continue;
-            const decRaw = row.token.metadata?.decimals;
-            const decimals = decRaw ? Number.parseInt(decRaw, 10) || 0 : 0;
-            results.push({ pair, balance: row.balance, decimals });
+            results.push({ pair, balance: row.balance });
         }
     }
     results.sort((a, b) => a.pair.alias.localeCompare(b.pair.alias));
     return results;
 }
 
-/** Format a raw nat balance using the given decimals — display-only. */
-export function formatBalance(raw: string, decimals: number, maxFractionDigits = 4): string {
+/** Group a raw integer string with thousands separators. Spicy LP is a raw nat;
+ *  the on-chain token metadata's `decimals` field is unreliable so we don't use it. */
+export function formatBalance(raw: string): string {
     if (!/^\d+$/.test(raw)) return raw;
-    if (decimals <= 0) return raw;
-    const padded = raw.padStart(decimals + 1, "0");
-    const whole = padded.slice(0, -decimals);
-    const frac = padded.slice(-decimals).replace(/0+$/, "");
-    if (!frac) return whole;
-    return `${whole}.${frac.slice(0, maxFractionDigits)}`;
+    return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 interface MichelineTransferTx {
