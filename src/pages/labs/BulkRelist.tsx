@@ -20,6 +20,7 @@ import {
     type Listing,
     type ListingState,
     type MarketplaceId,
+    type PlannedBatch,
 } from "../../lib/bulkRelist";
 
 type ViewMode = "grid" | "list";
@@ -1710,6 +1711,9 @@ function SubmitModalBody({
     onSign: (plan: BulkRelistPlan, batchIdx: number, hashes: string[]) => void;
     onClose: () => void;
 }) {
+    // Parent only mounts this when status !== "idle", but TS doesn't know
+    // that — so handle it here for narrowing.
+    if (state.status === "idle") return null;
     if (state.status === "planning") {
         return <p style={{ fontSize: "0.85rem", color: "var(--fg-muted)" }}>// preparing batches…</p>;
     }
@@ -1725,8 +1729,11 @@ function SubmitModalBody({
             </>
         );
     }
-    // After planning, all remaining branches share a plan.
-    const plan = state.plan!;
+    // After planning/idle/error-without-plan are filtered, the remaining
+    // states all carry a plan (ready / signing / done / error-with-plan).
+    // The non-null assertion is safe but won't narrow `state` itself, so the
+    // implicit-any maps below are typed via explicit annotations.
+    const plan: BulkRelistPlan = state.plan!;
     const hashes = "hashes" in state && state.hashes ? state.hashes : [];
     const currentIdx = state.status === "signing" || state.status === "ready" ? state.batchIdx : hashes.length;
     const totalBatches = plan.batches.length;
@@ -1767,7 +1774,7 @@ function SubmitModalBody({
                         color: "var(--fg-muted)",
                     }}
                 >
-                    {plan.notes.map((n) => (
+                    {plan.notes.map((n: string) => (
                         <li key={n}>// {n}</li>
                     ))}
                 </ul>
@@ -1788,7 +1795,7 @@ function SubmitModalBody({
                     gap: "0.5rem",
                 }}
             >
-                {plan.batches.map((b, i) => {
+                {plan.batches.map((b: PlannedBatch, i: number) => {
                     const isDone = i < hashes.length;
                     const isCurrent = i === currentIdx && !done;
                     const hash = hashes[i];
@@ -1836,7 +1843,7 @@ function SubmitModalBody({
                                     color: "var(--fg-muted)",
                                 }}
                             >
-                                {b.listings.slice(0, 6).map((l) => {
+                                {b.listings.slice(0, 6).map((l: Listing) => {
                                     const oldP = BigInt(l.priceMutez || "0");
                                     const newP = BigInt(priceFor(l));
                                     const dir = newP > oldP ? "up" : newP < oldP ? "down" : "flat";

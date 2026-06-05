@@ -546,9 +546,15 @@ export async function planBulkRelist(input: PlanInputs): Promise<BulkRelistPlan>
 
 
 /** Submit a planned batch via the connected wallet client. Returns the op
- *  hash. Throws on signing rejection or rpc error. */
+ *  hash. Throws on signing rejection or rpc error.
+ *
+ *  The client param is typed loosely so this lib stays free of a hard
+ *  octez.connect SDK dependency (it's lazy-loaded at the app boundary).
+ *  We cast through `unknown` at the boundary; the runtime contract is
+ *  exactly the SDK's DAppClient.requestOperation. */
 export async function submitBatch(
-    client: { requestOperation: (req: { operationDetails: unknown[] }) => Promise<{ transactionHash: string }> },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client: { requestOperation: (req: any) => Promise<{ transactionHash: string }> },
     batch: PlannedBatch,
 ): Promise<{ transactionHash: string }> {
     if (batch.ops.length === 0) throw new Error("empty batch");
