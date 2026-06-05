@@ -351,6 +351,10 @@ export interface PlanInputs {
     preserveExistingShares: boolean;
 }
 
+export interface CancelPlanInputs {
+    listings: Listing[];
+}
+
 interface RelistPair {
     listing: Listing;
     cancel: PreparedOp;
@@ -547,6 +551,57 @@ export async function planBulkRelist(input: PlanInputs): Promise<BulkRelistPlan>
     return { batches, totalOps, notes, tipApplied };
 }
 
+
+/**
+ * Cancel-only planner. Builds batches of just the cancel ops (no recreate,
+ * no operator preflight needed — cancels release tokens back to the seller
+ * but never touch operator config). Far simpler than planBulkRelist:
+ *   - no on-chain source storage fetch needed (we already know the bigmap_key)
+ *   - no target marketplace, no operator ops, no shares
+ *   - cancel entrypoint dispatched per source contract via each adapter
+ *
+ * Chunk size is bigger here (60 cancels per batch) because each op is small
+ * and predictable — just a `cancel_swap`, `retract_ask`, or `unlist` taking
+ * a single nat.
+ */
+const CANCELS_PER_BATCH = 60;
+
+export async function planBulkCancel(input: CancelPlanInputs): Promise<BulkRelistPlan> {
+    const notes: string[] = [];
+    const batches: PlannedBatch[] = [];
+
+    const teiaSel = input.listings.filter((l) => l.marketplace === "teia");
+    const objktSel = input.listings.filter((l) => l.marketplace === "objkt");
+
+    if (teiaSel.length > 0) {
+        const ops = teiaSel.map((l) => buildTeiaCancelOp(l));
+        for (let i = 0; i < teiaSel.length; i += CANCELS_PER_BATCH) {
+            const slice = teiaSel.slice(i, i + CANCELS_PER_BATCH);
+            batches.push({
+                label: `teia · cancel ${slice.length} listing${slice.length === 1 ? "" : "s"}`,
+                ops: ops.slice(i, i + CANCELS_PER_BATCH),
+                listings: slice,
+            });
+        }
+        notes.push(`teia: cancelling ${teiaSel.length} listing${teiaSel.length === 1 ? "" : "s"} — tokens return to your wallet.`);
+    }
+
+    if (objktSel.length > 0) {
+        const ops = objktSel.map((l) => buildObjktCancelOp(l));
+        for (let i = 0; i < objktSel.length; i += CANCELS_PER_BATCH) {
+            const slice = objktSel.slice(i, i + CANCELS_PER_BATCH);
+            batches.push({
+                label: `objkt · cancel ${slice.length} listing${slice.length === 1 ? "" : "s"}`,
+                ops: ops.slice(i, i + CANCELS_PER_BATCH),
+                listings: slice,
+            });
+        }
+        notes.push(`objkt: cancelling ${objktSel.length} listing${objktSel.length === 1 ? "" : "s"} — tokens stay where they are (objkt v4+ doesn't escrow).`);
+    }
+
+    const totalOps = batches.reduce((sum, b) => sum + b.ops.length, 0);
+    return { batches, totalOps, notes, tipApplied: null };
+}
 
 /** Submit a planned batch via the connected wallet client. Returns the op
  *  hash. Throws on signing rejection or rpc error.

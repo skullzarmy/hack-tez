@@ -12,6 +12,7 @@ import {
     gatewayUri,
     mutezToTez,
     parseSourceShares,
+    planBulkCancel,
     planBulkRelist,
     submitBatch,
     tezToMutez,
@@ -192,16 +193,20 @@ const SHARE_PRESETS = [
     { bps: 500, label: "5%" },
 ];
 
+/** What kind of bulk action a submit flow is running. Drives modal copy
+ *  ("relist"/"cancel") without duplicating the rest of the state machine. */
+type SubmitAction = "relist" | "cancel";
+
 type SubmitState =
     | { status: "idle" }
-    | { status: "planning" }
+    | { status: "planning"; action: SubmitAction }
     /** Plan computed. `batchIdx` is the index of the NEXT batch to sign; `hashes` is the
      *  ordered list of successful tx hashes so far. On entry `batchIdx=0, hashes=[]`. */
-    | { status: "ready"; plan: BulkRelistPlan; batchIdx: number; hashes: string[] }
+    | { status: "ready"; action: SubmitAction; plan: BulkRelistPlan; batchIdx: number; hashes: string[] }
     /** Wallet prompt is open for batch[batchIdx]. */
-    | { status: "signing"; plan: BulkRelistPlan; batchIdx: number; hashes: string[] }
-    | { status: "done"; plan: BulkRelistPlan; hashes: string[] }
-    | { status: "error"; message: string; plan?: BulkRelistPlan; hashes?: string[] };
+    | { status: "signing"; action: SubmitAction; plan: BulkRelistPlan; batchIdx: number; hashes: string[] }
+    | { status: "done"; action: SubmitAction; plan: BulkRelistPlan; hashes: string[] }
+    | { status: "error"; action?: SubmitAction; message: string; plan?: BulkRelistPlan; hashes?: string[] };
 
 export default function BulkRelist() {
     const lab = getLab("bulk-relist");
@@ -374,10 +379,10 @@ export default function BulkRelist() {
     const openPreview = useCallback(async () => {
         if (!address) return;
         if (plan.relist.length === 0) {
-            setSubmit({ status: "error", message: "nothing to relist." });
+            setSubmit({ status: "error", action: "relist", message: "nothing to relist." });
             return;
         }
-        setSubmit({ status: "planning" });
+        setSubmit({ status: "planning", action: "relist" });
         try {
             const built = await planBulkRelist({
                 seller: address,
@@ -391,33 +396,63 @@ export default function BulkRelist() {
             if (built.batches.length === 0) {
                 setSubmit({
                     status: "error",
+                    action: "relist",
                     message: "nothing to relist after on-chain recheck — everything was sold, cancelled, or unsupported.",
                 });
                 return;
             }
-            setSubmit({ status: "ready", plan: built, batchIdx: 0, hashes: [] });
+            setSubmit({ status: "ready", action: "relist", plan: built, batchIdx: 0, hashes: [] });
         } catch (err) {
-            setSubmit({ status: "error", message: err instanceof Error ? err.message : "planner failed" });
+            setSubmit({ status: "error", action: "relist", message: err instanceof Error ? err.message : "planner failed" });
         }
     }, [address, plan.relist, priceFor, share.enabled, effectiveShareBps, preserveSplits]);
+
+    /** Open the bulk-cancel preview. Uses the same modal/state machine as
+     *  reprice but with a stripped planner — cancel only, no recreate. */
+    const openCancelPreview = useCallback(async () => {
+        if (!address) return;
+        // Anything selected that has an on-chain listing is cancellable —
+        // both relistable and cancel_only rows. (Locked rows aren't selectable.)
+        const cancellable = selectedListings.filter((l) => l.state !== "locked");
+        if (cancellable.length === 0) {
+            setSubmit({ status: "error", action: "cancel", message: "nothing to cancel." });
+            return;
+        }
+        setSubmit({ status: "planning", action: "cancel" });
+        try {
+            const built = await planBulkCancel({ listings: cancellable });
+            if (built.batches.length === 0) {
+                setSubmit({
+                    status: "error",
+                    action: "cancel",
+                    message: "nothing to cancel — selection wasn't on a supported marketplace.",
+                });
+                return;
+            }
+            setSubmit({ status: "ready", action: "cancel", plan: built, batchIdx: 0, hashes: [] });
+        } catch (err) {
+            setSubmit({ status: "error", action: "cancel", message: err instanceof Error ? err.message : "planner failed" });
+        }
+    }, [address, selectedListings]);
 
     /** Sign one batch. On success advances to next batch (status returns to
      *  "ready" so user re-clicks for batch 2 → 2 wallet prompts), or marks
      *  done if this was the last. We never auto-chain wallet prompts. */
     const signBatch = useCallback(
-        async (built: BulkRelistPlan, batchIdx: number, hashes: string[]) => {
+        async (action: SubmitAction, built: BulkRelistPlan, batchIdx: number, hashes: string[]) => {
             if (!client) return;
             const batch = built.batches[batchIdx];
             if (!batch) return;
-            setSubmit({ status: "signing", plan: built, batchIdx, hashes });
+            setSubmit({ status: "signing", action, plan: built, batchIdx, hashes });
             try {
                 const { transactionHash } = await submitBatch(client, batch);
                 const nextHashes = [...hashes, transactionHash];
                 if (batchIdx + 1 >= built.batches.length) {
-                    setSubmit({ status: "done", plan: built, hashes: nextHashes });
+                    setSubmit({ status: "done", action, plan: built, hashes: nextHashes });
                 } else {
                     setSubmit({
                         status: "ready",
+                        action,
                         plan: built,
                         batchIdx: batchIdx + 1,
                         hashes: nextHashes,
@@ -426,6 +461,7 @@ export default function BulkRelist() {
             } catch (err) {
                 setSubmit({
                     status: "error",
+                    action,
                     message: err instanceof Error ? err.message : "signing failed",
                     plan: built,
                     hashes,
@@ -605,6 +641,10 @@ export default function BulkRelist() {
                             onPreserveSplits={setPreserveSplits}
                             firstObjkt={plan.relist.find((l) => l.marketplace === "objkt")}
                             onPreview={() => void openPreview()}
+                            onPreviewCancel={() => void openCancelPreview()}
+                            cancellableCount={
+                                selectedListings.filter((l) => l.state !== "locked").length
+                            }
                         />
                     )}
 
@@ -613,7 +653,7 @@ export default function BulkRelist() {
                             state={submit}
                             priceFor={priceFor}
                             onClose={closeSubmit}
-                            onSign={(b, i, h) => void signBatch(b, i, h)}
+                            onSign={(action, b, i, h) => void signBatch(action, b, i, h)}
                         />
                     )}
                 </>
@@ -1032,6 +1072,9 @@ interface ActionPanelProps {
     onPreserveSplits: (b: boolean) => void;
     firstObjkt: Listing | undefined;
     onPreview: () => void;
+    onPreviewCancel: () => void;
+    /** Listings eligible for cancel — everything selected that isn't locked. */
+    cancellableCount: number;
 }
 
 function ActionPanel(p: ActionPanelProps) {
@@ -1123,7 +1166,7 @@ function ActionPanel(p: ActionPanelProps) {
                         transition: "color 180ms ease, border-color 180ms ease, background 180ms ease",
                     }}
                 >
-                    {expanded ? "collapse" : "set price & sign"}
+                    {expanded ? "collapse" : "reprice or cancel"}
                     <ChevronDown
                         size={14}
                         aria-hidden="true"
@@ -1263,11 +1306,35 @@ function ActionPanel(p: ActionPanelProps) {
                 />
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    flexWrap: "wrap",
+                    gap: "0.5rem",
+                }}
+            >
+                <button
+                    type="button"
+                    onClick={p.onPreviewCancel}
+                    disabled={p.cancellableCount === 0}
+                    title="cancel the selected listings (no reprice)"
+                    style={{
+                        ...ctrlBtn,
+                        padding: "0.55rem 1.1rem",
+                        fontSize: "0.78rem",
+                        borderColor: "var(--warn)",
+                        color: "var(--warn)",
+                        cursor: p.cancellableCount > 0 ? "pointer" : "not-allowed",
+                    }}
+                >
+                    cancel{p.cancellableCount > 0 ? ` ${p.cancellableCount}` : ""} →
+                </button>
                 <button
                     type="button"
                     onClick={p.onPreview}
                     disabled={!priceValid || p.plan.relist.length === 0}
+                    title="cancel + recreate at the new price"
                     style={{
                         ...ctrlBtn,
                         padding: "0.55rem 1.1rem",
@@ -1277,7 +1344,7 @@ function ActionPanel(p: ActionPanelProps) {
                         cursor: priceValid ? "pointer" : "not-allowed",
                     }}
                 >
-                    preview & sign →
+                    reprice & sign →
                 </button>
             </div>
             <p
@@ -1668,7 +1735,7 @@ interface SubmitModalProps {
     state: SubmitState;
     priceFor: (l: Listing) => string;
     onClose: () => void;
-    onSign: (plan: BulkRelistPlan, batchIdx: number, hashes: string[]) => void;
+    onSign: (action: SubmitAction, plan: BulkRelistPlan, batchIdx: number, hashes: string[]) => void;
 }
 
 function SubmitModal({ state, priceFor, onClose, onSign }: SubmitModalProps) {
@@ -1716,7 +1783,7 @@ function SubmitModalBody({
 }: {
     state: SubmitState;
     priceFor: (l: Listing) => string;
-    onSign: (plan: BulkRelistPlan, batchIdx: number, hashes: string[]) => void;
+    onSign: (action: SubmitAction, plan: BulkRelistPlan, batchIdx: number, hashes: string[]) => void;
     onClose: () => void;
 }) {
     // Parent only mounts this when status !== "idle", but TS doesn't know
@@ -1748,6 +1815,9 @@ function SubmitModalBody({
     const done = state.status === "done";
     const errored = state.status === "error";
     const signing = state.status === "signing";
+    const action: SubmitAction = ("action" in state && state.action) || "relist";
+    const verb = action === "cancel" ? "cancel" : "sign";
+    const titleVerb = action === "cancel" ? "cancelling" : "relisting";
 
     return (
         <>
@@ -1762,10 +1832,10 @@ function SubmitModalBody({
             >
                 <h3 style={{ margin: 0, fontSize: "0.95rem" }}>
                     {done
-                        ? "// all batches signed"
+                        ? `// ${titleVerb} — all batches signed`
                         : errored
-                          ? "// signing failed"
-                          : `// batch ${currentIdx + 1} of ${totalBatches}`}
+                          ? `// ${titleVerb} — signing failed`
+                          : `// ${titleVerb} · batch ${currentIdx + 1} of ${totalBatches}`}
                 </h3>
                 <button type="button" onClick={onClose} style={ctrlBtn}>
                     close
@@ -1852,6 +1922,33 @@ function SubmitModalBody({
                                 }}
                             >
                                 {b.listings.slice(0, 6).map((l: Listing) => {
+                                    if (action === "cancel") {
+                                        return (
+                                            <li
+                                                key={l.id}
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                    gap: "0.5rem",
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                        whiteSpace: "nowrap",
+                                                        flex: 1,
+                                                    }}
+                                                    title={l.token.name}
+                                                >
+                                                    {l.token.name}
+                                                </span>
+                                                <span style={{ color: "var(--fg-muted)" }}>
+                                                    {mutezToTez(l.priceMutez)} ꜩ · cancel
+                                                </span>
+                                            </li>
+                                        );
+                                    }
                                     const oldP = BigInt(l.priceMutez || "0");
                                     const newP = BigInt(priceFor(l));
                                     const dir = newP > oldP ? "up" : newP < oldP ? "down" : "flat";
@@ -1926,7 +2023,7 @@ function SubmitModalBody({
             {!done && !errored && (
                 <button
                     type="button"
-                    onClick={() => onSign(plan, currentIdx, hashes)}
+                    onClick={() => onSign(action, plan, currentIdx, hashes)}
                     disabled={signing}
                     style={{
                         ...ctrlBtn,
@@ -1937,7 +2034,9 @@ function SubmitModalBody({
                         cursor: signing ? "wait" : "pointer",
                     }}
                 >
-                    {signing ? "// awaiting wallet…" : `sign batch ${currentIdx + 1} →`}
+                    {signing
+                        ? "// awaiting wallet…"
+                        : `${verb} batch ${currentIdx + 1} →`}
                 </button>
             )}
 
