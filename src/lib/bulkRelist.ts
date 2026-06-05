@@ -351,6 +351,10 @@ export interface PlanInputs {
     preserveExistingShares: boolean;
 }
 
+export interface CancelPlanInputs {
+    listings: Listing[];
+}
+
 interface RelistPair {
     listing: Listing;
     cancel: PreparedOp;
@@ -547,6 +551,88 @@ export async function planBulkRelist(input: PlanInputs): Promise<BulkRelistPlan>
     return { batches, totalOps, notes, tipApplied };
 }
 
+
+/**
+ * Cancel-only planner. Builds batches of just the cancel ops (no recreate,
+ * no operator preflight — cancels release tokens to the seller but never
+ * touch operator config).
+ *
+ * We still hit the source-storage bigmaps before batching to drop stale
+ * rows. Tezos op groups are all-or-nothing — a single
+ * already-sold/already-cancelled entry would FAILWITH the entire batch
+ * and undo every valid cancel alongside it. The existing source fetchers
+ * double as existence checks (their `key.in` query returns only active
+ * rows), so we reuse them and surface the drop count in notes — matching
+ * the relist planner's behavior.
+ *
+ * Chunk size is bigger than the relist path (60 vs 20) because each op is
+ * small and predictable — `cancel_swap`, `retract_ask`, or `unlist`, all
+ * taking a single nat.
+ */
+const CANCELS_PER_BATCH = 60;
+
+export async function planBulkCancel(input: CancelPlanInputs): Promise<BulkRelistPlan> {
+    const notes: string[] = [];
+    const batches: PlannedBatch[] = [];
+
+    const teiaSel = input.listings.filter((l) => l.marketplace === "teia");
+    const objktSel = input.listings.filter((l) => l.marketplace === "objkt");
+
+    if (teiaSel.length > 0) {
+        const swaps = await fetchTeiaSourceSwaps(
+            teiaSel.map((l) => ({ marketplaceContract: l.marketplaceContract, onchainId: l.onchainId })),
+        );
+        const live: Listing[] = [];
+        let stale = 0;
+        for (const l of teiaSel) {
+            if (swaps.has(`${l.marketplaceContract}:${l.onchainId}`)) live.push(l);
+            else stale++;
+        }
+        if (stale > 0) {
+            notes.push(`teia: ${stale} listing${stale === 1 ? "" : "s"} dropped (already sold or cancelled on chain).`);
+        }
+        if (live.length > 0) {
+            for (let i = 0; i < live.length; i += CANCELS_PER_BATCH) {
+                const slice = live.slice(i, i + CANCELS_PER_BATCH);
+                batches.push({
+                    label: `teia · cancel ${slice.length} listing${slice.length === 1 ? "" : "s"}`,
+                    ops: slice.map((l) => buildTeiaCancelOp(l)),
+                    listings: slice,
+                });
+            }
+            notes.push(`teia: cancelling ${live.length} listing${live.length === 1 ? "" : "s"} — tokens return to your wallet.`);
+        }
+    }
+
+    if (objktSel.length > 0) {
+        const sources = await fetchObjktSourceListings(
+            objktSel.map((l) => ({ marketplaceContract: l.marketplaceContract, onchainId: l.onchainId })),
+        );
+        const live: Listing[] = [];
+        let stale = 0;
+        for (const l of objktSel) {
+            if (sources.has(`${l.marketplaceContract}:${l.onchainId}`)) live.push(l);
+            else stale++;
+        }
+        if (stale > 0) {
+            notes.push(`objkt: ${stale} listing${stale === 1 ? "" : "s"} dropped (already sold or cancelled on chain).`);
+        }
+        if (live.length > 0) {
+            for (let i = 0; i < live.length; i += CANCELS_PER_BATCH) {
+                const slice = live.slice(i, i + CANCELS_PER_BATCH);
+                batches.push({
+                    label: `objkt · cancel ${slice.length} listing${slice.length === 1 ? "" : "s"}`,
+                    ops: slice.map((l) => buildObjktCancelOp(l)),
+                    listings: slice,
+                });
+            }
+            notes.push(`objkt: cancelling ${live.length} listing${live.length === 1 ? "" : "s"} — tokens stay where they are (objkt v4+ doesn't escrow).`);
+        }
+    }
+
+    const totalOps = batches.reduce((sum, b) => sum + b.ops.length, 0);
+    return { batches, totalOps, notes, tipApplied: null };
+}
 
 /** Submit a planned batch via the connected wallet client. Returns the op
  *  hash. Throws on signing rejection or rpc error.
