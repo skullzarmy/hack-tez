@@ -279,10 +279,18 @@ export default function BulkRelist() {
         });
         rows.sort((a, b) => {
             switch (sort) {
-                case "price-asc":
-                    return Number(BigInt(a.priceMutez) - BigInt(b.priceMutez));
-                case "price-desc":
-                    return Number(BigInt(b.priceMutez) - BigInt(a.priceMutez));
+                case "price-asc": {
+                    // Compare BigInts directly — Number(BigInt - BigInt) would
+                    // lose precision (or throw) for large mutez values.
+                    const ap = BigInt(a.priceMutez || "0");
+                    const bp = BigInt(b.priceMutez || "0");
+                    return ap < bp ? -1 : ap > bp ? 1 : 0;
+                }
+                case "price-desc": {
+                    const ap = BigInt(a.priceMutez || "0");
+                    const bp = BigInt(b.priceMutez || "0");
+                    return bp < ap ? -1 : bp > ap ? 1 : 0;
+                }
                 case "created-asc":
                     return a.createdAt.localeCompare(b.createdAt);
                 case "created-desc":

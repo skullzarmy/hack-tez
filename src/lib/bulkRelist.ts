@@ -1,20 +1,24 @@
 /**
  * Bulk relist — pulls every active listing for a seller from objkt's GraphQL
- * (which indexes both objkt and teia), normalizes them through a marketplace
- * adapter interface, and prepares them for bulk re-pricing / cancellation.
+ * (which indexes both objkt and teia), routes each row through the right
+ * marketplace adapter, and assembles cancel + recreate batches.
  *
  * Architecture:
- *  - GraphQL fetcher returns raw listings.
- *  - Each row resolves to a MarketplaceAdapter that knows how to cancel /
- *    recreate the listing on its native contract.
- *  - The page composes a batch of TransactionOperations from the adapters
- *    and submits via client.requestOperation, chunking by gas budget.
+ *  - `fetchSellerListings` runs the GraphQL query and `normalize` filters /
+ *    classifies each row by its `marketplace_contract` address.
+ *  - `planBulkRelist` partitions the selection by marketplace family, fetches
+ *    authoritative on-chain source storage from each contract's bigmap, runs
+ *    operator preflight against the resolved target marketplace, and chunks
+ *    cancel + recreate op pairs into gas-safe batches.
+ *  - `submitBatch` signs one batch at a time via the wallet client.
  *
- * MVP scope (v0.1.0):
+ * Scope (v0.1.0):
  *  - Mainnet only.
  *  - xtz-denominated listings only.
- *  - Adapters present: objkt (asks), teia (hen v2 swap).
- *  - Contract builders are stubbed — the data + UI layer ships first.
+ *  - Objkt adapter: handles v1, v4, v6, v6.1, v6.2 + the fixed-pricing
+ *    handlers as source contracts; all recreate ops target v6.2.
+ *  - Teia adapter: handles hen v2 + teia v1 as source contracts; recreate
+ *    target is hen v2 for HEN OBJKTs, teia v1 otherwise.
  */
 import {
     buildTeiaCancelOp,
@@ -42,14 +46,13 @@ export const TIP_RECIPIENT = "tz1ZzSmVcnVaWNZKJradtrDnjSjzTp6qjTEW";
 export const OBJKT_GRAPHQL = "https://data.objkt.com/v3/graphql";
 
 /**
- * Marketplace identity is derived from objkt's `listing.marketplace.group`
- * field (verified via introspection of data.objkt.com):
- *   - "hen"      → KT1HbQepzV1nVGg8QVznG7z4RcHseD5kwqBn (hen v2, used by teia)
- *   - "teia"     → KT1PHubm9HtyQEJ4BBpMTVomq6mhbfNZ9z5w (teia v1)
- *   - "objktcom" → multiple contracts (v1, v4, v6, v6.1, v6.2, fixed-pricing handlers)
- * We classify "hen" and "teia" groups both as MarketplaceId "teia" for UX
- * purposes, and "objktcom" as "objkt". Anything else stays unknown and the
- * row is excluded.
+ * Marketplace identity is derived per-row from `listing.marketplace_contract`
+ * (the actual contract address) via `isTeiaMarketplace()` / `isObjktMarketplace()`
+ * registries in the adapter modules. We deliberately classify by contract
+ * address rather than objkt's coarser `marketplace.group` string so the
+ * planner can dispatch each row to the correct version-specific cancel
+ * entrypoint and bigmap. Anything that doesn't match a registered contract
+ * is excluded from the normalized listings array.
  */
 export type MarketplaceId = "objkt" | "teia";
 
@@ -623,8 +626,9 @@ export function parseSourceShares(raw: unknown): Array<[recipient: string, basis
 export function gatewayUri(uri: string | null): string | null {
     if (!uri) return null;
     if (uri.startsWith("ipfs://")) {
-        // Strip ipfs:// and any ?query/#frag — ipfs gateways don't take those.
-        const path = uri.slice(7);
+        // Strip ipfs:// scheme and any ?query/#frag — ipfs gateways don't
+        // accept those on the /ipfs/<cid> path.
+        const path = uri.slice(7).split(/[?#]/, 1)[0];
         return `https://ipfs.io/ipfs/${path}`;
     }
     return uri;
