@@ -16,7 +16,7 @@ updated: 2026-06-15
 
 ## What it does
 
-CloudNine watches your Bluesky feed for links to Tezos NFT marketplaces. When it spots one, it adds a **Buy** (or **Mint**, for open editions) button directly on the post. Click it, connect your Tezos wallet, sign — the NFT is yours and you never left your feed.
+CloudNine watches your Bluesky feed for links to Tezos NFT marketplaces. When it spots one, it adds a **Buy** (or **Mint**, for open editions) button directly on the post. Click it, connect your Tezos wallet, sign — the NFT is yours and you never left your feed. Works on `bsky.app` and `ovoid.at`.
 
 - Detects **Teia** (`teia.art/objkt/<id>`) and **objkt.com** (`objkt.com/tokens/<contract>/<id>`, including named collections like `open_objkt`) links in posts
 - Resolves the cheapest active listing — or an active open edition — for each token
@@ -27,7 +27,7 @@ CloudNine watches your Bluesky feed for links to Tezos NFT marketplaces. When it
 
 ## Scope
 
-- **Bluesky web only.** Native apps and other clients can't be extended; the surface is `bsky.app` in a desktop browser.
+- **Bluesky web only.** Native apps and other clients can't be extended; supported surfaces are `bsky.app` and `ovoid.at` in a desktop browser.
 - **Native ꜩ-priced listings only.** Listings priced in other tokens (USDt, etc.) are skipped.
 - **No condition-gated listings yet.** Whitelist / allowlist-gated objkt listings are skipped.
 - **Mainnet only.**
