@@ -265,6 +265,22 @@ export default function LabDetail() {
                         repo <ExternalLink size={11} aria-hidden="true" />
                     </a>
                 )}
+                {lab.chromeStore && (
+                    <a
+                        href={lab.chromeStore}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            color: "var(--fg-muted)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3em",
+                            textDecoration: "none",
+                        }}
+                    >
+                        Chrome Web Store <ExternalLink size={11} aria-hidden="true" />
+                    </a>
+                )}
                 {lab.privacy && (
                     <a
                         href={lab.privacy}

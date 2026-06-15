@@ -1,16 +1,17 @@
 ---
 title: CloudNine
 slug: cloudnine
-status: beta
+status: production
 version: 0.4.0
 kind: extension
 summary: Browser extension that watches your Bluesky feed for Teia + objkt links and drops an inline Buy / Mint button onto the post.
 repo: https://github.com/skullzarmy/cloudnine
 privacy: https://fafolab.xyz/terms/cloudnine/privacy
+chromeStore: https://chromewebstore.google.com/detail/cloudnine/hmehfjenhbpmknbfjjfadaaiafdkggkk
 file: cloudnine-v0.4.0.zip
 browsers: [Chrome, Firefox]
 wallets: [Temple, Kukai, Umami]
-updated: 2026-05-31
+updated: 2026-06-15
 ---
 
 ## What it does
@@ -36,13 +37,19 @@ CloudNine watches your Bluesky feed for links to Tezos NFT marketplaces. When it
 
 ### Chrome / Edge / Brave
 
-1. Download the zip below and unzip it somewhere stable (don't delete the folder after — Chrome loads from the path).
+Install directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/cloudnine/hmehfjenhbpmknbfjjfadaaiafdkggkk) — no developer mode required.
+
+Or install manually from the zip below:
+
+1. Download the zip and unzip it somewhere stable (don't delete the folder — Chrome loads from the path).
 2. Open `chrome://extensions`.
 3. Toggle **Developer mode** on (top right).
 4. Click **Load unpacked** and select the unzipped folder.
 5. Visit `bsky.app` — Buy buttons appear on posts containing Teia or objkt links.
 
 ### Firefox
+
+Firefox add-on is currently **in review** on the Mozilla Add-ons store. In the meantime, install manually:
 
 1. Download and unzip.
 2. Open `about:debugging#/runtime/this-firefox`.
