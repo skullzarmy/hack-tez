@@ -43,12 +43,6 @@ Install directly from the [Chrome Web Store](https://chromewebstore.google.com/d
 
 Firefox add-on is currently **in review** on the Mozilla Add-ons store. Check back soon.
 
-## Known issue: Firefox + web wallets (Kukai)
-
-On Firefox, connecting a **web wallet** like Kukai doesn't work — the Beacon pairing dialog never finishes rendering its "Use Browser" action. This is a content-script limitation in the wallet SDK (octez.connect): it hands pairing data to its UI across Firefox's content-script / page compartment boundary, which Firefox blocks (`Permission denied to access property "then"`).
-
-**Use an extension wallet (Temple) on Firefox.** Chrome is unaffected — all wallets work there. Full write-up + upstream report in the [repo](https://github.com/skullzarmy/cloudnine).
-
 ## Reporting
 
 Issues, marketplace URLs that should be supported, unhinged ideas — [GitHub repo](https://github.com/skullzarmy/cloudnine). Privacy policy [here](https://fafolab.xyz/terms/cloudnine/privacy).
