@@ -11,8 +11,8 @@ import { usePageMeta } from "../../hooks/usePageMeta";
 
 const HEN_CONTRACT = "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton";
 const TZKT_API = "https://api.tzkt.io";
-const BURN_ADDRESS = "tz1burnburnburnburnburnburnburjAYjjX";
-/** Tags to query — TzKT is case-sensitive so we query common variants. */
+const OBJKT_API = "https://data.objkt.com/v3/graphql";
+/** Tags to match — the index is case-sensitive, so we query common variants. */
 const TAG_VARIANTS = ["Art4LifeTez", "art4lifetez"];
 const PAGE_SIZE = 100;
 
@@ -20,18 +20,13 @@ const PAGE_SIZE = 100;
 // Types
 // ---------------------------------------------------------------------------
 
-interface TzktToken {
-    id: number;
-    tokenId: string;
-    firstMinter: { alias?: string; address: string } | null;
-    firstTime: string;
-    totalMinted: string;
-    totalSupply: string;
-    metadata: {
-        name?: string;
-        date?: string;
-        tags?: string[];
-    } | null;
+interface ObjktToken {
+    token_id: string;
+    name: string | null;
+    /** Circulating supply — objkt already excludes burn-address holdings. */
+    supply: number;
+    timestamp: string;
+    creators: { creator_address: string }[];
 }
 
 interface TokenRow {
@@ -73,45 +68,40 @@ function formatXtz(n: number): string {
 // Data fetching
 // ---------------------------------------------------------------------------
 
-async function fetchAllForTag(tag: string): Promise<TzktToken[]> {
-    const all: TzktToken[] = [];
-    let offset = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-        const url = `${TZKT_API}/v1/tokens?contract=${HEN_CONTRACT}&metadata.tags.[*]=${encodeURIComponent(tag)}&limit=${PAGE_SIZE}&offset=${offset}&sort.asc=id`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`TzKT returned ${res.status}`);
-        const batch: TzktToken[] = await res.json();
-        all.push(...batch);
-        if (batch.length < PAGE_SIZE) break;
-        offset += PAGE_SIZE;
-    }
-    return all;
-}
-
 /**
- * Burn-address balances for the given tokens. Scoped to our token ids on
- * purpose: the burn address holds tens of thousands of HEN tokens, so scanning
- * its whole balance was slow and rate-limited out before reaching ours. HEN
- * treats a send-to-burn as a plain transfer (it doesn't decrement totalSupply),
- * so a token with its entire supply parked here is effectively burned.
+ * Discover the event's tokens from objkt's indexer. We use objkt here rather
+ * than TzKT because objkt resolves freshly-minted IPFS metadata (and its tag
+ * index) far faster — TzKT can lag minutes to days, which would hide brand-new
+ * mints from the scan. `supply > 0` also drops burned re-mint originals for
+ * free: objkt excludes burn-address holdings from supply, so no separate burn
+ * lookup is needed.
  */
-async function fetchBurnBalances(tokenIds: string[]): Promise<Map<string, bigint>> {
-    const map = new Map<string, bigint>();
-    if (tokenIds.length === 0) return map;
-    const CHUNK = 50;
-    for (let i = 0; i < tokenIds.length; i += CHUNK) {
-        const chunk = tokenIds.slice(i, i + CHUNK);
-        const url =
-            `${TZKT_API}/v1/tokens/balances?account=${BURN_ADDRESS}` +
-            `&token.contract=${HEN_CONTRACT}&token.tokenId.in=${chunk.join(",")}` +
-            `&select=token.tokenId,balance`;
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const batch: { "token.tokenId": string; balance: string }[] = await res.json();
-        for (const b of batch) map.set(b["token.tokenId"], BigInt(b.balance));
-    }
-    return map;
+async function fetchTaggedTokens(): Promise<ObjktToken[]> {
+    const query = `query Art4Life($fa: String!, $tags: [String!]!) {
+      token(
+        where: {
+          fa_contract: { _eq: $fa }
+          supply: { _gt: 0 }
+          tags: { tag: { name: { _in: $tags } } }
+        }
+        limit: 500
+      ) {
+        token_id
+        name
+        supply
+        timestamp
+        creators { creator_address }
+      }
+    }`;
+    const res = await fetch(OBJKT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, variables: { fa: HEN_CONTRACT, tags: TAG_VARIANTS } }),
+    });
+    if (!res.ok) throw new Error(`objkt API returned ${res.status}`);
+    const json = (await res.json()) as { data?: { token?: ObjktToken[] }; errors?: { message: string }[] };
+    if (json.errors?.length) throw new Error(json.errors[0].message);
+    return json.data?.token ?? [];
 }
 
 interface TransferRow {
@@ -233,36 +223,31 @@ async function fetchSalePrices(levels: number[], marketplaces: string[]): Promis
 }
 
 async function fetchArt4LifeTokens(): Promise<TokenRow[]> {
-    // 1. Fetch tagged tokens (both tag-case variants).
-    const tagResults = await Promise.all(TAG_VARIANTS.map(fetchAllForTag));
-    const flat = tagResults.flat();
+    // 1. Discover the event's tokens from objkt (fast metadata, burn-aware).
+    const tokens = await fetchTaggedTokens();
 
-    // 2. De-duplicate by tokenId and drop tokens with no on-chain supply.
+    // 2. De-duplicate by token id (objkt returns unique, but be safe).
     const seen = new Set<string>();
-    const candidates: TzktToken[] = [];
-    for (const t of flat) {
-        if (seen.has(t.tokenId)) continue;
-        seen.add(t.tokenId);
-        if (t.totalSupply === "0") continue;
-        candidates.push(t);
+    const unique: ObjktToken[] = [];
+    for (const t of tokens) {
+        if (seen.has(t.token_id)) continue;
+        seen.add(t.token_id);
+        unique.push(t);
     }
 
-    // 2b. Drop tokens whose entire supply sits at the burn address — these are
-    //     usually mistakes the artist burned and re-minted under a new id.
-    const burnMap = await fetchBurnBalances(candidates.map((t) => t.tokenId));
-    const unique = candidates.filter((t) => (burnMap.get(t.tokenId) ?? 0n) < BigInt(t.totalSupply));
-
-    // 3. Build minter map for collect detection.
+    // 3. Build minter map for collect detection (a transfer back to the creator
+    //    is a cancel/return, not a sale).
     const minters = new Map<string, string>();
     for (const t of unique) {
-        if (t.firstMinter) minters.set(t.tokenId, t.firstMinter.address);
+        const creator = t.creators[0]?.creator_address;
+        if (creator) minters.set(t.token_id, creator);
     }
 
     // 4. Resolve sales: collect transfers → internal op {hash, counter, level}
     //    → top-level op price. The transfer's own transaction has amount 0; the
     //    tez is on the buyer's top-level collect in the same operation group,
     //    which we fetch for every collect in one bulk query (by block + market).
-    const tokenIds = unique.map((t) => t.tokenId);
+    const tokenIds = unique.map((t) => t.token_id);
     const collects = await fetchCollectRefs(tokenIds, minters);
     const opRefs = await resolveOpRefs(collects.map((c) => c.opId));
     const refs = [...opRefs.values()];
@@ -281,15 +266,14 @@ async function fetchArt4LifeTokens(): Promise<TokenRow[]> {
 
     // 6. Build rows (mutez → tez).
     return unique.map((t) => {
-        const dateStr = t.metadata?.date ?? t.firstTime;
-        const mutez = salesByToken.get(t.tokenId) ?? 0;
+        const mutez = salesByToken.get(t.token_id) ?? 0;
         return {
-            tokenId: t.tokenId,
-            name: t.metadata?.name?.trim() || `OBJKT#${t.tokenId}`,
+            tokenId: t.token_id,
+            name: t.name?.trim() || `OBJKT#${t.token_id}`,
             salesXtz: Math.round(mutez) / 1_000_000,
-            mintDate: formatDate(dateStr),
-            mintDateRaw: new Date(dateStr).getTime(),
-            wallet: t.firstMinter?.address ?? "",
+            mintDate: formatDate(t.timestamp),
+            mintDateRaw: new Date(t.timestamp).getTime(),
+            wallet: t.creators[0]?.creator_address ?? "",
         };
     });
 }
@@ -884,7 +868,11 @@ export default function Art4LifeTez() {
                     lineHeight: 1.6,
                 }}
             >
-                // data from{" "}
+                // tokens from{" "}
+                <a href="https://objkt.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg-muted)" }}>
+                    objkt
+                </a>
+                , sales from{" "}
                 <a href="https://tzkt.io" target="_blank" rel="noopener noreferrer" style={{ color: "var(--fg-muted)" }}>
                     TzKT
                 </a>
