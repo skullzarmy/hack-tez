@@ -434,6 +434,7 @@ export default function Art4LifeTez() {
     const lab = getLab("art4lifetez");
     const [rows, setRows] = useState<TokenRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [filter, setFilter] = useState("");
     const [sortKey, setSortKey] = useState<SortKey>("salesXtz");
@@ -448,7 +449,10 @@ export default function Art4LifeTez() {
     });
 
     const doFetch = useCallback(async () => {
-        if (!hasFetched.current) setLoading(true);
+        // First load shows the full-page "scanning" state; later refreshes keep
+        // the table on screen and just spin the refresh button.
+        if (hasFetched.current) setRefreshing(true);
+        else setLoading(true);
         setError(null);
         try {
             const data = await fetchArt4LifeTokens();
@@ -458,6 +462,7 @@ export default function Art4LifeTez() {
             setError(err instanceof Error ? err.message : "Failed to fetch tokens");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     }, []);
 
@@ -486,6 +491,7 @@ export default function Art4LifeTez() {
     const sorted = sortRows(filtered, sortKey, sortDir);
 
     const totalSalesXtz = rows.reduce((s, r) => s + r.salesXtz, 0);
+    const busy = loading || refreshing;
 
     return (
         <div className="container" style={{ paddingBlock: "3rem", maxWidth: "960px" }}>
@@ -626,7 +632,7 @@ export default function Art4LifeTez() {
                 <button
                     type="button"
                     onClick={() => void doFetch()}
-                    disabled={loading}
+                    disabled={busy}
                     title="Refresh"
                     style={{
                         display: "inline-flex",
@@ -638,13 +644,13 @@ export default function Art4LifeTez() {
                         border: "1px solid var(--border)",
                         background: "var(--bg-card)",
                         color: "var(--fg)",
-                        cursor: loading ? "wait" : "pointer",
+                        cursor: busy ? "wait" : "pointer",
                     }}
                 >
                     <RefreshCw
                         size={13}
                         aria-hidden="true"
-                        style={loading ? { animation: "spin 1s linear infinite" } : undefined}
+                        style={busy ? { animation: "spin 1s linear infinite" } : undefined}
                     />
                     refresh
                 </button>
