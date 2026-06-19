@@ -38,6 +38,7 @@ const LabDetail = lazy(() => import("./pages/LabDetail"));
 const ColdMilk = lazy(() => import("./pages/labs/ColdMilk"));
 const Gaspedal = lazy(() => import("./pages/labs/Gaspedal"));
 const BulkRelist = lazy(() => import("./pages/labs/BulkRelist"));
+const Art4LifeTez = lazy(() => import("./pages/labs/Art4LifeTez"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -374,6 +375,7 @@ export function AppShell() {
                     <Route path="/labs/coldmilk" element={<Suspense fallback={null}><ColdMilk /></Suspense>} />
                     <Route path="/labs/gaspedal" element={<Suspense fallback={null}><Gaspedal /></Suspense>} />
                     <Route path="/labs/bulk-relist" element={<Suspense fallback={null}><BulkRelist /></Suspense>} />
+                    <Route path="/labs/art4lifetez" element={<Suspense fallback={null}><Art4LifeTez /></Suspense>} />
                     <Route path="/labs/:slug" element={<Suspense fallback={null}><LabDetail /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
