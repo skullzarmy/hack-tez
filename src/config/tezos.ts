@@ -11,7 +11,7 @@
  * from CheckAddress storage.
  */
 
-export type TezosNetwork = "mainnet" | "ghostnet" | "shadownet";
+export type TezosNetwork = "mainnet" | "ghostnet" | "shadownet" | "tezosx";
 
 const network = (import.meta.env.VITE_TEZOS_NETWORK || "ghostnet") as TezosNetwork;
 
@@ -84,6 +84,22 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         tedCheckAddress: "KT1F7JKNqwaoLzRsMio1MQC7zv3jG9dHcDdJ",
         tedSetChildRecord: "KT1QHLk1EMUA8BPH3FvRUeUmbTspmAhb7kpd",
         tedUpdateRecord: "KT1H1MqmUM4aK9i1833EBmYCCEfkbt6ZdSBc",
+    },
+    // Tezos X Previewnet — the Michelson (Tezlink) runtime of Tezos X. TED/registrar
+    // are NOT deployed here, so identity features are inert (like shadownet); this
+    // build is for the FA2 deployer and other raw-Michelson labs. Tezlink Shadownet
+    // was shut down 2026-05-18 and replaced by Previewnet, so this is the live target.
+    tezosx: {
+        name: "tezosx",
+        tld: "tezx",
+        rpcUrl: "https://michelson.previewnet.tezosx.nomadic-labs.com",
+        tzktApi: "https://tzkt.previewnet.tezosx.nomadic-labs.com",
+        domainsGraphql: "",
+        registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
+        tedAppUrl: "",
+        tedCheckAddress: "",
+        tedSetChildRecord: "",
+        tedUpdateRecord: "",
     },
 };
 
