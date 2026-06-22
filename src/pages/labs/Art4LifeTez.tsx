@@ -13,7 +13,17 @@ const HEN_CONTRACT = "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton";
 const TZKT_API = "https://api.tzkt.io";
 const OBJKT_API = "https://data.objkt.com/v3/graphql";
 /** Tags to match — the index is case-sensitive, so we query common variants. */
-const TAG_VARIANTS = ["Art4LifeTez", "art4lifetez"];
+const TAG_VARIANTS = [
+    "Art4LifeTez",
+    "art4lifetez",
+    "ART4LIFETEZ",
+    "#art4lifetez",
+    "#Art4LifeTez",
+    "#ART4LIFETEZ",
+    "@ART4LIFETEZ",
+    "@Art4LifeTez",
+    "@art4lifetez",
+];
 const PAGE_SIZE = 100;
 
 // ---------------------------------------------------------------------------
