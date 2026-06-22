@@ -350,7 +350,8 @@ export async function deployFa2(
             {
                 kind: "origination" as TezosOperationType.ORIGINATION,
                 balance: "0",
-                script: { code, storage },
+                // biome-ignore lint/suspicious/noExplicitAny: Taquito's MichelineMichelsonV1Expression is structurally compatible but not exported
+                script: { code: code as any, storage: storage as any },
             },
         ],
     });
