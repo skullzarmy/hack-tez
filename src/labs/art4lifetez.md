@@ -1,7 +1,7 @@
 ---
 title: Art4LifeTez
 slug: art4lifetez
-status: alpha
+status: production
 version: 0.3.0
 kind: tool
 interactive: true
