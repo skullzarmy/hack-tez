@@ -350,9 +350,9 @@ function sortRows(rows: TokenRow[], key: SortKey, dir: SortDir): TokenRow[] {
 
 function StatusBadge({ status }: { status: string }) {
     const color =
-        status === "production" ? "var(--success)" : status === "beta" ? "var(--info)" : "var(--warn)";
+        status === "production" ? "var(--ok)" : status === "beta" ? "var(--info)" : "var(--warn)";
     const bg =
-        status === "production" ? "var(--success-bg)" : status === "beta" ? "var(--info-bg)" : "var(--warn-bg)";
+        status === "production" ? "var(--ok-bg)" : status === "beta" ? "var(--info-bg)" : "var(--warn-bg)";
     return (
         <span
             style={{
