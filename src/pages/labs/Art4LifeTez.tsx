@@ -348,7 +348,11 @@ function sortRows(rows: TokenRow[], key: SortKey, dir: SortDir): TokenRow[] {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function StatusBadge() {
+function StatusBadge({ status }: { status: string }) {
+    const color =
+        status === "production" ? "var(--success)" : status === "beta" ? "var(--info)" : "var(--warn)";
+    const bg =
+        status === "production" ? "var(--success-bg)" : status === "beta" ? "var(--info-bg)" : "var(--warn-bg)";
     return (
         <span
             style={{
@@ -357,13 +361,13 @@ function StatusBadge() {
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 padding: "0.18em 0.55em",
-                color: "var(--warn)",
-                background: "var(--warn-bg)",
-                border: "1px solid var(--warn)",
+                color,
+                background: bg,
+                border: `1px solid ${color}`,
                 whiteSpace: "nowrap",
             }}
         >
-            alpha
+            {status}
         </span>
     );
 }
@@ -532,7 +536,7 @@ export default function Art4LifeTez() {
                     >
                         <span style={{ color: "#ff1493" }}>Art4Life</span>Tez
                     </h1>
-                    <StatusBadge />
+                    <StatusBadge status={lab?.status ?? "alpha"} />
                     {lab && (
                         <span
                             style={{
