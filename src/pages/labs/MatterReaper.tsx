@@ -8,25 +8,23 @@ import { usePageMeta } from "../../hooks/usePageMeta";
 import ConnectWallet from "../../components/ConnectWallet";
 import config from "../../config/tezos";
 import {
-    computeRedemption,
-    enrichSpicyLPs,
-    findUserSpicyLPs,
+    computePendingReward,
+    enrichMatterPositions,
+    findUserMatterPositions,
     formatBalance,
-    formatTez,
     formatTokenAmount,
-    getWTZBalance,
-    submitBreakLPs,
-    submitUnwrapWTZ,
-    SPICY_TZKT,
-    type SpicyLPBalance,
-} from "../../lib/spicy";
+    MATTER_FARMS,
+    MATTER_TZKT,
+    submitReap,
+    type MatterPosition,
+} from "../../lib/matter";
 
-interface PositionRow extends SpicyLPBalance {
-    /** Per-pair UI state. The break op is per-pair so each row tracks its own. */
+interface PositionRow extends MatterPosition {
+    /** Per-farm UI state. The reap op is per-farm so each row tracks its own. */
     selected: boolean;
 }
 
-interface BreakResult {
+interface ReapResult {
     status: "idle" | "signing" | "broadcasting" | "done" | "error";
     txHash?: string;
     error?: string;
@@ -100,24 +98,22 @@ function NetworkGate() {
     );
 }
 
-export default function ColdMilk() {
-    const lab = getLab("coldmilk");
+export default function MatterReaper() {
+    const lab = getLab("matter-reaper");
     const { client, address, domain, restoring } = useTezos();
 
     const [positions, setPositions] = useState<PositionRow[]>([]);
-    const [wtzBalance, setWtzBalance] = useState<string>("0");
     const [loading, setLoading] = useState(false);
     const [scanError, setScanError] = useState<string | null>(null);
     const [hasScanned, setHasScanned] = useState(false);
-    const [breakState, setBreakState] = useState<Record<string, BreakResult>>({});
-    const [bulkState, setBulkState] = useState<BreakResult>({ status: "idle" });
-    const [unwrapState, setUnwrapState] = useState<BreakResult>({ status: "idle" });
+    const [reapState, setReapState] = useState<Record<string, ReapResult>>({});
+    const [bulkState, setBulkState] = useState<ReapResult>({ status: "idle" });
 
     usePageMeta({
-        title: "ColdMilk — break Spicy LP — Labs — hack.tez",
+        title: "Matter Reaper — exit Matter farms — Labs — hack.tez",
         description:
-            "Find every SpicySwap LP your wallet holds and break them — properly batched so the pair actually burns.",
-        path: "/labs/coldmilk",
+            "Find every MatterDeFi farm position your wallet holds and reap them — unstake everything and claim what's owed in one transaction.",
+        path: "/labs/matter-reaper",
     });
 
     const isMainnet = config.name === "mainnet";
@@ -128,18 +124,15 @@ export default function ColdMilk() {
         setLoading(true);
         setScanError(null);
         try {
-            const [lps, wtz] = await Promise.all([findUserSpicyLPs(address), getWTZBalance(address)]);
-            // Show balances immediately, then enrich with token/reserve details in background.
-            setPositions(lps.map((lp) => ({ ...lp, selected: true })));
-            setWtzBalance(wtz);
+            const found = await findUserMatterPositions(address);
+            // Show positions immediately, then enrich with farm/token details in background.
+            setPositions(found.map((p) => ({ ...p, selected: true })));
             setHasScanned(true);
-            if (lps.length > 0) {
-                const enriched = await enrichSpicyLPs(lps);
+            if (found.length > 0) {
+                const enriched = await enrichMatterPositions(found);
                 // Merge enriched details onto current rows, preserving selection state.
-                const byAddr = new Map(enriched.map((e) => [e.pair.address, e.details]));
-                setPositions((rows) =>
-                    rows.map((r) => ({ ...r, details: byAddr.get(r.pair.address) ?? r.details })),
-                );
+                const byId = new Map(enriched.map((e) => [e.farmId, e.farm]));
+                setPositions((rows) => rows.map((r) => ({ ...r, farm: byId.get(r.farmId) ?? r.farm })));
             }
         } catch (err) {
             setScanError(err instanceof Error ? err.message : "scan failed");
@@ -154,61 +147,47 @@ export default function ColdMilk() {
         }
     }, [showTool, hasScanned, loading, scan]);
 
-    function toggle(addr: string) {
+    function toggle(farmId: string) {
         setPositions((rows) =>
-            rows.map((r) => (r.pair.address === addr ? { ...r, selected: !r.selected } : r)),
+            rows.map((r) => (r.farmId === farmId ? { ...r, selected: !r.selected } : r)),
         );
     }
 
-    async function breakOne(row: PositionRow) {
+    async function reapOne(row: PositionRow) {
         if (!client || !address) return;
-        const key = row.pair.address;
-        setBreakState((s) => ({ ...s, [key]: { status: "signing" } }));
+        const key = row.farmId;
+        setReapState((s) => ({ ...s, [key]: { status: "signing" } }));
         try {
-            const { transactionHash } = await submitBreakLPs(client, address, [
-                { pairAddress: row.pair.address, lpAmount: row.balance },
+            const { transactionHash } = await submitReap(client, [
+                { farmId: row.farmId, staked: row.staked },
             ]);
-            setBreakState((s) => ({ ...s, [key]: { status: "done", txHash: transactionHash } }));
+            setReapState((s) => ({ ...s, [key]: { status: "done", txHash: transactionHash } }));
         } catch (err) {
-            setBreakState((s) => ({
+            setReapState((s) => ({
                 ...s,
-                [key]: { status: "error", error: err instanceof Error ? err.message : "broken" },
+                [key]: { status: "error", error: err instanceof Error ? err.message : "reap failed" },
             }));
         }
     }
 
-    async function breakSelected() {
+    async function reapSelected() {
         if (!client || !address) return;
         const selected = positions.filter((r) => r.selected);
         if (selected.length === 0) return;
         setBulkState({ status: "signing" });
         try {
-            const { transactionHash } = await submitBreakLPs(
+            const { transactionHash } = await submitReap(
                 client,
-                address,
-                selected.map((r) => ({ pairAddress: r.pair.address, lpAmount: r.balance })),
+                selected.map((r) => ({ farmId: r.farmId, staked: r.staked })),
             );
             setBulkState({ status: "done", txHash: transactionHash });
         } catch (err) {
-            setBulkState({ status: "error", error: err instanceof Error ? err.message : "broken" });
-        }
-    }
-
-    async function unwrapWTZ() {
-        if (!client || !address || wtzBalance === "0") return;
-        setUnwrapState({ status: "signing" });
-        try {
-            const { transactionHash } = await submitUnwrapWTZ(client, address, wtzBalance);
-            setUnwrapState({ status: "done", txHash: transactionHash });
-        } catch (err) {
-            setUnwrapState({ status: "error", error: err instanceof Error ? err.message : "unwrap failed" });
+            setBulkState({ status: "error", error: err instanceof Error ? err.message : "reap failed" });
         }
     }
 
     const selectedCount = positions.filter((r) => r.selected).length;
     const bulkBusy = bulkState.status === "signing" || bulkState.status === "broadcasting";
-    const unwrapBusy = unwrapState.status === "signing" || unwrapState.status === "broadcasting";
-    const hasWTZ = wtzBalance !== "0" && wtzBalance !== "";
 
     return (
         <div className="container" style={{ paddingBlock: "3rem", maxWidth: "780px" }}>
@@ -257,7 +236,7 @@ export default function ColdMilk() {
                                 margin: 0,
                             }}
                         >
-                            {lab?.title ?? "ColdMilk"}
+                            {lab?.title ?? "Matter Reaper"}
                         </h1>
                         <StatusBadge />
                         <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--fg-muted)" }}>
@@ -355,8 +334,7 @@ export default function ColdMilk() {
                                     fontSize: "0.78rem",
                                 }}
                             >
-                                // no Spicy LP found. staked-in-farm LP isn't visible here — reap it
-                                first with <Link to="/labs/matter-reaper" style={{ color: "var(--fg)" }}>matter reaper →</Link>
+                                // no Matter farm positions found. nothing staked, nothing owed.
                             </p>
                         )}
 
@@ -372,11 +350,15 @@ export default function ColdMilk() {
                                 }}
                             >
                                 {positions.map((row) => {
-                                    const state = breakState[row.pair.address] ?? { status: "idle" as const };
+                                    const state = reapState[row.farmId] ?? { status: "idle" as const };
                                     const busy = state.status === "signing" || state.status === "broadcasting";
+                                    const farm = row.farm;
+                                    const stakeSym = farm?.stakingMeta?.symbol;
+                                    const rewardSym = farm?.rewardMeta?.symbol;
+                                    const pending = computePendingReward(row);
                                     return (
                                         <li
-                                            key={row.pair.address}
+                                            key={row.farmId}
                                             style={{
                                                 border: "1px solid var(--border)",
                                                 background: "var(--bg-card)",
@@ -401,8 +383,8 @@ export default function ColdMilk() {
                                                 <input
                                                     type="checkbox"
                                                     checked={row.selected}
-                                                    onChange={() => toggle(row.pair.address)}
-                                                    aria-label={`select ${row.pair.alias}`}
+                                                    onChange={() => toggle(row.farmId)}
+                                                    aria-label={`select farm #${row.farmId}`}
                                                 />
                                                 <span style={{ minWidth: 0 }}>
                                                     <span
@@ -416,35 +398,34 @@ export default function ColdMilk() {
                                                             whiteSpace: "nowrap",
                                                         }}
                                                     >
-                                                        {(() => {
-                                                            const d = row.details;
-                                                            const synth = d ? `${d.token0.symbol}/${d.token1.symbol}` : null;
-                                                            // Prefer synthesized "T0/T1" label when alias is missing or
-                                                            // is just the raw KT1 (the case for v2 SpicyPro pairs).
-                                                            const isPlaceholder = row.pair.alias === row.pair.address;
-                                                            return synth && isPlaceholder ? synth : row.pair.alias;
-                                                        })()}
+                                                        {stakeSym && rewardSym
+                                                            ? `${stakeSym} → ${rewardSym}`
+                                                            : `farm #${row.farmId}`}{" "}
+                                                        <span style={{ color: "var(--fg-muted)", fontSize: "0.7rem" }}>
+                                                            {farm ? (farm.core ? "core" : "community") : ""}
+                                                        </span>
                                                     </span>
-                                                    {row.details ? (
-                                                        (() => {
-                                                            const { amount0, amount1 } = computeRedemption(row.balance, row.details);
-                                                            const { token0, token1 } = row.details;
-                                                            return (
-                                                                <span
-                                                                    style={{
-                                                                        display: "block",
-                                                                        fontFamily: "var(--font-mono)",
-                                                                        fontSize: "0.7rem",
-                                                                        color: "var(--ok)",
-                                                                        marginTop: "0.15rem",
-                                                                    }}
-                                                                >
-                                                                    ≈ {formatTokenAmount(amount0, token0.decimals)} {token0.symbol} +{" "}
-                                                                    {formatTokenAmount(amount1, token1.decimals)} {token1.symbol}
-                                                                </span>
-                                                            );
-                                                        })()
-                                                    ) : null}
+                                                    {farm && pending !== null && (
+                                                        <span
+                                                            style={{
+                                                                display: "block",
+                                                                fontFamily: "var(--font-mono)",
+                                                                fontSize: "0.7rem",
+                                                                color: "var(--ok)",
+                                                                marginTop: "0.15rem",
+                                                            }}
+                                                        >
+                                                            ≈{" "}
+                                                            {farm.stakingMeta
+                                                                ? formatTokenAmount(row.staked, farm.stakingMeta.decimals)
+                                                                : formatBalance(row.staked)}{" "}
+                                                            {stakeSym ?? "staked"} +{" "}
+                                                            {farm.rewardMeta
+                                                                ? formatTokenAmount(pending, farm.rewardMeta.decimals)
+                                                                : formatBalance(pending)}{" "}
+                                                            {rewardSym ?? "reward"}
+                                                        </span>
+                                                    )}
                                                     <span
                                                         style={{
                                                             display: "block",
@@ -454,14 +435,14 @@ export default function ColdMilk() {
                                                             marginTop: "0.15rem",
                                                         }}
                                                     >
-                                                        {formatBalance(row.balance)} LP ·{" "}
+                                                        {formatBalance(row.staked)} staked ·{" "}
                                                         <a
-                                                            href={`${SPICY_TZKT.replace("api.", "")}/${row.pair.address}/operations`}
+                                                            href={`${MATTER_TZKT.replace("api.", "")}/${MATTER_FARMS}/operations`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             style={{ color: "var(--fg-muted)" }}
                                                         >
-                                                            {row.pair.address.slice(0, 10)}…
+                                                            farm #{row.farmId}
                                                         </a>
                                                     </span>
                                                 </span>
@@ -488,7 +469,7 @@ export default function ColdMilk() {
                                                             gap: "0.3em",
                                                         }}
                                                     >
-                                                        broken <ExternalLink size={11} aria-hidden="true" />
+                                                        reaped <ExternalLink size={11} aria-hidden="true" />
                                                     </a>
                                                 )}
                                                 {state.status === "error" && (
@@ -509,7 +490,7 @@ export default function ColdMilk() {
                                                 )}
                                                 <button
                                                     type="button"
-                                                    onClick={() => void breakOne(row)}
+                                                    onClick={() => void reapOne(row)}
                                                     disabled={busy || state.status === "done"}
                                                     style={{
                                                         fontFamily: "var(--font-mono)",
@@ -527,7 +508,7 @@ export default function ColdMilk() {
                                                         ? "signing…"
                                                         : state.status === "done"
                                                           ? "done"
-                                                          : "break"}
+                                                          : "reap"}
                                                 </button>
                                             </div>
                                         </li>
@@ -597,7 +578,7 @@ export default function ColdMilk() {
                                     )}
                                     <button
                                         type="button"
-                                        onClick={() => void breakSelected()}
+                                        onClick={() => void reapSelected()}
                                         disabled={bulkBusy || selectedCount === 0}
                                         style={{
                                             fontFamily: "var(--font-mono)",
@@ -610,117 +591,26 @@ export default function ColdMilk() {
                                             opacity: selectedCount === 0 ? 0.5 : 1,
                                         }}
                                     >
-                                        {bulkBusy ? "signing…" : `break ${selectedCount}`}
+                                        {bulkBusy ? "signing…" : `reap ${selectedCount}`}
                                     </button>
                                 </div>
                             </div>
                         )}
                     </section>
 
-                    {hasWTZ && (
-                        <section style={{ marginTop: "1.5rem" }}>
-                            <div
-                                style={{
-                                    border: "1px solid var(--border)",
-                                    background: "var(--bg-card)",
-                                    padding: "0.85rem 1rem",
-                                    display: "flex",
-                                    flexWrap: "wrap",
-                                    gap: "0.75rem",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                }}
-                            >
-                                <span style={{ minWidth: 0 }}>
-                                    <span
-                                        style={{
-                                            display: "block",
-                                            fontFamily: "var(--font-mono)",
-                                            fontSize: "0.85rem",
-                                            color: "var(--fg)",
-                                        }}
-                                    >
-                                        WTZ
-                                    </span>
-                                    <span
-                                        style={{
-                                            display: "block",
-                                            fontFamily: "var(--font-mono)",
-                                            fontSize: "0.7rem",
-                                            color: "var(--fg-muted)",
-                                            marginTop: "0.15rem",
-                                        }}
-                                    >
-                                        {formatTez(wtzBalance)} ꜩ · wrapped
-                                    </span>
-                                </span>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "0.6rem",
-                                        flexWrap: "wrap",
-                                    }}
-                                >
-                                    {unwrapState.status === "done" && unwrapState.txHash && (
-                                        <a
-                                            href={`https://tzkt.io/${unwrapState.txHash}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{
-                                                fontFamily: "var(--font-mono)",
-                                                fontSize: "0.7rem",
-                                                color: "var(--ok)",
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: "0.3em",
-                                            }}
-                                        >
-                                            unwrapped <ExternalLink size={11} aria-hidden="true" />
-                                        </a>
-                                    )}
-                                    {unwrapState.status === "error" && (
-                                        <span
-                                            style={{
-                                                fontFamily: "var(--font-mono)",
-                                                fontSize: "0.68rem",
-                                                color: "var(--err, #ff6b6b)",
-                                                maxWidth: "22ch",
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                                whiteSpace: "nowrap",
-                                            }}
-                                            title={unwrapState.error}
-                                        >
-                                            {unwrapState.error}
-                                        </span>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => void unwrapWTZ()}
-                                        disabled={unwrapBusy || unwrapState.status === "done"}
-                                        style={{
-                                            fontFamily: "var(--font-mono)",
-                                            fontSize: "0.78rem",
-                                            padding: "0.4rem 0.85rem",
-                                            border: "1px solid var(--fg)",
-                                            background:
-                                                unwrapState.status === "done" ? "var(--bg)" : "var(--fg)",
-                                            color: unwrapState.status === "done" ? "var(--fg)" : "var(--bg)",
-                                            cursor: unwrapBusy ? "wait" : "pointer",
-                                            opacity: unwrapState.status === "done" ? 0.5 : 1,
-                                        }}
-                                    >
-                                        {unwrapBusy
-                                            ? "signing…"
-                                            : unwrapState.status === "done"
-                                              ? "done"
-                                              : "unwrap to tez"}
-                                    </button>
-                                </div>
-                            </div>
-                        </section>
-                    )}
+                    <p
+                        style={{
+                            marginTop: "1.5rem",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "0.72rem",
+                            color: "var(--fg-muted)",
+                        }}
+                    >
+                        // unstaked Spicy LP? break it with{" "}
+                        <Link to="/labs/coldmilk" style={{ color: "var(--fg)" }}>
+                            coldmilk →
+                        </Link>
+                    </p>
                 </>
             )}
         </div>
