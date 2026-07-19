@@ -10,6 +10,7 @@ export interface LabMeta {
     repo?: string;
     privacy?: string;
     chromeStore?: string;
+    mozillaStore?: string;
     /** Optional — interactive labs (in-app tools) have no downloadable file. */
     file: string;
     browsers: string[];
@@ -70,6 +71,7 @@ function parseLab(filePath: string, raw: string): LabMeta {
         repo: data.repo as string | undefined,
         privacy: data.privacy as string | undefined,
         chromeStore: data.chromeStore as string | undefined,
+        mozillaStore: data.mozillaStore as string | undefined,
         file: (data.file as string | undefined) ?? "",
         browsers: Array.isArray(data.browsers) ? data.browsers : [],
         wallets: Array.isArray(data.wallets) ? data.wallets : [],

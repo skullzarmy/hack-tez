@@ -281,6 +281,22 @@ export default function LabDetail() {
                         Chrome Web Store <ExternalLink size={11} aria-hidden="true" />
                     </a>
                 )}
+                {lab.mozillaStore && (
+                    <a
+                        href={lab.mozillaStore}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            color: "var(--fg-muted)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3em",
+                            textDecoration: "none",
+                        }}
+                    >
+                        Firefox Add-ons <ExternalLink size={11} aria-hidden="true" />
+                    </a>
+                )}
                 {lab.privacy && (
                     <a
                         href={lab.privacy}

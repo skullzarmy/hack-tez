@@ -8,10 +8,11 @@ summary: Browser extension that watches your Bluesky feed for Teia + objkt links
 repo: https://github.com/skullzarmy/cloudnine
 privacy: https://fafolab.xyz/terms/cloudnine/privacy
 chromeStore: https://chromewebstore.google.com/detail/cloudnine/hmehfjenhbpmknbfjjfadaaiafdkggkk
+mozillaStore: https://addons.mozilla.org/en-US/firefox/addon/cloudnine/
 file: ""
 browsers: [Chrome, Firefox]
 wallets: [Temple, Kukai, Umami]
-updated: 2026-06-15
+updated: 2026-07-19
 ---
 
 ## What it does
@@ -41,7 +42,7 @@ Install directly from the [Chrome Web Store](https://chromewebstore.google.com/d
 
 ### Firefox
 
-Firefox add-on is currently **in review** on the Mozilla Add-ons store. Check back soon.
+Install directly from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/cloudnine/).
 
 ## Reporting
 
