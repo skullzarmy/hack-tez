@@ -4,7 +4,8 @@ slug: matter-reaper
 status: alpha
 version: 0.1.0
 kind: tool
+icon: skull
 interactive: true
-summary: Exit your MatterDeFi farm positions. Unstake everything and claim what's owed — one signature, farms left empty.
+summary: Exit your MatterDeFi farm positions. Unstake everything, claim what's owed, leave the farms empty. One signature.
 updated: 2026-07-19
 ---

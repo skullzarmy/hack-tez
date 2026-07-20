@@ -4,6 +4,7 @@ slug: cloudnine
 status: production
 version: 1.0.1
 kind: extension
+icon: cloud
 summary: Browser extension that watches your Bluesky feed for Teia + objkt links and drops an inline Buy / Mint button onto the post.
 repo: https://github.com/skullzarmy/cloudnine
 privacy: https://fafolab.xyz/terms/cloudnine/privacy

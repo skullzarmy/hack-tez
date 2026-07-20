@@ -3772,3 +3772,7 @@ a:hover {
     max-height: 350px !important;
 }
 
+/* Labs grid cards */
+.lab-card:hover {
+    border-color: var(--fg);
+}

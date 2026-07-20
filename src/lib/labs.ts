@@ -11,6 +11,8 @@ export interface LabMeta {
     privacy?: string;
     chromeStore?: string;
     mozillaStore?: string;
+    /** Lucide icon name (lowercase) for the labs grid — see LAB_ICONS in Labs.tsx. */
+    icon?: string;
     /** Optional — interactive labs (in-app tools) have no downloadable file. */
     file: string;
     browsers: string[];
@@ -72,6 +74,7 @@ function parseLab(filePath: string, raw: string): LabMeta {
         privacy: data.privacy as string | undefined,
         chromeStore: data.chromeStore as string | undefined,
         mozillaStore: data.mozillaStore as string | undefined,
+        icon: data.icon as string | undefined,
         file: (data.file as string | undefined) ?? "",
         browsers: Array.isArray(data.browsers) ? data.browsers : [],
         wallets: Array.isArray(data.wallets) ? data.wallets : [],
@@ -83,10 +86,7 @@ function parseLab(filePath: string, raw: string): LabMeta {
 
 export const labs: LabMeta[] = Object.entries(modules)
     .map(([path, raw]) => parseLab(path, raw))
-    .sort((a, b) => {
-        const d = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-        return d !== 0 ? d : a.title.localeCompare(b.title);
-    });
+    .sort((a, b) => a.title.localeCompare(b.title));
 
 export function getLab(slug: string): LabMeta | undefined {
     return labs.find((l) => l.slug === slug);

@@ -4,6 +4,7 @@ slug: fa2-deployer
 status: beta
 version: 0.1.0
 kind: tool
+icon: factory
 interactive: true
 summary: Originate FA2 multi-asset tokens with no code, on Tezos X, Shadownet, or Mainnet.
 updated: 2026-06-21

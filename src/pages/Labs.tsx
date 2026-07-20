@@ -1,10 +1,33 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { Link } from "react-router-dom";
-import { Lock } from "lucide-react";
+import {
+    Cloud,
+    Factory,
+    FlaskConical,
+    Gauge,
+    Lock,
+    Milk,
+    Palette,
+    Skull,
+    Tags,
+    type LucideIcon,
+} from "lucide-react";
 import { labs, type LabStatus } from "../lib/labs";
 import { useTezos } from "../context/TezosContext";
 import ConnectWallet from "../components/ConnectWallet";
 import { usePageMeta } from "../hooks/usePageMeta";
+
+/** Icon registry for the labs grid — frontmatter `icon:` names map here.
+ *  Unknown or missing names fall back to the flask. */
+const LAB_ICONS: Record<string, LucideIcon> = {
+    cloud: Cloud,
+    factory: Factory,
+    gauge: Gauge,
+    milk: Milk,
+    palette: Palette,
+    skull: Skull,
+    tags: Tags,
+};
 
 const STATUS_STYLE: Record<LabStatus, { color: string; bg: string; label: string }> = {
     alpha: { color: "var(--warn)", bg: "var(--warn-bg)", label: "alpha" },
@@ -47,7 +70,7 @@ function Header() {
                 // LABS
             </h1>
             <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem", maxWidth: "60ch" }}>
-                fafolab experiments — early access for hack.tez members. Half-built, mostly working, all yours.
+                fafolab experiments, early access for hack.tez members. Half-built, mostly working, all yours.
             </p>
         </header>
     );
@@ -105,95 +128,65 @@ function LabCard({
 }: {
     lab: (typeof labs)[number];
 }) {
+    const Icon = (lab.icon && LAB_ICONS[lab.icon]) || FlaskConical;
     return (
-        <Link to={`/labs/${lab.slug}`} style={{ textDecoration: "none" }}>
+        <Link to={`/labs/${lab.slug}`} style={{ textDecoration: "none", display: "block", height: "100%" }}>
             <div
                 style={{
                     border: "1px solid var(--border)",
-                    padding: "1.25rem 1.5rem",
+                    padding: "1.25rem",
                     background: "var(--bg-card)",
                     transition: "border-color 0.15s, background 0.15s",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
                 }}
                 className="lab-card"
             >
                 <div
                     style={{
                         display: "flex",
-                        alignItems: "baseline",
-                        gap: "0.75rem",
-                        flexWrap: "wrap",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: "0.5rem",
                     }}
                 >
-                    <span
-                        style={{
-                            fontFamily: "var(--font-mono)",
-                            fontWeight: 600,
-                            fontSize: "1rem",
-                            color: "var(--fg)",
-                        }}
-                    >
-                        {lab.title}
-                    </span>
-                    <span
-                        style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.7rem",
-                            color: "var(--fg-muted)",
-                        }}
-                    >
-                        v{lab.version}
-                    </span>
-                    <span
-                        style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.7rem",
-                            color: "var(--fg-muted)",
-                        }}
-                    >
-                        {lab.kind}
-                    </span>
-                    <span style={{ marginLeft: "auto" }}>
-                        <StatusBadge status={lab.status} />
-                    </span>
+                    <Icon size={36} strokeWidth={1.5} aria-hidden="true" style={{ color: "var(--fg)" }} />
+                    <StatusBadge status={lab.status} />
                 </div>
+                <span
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 600,
+                        fontSize: "1rem",
+                        color: "var(--fg)",
+                    }}
+                >
+                    {lab.title}
+                </span>
                 {lab.summary && (
                     <p
                         style={{
                             color: "var(--fg-muted)",
-                            fontSize: "0.85rem",
-                            marginTop: "0.5rem",
+                            fontSize: "0.8rem",
                             lineHeight: 1.5,
+                            flexGrow: 1,
+                            margin: 0,
                         }}
                     >
                         {lab.summary}
                     </p>
                 )}
-                {(lab.browsers.length > 0 || lab.wallets.length > 0) && (
-                    <div
-                        style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "0.35rem",
-                            marginTop: "0.75rem",
-                        }}
-                    >
-                        {[...lab.browsers, ...lab.wallets].map((tag) => (
-                            <span
-                                key={tag}
-                                style={{
-                                    fontFamily: "var(--font-mono)",
-                                    fontSize: "0.65rem",
-                                    padding: "0.15em 0.5em",
-                                    border: "1px solid var(--border)",
-                                    color: "var(--fg-muted)",
-                                    background: "var(--bg)",
-                                }}
-                            >
-                                {tag}
-                            </span>
-                        ))}
-                    </div>
-                )}
+                <span
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.65rem",
+                        color: "var(--fg-muted)",
+                    }}
+                >
+                    {lab.kind} · v{lab.version}
+                </span>
             </div>
         </Link>
     );
@@ -226,13 +219,13 @@ export default function Labs() {
                         listStyle: "none",
                         padding: 0,
                         margin: 0,
-                        display: "flex",
-                        flexDirection: "column",
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
                         gap: "1rem",
                     }}
                 >
                     {labs.map((lab) => (
-                        <li key={lab.slug}>
+                        <li key={lab.slug} style={{ minWidth: 0 }}>
                             <LabCard lab={lab} />
                         </li>
                     ))}
