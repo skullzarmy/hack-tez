@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import config from "../config/tezos";
 import { usePageMeta } from "../hooks/usePageMeta";
 
@@ -28,6 +29,7 @@ const NAV: NavSection[] = [
             { id: "ep-availability", label: "Check Availability" },
             { id: "ep-owner", label: "Domains by Owner" },
             { id: "ep-resolve", label: "Reverse Resolve" },
+            { id: "ep-tezosx", label: "Tezos X Resolve" },
             { id: "ep-config", label: "Contract Config" },
             { id: "ep-activity", label: "Recent Activity" },
         ],
@@ -1023,6 +1025,118 @@ export default function Developers() {
                                 <br />
                                 <code style={{ color: "var(--fg)" }}>hackTez</code> — array of all hack.{tld} subdomains
                                 currently owned by this address
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/tezosx/:nameOrAddress ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-tezosx" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Tezos X Resolve
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/tezosx/:nameOrAddress
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Resolve a hack.{tld} name or any address to its identity on Tezos X previewnet: the
+                                native address on one interface plus its deterministic alias on the other, with live
+                                chain state per address. For names, a declared{" "}
+                                <code style={{ color: "var(--fg)" }}>etherlink:address</code> record takes precedence
+                                over the derived alias (<code style={{ color: "var(--fg)" }}>evmSource</code> tells you
+                                which you got). Also available interactively as the{" "}
+                                <Link to="/labs/x-ray" style={{ color: "var(--fg)" }}>
+                                    X-Ray lab
+                                </Link>
+                                .
+                            </p>
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "nameOrAddress",
+                                        kind: "path",
+                                        type: "name / tz1… / KT1… / 0x…",
+                                        description: "hack.tez name (label or full) or any Tezos / EVM address",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/tezosx/alice" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: {
+                                            input: "alice",
+                                            name: `alice.hack.${tld}`,
+                                            tz: "tz1...",
+                                            evm: "0x16142132dd616dd8f61b8972ae4b9fcf8a22a450",
+                                            evmSource: "derived",
+                                            kt1Alias: null,
+                                            corners: [
+                                                {
+                                                    role: "native",
+                                                    address: "tz1...",
+                                                    interface: "michelson",
+                                                    materialized: true,
+                                                    balance: "1250000",
+                                                },
+                                                {
+                                                    role: "alias",
+                                                    address: "0x1614...a450",
+                                                    interface: "evm",
+                                                    materialized: false,
+                                                    balance: "0",
+                                                },
+                                            ],
+                                            cornersError: null,
+                                        },
+                                        network: "tezosx-previewnet",
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.7rem",
+                                    color: "var(--fg-3)",
+                                    marginTop: "0.75rem",
+                                    lineHeight: 1.8,
+                                }}
+                            >
+                                <code style={{ color: "var(--fg)" }}>evmSource</code> — "declared" (TED record),
+                                "derived" (computed alias), or "native" (input was an EVM address)
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>materialized</code> — the account exists on chain;
+                                a derived-only alias has no account yet
+                                <br />
+                                <code style={{ color: "var(--fg)" }}>balance</code> — mutez on the michelson interface,
+                                wei-of-tez (18 decimals) on the evm interface
                             </p>
                         </div>
                     </section>

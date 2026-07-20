@@ -224,6 +224,54 @@ const displayName = primary ?? hackTez[0] ?? walletAddress.slice(0, 8) + "…";
 
 ---
 
+### GET /api/v1/tezosx/:nameOrAddress
+
+Resolve a hack.tez name or any address to its identity on **Tezos X previewnet**: the native address on one interface plus its deterministic alias on the other, with live chain state for each. See the `tezos-x` skill for the underlying alias math and network reference.
+
+Accepts a hack.tez name (label or full form), a Tezos address (tz1/tz2/tz3/KT1), or an EVM address (0x).
+
+Resolution precedence for a name's EVM address: a declared TED `etherlink:address` record wins; otherwise the deterministic Tezos X alias derived from the resolved tz address. The `evmSource` field reports which one you got.
+
+**Response:**
+
+```json
+{
+    "data": {
+        "input": "alice",
+        "name": "alice.hack.tez",
+        "tz": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
+        "evm": "0x16142132dd616dd8f61b8972ae4b9fcf8a22a450",
+        "evmSource": "derived",
+        "kt1Alias": null,
+        "corners": [
+            { "role": "native", "address": "tz1…", "interface": "michelson", "materialized": true, "balance": "1250000" },
+            { "role": "alias", "address": "0x1614…a450", "interface": "evm", "materialized": false, "balance": "0" }
+        ],
+        "cornersError": null
+    },
+    "network": "tezosx-previewnet"
+}
+```
+
+**Fields:**
+
+- `evmSource` — `"declared"` (explicit TED `etherlink:address` record), `"derived"` (computed Tezos X alias), or `"native"` (the input itself was an EVM address).
+- `kt1Alias` — the Michelson-side alias, only set when the input is a native EVM address.
+- `corners[].materialized` — the account exists on chain. A derived-only alias is a valid destination but has no account yet.
+- `corners[].balance` — raw units per interface: mutez (6 decimals) on `michelson`, wei-of-tez (18 decimals) on `evm`.
+- `cornersError` — set when previewnet was unreachable; derivation fields are still valid.
+
+**Usage:**
+
+```typescript
+const { data } = await fetch(`https://hacktez.com/api/v1/tezosx/${name}`).then((r) => r.json());
+console.log(`${data.name} on Tezos X:`, data.tz, "→", data.evm, `(${data.evmSource})`);
+```
+
+Interactive version: the X-Ray lab at `https://hacktez.com/labs/x-ray`.
+
+---
+
 ### GET /api/v1/config
 
 Current contract configuration. Use this before starting registration to get commit timing requirements and check if registration is paused.
