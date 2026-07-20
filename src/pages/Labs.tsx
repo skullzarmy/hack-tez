@@ -231,6 +231,24 @@ export default function Labs() {
                     ))}
                 </ul>
             )}
+            <p
+                style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.75rem",
+                    color: "var(--fg-muted)",
+                    marginTop: "2rem",
+                }}
+            >
+                // got something stuck? most of these were born from a request.{" "}
+                <a
+                    href="https://bsky.app/profile/hacktez.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "var(--fg)" }}
+                >
+                    ping us on bluesky →
+                </a>
+            </p>
         </div>
     );
 }

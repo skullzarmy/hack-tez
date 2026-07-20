@@ -1,3 +1,5 @@
+import { SiBluesky } from "@icons-pack/react-simple-icons";
+
 export default function Footer({ compact }: { compact?: boolean }) {
 	return (
 		<footer
@@ -19,6 +21,16 @@ export default function Footer({ compact }: { compact?: boolean }) {
 						</a>{" "}
 						joint &gt;&gt;
 					</span>
+					<a
+						href="https://bsky.app/profile/hacktez.com"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="footer-link"
+						aria-label="hack.tez on Bluesky (opens in new tab)"
+						style={{ display: "inline-flex", alignItems: "center", gap: "0.35em", marginLeft: "0.5em" }}
+					>
+						<SiBluesky size={11} aria-hidden="true" /> @hacktez.com
+					</a>
 				</span>
 				<span className="footer-oss">
 					hack.tez is open source and{" "}
