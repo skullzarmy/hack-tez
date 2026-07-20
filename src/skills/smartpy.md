@@ -58,3 +58,7 @@ def test():
 
 ## Examples repo
 https://gitlab.com/smartpy.io/smartpy/-/tree/main/wheels/smartpy-tezos-examples/smartpy_examples
+
+## Tezos X note
+
+SmartPy contracts deploy unchanged to the Michelson interface of Tezos X previewnet (`https://michelson.previewnet.tezosx.nomadic-labs.com`). Caveats: tickets are temporarily disabled there, storage burn matches L1, Michelson gas is capped at 3M per operation, and network resets wipe all deployed contracts. Consensus operations (delegation, voting) do not exist in the rollup context. See the `tezos-x` skill for the full picture.

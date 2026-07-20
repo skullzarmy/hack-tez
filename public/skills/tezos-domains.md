@@ -754,3 +754,4 @@ An agent consuming this skill should have:
 - **Documentation last updated:** The deployed contract addresses page was last updated ~December 2024. Always verify addresses against the live documentation before mainnet operations involving value transfer.
 - **No subdomain expiry management.** Only 2nd-level domains have independently configurable expiry. Subdomains (3LD+) inherit their ancestor 2LD's expiry.
 - **Confusable character protection is TLD-level.** Each TLD restricts to a predefined character script set to prevent homograph attacks. The `.tez` TLD is restricted to Latin `a–z`, `0–9`, and hyphens.
+- **TED is not deployed on Tezos X previewnet.** No name resolution exists on Tezos X (either interface) as of 2026-07. The `etherlink:address` record maps a domain to an EVM address, but resolving names on Tezos X itself requires custom tooling. See the `tezos-x` skill.

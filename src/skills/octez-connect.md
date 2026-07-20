@@ -272,6 +272,8 @@ const dAppNetworksChainIds = {
 
 Newer Temple versions DO include ghostnet. Older versions may not. Using `CUSTOM` network type is the safe path that works across ALL Temple versions.
 
+Note: `tezlink` in this map is the legacy name for what is now the Michelson interface of Tezos X. The Tezlink-era chain ID predates the previewnet and changes on network resets, so for Tezos X previewnet always use `CUSTOM` with rpcUrl `https://michelson.previewnet.tezosx.nomadic-labs.com` rather than the named entry. See the `tezos-x` skill.
+
 ---
 
 ## 8. Debugging Checklist

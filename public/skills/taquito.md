@@ -367,3 +367,5 @@ Templates include TezosToolkit instantiation, wallet connection, and example con
 7. **This skill is scoped to the Quick Start page only.** Advanced Taquito topics — batch operations, FA2 tokens, BigMap queries, Sapling, Lambda views, origination with initial storage, etc. — are documented in separate sections not covered here.
 
 8. **Version specificity.** This document reflects Taquito `24.2.0`. Prior versions (`24.1.0`, `24.0.0`, `23.x`) may differ in API surface. Always confirm the installed package version matches this skill.
+
+9. **Tezos X previewnet works unchanged.** Taquito talks to the Michelson interface of Tezos X like any Tezos RPC: `new TezosToolkit("https://michelson.previewnet.tezosx.nomadic-labs.com")`. State on previewnet is disposable (network resets wipe contracts), and hand-built operations must anchor a recent Tezos X block from that RPC, not an L1 block. See the `tezos-x` skill for endpoints, aliases, and limitations.
