@@ -93,7 +93,9 @@ const configs: Record<TezosNetwork, NetworkConfig> = {
         name: "tezosx",
         tld: "tezx",
         rpcUrl: "https://michelson.previewnet.tezosx.nomadic-labs.com",
-        tzktApi: "https://tzkt.previewnet.tezosx.nomadic-labs.com",
+        // The nomadic-labs "tzkt." host redirects to the TzKT UI; the REST API
+        // lives on the api. subdomain of the tzkt.io deployment.
+        tzktApi: "https://api.previewnet.tezosx.tzkt.io",
         domainsGraphql: "",
         registrarAddress: import.meta.env.VITE_REGISTRAR_ADDRESS,
         tedAppUrl: "",

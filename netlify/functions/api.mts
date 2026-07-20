@@ -548,6 +548,127 @@ function parseProfileFromData(
 // Handlers
 // ---------------------------------------------------------------------------
 
+/** GET /api/v1/tezosx/:nameOrAddress — Tezos X identity resolution.
+ *
+ *  Input: a hack.tez name (label or full), or any tz1/tz2/tz3/KT1/0x address.
+ *  Output: the identity's addresses on both Tezos X interfaces plus live
+ *  previewnet state (materialized, balance) for each, best-effort.
+ *
+ *  Resolution precedence for a name's EVM address: the declared TED
+ *  `etherlink:address` record wins; otherwise the deterministic Tezos X
+ *  alias of the resolved tz address (keccak256 of the base58 string). */
+async function handleTezosX(
+	nameOrAddress: string,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const xray = await import("../../src/lib/xray/index.ts");
+	const input = nameOrAddress.trim();
+
+	let name: string | null = null;
+	let tz: string | null = null;
+	let evm: string | null = null;
+	let evmSource: "declared" | "derived" | "native" | null = null;
+	let kt1Alias: string | null = null;
+
+	const kind = xray.classifyAddress(input);
+	if (kind === "invalid") {
+		// Treat as a hack.tez name.
+		const label = input
+			.toLowerCase()
+			.replace(new RegExp(`\\.hack\\.${net.tld}$`), "");
+		const labelErr = validateLabel(label);
+		if (labelErr) return err(labelErr, "INVALID_INPUT");
+		name = `${label}.hack.${net.tld}`;
+
+		const data = await tedGql<{
+			domain: {
+				address: string | null;
+				data: Array<{ key: string; value: unknown }> | null;
+			} | null;
+		}>(
+			net.domainsGraphql,
+			`query GetDomainForTezosX($name: String!) {
+              domain(name: $name) {
+                address
+                data { key value }
+              }
+            }`,
+			{ name },
+		);
+		if (!data.domain) return err("name not found", "NOT_FOUND", 404);
+		tz = data.domain.address;
+		const declared = data.domain.data?.find(
+			(d) => d.key === "etherlink:address",
+		)?.value;
+		if (typeof declared === "string" && xray.classifyAddress(declared) === "evm") {
+			evm = declared.toLowerCase();
+			evmSource = "declared";
+		} else if (tz) {
+			evm = xray.evmAliasOfTezos(tz);
+			evmSource = "derived";
+		}
+		if (!tz && !evm)
+			return err(`no address set for ${name}`, "NOT_FOUND", 404);
+	} else if (kind === "evm") {
+		evm = input.toLowerCase();
+		evmSource = "native";
+		kt1Alias = xray.kt1AliasOfEvm(evm);
+	} else {
+		tz = input;
+		evm = xray.evmAliasOfTezos(tz);
+		evmSource = "derived";
+	}
+
+	// Best-effort live previewnet state for every address we resolved.
+	interface Corner {
+		role: "native" | "alias" | "declared";
+		address: string;
+		interface: "evm" | "michelson";
+		materialized: boolean;
+		balance: string;
+		hasCode?: boolean;
+	}
+	const corners: Corner[] = [];
+	let cornersError: string | null = null;
+	try {
+		const jobs: Array<Promise<Corner>> = [];
+		if (tz)
+			jobs.push(
+				xray.getMichelsonCorner(tz).then((c) => ({ role: "native" as const, ...c })),
+			);
+		if (evm)
+			jobs.push(
+				xray.getEvmCorner(evm).then((c) => ({
+					role:
+						evmSource === "native"
+							? ("native" as const)
+							: evmSource === "declared"
+								? ("declared" as const)
+								: ("alias" as const),
+					...c,
+				})),
+			);
+		if (kt1Alias)
+			jobs.push(
+				xray
+					.getMichelsonCorner(kt1Alias)
+					.then((c) => ({ role: "alias" as const, ...c })),
+			);
+		corners.push(...(await Promise.all(jobs)));
+	} catch (e) {
+		cornersError = e instanceof Error ? e.message : "previewnet unreachable";
+	}
+
+	return json(
+		{
+			data: { input, name, tz, evm, evmSource, kt1Alias, corners, cornersError },
+			network: "tezosx-previewnet",
+		},
+		200,
+		{ "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+	);
+}
+
 /** GET /api/v1/domain/:name — domain record by label or full name */
 async function handleDomain(
 	name: string,
@@ -1928,6 +2049,8 @@ export default async function handler(
 			return await handleOwner(decodeURIComponent(param), net);
 		if (resource === "resolve" && param)
 			return await handleResolve(decodeURIComponent(param), net);
+		if (resource === "tezosx" && param)
+			return await handleTezosX(decodeURIComponent(param), net);
 		if (resource === "config") return await handleConfig(net);
 		if (resource === "activity")
 			return await handleActivity(new URL(req.url), net);
@@ -1962,6 +2085,7 @@ export default async function handler(
 					`/api/v1/availability/:label`,
 					`/api/v1/owner/:address`,
 					`/api/v1/resolve/:address`,
+					`/api/v1/tezosx/:nameOrAddress`,
 					`/api/v1/config`,
 					`/api/v1/activity?limit=30`,
 					`/api/v1/hackatar/:label`,

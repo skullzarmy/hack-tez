@@ -37,6 +37,7 @@ const Labs = lazy(() => import("./pages/Labs"));
 const LabDetail = lazy(() => import("./pages/LabDetail"));
 const ColdMilk = lazy(() => import("./pages/labs/ColdMilk"));
 const MatterReaper = lazy(() => import("./pages/labs/MatterReaper"));
+const XRay = lazy(() => import("./pages/labs/XRay"));
 const Gaspedal = lazy(() => import("./pages/labs/Gaspedal"));
 const BulkRelist = lazy(() => import("./pages/labs/BulkRelist"));
 const Art4LifeTez = lazy(() => import("./pages/labs/Art4LifeTez"));
@@ -376,6 +377,7 @@ export function AppShell() {
                     <Route path="/labs" element={<Suspense fallback={null}><Labs /></Suspense>} />
                     <Route path="/labs/coldmilk" element={<Suspense fallback={null}><ColdMilk /></Suspense>} />
                     <Route path="/labs/matter-reaper" element={<Suspense fallback={null}><MatterReaper /></Suspense>} />
+                    <Route path="/labs/x-ray" element={<Suspense fallback={null}><XRay /></Suspense>} />
                     <Route path="/labs/gaspedal" element={<Suspense fallback={null}><Gaspedal /></Suspense>} />
                     <Route path="/labs/bulk-relist" element={<Suspense fallback={null}><BulkRelist /></Suspense>} />
                     <Route path="/labs/art4lifetez" element={<Suspense fallback={null}><Art4LifeTez /></Suspense>} />

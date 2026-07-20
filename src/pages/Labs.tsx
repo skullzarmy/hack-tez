@@ -8,6 +8,7 @@ import {
     Lock,
     Milk,
     Palette,
+    ScanEye,
     Skull,
     Tags,
     type LucideIcon,
@@ -25,6 +26,7 @@ const LAB_ICONS: Record<string, LucideIcon> = {
     gauge: Gauge,
     milk: Milk,
     palette: Palette,
+    "scan-eye": ScanEye,
     skull: Skull,
     tags: Tags,
 };
