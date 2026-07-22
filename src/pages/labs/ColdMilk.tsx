@@ -8,12 +8,14 @@ import { usePageMeta } from "../../hooks/usePageMeta";
 import ConnectWallet from "../../components/ConnectWallet";
 import config from "../../config/tezos";
 import {
+    checkBreakable,
     computeRedemption,
     enrichSpicyLPs,
     findUserSpicyLPs,
     formatBalance,
     formatTez,
     formatTokenAmount,
+    friendlyBreakError,
     getWTZBalance,
     submitBreakLPs,
     submitUnwrapWTZ,
@@ -138,7 +140,12 @@ export default function ColdMilk() {
                 // Merge enriched details onto current rows, preserving selection state.
                 const byAddr = new Map(enriched.map((e) => [e.pair.address, e.details]));
                 setPositions((rows) =>
-                    rows.map((r) => ({ ...r, details: byAddr.get(r.pair.address) ?? r.details })),
+                    rows.map((r) => {
+                        const merged = { ...r, details: byAddr.get(r.pair.address) ?? r.details };
+                        // A dust position can't be burned (redeems to 0 on a side) — never
+                        // let it into a batch, where it would fail the whole group.
+                        return checkBreakable(merged).ok ? merged : { ...merged, selected: false };
+                    }),
                 );
             }
         } catch (err) {
@@ -163,6 +170,13 @@ export default function ColdMilk() {
     async function breakOne(row: PositionRow) {
         if (!client || !address) return;
         const key = row.pair.address;
+        if (!checkBreakable(row).ok) {
+            setBreakState((s) => ({
+                ...s,
+                [key]: { status: "error", error: friendlyBreakError("NOT_ENOUGH_BURNED") },
+            }));
+            return;
+        }
         setBreakState((s) => ({ ...s, [key]: { status: "signing" } }));
         try {
             const { transactionHash } = await submitBreakLPs(client, address, [
@@ -172,14 +186,19 @@ export default function ColdMilk() {
         } catch (err) {
             setBreakState((s) => ({
                 ...s,
-                [key]: { status: "error", error: err instanceof Error ? err.message : "broken" },
+                [key]: {
+                    status: "error",
+                    error: friendlyBreakError(err instanceof Error ? err.message : "broken"),
+                },
             }));
         }
     }
 
     async function breakSelected() {
         if (!client || !address) return;
-        const selected = positions.filter((r) => r.selected);
+        // Only breakable rows go into the batch — one dust position would fail
+        // (NOT_ENOUGH_BURNED) and backtrack the whole op group.
+        const selected = positions.filter((r) => r.selected && checkBreakable(r).ok);
         if (selected.length === 0) return;
         setBulkState({ status: "signing" });
         try {
@@ -190,7 +209,10 @@ export default function ColdMilk() {
             );
             setBulkState({ status: "done", txHash: transactionHash });
         } catch (err) {
-            setBulkState({ status: "error", error: err instanceof Error ? err.message : "broken" });
+            setBulkState({
+                status: "error",
+                error: friendlyBreakError(err instanceof Error ? err.message : "broken"),
+            });
         }
     }
 
@@ -205,7 +227,11 @@ export default function ColdMilk() {
         }
     }
 
-    const selectedCount = positions.filter((r) => r.selected).length;
+    const selectedCount = positions.filter((r) => r.selected && checkBreakable(r).ok).length;
+    const dustCount = positions.filter((r) => {
+        const b = checkBreakable(r);
+        return !b.ok && b.reason === "dust";
+    }).length;
     const bulkBusy = bulkState.status === "signing" || bulkState.status === "broadcasting";
     const unwrapBusy = unwrapState.status === "signing" || unwrapState.status === "broadcasting";
     const hasWTZ = wtzBalance !== "0" && wtzBalance !== "";
@@ -374,6 +400,8 @@ export default function ColdMilk() {
                                 {positions.map((row) => {
                                     const state = breakState[row.pair.address] ?? { status: "idle" as const };
                                     const busy = state.status === "signing" || state.status === "broadcasting";
+                                    const breakability = checkBreakable(row);
+                                    const isDust = !breakability.ok && breakability.reason === "dust";
                                     return (
                                         <li
                                             key={row.pair.address}
@@ -400,7 +428,8 @@ export default function ColdMilk() {
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    checked={row.selected}
+                                                    checked={row.selected && !isDust}
+                                                    disabled={isDust}
                                                     onChange={() => toggle(row.pair.address)}
                                                     aria-label={`select ${row.pair.alias}`}
                                                 />
@@ -445,6 +474,19 @@ export default function ColdMilk() {
                                                             );
                                                         })()
                                                     ) : null}
+                                                    {isDust && (
+                                                        <span
+                                                            style={{
+                                                                display: "block",
+                                                                fontFamily: "var(--font-mono)",
+                                                                fontSize: "0.68rem",
+                                                                color: "var(--warn)",
+                                                                marginTop: "0.15rem",
+                                                            }}
+                                                        >
+                                                            // dust — too small to break, redeems to 0 on one side
+                                                        </span>
+                                                    )}
                                                     <span
                                                         style={{
                                                             display: "block",
@@ -491,7 +533,7 @@ export default function ColdMilk() {
                                                         broken <ExternalLink size={11} aria-hidden="true" />
                                                     </a>
                                                 )}
-                                                {state.status === "error" && (
+                                                {state.status === "error" && !isDust && (
                                                     <span
                                                         style={{
                                                             fontFamily: "var(--font-mono)",
@@ -510,24 +552,31 @@ export default function ColdMilk() {
                                                 <button
                                                     type="button"
                                                     onClick={() => void breakOne(row)}
-                                                    disabled={busy || state.status === "done"}
+                                                    disabled={busy || state.status === "done" || isDust}
+                                                    title={
+                                                        isDust
+                                                            ? "This position redeems to zero on one side, so the pair won't burn it."
+                                                            : undefined
+                                                    }
                                                     style={{
                                                         fontFamily: "var(--font-mono)",
                                                         fontSize: "0.78rem",
                                                         padding: "0.4rem 0.85rem",
                                                         border: "1px solid var(--fg)",
                                                         background:
-                                                            state.status === "done" ? "var(--bg)" : "var(--fg)",
-                                                        color: state.status === "done" ? "var(--fg)" : "var(--bg)",
-                                                        cursor: busy ? "wait" : "pointer",
-                                                        opacity: state.status === "done" ? 0.5 : 1,
+                                                            state.status === "done" || isDust ? "var(--bg)" : "var(--fg)",
+                                                        color: state.status === "done" || isDust ? "var(--fg)" : "var(--bg)",
+                                                        cursor: busy ? "wait" : isDust ? "not-allowed" : "pointer",
+                                                        opacity: state.status === "done" || isDust ? 0.5 : 1,
                                                     }}
                                                 >
                                                     {busy
                                                         ? "signing…"
                                                         : state.status === "done"
                                                           ? "done"
-                                                          : "break"}
+                                                          : isDust
+                                                            ? "can't break"
+                                                            : "break"}
                                                 </button>
                                             </div>
                                         </li>
@@ -558,6 +607,11 @@ export default function ColdMilk() {
                                     }}
                                 >
                                     // {selectedCount} selected
+                                    {dustCount > 0 && (
+                                        <span style={{ color: "var(--warn)" }}>
+                                            {" "}· {dustCount} dust skipped
+                                        </span>
+                                    )}
                                 </span>
                                 <div
                                     style={{

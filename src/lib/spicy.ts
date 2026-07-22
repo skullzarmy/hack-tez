@@ -276,6 +276,35 @@ export function computeRedemption(
     }
 }
 
+export type Breakability =
+    | { ok: true }
+    /** reason "pending": details not loaded yet, breakability unknown.
+     *  reason "dust": burn would pay out 0 on at least one side. */
+    | { ok: false; reason: "pending" | "dust" };
+
+/** Decide whether a position can actually be broken.
+ *
+ *  A Spicy pair's `finalize_burn_liq` rejects with `NOT_ENOUGH_BURNED` any burn
+ *  that would transfer 0 tokens on a side. That happens when the LP balance is
+ *  dust relative to the pool: `balance * reserve / totalSupply` floors to 0 on
+ *  the smaller-reserve side. We can only tell once `details` are enriched; until
+ *  then the answer is "pending". */
+export function checkBreakable(pos: SpicyLPBalance): Breakability {
+    if (!pos.details) return { ok: false, reason: "pending" };
+    const { amount0, amount1 } = computeRedemption(pos.balance, pos.details);
+    if (amount0 === "0" || amount1 === "0") return { ok: false, reason: "dust" };
+    return { ok: true };
+}
+
+/** Map a raw chain/wallet error into something a user can act on. */
+export function friendlyBreakError(raw: string): string {
+    if (/NOT_ENOUGH_BURNED/i.test(raw)) {
+        return "too small to break — this position redeems to zero on one side";
+    }
+    if (/UserAbort|Aborted|rejected|denied/i.test(raw)) return "signature cancelled";
+    return raw;
+}
+
 /** Format a raw nat balance using the given token decimals (max 4 fraction digits). */
 export function formatTokenAmount(raw: string, decimals: number, maxFractionDigits = 4): string {
     if (!/^\d+$/.test(raw)) return raw;
