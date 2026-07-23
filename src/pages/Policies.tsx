@@ -4,7 +4,8 @@ import { usePageMeta } from "../hooks/usePageMeta";
 export default function Policies() {
     usePageMeta({
         title: "Policies — hack.tez",
-        description: "Privacy policy and terms for hack.tez. Plain english. No bullshit. We don't sell your data — there's no data to sell.",
+        description:
+            "Privacy policy and terms for hack.tez. Plain english. No bullshit. We don't sell your data because there's no data to sell.",
         path: "/policies",
     });
     return (
@@ -61,8 +62,8 @@ export default function Policies() {
                         >
                             Tezos Domains
                         </a>{" "}
-                        record — an NFT you actually own, that you can set addresses on or
-                        transfer to someone else. We don't hold it. The chain does.
+                        record you actually own, that you can set addresses on or transfer to someone else. We don't
+                        hold it. The chain does.
                     </p>
                     <p>
                         We tend the infrastructure. We do not own the namespace in any way that matters. But we do
@@ -86,15 +87,16 @@ export default function Policies() {
                             marginBottom: "0.75rem",
                         }}
                     >
-                        One name per wallet
+                        Claims and limits
                     </h2>
                     <p>
-                        Each wallet can claim one subdomain. That's by design. This isn't a namespace for squatting or
-                        reselling. It's a place to be findable — one identity, one signal, one home on the chain.
+                        Each wallet can currently claim one subdomain. That's by design. This isn't a namespace for
+                        squatting or reselling. It's a place to create a findable identity for yourself or your project.
+                        We want to keep it that way.
                     </p>
                     <p>
                         Because these are NFTs, you can transfer your name to another wallet if you want. But you can't
-                        use the same wallet to claim a second one. If you need an exception, contact us — we have admin
+                        use the same wallet to claim a second one. If you need an exception, contact us, we have admin
                         tools for edge cases and won't be weird about it.
                     </p>
                 </section>
@@ -126,8 +128,8 @@ export default function Policies() {
                     </p>
                     <p>
                         We will also remove names that impersonate real people, projects, or protocols in ways designed
-                        to deceive — phishing setups, fake official accounts, that kind of thing. The namespace is for
-                        identity, not fraud.
+                        to deceive; phishing setups, fake official accounts, that kind of thing. The namespace is for
+                        identity, not nefarious schemes.
                     </p>
                     <p>
                         Beyond that, we try to stay out of it. We're not content police. We're not going to revoke your
@@ -156,13 +158,13 @@ export default function Policies() {
                     <p>
                         Registration uses a two-step commit-reveal process to prevent front-running. You submit a hash
                         first (commit), wait a minimum delay, then reveal your chosen name (register). Both transactions
-                        cost only the Tezos network fee — there's no charge from us.
+                        cost only the Tezos network fee. There's no charge from us.
                     </p>
                     <p>
                         If your commit expires before you complete the second step, you'll need to start over. The
                         current timing parameters are visible at{" "}
                         <code style={{ color: "var(--fg)", fontSize: "0.8rem" }}>/api/v1/config</code>. They can change
-                        — we'll announce significant changes before they take effect.
+                        but we'll announce significant changes before they take effect.
                     </p>
                 </section>
 
@@ -184,18 +186,18 @@ export default function Policies() {
                         Profile content
                     </h2>
                     <p>
-                        Profile data — bios, links, skills, project descriptions, avatars — falls under the same
+                        Profile data (bios, links, skills, project descriptions, avatars) falls under the same
                         moderation policy as subdomain names. We'll remove content that exists to harm, harass, or
                         deceive. Same threshold, same approach.
                     </p>
                     <p>
-                        A few things to know: IPFS-pinned images are permanent. If we remove a profile's reference to
-                        an IPFS avatar or logo, the underlying content still exists on the network. We can't delete
-                        it — nobody can. We can only remove the TED record pointing to it.
+                        A few things to know: IPFS-pinned images are permanent. If we remove a profile's reference to an
+                        IPFS avatar or logo, the underlying content still exists on the network. We can't delete it
+                        because nobody can. We can only remove the TED record pointing to it.
                     </p>
                     <p>
-                        Status, skills, and linked accounts (GitHub, X) are self-reported and unverified. We don't
-                        check that a GitHub username actually belongs to the wallet owner, or that someone claiming
+                        Status, skills, and linked accounts (GitHub, X) are self-reported and unverified. We don't check
+                        that a GitHub username actually belongs to the wallet owner, or that someone claiming
                         "available" is actually available. Treat profile data as claims, not facts.
                     </p>
                 </section>
@@ -223,7 +225,7 @@ export default function Policies() {
                     </p>
                     <p>
                         We intend to keep this running indefinitely, but we can't promise uptime, continuity, or that
-                        the service will never change. We won't disappear quietly — if something major changes, you'll
+                        the service will never change. We won't disappear quietly and if something major changes, you'll
                         hear about it.
                     </p>
                 </section>
