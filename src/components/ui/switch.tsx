@@ -13,6 +13,11 @@ const Switch = React.forwardRef<
             style={{
                 width: "36px",
                 height: "20px",
+                // The track is fixed-size and the thumb travels 18px inside it,
+                // so any shrink clips the thumb through the right border. As a
+                // flex item this would otherwise default to `flex: 0 1 auto`
+                // and get squeezed by long sibling text.
+                flexShrink: 0,
                 border: "1px solid var(--border-2, #333)",
                 background: checked ? "var(--accent)" : "var(--bg-3, #1a1a1a)",
                 display: "inline-flex",
