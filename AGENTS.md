@@ -181,6 +181,8 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 | `VITE_SITE_URL`          | Frontend                | Absolute web URL of the app (default `https://hacktez.com`). Used for profile share links. |
 | `TEZOS_WALLET_PUB_KEY`   | Deploy scripts only     | Actually the `edsk...` secret key (legacy naming) |
 | `PINATA_JWT`             | Netlify server-only     | Pinata API JWT token for IPFS pinning             |
+| `UPSTASH_REDIS_REST_URL` | Netlify Functions       | Upstash Redis — domains SWR cache, pin rate limit, tip counters |
+| `UPSTASH_REDIS_REST_TOKEN` | Netlify Functions     | Upstash Redis auth token. Absent → those features degrade, never fail |
 | `VITE_HACKCHAT_URL`     | Frontend                | Chat worker URL (default `http://localhost:8787`) |
 | `VITE_PARTYKIT_HOST`    | Frontend                | PartyKit host (default `localhost:1999`)          |
 | `CHAT_JWT_SECRET`        | CF Worker + PartyKit    | Shared JWT signing secret (current key)           |
