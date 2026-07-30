@@ -1,10 +1,11 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <matches Profile> */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTezos } from "../context/TezosContext";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import { ipfsUriToGatewayUrl } from "../lib/pin";
-import { sendTip } from "../lib/tips";
+import type { TipCounters } from "../lib/tips";
+import { getTipCounters, reportTip, sendTip } from "../lib/tips";
 import type { TipShareContext } from "../lib/tipShare";
 import type { TipJar as TipJarConfig, TipToken } from "../types/profile";
 import {
@@ -85,6 +86,21 @@ export function TipJar({
         opHash: string;
         ctx: TipShareContext;
     } | null>(null);
+    const [counters, setCounters] = useState<TipCounters | null>(null);
+    // Bumped after a tip confirms so the totals pick it up.
+    const [countersKey, setCountersKey] = useState(0);
+
+    const live = tipJarIsLive(jar);
+    useEffect(() => {
+        if (!live) return;
+        let cancelled = false;
+        getTipCounters(info.label).then((c) => {
+            if (!cancelled) setCounters(c);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [live, info.label, countersKey]);
 
     // Hooks must run before the early return.
     const activeToken = useMemo(
@@ -92,7 +108,19 @@ export function TipJar({
         [tokens, selected],
     );
 
-    if (!tipJarIsLive(jar)) return null;
+    if (!live || !jar) return null;
+
+    // Project jars show that project's tally; the profile jar shows the total.
+    const scoped = info.projectSlug
+        ? counters?.projects.find((p) => p.slug === info.projectSlug)
+        : counters;
+    const tally =
+        scoped && scoped.count > 0
+            ? `${scoped.count} tip${scoped.count === 1 ? "" : "s"}` +
+              (scoped.totals.length > 0
+                  ? ` · ${scoped.totals.map((t) => `${t.total} ${t.symbol}`).join(" · ")}`
+                  : "")
+            : null;
 
     const decimals = activeToken?.decimals ?? 6;
     const unit = activeToken?.symbol ?? "tez";
@@ -138,6 +166,13 @@ export function TipJar({
                 },
             });
             setCustom("");
+            // Background: wait for inclusion, then report for the public
+            // counters. Never blocks or interrupts the share flow.
+            reportTip({
+                opHash: hash,
+                label: info.label,
+                projectSlug: info.projectSlug,
+            }).then(() => setCountersKey((k) => k + 1));
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Transaction failed";
             // Wallet rejections are a normal outcome, not an error worth shouting about.
@@ -183,6 +218,18 @@ export function TipJar({
                         }}
                     >
                         {jar.desc}
+                    </p>
+                )}
+                {tally && (
+                    <p
+                        style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "0.68rem",
+                            color: "var(--fg-3)",
+                            marginTop: "0.4rem",
+                        }}
+                    >
+                        ⚡ {tally}
                     </p>
                 )}
             </div>

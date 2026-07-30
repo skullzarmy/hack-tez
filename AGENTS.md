@@ -60,6 +60,7 @@ Both must exit 0. Never commit with type errors.
 | `src/types/profile.ts`        | **Shared** profile schema/parsing (client + API). Import-free by design — see below |
 | `src/lib/tips.ts`             | Tip jar — TzKT token metadata lookup, unit conversion, FA1.2/FA2 transfer ops |
 | `src/lib/tipShare.ts`         | Post-tip share text + X/Bluesky intent URLs                                 |
+| `netlify/functions/tipCounters.ts` | Chain verification + Redis aggregate counters for tips                 |
 | `src/components/TipJar.tsx`   | Tip jar view widget (profile + project pages)                              |
 | `src/components/TipJarEditor.tsx` | Tip jar editor section (reused for profile and per-project jars)        |
 | `src/pages/ProjectPage.tsx`   | Project detail page at `/u/:label/p/:slug`                                 |
@@ -96,6 +97,8 @@ All responses: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ e
 | `GET /api/v1/activity?limit=30`         | Recent on-chain claim + commit events                                              |
 | `GET /api/v1/profile/:name`             | Parsed builder profile for a domain                                                |
 | `GET /api/v1/hackatar/:label`           | Generative avatar GIF (animated). Add `?static=1` for single-frame still.          |
+| `GET /api/v1/tips/:name`                | Public tip counters for a domain — count + per-asset totals, plus per-project     |
+| `POST /api/v1/tips/report`              | Report a tip op hash for counting. Body `{ opHash, label, project? }`. Verified against TzKT |
 
 **Adding a new endpoint:** Add a handler function in `netlify/functions/api.mts` and register it in the `handler` dispatch block. The `export const config = { path: "/api/v1/:route*" }` at the bottom of that file registers all `/api/v1/*` routes — no `netlify.toml` redirect needed.
 
@@ -163,6 +166,8 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **Tips are non-custodial and fee-free.** hack.tez never touches a tip. The client resolves the recipient from their TED record, builds the transfer op locally (`src/lib/tips.ts`), and hands it to the tipper's wallet — no escrow contract, no cut, no server. Tip jars live in the TED data map under `hack:tips` (profile) and inside `hack:projects` entries (per project), and are **off by default**.
 - **Tip amounts are stored in display units.** Presets are saved as decimal strings ("1.5"), converted to raw units with the token's TZIP-12 `decimals` only at send time. Never store raw units in a profile — decimals can differ per token and the profile stays human-readable.
 - **Only fungible FA tokens can be tipped.** `lookupToken()` reads metadata from TzKT and rejects anything that isn't FA1.2 (TZIP-7) or FA2 (TZIP-12), has no readable `decimals`, or has the canonical NFT shape (`decimals: 0` + `totalSupply: 1`).
+- **Tip counters are chain-verified and aggregate-only.** Nothing on-chain marks a transfer as a tip, so the client reports an op hash after inclusion and the server proves it against TzKT: it must be `applied` and must actually have paid one of the domain's accepted addresses (resolution address, owner, or a jar `payTo`). Amounts come from chain, never from the client. Dedup is `SET NX` on the op hash. We store **no sender and no per-tip rows** — only counts and per-asset totals in Redis. Counters are best-effort: if Redis is unset the endpoints degrade to zeros rather than failing.
+- **Tip totals accumulate in 6dp fixed-point, not raw units.** Redis `HINCRBY` is int64, and raw 18-decimal amounts overflow it at ~9.2 tokens. `rawToAcc()` normalizes every asset to 6 decimals before accumulating. Sub-microunit dust rounds away, which is irrelevant at tip scale.
 - **Project pages are derived, not stored.** `/u/:label/p/:slug` resolves by slugifying each project's `name` (`projectSlug()`); there is no separate project record. Renaming a project changes its URL — that's accepted, since the profile is the source of truth.
 
 ---

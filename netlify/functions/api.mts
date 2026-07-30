@@ -28,7 +28,13 @@ import {
 	seedFromHash,
 	selectTraits,
 } from "../../src/lib/hackatar/index.ts";
-import { parseProfileFromData } from "../../src/types/profile.ts";
+import { parseProfileFromData, projectSlug } from "../../src/types/profile.ts";
+import {
+	readTipCounters,
+	recordTip,
+	TipVerifyError,
+	verifyTipOperation,
+} from "./tipCounters.ts";
 import {
 	formatShareStatus,
 	getDefaultProfileShareState,
@@ -1845,6 +1851,140 @@ async function handleProvision(
 }
 
 // ---------------------------------------------------------------------------
+// Tip counters
+// ---------------------------------------------------------------------------
+
+/** Tezos operation hash — base58, 51 chars, always "o"-prefixed. */
+const OP_HASH_RE = /^o[1-9A-HJ-NP-Za-km-z]{50}$/;
+
+/**
+ * Fetch a domain's TED record and derive every address it legitimately accepts
+ * tips at: its resolution address, its owner, and any `payTo` override on the
+ * profile jar or a project jar.
+ */
+async function getTipRecipients(
+	label: string,
+	net: ReturnType<typeof getNetwork>,
+): Promise<{ recipients: Set<string>; projectSlugs: Set<string> } | null> {
+	const result = await tedGql<{
+		domain: {
+			address: string | null;
+			owner: string;
+			data: Array<{ key: string; value: unknown }>;
+		} | null;
+	}>(
+		net.domainsGraphql,
+		`query GetTipTargets($name: String!) {
+          domain(name: $name) { address owner data { key value } }
+        }`,
+		{ name: `${label}.hack.${net.tld}` },
+	);
+	if (!result.domain) return null;
+
+	const profile = parseProfileFromData(result.domain.data ?? []);
+
+	const recipients = new Set<string>();
+	if (result.domain.address) recipients.add(result.domain.address);
+	if (result.domain.owner) recipients.add(result.domain.owner);
+	if (profile.tips?.payTo) recipients.add(profile.tips.payTo);
+
+	const projectSlugs = new Set<string>();
+	for (const p of profile.projects ?? []) {
+		projectSlugs.add(projectSlug(p.name));
+		if (p.tips?.payTo) recipients.add(p.tips.payTo);
+	}
+
+	return { recipients, projectSlugs };
+}
+
+/** POST /api/v1/tips/report — body { opHash, label, project? } */
+async function handleTipReport(
+	req: Request,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const redis = getRedis();
+	if (!redis) return err("Tip counters unavailable", "UNAVAILABLE", 503);
+
+	let body: { opHash?: unknown; label?: unknown; project?: unknown };
+	try {
+		body = await req.json();
+	} catch {
+		return err("Invalid JSON body", "INVALID_INPUT");
+	}
+
+	const opHash = typeof body.opHash === "string" ? body.opHash.trim() : "";
+	if (!OP_HASH_RE.test(opHash))
+		return err("Invalid operation hash", "INVALID_INPUT");
+
+	const rawLabel = typeof body.label === "string" ? body.label.trim() : "";
+	const label = rawLabel.endsWith(`.hack.${net.tld}`)
+		? rawLabel.replace(`.hack.${net.tld}`, "")
+		: rawLabel;
+	const labelErr = validateLabel(label);
+	if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+	const targets = await getTipRecipients(label, net);
+	if (!targets) return err("Domain not found", "NOT_FOUND", 404);
+	if (targets.recipients.size === 0)
+		return err("Domain has no tip recipient", "NO_RECIPIENT");
+
+	// Only count against a project that actually exists on the profile.
+	const rawProject = typeof body.project === "string" ? body.project.trim() : "";
+	const project =
+		rawProject && targets.projectSlugs.has(rawProject) ? rawProject : undefined;
+
+	let amounts: Awaited<ReturnType<typeof verifyTipOperation>>;
+	try {
+		amounts = await verifyTipOperation({
+			tzktApi: net.tzktApi,
+			opHash,
+			recipients: targets.recipients,
+		});
+	} catch (e) {
+		if (e instanceof TipVerifyError)
+			return err(e.message, "NOT_VERIFIED", 422);
+		return err("Verification failed", "UPSTREAM_ERROR", 502);
+	}
+
+	const counted = await recordTip({
+		redis,
+		net: net.name,
+		label,
+		projectSlug: project,
+		opHash,
+		amounts,
+	});
+
+	return json({ data: { counted, label, project: project ?? null }, network: net.name });
+}
+
+/** GET /api/v1/tips/:name */
+async function handleTips(
+	name: string,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const label = name.endsWith(`.hack.${net.tld}`)
+		? name.replace(`.hack.${net.tld}`, "")
+		: name;
+	const labelErr = validateLabel(label);
+	if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+	const redis = getRedis();
+	if (!redis) {
+		return json(
+			{ data: { label, count: 0, totals: [], projects: [] }, network: net.name },
+			200,
+			{ "Cache-Control": "public, s-maxage=30" },
+		);
+	}
+
+	const counters = await readTipCounters({ redis, net: net.name, label });
+	return json({ data: { label, ...counters }, network: net.name }, 200, {
+		"Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+	});
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -1902,6 +2042,15 @@ export default async function handler(
 		return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
 	}
 
+	// Tip counters — POST /api/v1/tips/report, GET /api/v1/tips/:name
+	if (resource === "tips") {
+		const net = getNetwork();
+		if (req.method === "POST" && param === "report")
+			return handleTipReport(req, net);
+		if (req.method === "POST")
+			return err("Unknown tips action", "NOT_FOUND", 404);
+	}
+
 	if (req.method !== "GET") {
 		return err("Method not allowed", "METHOD_NOT_ALLOWED", 405);
 	}
@@ -1915,6 +2064,8 @@ export default async function handler(
 			return await handleDomain(decodeURIComponent(param), net);
 		if (resource === "profile" && param)
 			return await handleProfile(decodeURIComponent(param), net);
+		if (resource === "tips" && param)
+			return await handleTips(decodeURIComponent(param), net);
 		if (resource === "availability" && param)
 			return await handleAvailability(decodeURIComponent(param), net);
 		if (resource === "owner" && param)

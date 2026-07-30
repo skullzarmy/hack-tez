@@ -261,6 +261,68 @@ export async function sendTip(
     return (result as { transactionHash: string }).transactionHash;
 }
 
+// ── Counters ─────────────────────────────────────────────────────────
+
+export interface TipAssetTotal {
+    asset: string;
+    symbol: string;
+    /** Display units, e.g. "42.5" */
+    total: string;
+}
+
+export interface TipCounters {
+    count: number;
+    totals: TipAssetTotal[];
+    projects: Array<{ slug: string; count: number; totals: TipAssetTotal[] }>;
+}
+
+/**
+ * Report a tip so it lands in the public counters.
+ *
+ * Waits for the operation to be indexed first — the server verifies it against
+ * TzKT and will reject anything it can't see yet. Fire-and-forget on purpose:
+ * a counter is not worth blocking or interrupting the share flow for, and the
+ * server dedupes on the op hash so a retry is harmless.
+ */
+export async function reportTip(params: {
+    opHash: string;
+    label: string;
+    projectSlug?: string;
+}): Promise<void> {
+    try {
+        const { waitForOperation } = await import("./contract");
+        await waitForOperation(params.opHash);
+        await fetch("/api/v1/tips/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                opHash: params.opHash,
+                label: params.label,
+                project: params.projectSlug,
+            }),
+        });
+    } catch {
+        // Counters are best-effort — never surface this to the tipper.
+    }
+}
+
+/** Read a domain's public tip counters. Returns null if unavailable. */
+export async function getTipCounters(label: string): Promise<TipCounters | null> {
+    try {
+        const res = await fetch(`/api/v1/tips/${encodeURIComponent(label)}`);
+        if (!res.ok) return null;
+        const body: { data?: TipCounters } = await res.json();
+        if (!body.data) return null;
+        return {
+            count: body.data.count ?? 0,
+            totals: body.data.totals ?? [],
+            projects: body.data.projects ?? [],
+        };
+    } catch {
+        return null;
+    }
+}
+
 /** Explorer link for a submitted tip — the TzKT UI host for the active network. */
 export function opExplorerUrl(opHash: string): string {
     // config.tzktApi is the REST host (api.tzkt.io); the UI lives on the same
