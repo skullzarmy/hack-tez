@@ -57,7 +57,12 @@ Both must exit 0. Never commit with type errors.
 | `src/lib/hackatar/`            | Hackatar engine — seeded generative avatar (PRNG, traits, grid, glitch, render) |
 | `src/components/Hackatar.tsx`  | Hackatar `<img>` component — serves from `/api/v1/hackatar/:label`         |
 | `src/context/TezosContext.tsx` | Wallet state via `@tezos-x/octez.connect-sdk` (Beacon)                     |
-| `src/types/profile.ts`        | Profile types, parsing, validation                                         |
+| `src/types/profile.ts`        | **Shared** profile schema/parsing (client + API). Import-free by design — see below |
+| `src/lib/tips.ts`             | Tip jar — TzKT token metadata lookup, unit conversion, FA1.2/FA2 transfer ops |
+| `src/lib/tipShare.ts`         | Post-tip share text + X/Bluesky intent URLs                                 |
+| `src/components/TipJar.tsx`   | Tip jar view widget (profile + project pages)                              |
+| `src/components/TipJarEditor.tsx` | Tip jar editor section (reused for profile and per-project jars)        |
+| `src/pages/ProjectPage.tsx`   | Project detail page at `/u/:label/p/:slug`                                 |
 | `src/lib/signing.ts`          | Wallet message signing for authenticated requests                          |
 | `src/lib/pin.ts`              | Pinata upload client                                                       |
 | `netlify/functions/api.mts`    | Public REST API — all `/api/v1/*` routes (Netlify v2 function)                |
@@ -154,6 +159,11 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **Shared `auth/` module at repo root** is the single source of truth for all session/auth logic across CF Worker, PartyKit, Netlify Functions, and the React client. Runtime-agnostic (Web Crypto + jose). Never duplicate JWT logic anywhere else.
 - **WS failures NEVER nuke the app session.** Chat WebSocket close events do not clear auth state. Only `authedFetch` failure → refresh failure can clear the session.
 - **Hackatars are server-generated.** Generative avatars are built server-side in `api.mts`, seeded by a salted domain name (deterministic). Cached immutably in Netlify Blobs. The frontend `<Hackatar>` component uses `<img>` tags pointing to `/api/v1/hackatar/:label`. The engine lives in `src/lib/hackatar/` (pure JS, no DOM deps). See `HACKATARS.md` for the seeding roadmap.
+- **`src/types/profile.ts` is the single source of truth for profile data, and has ZERO imports.** Both the Vite client and `netlify/functions/api.mts` import it directly. It must never import `config`, `lib/domains`, or anything reaching `import.meta.env` — that breaks the Functions runtime and forces the API to fork a second parser (it used to, and the copies drifted). Same rule and reasoning as the shared `auth/` module.
+- **Tips are non-custodial and fee-free.** hack.tez never touches a tip. The client resolves the recipient from their TED record, builds the transfer op locally (`src/lib/tips.ts`), and hands it to the tipper's wallet — no escrow contract, no cut, no server. Tip jars live in the TED data map under `hack:tips` (profile) and inside `hack:projects` entries (per project), and are **off by default**.
+- **Tip amounts are stored in display units.** Presets are saved as decimal strings ("1.5"), converted to raw units with the token's TZIP-12 `decimals` only at send time. Never store raw units in a profile — decimals can differ per token and the profile stays human-readable.
+- **Only fungible FA tokens can be tipped.** `lookupToken()` reads metadata from TzKT and rejects anything that isn't FA1.2 (TZIP-7) or FA2 (TZIP-12), has no readable `decimals`, or has the canonical NFT shape (`decimals: 0` + `totalSupply: 1`).
+- **Project pages are derived, not stored.** `/u/:label/p/:slug` resolves by slugifying each project's `name` (`projectSlug()`); there is no separate project record. Renaming a project changes its URL — that's accepted, since the profile is the source of truth.
 
 ---
 

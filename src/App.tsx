@@ -30,6 +30,7 @@ const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"))
 const Skills = lazy(() => import("./pages/Skills"));
 const SkillDetail = lazy(() => import("./pages/SkillDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
+const ProjectPage = lazy(() => import("./pages/ProjectPage"));
 const Chat = lazy(() => import("./components/chat/ChatPage"));
 const WikiApp = lazy(() => import("./pages/WikiApp"));
 const Arcade = lazy(() => import("./pages/Arcade"));
@@ -370,6 +371,7 @@ export function AppShell() {
                     <Route path="/skills/:slug" element={<Suspense fallback={null}><SkillDetail /></Suspense>} />
                     <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
                     <Route path="/u/:subdomain" element={<Suspense fallback={null}><Profile /></Suspense>} />
+                    <Route path="/u/:subdomain/p/:project" element={<Suspense fallback={null}><ProjectPage /></Suspense>} />
                     <Route path="/manage" element={<Navigate to="/" replace />} />
                     <Route path="/chat" element={<Suspense fallback={null}><Chat /></Suspense>} />
                     <Route path="/wiki/*" element={<Suspense fallback={null}><WikiApp /></Suspense>} />

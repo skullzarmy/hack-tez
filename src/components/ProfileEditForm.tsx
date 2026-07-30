@@ -31,8 +31,16 @@ import type {
 	BuilderStatus,
 	HackProfile,
 	ProjectEntry,
+	TipJar,
 } from "../types/profile";
-import { isValidUrl } from "../types/profile";
+import {
+	DEFAULT_PROJECT_TIP_TITLE,
+	isTezosAddress,
+	isValidTipAmount,
+	isValidUrl,
+	sanitizeTipJar,
+} from "../types/profile";
+import { TipJarEditor } from "./TipJarEditor";
 import Select from "./ui/Select";
 
 // ── Shared Input Styles ──────────────────────────────────────────────
@@ -553,6 +561,7 @@ function ProjectEditor({
 	onRemove,
 	pendingLogo,
 	onLogoFileSelected,
+	defaultTipRecipient,
 }: {
 	project: ProjectEntry;
 	index: number;
@@ -560,6 +569,7 @@ function ProjectEditor({
 	onRemove: () => void;
 	pendingLogo: File | undefined;
 	onLogoFileSelected: (file: File) => void;
+	defaultTipRecipient: string;
 }) {
 	const update = useCallback(
 		(field: keyof ProjectEntry, value: string) => {
@@ -748,6 +758,18 @@ function ProjectEditor({
 				pendingFile={pendingLogo}
 				index={index}
 			/>
+
+			<TipJarEditor
+				jar={project.tips}
+				onChange={(tips) => onChange({ ...project, tips })}
+				idPrefix={`project-${index}-tip`}
+				heading="Project Tip Jar"
+				toggleLabel="Accept tips for this project"
+				defaultTitle={
+					project.name ? `Support ${project.name}` : DEFAULT_PROJECT_TIP_TITLE
+				}
+				defaultRecipient={defaultTipRecipient}
+			/>
 		</div>
 	);
 }
@@ -756,7 +778,42 @@ function ProjectEditor({
 
 interface ValidationErrors {
 	website?: string;
+	tips?: string;
 	projects?: Record<number, Record<string, string>>;
+}
+
+/**
+ * Tip jar problems that would otherwise be silently dropped by
+ * `sanitizeTipJar`. Returns a message, or null when the jar is fine.
+ */
+function validateTipJar(jar: TipJar | undefined): string | null {
+	if (!jar?.enabled) return null;
+
+	const payTo = jar.payTo?.trim();
+	if (payTo && !isTezosAddress(payTo)) {
+		return `"${payTo}" is not a valid Tezos address`;
+	}
+
+	const badAmount = (amounts: string[] | undefined, decimals: number) =>
+		(amounts ?? []).find((a) => a.trim() !== "" && !isValidTipAmount(a, decimals));
+
+	const badTez = badAmount(jar.amounts, 6);
+	if (badTez) return `"${badTez}" is not a valid tez amount`;
+
+	for (const token of jar.tokens ?? []) {
+		const bad = badAmount(token.amounts, token.decimals);
+		if (bad) return `"${bad}" is not a valid ${token.symbol} amount`;
+	}
+
+	const hasWay =
+		(jar.amounts ?? []).some((a) => a.trim() !== "") ||
+		jar.customAmount === true ||
+		(jar.tokens?.length ?? 0) > 0;
+	if (!hasWay) {
+		return "add a preset amount, a token, or turn on custom amounts";
+	}
+
+	return null;
 }
 
 function validateForm(form: HackProfile): ValidationErrors {
@@ -765,6 +822,9 @@ function validateForm(form: HackProfile): ValidationErrors {
 	if (form.website && !isValidUrl(form.website)) {
 		errors.website = "Must start with https:// or ipfs://";
 	}
+
+	const tipError = validateTipJar(form.tips);
+	if (tipError) errors.tips = tipError;
 
 	if (form.projects && form.projects.length > 0) {
 		const projectErrors: Record<number, Record<string, string>> = {};
@@ -778,6 +838,8 @@ function validateForm(form: HackProfile): ValidationErrors {
 				pErr.repo = "Must start with https:// or ipfs://";
 			if (p.logo && !isValidUrl(p.logo))
 				pErr.logo = "Must start with https:// or ipfs://";
+			const pTipError = validateTipJar(p.tips);
+			if (pTipError) pErr.tips = `Tip jar — ${pTipError}`;
 			if (Object.keys(pErr).length > 0) projectErrors[i] = pErr;
 		});
 		if (Object.keys(projectErrors).length > 0) errors.projects = projectErrors;
@@ -789,6 +851,7 @@ function validateForm(form: HackProfile): ValidationErrors {
 function hasValidationErrors(errors: ValidationErrors): boolean {
 	return !!(
 		errors.website ||
+		errors.tips ||
 		(errors.projects && Object.keys(errors.projects).length > 0)
 	);
 }
@@ -820,6 +883,8 @@ export interface ProfileEditState {
 	saveStatus: string | null;
 	staleWarning: boolean;
 	hasChanges: boolean;
+	/** Address tips default to — the domain's resolution address, else its owner. */
+	tipRecipient: string;
 	pendingAvatar: File | null;
 	pendingLogos: Record<number, File>;
 	enterEditMode: (profile: HackProfile) => void;
@@ -1000,6 +1065,7 @@ export function useProfileEdit(
 		if (hasValidationErrors(errors)) {
 			const messages: string[] = [];
 			if (errors.website) messages.push(`Website: ${errors.website}`);
+			if (errors.tips) messages.push(`Tip jar: ${errors.tips}`);
 			if (errors.projects) {
 				for (const [idx, pErr] of Object.entries(errors.projects)) {
 					for (const msg of Object.values(pErr)) {
@@ -1070,6 +1136,24 @@ export function useProfileEdit(
 				}
 			}
 
+			// Tip jars carry editor-only artifacts (blank preset slots, untrimmed
+			// text). Normalize before they hit the chain.
+			if ("tips" in finalForm) {
+				finalForm = { ...finalForm, tips: sanitizeTipJar(finalForm.tips) };
+			}
+			if (finalForm.projects) {
+				finalForm = {
+					...finalForm,
+					projects: finalForm.projects.map((p) => {
+						if (!("tips" in p)) return p;
+						const tips = sanitizeTipJar(p.tips);
+						if (tips) return { ...p, tips };
+						const { tips: _drop, ...rest } = p;
+						return rest;
+					}),
+				};
+			}
+
 			setSaveStatus("Confirm transaction in wallet…");
 			walletActiveRef.current = true;
 			const opHash = await submitProfileUpdate(label, finalForm, client);
@@ -1138,6 +1222,7 @@ export function useProfileEdit(
 		saveStatus,
 		staleWarning,
 		hasChanges,
+		tipRecipient: record?.address ?? record?.owner ?? "",
 		pendingAvatar,
 		pendingLogos,
 		enterEditMode,
@@ -1964,6 +2049,7 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
 		submitting,
 		submitError,
 		staleWarning,
+		tipRecipient,
 		pendingAvatar,
 		pendingLogos,
 		updateField,
@@ -2062,6 +2148,13 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
 				/>
 			</div>
 
+			{/* ── Tip Jar ─────────────────────────────────────── */}
+			<TipJarEditor
+				jar={form.tips}
+				onChange={(tips) => updateField("tips", tips)}
+				defaultRecipient={tipRecipient}
+			/>
+
 			{/* ── Projects ────────────────────────────────────── */}
 			<fieldset
 				style={{
@@ -2085,6 +2178,7 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
 							onRemove={() => removeProject(i)}
 							pendingLogo={pendingLogos[i]}
 							onLogoFileSelected={(file) => setPendingLogo(i, file)}
+							defaultTipRecipient={tipRecipient}
 						/>
 					))}
 				</div>

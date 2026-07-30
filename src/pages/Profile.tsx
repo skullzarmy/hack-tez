@@ -12,7 +12,7 @@ import {
 	SiX,
 	SiYoutube,
 } from "@icons-pack/react-simple-icons";
-import { ArrowLeft, ExternalLink, Globe } from "lucide-react";
+import { ArrowLeft, Globe } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Hackatar } from "../components/Hackatar";
@@ -21,6 +21,8 @@ import {
 	useProfileEdit,
 } from "../components/ProfileEditForm";
 import { ProfileShareStudio } from "../components/ProfileShareStudio";
+import { ProjectCard } from "../components/ProjectCard";
+import { TipJar } from "../components/TipJar";
 import config from "../config/tezos";
 import { useTezos } from "../context/TezosContext";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
@@ -28,22 +30,11 @@ import { usePageMeta } from "../hooks/usePageMeta";
 import { useTedContracts } from "../hooks/useTedContracts";
 import type { DomainRecord } from "../lib/domains";
 import { getDomainRecord } from "../lib/domains";
-import { ipfsUriToGatewayUrl } from "../lib/pin";
-import type { BuilderStatus, HackProfile, ProjectEntry } from "../types/profile";
+import { safeHref, truncateAddress } from "../lib/profileDisplay";
+import type { BuilderStatus, HackProfile } from "../types/profile";
+import { tipJarIsLive } from "../types/profile";
 
 // ── Helpers ──────────────────────────────────────────────────────────
-
-/** Only allow https:// and ipfs:// URLs in rendered links — blocks javascript:, data:, etc. */
-function safeHref(url: string | undefined): string | null {
-	if (!url) return null;
-	if (url.startsWith("https://") || url.startsWith("ipfs://")) return url;
-	return null;
-}
-
-function truncateAddress(addr: string): string {
-	if (addr.length <= 12) return addr;
-	return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
 
 function resolveAvatarUrl(
 	profile: HackProfile,
@@ -115,21 +106,6 @@ const STATUS_STYLES: Record<
 	},
 	available: { bg: "var(--warn-bg)", color: "var(--warn)", label: "Available" },
 	hiring: { bg: "var(--purple-bg)", color: "var(--purple)", label: "Hiring" },
-};
-
-const ENV_STYLES: Record<string, { bg: string; color: string }> = {
-	tezos: { bg: "var(--info-bg)", color: "var(--info)" },
-	etherlink: { bg: "var(--purple-bg)", color: "var(--purple)" },
-	tezlink: { bg: "var(--ok-bg)", color: "var(--ok)" },
-	web: { bg: "var(--warn-bg)", color: "var(--warn)" },
-	other: { bg: "rgba(148,163,184,0.12)", color: "var(--fg-3)" },
-};
-
-const PROJECT_STATUS_STYLES: Record<string, { bg: string; color: string }> = {
-	live: { bg: "var(--ok-bg)", color: "var(--ok)" },
-	wip: { bg: "var(--warn-bg)", color: "var(--warn)" },
-	archived: { bg: "rgba(148,163,184,0.15)", color: "var(--fg-3)" },
-	"open-source": { bg: "var(--purple-bg)", color: "var(--purple)" },
 };
 
 // ── Sub-components ───────────────────────────────────────────────────
@@ -249,164 +225,6 @@ function SkillChip({ skill }: { skill: string }) {
 		>
 			{skill}
 		</span>
-	);
-}
-
-function ProjectCard({ project }: { project: ProjectEntry }) {
-	const envStyle = project.environment
-		? (ENV_STYLES[project.environment] ?? ENV_STYLES.other)
-		: null;
-	const statusStyle = project.status
-		? (PROJECT_STATUS_STYLES[project.status] ?? null)
-		: null;
-	const projectUrl = safeHref(project.url);
-	const repoUrl = safeHref(project.repo);
-	const logoUrl = project.logo
-		? project.logo.startsWith("ipfs://")
-			? ipfsUriToGatewayUrl(project.logo)
-			: safeHref(project.logo)
-		: null;
-
-	return (
-		<div
-			style={{
-				background: "var(--bg-2)",
-				border: "1px solid var(--border)",
-				borderRadius: "8px",
-				padding: "1.25rem",
-				display: "flex",
-				gap: "1rem",
-			}}
-		>
-			{logoUrl && (
-				<img
-					src={logoUrl}
-					alt={`${project.name} logo`}
-					style={{
-						width: 44,
-						height: 44,
-						borderRadius: "6px",
-						objectFit: "cover",
-						border: "1px solid var(--border)",
-						flexShrink: 0,
-					}}
-				/>
-			)}
-			<div
-				style={{
-					display: "flex",
-					flexDirection: "column",
-					gap: "0.6rem",
-					flex: 1,
-					minWidth: 0,
-				}}
-			>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: "0.5rem",
-						flexWrap: "wrap",
-					}}
-				>
-					<span
-						style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--fg)" }}
-					>
-						{project.name}
-					</span>
-					{statusStyle && project.status && (
-						<span
-							style={{
-								background: statusStyle.bg,
-								color: statusStyle.color,
-								padding: "0.1rem 0.45rem",
-								borderRadius: "9999px",
-								fontSize: "0.6rem",
-								fontWeight: 700,
-								letterSpacing: "0.04em",
-								textTransform: "uppercase",
-							}}
-						>
-							{project.status}
-						</span>
-					)}
-					{envStyle && project.environment && (
-						<span
-							style={{
-								background: envStyle.bg,
-								color: envStyle.color,
-								padding: "0.1rem 0.45rem",
-								borderRadius: "9999px",
-								fontSize: "0.6rem",
-								fontWeight: 700,
-								letterSpacing: "0.04em",
-							}}
-						>
-							{project.environment}
-						</span>
-					)}
-				</div>
-				<p
-					style={{
-						color: "var(--fg-2)",
-						fontSize: "0.8rem",
-						lineHeight: 1.5,
-						margin: 0,
-					}}
-				>
-					{project.desc}
-				</p>
-				{(project.url || project.repo || project.address) && (
-					<div
-						style={{
-							display: "flex",
-							gap: "0.75rem",
-							flexWrap: "wrap",
-							fontSize: "0.7rem",
-						}}
-					>
-						{projectUrl && (
-							<a
-								href={projectUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								style={{
-									color: "var(--ok)",
-									textDecoration: "none",
-									display: "inline-flex",
-									alignItems: "center",
-									gap: "0.35em",
-								}}
-							>
-								<ExternalLink size={14} aria-hidden="true" /> Website
-							</a>
-						)}
-						{repoUrl && (
-							<a
-								href={repoUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								style={{ color: "var(--fg-2)", textDecoration: "none" }}
-							>
-								⌥ Repo
-							</a>
-						)}
-						{project.address && (
-							<span
-								style={{
-									color: "var(--fg-3)",
-									fontFamily: "var(--font)",
-									letterSpacing: "0.03em",
-								}}
-								title={project.address}
-							>
-								◎ {project.address.slice(0, 8)}…
-							</span>
-						)}
-					</div>
-				)}
-			</div>
-		</div>
 	);
 }
 
@@ -617,12 +435,16 @@ export default function Profile() {
 	const { profile, owner, gravatar } = record;
 	const isOwner = walletAddress !== null && walletAddress === owner;
 
+	// Tips default to the domain's resolution address, falling back to its owner.
+	const tipRecipient = profile.tips?.payTo || record.address || owner;
+
 	const hasProfileData = !!(
 		profile.bio ||
 		profile.status ||
 		profile.skills?.length ||
 		profile.projects?.length ||
 		profile.location ||
+		tipJarIsLive(profile.tips) ||
 		SOCIAL_PLATFORMS.some((p) => !!profile[p.field])
 	);
 
@@ -864,6 +686,20 @@ export default function Profile() {
 							</div>
 						)}
 
+						{/* ── Tip Jar ────────────────────────────────────── */}
+						<TipJar
+							jar={profile.tips}
+							recipient={tipRecipient}
+							isSelf={isOwner}
+							info={{
+								label,
+								fullName,
+								displayName,
+								twitter: profile.twitter,
+								bluesky: profile.bluesky,
+							}}
+						/>
+
 						{/* ── Skills ─────────────────────────────────────── */}
 						{profile.skills && profile.skills.length > 0 && (
 							<section style={{ marginBottom: "1.5rem" }}>
@@ -912,7 +748,11 @@ export default function Profile() {
 									}}
 								>
 									{profile.projects.map((project) => (
-										<ProjectCard key={project.name} project={project} />
+										<ProjectCard
+											key={project.name}
+											project={project}
+											ownerLabel={label}
+										/>
 									))}
 								</div>
 							</section>

@@ -28,6 +28,7 @@ import {
 	seedFromHash,
 	selectTraits,
 } from "../../src/lib/hackatar/index.ts";
+import { parseProfileFromData } from "../../src/types/profile.ts";
 import {
 	formatShareStatus,
 	getDefaultProfileShareState,
@@ -410,139 +411,10 @@ async function tedGql<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Profile parsing (inlined — avoids a circular dependency with src/types)
+// Profile parsing
 // ---------------------------------------------------------------------------
-
-interface ProfileProject {
-	name: string;
-	desc: string;
-	url?: string;
-	repo?: string;
-	environment?: string;
-	address?: string;
-	subdomain?: string;
-	status?: string;
-	logo?: string;
-}
-
-interface HackProfile {
-	name?: string;
-	nickname?: string;
-	website?: string;
-	picture?: string;
-	github?: string;
-	twitter?: string;
-	bluesky?: string;
-	repositoryUrl?: string;
-	bio?: string;
-	location?: string;
-	status?: string;
-	skills?: string[];
-	projects?: ProfileProject[];
-	// hack.tez social keys — one per platform, ecosystem-safe
-	mastodon?: string;
-	farcaster?: string;
-	telegram?: string;
-	discord?: string;
-	instagram?: string;
-	youtube?: string;
-	twitch?: string;
-}
-
-const PROFILE_KEY_MAP: Record<string, string> = {
-	name: "openid:name",
-	nickname: "openid:nickname",
-	website: "openid:website",
-	picture: "openid:picture",
-	github: "github:username",
-	twitter: "twitter:handle",
-	bluesky: "bluesky:did",
-	repositoryUrl: "project:repository_url",
-	bio: "hack:bio",
-	location: "hack:location",
-	status: "hack:status",
-	skills: "hack:skills",
-	projects: "hack:projects",
-	mastodon: "hack:mastodon",
-	farcaster: "hack:farcaster",
-	telegram: "hack:telegram",
-	discord: "hack:discord",
-	instagram: "hack:instagram",
-	youtube: "hack:youtube",
-	twitch: "hack:twitch",
-};
-
-const REVERSE_PROFILE_KEY_MAP = new Map<string, string>(
-	Object.entries(PROFILE_KEY_MAP).map(([field, tedKey]) => [tedKey, field]),
-);
-
-const VALID_STATUSES = ["building", "open-to-collab", "available", "hiring"];
-
-function parseProfileFromData(
-	data: Array<{ key: string; value: unknown }>,
-): HackProfile {
-	const profile: HackProfile = {};
-
-	for (const { key, value } of data) {
-		if (value === null || value === undefined) continue;
-
-		const field = REVERSE_PROFILE_KEY_MAP.get(key);
-		if (field === undefined) continue;
-
-		if (key.startsWith("hack:")) {
-			// TED already JSON-parsed these — use values directly
-			// Simple string social fields
-			const HACK_STRING_FIELDS = new Set([
-				"mastodon", "farcaster", "telegram", "discord",
-				"instagram", "youtube", "twitch",
-			]);
-			if (HACK_STRING_FIELDS.has(field)) {
-				if (typeof value === "string")
-					(profile as Record<string, unknown>)[field] = value;
-				continue;
-			}
-			switch (field) {
-				case "bio":
-					if (typeof value === "string") profile.bio = value.slice(0, 160);
-					break;
-				case "location":
-					if (typeof value === "string") profile.location = value.slice(0, 60);
-					break;
-				case "status":
-					if (typeof value === "string" && VALID_STATUSES.includes(value))
-						profile.status = value;
-					break;
-				case "skills":
-					if (Array.isArray(value)) {
-						const items = value
-							.filter((i): i is string => typeof i === "string")
-							.slice(0, 10);
-						if (items.length > 0) profile.skills = items;
-					}
-					break;
-				case "projects":
-					if (Array.isArray(value)) {
-						const items = value.filter(
-							(v): v is ProfileProject =>
-								typeof v === "object" &&
-								v !== null &&
-								typeof v.name === "string" &&
-								typeof v.desc === "string",
-						);
-						if (items.length > 0) profile.projects = items;
-					}
-					break;
-			}
-		} else {
-			// TED native keys — values are already decoded strings
-			if (typeof value === "string") {
-				(profile as Record<string, unknown>)[field] = value;
-			}
-		}
-	}
-
-	return profile;
-}
+// Shared verbatim with the client via src/types/profile.ts — that module is
+// import-free precisely so this runtime can use it. Never fork a second copy.
 
 // ---------------------------------------------------------------------------
 // Handlers

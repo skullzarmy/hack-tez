@@ -1,4 +1,11 @@
-import { validateLabel } from "../lib/domains.ts";
+/**
+ * Profile schema, parsing and validation.
+ *
+ * Runtime-agnostic on purpose: this module has NO imports, so it can be shared
+ * verbatim by the Vite client and the Netlify Functions runtime (which has no
+ * `import.meta.env`). Do not import `config`, `lib/domains`, or anything that
+ * reaches them — that would force the API to fork a second copy of this parser.
+ */
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -14,6 +21,72 @@ export interface ProjectEntry {
   subdomain?: string;
   status?: "live" | "wip" | "archived" | "open-source";
   logo?: string;
+  /** Per-project tip jar. Independent of the profile-level jar. */
+  tips?: TipJar;
+}
+
+/**
+ * URL slug for a project, used at /u/:label/p/:slug.
+ * Lowercased, non-alphanumerics collapsed to single dashes.
+ */
+export function projectSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+/** Find a project by its URL slug. Returns null when nothing matches. */
+export function findProjectBySlug(
+  projects: ProjectEntry[] | undefined,
+  slug: string,
+): ProjectEntry | null {
+  if (!projects) return null;
+  const target = slug.toLowerCase();
+  return projects.find((p) => projectSlug(p.name) === target) ?? null;
+}
+
+/** FA standards we can build a transfer for: TZIP-7 (FA1.2) and TZIP-12 (FA2). */
+export type FaStandard = "fa1.2" | "fa2";
+
+/** A fungible token a builder accepts tips in, resolved from on-chain metadata. */
+export interface TipToken {
+  /** FA contract address (KT1…) */
+  contract: string;
+  /** Token id — always "0" for FA1.2 */
+  tokenId: string;
+  standard: FaStandard;
+  symbol: string;
+  name?: string;
+  /** TZIP-12 decimals — needed to convert display amounts to raw units */
+  decimals: number;
+  /** ipfs:// or https:// icon from token metadata */
+  thumbnail?: string;
+  /** Preset amounts in display units (decimal strings), up to MAX_TIP_AMOUNTS */
+  amounts?: string[];
+}
+
+/**
+ * Tip jar config. Opt-in — absent or `enabled: false` means no jar is shown.
+ * hack.tez takes no cut: the UI only prepares a wallet transaction sent
+ * directly from the tipper to the domain's address.
+ */
+export interface TipJar {
+  enabled: boolean;
+  title?: string;
+  desc?: string;
+  /** Preset tez amounts (decimal strings), up to MAX_TIP_AMOUNTS */
+  amounts?: string[];
+  /** Show a free-form tez amount input */
+  customAmount?: boolean;
+  tokens?: TipToken[];
+  /**
+   * Optional recipient override. Defaults to the domain's resolved address.
+   * Lets a project route tips to its own treasury.
+   */
+  payTo?: string;
 }
 
 export interface HackProfile {
@@ -33,6 +106,7 @@ export interface HackProfile {
   status?: BuilderStatus;
   skills?: string[];
   projects?: ProjectEntry[];
+  tips?: TipJar;
 
   // hack.tez social keys — one per platform, ecosystem-safe
   mastodon?: string;
@@ -60,6 +134,7 @@ export const PROFILE_KEY_MAP = {
   status: "hack:status",
   skills: "hack:skills",
   projects: "hack:projects",
+  tips: "hack:tips",
   mastodon: "hack:mastodon",
   farcaster: "hack:farcaster",
   telegram: "hack:telegram",
@@ -96,10 +171,6 @@ export function isValidUrl(url: string): boolean {
   return url.startsWith("https://") || url.startsWith("ipfs://");
 }
 
-export function isValidLabel(label: string): boolean {
-  return validateLabel(label).valid;
-}
-
 // ── Parsing ──────────────────────────────────────────────────────────
 
 function isBuilderStatus(v: unknown): v is BuilderStatus {
@@ -120,8 +191,209 @@ function isProjectEntry(v: unknown): v is ProjectEntry {
 
 function parseProjects(v: unknown): ProjectEntry[] | undefined {
   if (!Array.isArray(v)) return undefined;
-  const items = v.filter(isProjectEntry);
+  // Unknown fields are preserved as-is (forward compatibility); only the tip
+  // jar sub-object is normalized, since we build transactions from it.
+  const items = v.filter(isProjectEntry).map((p) => {
+    const tips = parseTipJar((p as { tips?: unknown }).tips);
+    if (!tips) {
+      const { tips: _drop, ...rest } = p as ProjectEntry;
+      return rest as ProjectEntry;
+    }
+    return { ...p, tips };
+  });
   return items.length > 0 ? items : undefined;
+}
+
+// ── Tip Jar ──────────────────────────────────────────────────────────
+
+export const MAX_TIP_AMOUNTS = 3;
+export const MAX_TIP_TOKENS = 6;
+export const TIP_TITLE_MAX = 40;
+export const TIP_DESC_MAX = 140;
+
+export const DEFAULT_TIP_TITLE = "Tip your dev";
+export const DEFAULT_PROJECT_TIP_TITLE = "Support this project";
+
+/** Suggested titles offered in the editor — the first is the default. */
+export const TIP_TITLE_SUGGESTIONS: readonly string[] = [
+  DEFAULT_TIP_TITLE,
+  "Buy me a coffee",
+  "Fuel the build",
+  "Support my work",
+];
+
+export const DEFAULT_TIP_AMOUNTS: readonly string[] = ["1", "5", "10"];
+
+const KT1_RE = /^KT1[1-9A-HJ-NP-Za-km-z]{33}$/;
+const ADDRESS_RE = /^(tz[123]|KT1)[1-9A-HJ-NP-Za-km-z]{33}$/;
+
+export function isContractAddress(v: string): boolean {
+  return KT1_RE.test(v.trim());
+}
+
+/** Any Tezos address — implicit (tz1/tz2/tz3) or originated (KT1). */
+export function isTezosAddress(v: string): boolean {
+  return ADDRESS_RE.test(v.trim());
+}
+
+/**
+ * A tip amount is a positive decimal with at most `decimals` fraction digits.
+ * Rejects 0, negatives, exponents and thousands separators.
+ */
+export function isValidTipAmount(v: string, decimals = 6): boolean {
+  const t = v.trim();
+  if (!t) return false;
+  const re = new RegExp(
+    decimals > 0 ? `^\\d+(\\.\\d{1,${decimals}})?$` : "^\\d+$",
+  );
+  if (!re.test(t)) return false;
+  return Number(t) > 0;
+}
+
+function parseTipAmounts(v: unknown, decimals: number): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const items = v
+    .filter((i): i is string => typeof i === "string")
+    .filter((i) => isValidTipAmount(i, decimals))
+    .slice(0, MAX_TIP_AMOUNTS);
+  return items.length > 0 ? items : undefined;
+}
+
+function parseTipToken(v: unknown): TipToken | null {
+  if (typeof v !== "object" || v === null) return null;
+  const o = v as Record<string, unknown>;
+
+  if (typeof o.contract !== "string" || !isContractAddress(o.contract)) return null;
+  if (o.standard !== "fa1.2" && o.standard !== "fa2") return null;
+
+  const tokenId =
+    typeof o.tokenId === "string" && /^\d+$/.test(o.tokenId) ? o.tokenId : "0";
+
+  const decimals =
+    typeof o.decimals === "number" && Number.isInteger(o.decimals) &&
+    o.decimals >= 0 && o.decimals <= 30
+      ? o.decimals
+      : null;
+  if (decimals === null) return null;
+
+  if (typeof o.symbol !== "string" || !o.symbol.trim()) return null;
+
+  const token: TipToken = {
+    contract: o.contract.trim(),
+    tokenId: o.standard === "fa1.2" ? "0" : tokenId,
+    standard: o.standard,
+    symbol: o.symbol.trim().slice(0, 16),
+    decimals,
+  };
+  if (typeof o.name === "string" && o.name.trim()) {
+    token.name = o.name.trim().slice(0, 60);
+  }
+  if (typeof o.thumbnail === "string" && o.thumbnail.trim()) {
+    token.thumbnail = o.thumbnail.trim().slice(0, 200);
+  }
+  const amounts = parseTipAmounts(o.amounts, decimals);
+  if (amounts) token.amounts = amounts;
+
+  return token;
+}
+
+function parseTipJar(v: unknown): TipJar | undefined {
+  if (typeof v !== "object" || v === null) return undefined;
+  const o = v as Record<string, unknown>;
+
+  const jar: TipJar = { enabled: o.enabled === true };
+
+  if (typeof o.title === "string" && o.title.trim()) {
+    jar.title = o.title.trim().slice(0, TIP_TITLE_MAX);
+  }
+  if (typeof o.desc === "string" && o.desc.trim()) {
+    jar.desc = o.desc.trim().slice(0, TIP_DESC_MAX);
+  }
+  const amounts = parseTipAmounts(o.amounts, 6);
+  if (amounts) jar.amounts = amounts;
+  if (o.customAmount === true) jar.customAmount = true;
+  if (typeof o.payTo === "string" && isTezosAddress(o.payTo)) {
+    jar.payTo = o.payTo.trim();
+  }
+
+  if (Array.isArray(o.tokens)) {
+    const tokens = o.tokens
+      .map(parseTipToken)
+      .filter((t): t is TipToken => t !== null)
+      .slice(0, MAX_TIP_TOKENS);
+    if (tokens.length > 0) jar.tokens = tokens;
+  }
+
+  return jar;
+}
+
+/**
+ * Normalize a jar for writing on-chain: drop blank/invalid preset amounts
+ * (the editor keeps empty slots), trim text, and collapse a jar that is both
+ * off and unconfigured to `undefined` so the TED key gets deleted.
+ */
+export function sanitizeTipJar(jar: TipJar | undefined): TipJar | undefined {
+  if (!jar) return undefined;
+
+  const clean = (amounts: string[] | undefined, decimals: number) => {
+    const kept = (amounts ?? [])
+      .map((a) => a.trim())
+      .filter((a) => isValidTipAmount(a, decimals))
+      .slice(0, MAX_TIP_AMOUNTS);
+    return kept.length > 0 ? kept : undefined;
+  };
+
+  const out: TipJar = { enabled: jar.enabled === true };
+
+  const title = jar.title?.trim();
+  if (title) out.title = title.slice(0, TIP_TITLE_MAX);
+  const desc = jar.desc?.trim();
+  if (desc) out.desc = desc.slice(0, TIP_DESC_MAX);
+
+  const amounts = clean(jar.amounts, 6);
+  if (amounts) out.amounts = amounts;
+  if (jar.customAmount === true) out.customAmount = true;
+  const payTo = jar.payTo?.trim();
+  if (payTo && isTezosAddress(payTo)) out.payTo = payTo;
+
+  const tokens = (jar.tokens ?? []).slice(0, MAX_TIP_TOKENS).map((t) => {
+    const token: TipToken = {
+      contract: t.contract,
+      tokenId: t.tokenId,
+      standard: t.standard,
+      symbol: t.symbol,
+      decimals: t.decimals,
+    };
+    if (t.name) token.name = t.name;
+    if (t.thumbnail) token.thumbnail = t.thumbnail;
+    const tokenAmounts = clean(t.amounts, t.decimals);
+    if (tokenAmounts) token.amounts = tokenAmounts;
+    return token;
+  });
+  if (tokens.length > 0) out.tokens = tokens;
+
+  // Never persist an empty, disabled jar — delete the key instead.
+  if (
+    !out.enabled &&
+    !out.title &&
+    !out.desc &&
+    !out.amounts &&
+    !out.tokens &&
+    !out.payTo
+  ) {
+    return undefined;
+  }
+  return out;
+}
+
+/** True when the jar is on and offers at least one way to tip. */
+export function tipJarIsLive(jar: TipJar | undefined): jar is TipJar {
+  if (!jar?.enabled) return false;
+  return (
+    (jar.amounts?.length ?? 0) > 0 ||
+    jar.customAmount === true ||
+    (jar.tokens?.length ?? 0) > 0
+  );
 }
 
 // Simple string hack: fields (single-value social platforms)
@@ -166,6 +438,9 @@ export function parseProfileFromData(
           break;
         case "projects":
           profile.projects = parseProjects(value);
+          break;
+        case "tips":
+          profile.tips = parseTipJar(value);
           break;
       }
     } else {
