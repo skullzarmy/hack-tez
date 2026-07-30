@@ -47,18 +47,44 @@ const Fa2Deployer = lazy(() => import("./pages/labs/Fa2Deployer"));
 interface ErrorBoundaryState {
     hasError: boolean;
     message: string;
+    /** True when the failure looks like a stale lazy chunk after a deploy. */
+    stale: boolean;
+}
+
+/** Every browser's phrasing for "the lazy chunk you asked for is gone". */
+const STALE_CHUNK_RE =
+    /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|expected a javascript(-or-wasm)? module/i;
+
+/** Guards against a reload loop if the fresh HTML is broken too. */
+const RELOAD_FLAG = "hacktez:chunk-reload";
+
+function isStaleChunkError(err: Error): boolean {
+    return STALE_CHUNK_RE.test(err?.message ?? "");
 }
 
 class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
-    state: ErrorBoundaryState = { hasError: false, message: "" };
+    state: ErrorBoundaryState = { hasError: false, message: "", stale: false };
 
     static getDerivedStateFromError(err: Error): ErrorBoundaryState {
-        return { hasError: true, message: err.message };
+        return { hasError: true, message: err.message, stale: isStaleChunkError(err) };
     }
 
     componentDidCatch(err: Error, info: ErrorInfo) {
         if (import.meta.env.DEV) {
             console.error("[hack.tez] Unhandled render error:", err, info.componentStack);
+        }
+
+        // A deploy rehashes every lazy chunk, so a tab open across one asks for
+        // a file that no longer exists. The module graph caches that rejection,
+        // so re-rendering can never recover — only a fresh document can. Reload
+        // once, and only once, so a genuinely broken build doesn't spin.
+        if (!isStaleChunkError(err)) return;
+        try {
+            if (sessionStorage.getItem(RELOAD_FLAG)) return;
+            sessionStorage.setItem(RELOAD_FLAG, "1");
+            window.location.reload();
+        } catch {
+            // sessionStorage can throw in private mode — fall through to the UI.
         }
     }
 
@@ -77,13 +103,30 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                         maxWidth: "600px",
                     }}
                 >
-                    <h1 style={{ fontSize: "1rem", marginBottom: "1rem" }}>// SYSTEM ERROR</h1>
+                    <h1 style={{ fontSize: "1rem", marginBottom: "1rem" }}>
+                        {this.state.stale ? "// NEW VERSION AVAILABLE" : "// SYSTEM ERROR"}
+                    </h1>
                     <p style={{ color: "var(--fg, #fff)", marginBottom: "1.5rem" }}>
-                        {this.state.message || "Something went wrong. Please reload."}
+                        {this.state.stale
+                            ? "hack.tez was updated while this tab was open. Reload to get the latest version."
+                            : this.state.message || "Something went wrong. Please reload."}
                     </p>
                     <button
                         type="button"
-                        onClick={() => this.setState({ hasError: false, message: "" })}
+                        // Clearing state can't fix a dead chunk — the failed import
+                        // is cached for the life of the document. Reload instead.
+                        onClick={() => {
+                            if (this.state.stale) {
+                                try {
+                                    sessionStorage.removeItem(RELOAD_FLAG);
+                                } catch {
+                                    // ignore — reload regardless
+                                }
+                                window.location.reload();
+                                return;
+                            }
+                            this.setState({ hasError: false, message: "", stale: false });
+                        }}
                         style={{
                             background: "var(--fg, #fff)",
                             color: "var(--bg, #000)",
@@ -93,7 +136,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                             cursor: "pointer",
                         }}
                     >
-                        RETRY
+                        {this.state.stale ? "RELOAD" : "RETRY"}
                     </button>
                 </div>
             );
@@ -399,6 +442,16 @@ export function AppShell() {
 }
 
 export default function App() {
+    // The app rendered, so whatever chunk failed before is resolved. Release
+    // the one-shot guard so a future deploy can auto-recover this tab too.
+    useEffect(() => {
+        try {
+            sessionStorage.removeItem(RELOAD_FLAG);
+        } catch {
+            // sessionStorage unavailable — the guard simply stays as-is.
+        }
+    }, []);
+
     return (
         <ErrorBoundary>
             <TezosProvider>

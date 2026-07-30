@@ -22,6 +22,17 @@
     "hackcade/sdk/hackcade-sdk.js",
   ]
 
+# Missing build assets must 404, not fall through to the SPA catch-all below.
+# Existing files are served before redirects run, so this only fires for a
+# hash that no longer exists — i.e. a client still running a previous deploy.
+# Without it the catch-all returns index.html with a 200, the browser parses
+# HTML as JavaScript, and a recoverable stale-chunk miss becomes an opaque
+# "Failed to fetch dynamically imported module". Must precede the catch-all.
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 404
+
 # SPA routing — all paths serve index.html
 [[redirects]]
   from = "/*"
