@@ -33,13 +33,298 @@ hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (
 **Local dev:** `http://localhost:8888`
 **Response envelope (success):** `{ "data": ..., "network": "ghostnet" | "mainnet" }`
 **Response envelope (error):** `{ "error": "...", "code": "INVALID_INPUT" | "UPSTREAM_ERROR" | "METHOD_NOT_ALLOWED" }`
-**Cache:** responses are CDN-cached at the edge; the `/domains` list is additionally cached in Upstash Redis with serve-stale-while-revalidate (60 s fresh, 10 min hard TTL)
+**Cache:** responses are CDN-cached at the edge; the `/domains` list and the directory snapshot behind `/members` + `/projects` are additionally cached in Upstash Redis with serve-stale-while-revalidate (60 s fresh, 10 min hard TTL)
+
+---
+
+## Directory API
+
+The whole community in one call. `/domains` is the **registry** view (one row per registration); `/members` and `/projects` are the **directory** view — every member with their complete profile, every project with all of its metadata plus the slug and canonical page URL the site itself resolves it at.
+
+Use the directory endpoints when you want profiles and projects. Use `/domains` when you want registration facts.
+
+All three read one Redis-cached snapshot and filter it in memory, so filters are free. Every response carries:
+
+- `X-Cache` header — `HIT`, `STALE` or `MISS`
+- `generatedAt` — ISO timestamp of when the snapshot was built
+- `count` — rows in this page; `total` — rows in the filtered set
+
+---
+
+### GET /api/v1/members
+
+Every hack.tez member with their full profile: bio, location, builder status, skills, every social handle, tip jar config, and every project with all of its metadata. **Returns all members by default** — no paging required.
+
+**Query parameters:**
+
+| Param         | Type                     | Default      | Description                                                                              |
+| ------------- | ------------------------ | ------------ | ---------------------------------------------------------------------------------------- |
+| `limit`       | integer                  | 1000 (all)   | Max members to return (max 1000)                                                          |
+| `offset`      | integer                  | 0            | Skip this many members, applied after filtering                                           |
+| `sort`        | `name`/`newest`/`oldest` | `name`       | Alphabetical, or by registration time (members with no known registration sort last)      |
+| `status`      | string                   | —            | Builder status: `building`, `open-to-collab`, `available`, `hiring`                       |
+| `skill`       | string                   | —            | Exact skill match, case-insensitive                                                       |
+| `q`           | string                   | —            | Substring search over label, name, nickname, bio, location, skills, project names + descs |
+| `hasProjects` | `1`                      | —            | Only members with at least one project                                                    |
+| `projects`    | `none`                   | —            | Omit project bodies for a lighter payload (`counts.projects` stays accurate)              |
+| `tips`        | `1`                      | —            | Include chain-verified tip counters as `tipCounters`                                      |
+
+**Response:**
+
+```json
+{
+    "data": [
+        {
+            "name": "alice.hack.tez",
+            "label": "alice",
+            "owner": "tz1...",
+            "address": "tz1...",
+            "registeredAt": "2025-03-27T08:01:29Z",
+            "opHash": "oo...",
+            "urls": {
+                "profile": "https://hacktez.com/u/alice",
+                "api": "https://hacktez.com/api/v1/members/alice",
+                "avatar": "https://hacktez.com/api/v1/avatar/alice",
+                "hackatar": "https://hacktez.com/api/v1/hackatar/alice",
+                "shareCard": "https://hacktez.com/api/v1/share-card/alice",
+                "tips": "https://hacktez.com/api/v1/tips/alice"
+            },
+            "profile": {
+                "name": "Alice",
+                "picture": "ipfs://bafybei...",
+                "bio": "building on tezos",
+                "location": "berlin",
+                "status": "building",
+                "skills": ["typescript", "smartpy"],
+                "github": "alice",
+                "tips": { "enabled": true, "amounts": ["1", "5", "10"] },
+                "projects": [
+                    {
+                        "name": "Cold Milk",
+                        "desc": "on-chain generative art",
+                        "url": "https://coldmilk.xyz",
+                        "repo": "https://github.com/alice/coldmilk",
+                        "environment": "tezos",
+                        "address": "KT1...",
+                        "status": "live",
+                        "logo": "ipfs://bafybei...",
+                        "tips": { "enabled": true, "amounts": ["5"] },
+                        "slug": "cold-milk",
+                        "urls": { "page": "https://hacktez.com/u/alice/p/cold-milk" }
+                    }
+                ]
+            },
+            "counts": { "projects": 1, "skills": 2 }
+        }
+    ],
+    "count": 1,
+    "total": 1,
+    "limit": 1000,
+    "offset": 0,
+    "network": "mainnet",
+    "generatedAt": "2025-03-27T08:05:00.000Z"
+}
+```
+
+**Notes:**
+
+- `profile` is exactly what `/api/v1/profile/:name` returns, with `slug` and `urls` added to each project. Every other key is the on-chain value verbatim.
+- Keys the member never set are **absent**, not null. Treat every profile field as optional.
+- Nested subdomains (`a.b.hack.tez`) belong to a member and are never listed as one.
+- With `?tips=1`, `tipCounters` is `null` when the counter store is unreachable — distinguishable from a genuine zero. Counters are only looked up for members who actually have a tip jar; the lookup is pipelined, so it costs a couple of round trips regardless of directory size.
+
+**Usage:**
+
+```typescript
+// The entire community, profiles and projects included
+const { data, total } = await fetch("https://hacktez.com/api/v1/members").then((r) => r.json());
+
+for (const m of data) {
+    console.log(m.label, m.profile.status, `${m.counts.projects} projects`);
+    for (const p of m.profile.projects ?? []) {
+        console.log("  ", p.name, "→", p.urls.page);
+    }
+}
+
+// Everyone open to collaboration who writes SmartPy
+const smartpy = await fetch("https://hacktez.com/api/v1/members?status=open-to-collab&skill=smartpy").then((r) =>
+    r.json(),
+);
+```
+
+**Cache:** `s-maxage=120, stale-while-revalidate=300` + Redis SWR (60 s fresh / 10 min hard TTL)
+
+---
+
+### GET /api/v1/members/:name
+
+One member, in exactly the shape the list returns — code written against `/members` works unchanged on a single record. Accepts a bare label (`alice`) or the full name (`alice.hack.tez`).
+
+Reads through to TED rather than the directory snapshot, so a profile edit is visible immediately. Prefer this over `/api/v1/profile/:name` when you want project slugs and page URLs resolved for you.
+
+**Query parameters:** `tips=1` — include chain-verified tip counters.
+
+**Response:**
+
+```json
+{
+    "data": {
+        "name": "alice.hack.tez",
+        "label": "alice",
+        "owner": "tz1...",
+        "address": "tz1...",
+        "registeredAt": "2025-03-27T08:01:29Z",
+        "opHash": "oo...",
+        "urls": { "profile": "https://hacktez.com/u/alice", "...": "..." },
+        "profile": { "name": "Alice", "projects": ["..."] },
+        "counts": { "projects": 1, "skills": 2 },
+        "tipCounters": {
+            "count": 4,
+            "totals": [{ "asset": "tez", "symbol": "tez", "total": "21.5" }],
+            "projects": [{ "slug": "cold-milk", "count": 2, "totals": [{ "asset": "tez", "symbol": "tez", "total": "10" }] }]
+        }
+    },
+    "network": "mainnet"
+}
+```
+
+**Errors:**
+
+| Status | Code            | Reason                        |
+| ------ | --------------- | ----------------------------- |
+| 400    | `INVALID_INPUT` | Label fails validation        |
+| 404    | `NOT_FOUND`     | Name is not registered        |
+
+---
+
+### GET /api/v1/projects
+
+The same directory pivoted so projects are the rows: every project every member has published, with full metadata plus an embedded `member` block. Use it to build an ecosystem showcase without walking members yourself.
+
+**Query parameters:**
+
+| Param         | Type    | Default    | Description                                             |
+| ------------- | ------- | ---------- | ------------------------------------------------------- |
+| `environment` | string  | —          | `web`, `tezos`, `etherlink`, `tezlink`, `other`          |
+| `status`      | string  | —          | Project status: `live`, `wip`, `archived`, `open-source` |
+| `member`      | string  | —          | Only this member's projects (label or full name)         |
+| `q`           | string  | —          | Substring search over name, desc, url, repo, member label |
+| `limit`       | integer | 1000 (all) | Max projects to return (max 1000)                        |
+| `offset`      | integer | 0          | Skip this many projects, applied after filtering         |
+
+> `status` here is the **project** status, not the builder status used by `/members`.
+
+**Response:**
+
+```json
+{
+    "data": [
+        {
+            "name": "Cold Milk",
+            "desc": "on-chain generative art",
+            "url": "https://coldmilk.xyz",
+            "repo": "https://github.com/alice/coldmilk",
+            "environment": "tezos",
+            "address": "KT1...",
+            "status": "live",
+            "logo": "ipfs://bafybei...",
+            "tips": { "enabled": true, "amounts": ["5"] },
+            "slug": "cold-milk",
+            "urls": { "page": "https://hacktez.com/u/alice/p/cold-milk" },
+            "member": {
+                "name": "alice.hack.tez",
+                "label": "alice",
+                "address": "tz1...",
+                "owner": "tz1...",
+                "displayName": "Alice",
+                "picture": "ipfs://bafybei...",
+                "urls": {
+                    "profile": "https://hacktez.com/u/alice",
+                    "api": "https://hacktez.com/api/v1/members/alice",
+                    "avatar": "https://hacktez.com/api/v1/avatar/alice"
+                }
+            }
+        }
+    ],
+    "count": 1,
+    "total": 1,
+    "limit": 1000,
+    "offset": 0,
+    "network": "mainnet",
+    "generatedAt": "2025-03-27T08:05:00.000Z"
+}
+```
+
+**Usage:**
+
+```typescript
+const { data } = await fetch("https://hacktez.com/api/v1/projects?environment=tezos&status=live").then((r) =>
+    r.json(),
+);
+
+data.forEach((p) => console.log(`${p.name} by ${p.member.displayName} — ${p.urls.page}`));
+```
+
+---
+
+### Profile field reference
+
+Every key the directory can return. All are optional — a key the member never set is absent from the object.
+
+| Field           | Type              | TED key                 | Notes                                                       |
+| --------------- | ----------------- | ----------------------- | ----------------------------------------------------------- |
+| `name`          | string            | `openid:name`           | Display name                                                |
+| `nickname`      | string            | `openid:nickname`       |                                                             |
+| `website`       | string            | `openid:website`        | `https://` or `ipfs://`                                     |
+| `picture`       | string            | `openid:picture`        | Avatar; `ipfs://` or `https://`. Not called `avatar`.       |
+| `github`        | string            | `github:username`       | Bare username, not a URL                                    |
+| `twitter`       | string            | `twitter:handle`        | Bare handle                                                 |
+| `bluesky`       | string            | `bluesky:did`           | DID, not a handle                                           |
+| `repositoryUrl` | string            | `project:repository_url`|                                                             |
+| `bio`           | string            | `hack:bio`              | Max 160 chars                                               |
+| `location`      | string            | `hack:location`         | Max 60 chars                                                |
+| `status`        | enum              | `hack:status`           | `building`, `open-to-collab`, `available`, `hiring`         |
+| `skills`        | string[]          | `hack:skills`           | Max 10                                                      |
+| `projects`      | ProjectEntry[]    | `hack:projects`         | See below                                                   |
+| `tips`          | TipJar            | `hack:tips`             | Profile-level tip jar                                       |
+| `mastodon`      | string            | `hack:mastodon`         |                                                             |
+| `farcaster`     | string            | `hack:farcaster`        |                                                             |
+| `telegram`      | string            | `hack:telegram`         |                                                             |
+| `discord`       | string            | `hack:discord`          |                                                             |
+| `instagram`     | string            | `hack:instagram`        |                                                             |
+| `youtube`       | string            | `hack:youtube`          |                                                             |
+| `twitch`        | string            | `hack:twitch`           |                                                             |
+
+**ProjectEntry** — `name` and `desc` are required, everything else is optional:
+
+| Field         | Type    | Notes                                                                 |
+| ------------- | ------- | --------------------------------------------------------------------- |
+| `name`        | string  | Required                                                              |
+| `desc`        | string  | Required                                                              |
+| `url`         | string  | Live project URL                                                      |
+| `repo`        | string  | Source repository                                                     |
+| `environment` | enum    | `web`, `tezos`, `etherlink`, `tezlink`, `other`                       |
+| `address`     | string  | Contract or account the project runs at (`KT1…` / `tz…`)              |
+| `subdomain`   | string  | Provisioned hack.tez subdomain for the project                        |
+| `status`      | enum    | `live`, `wip`, `archived`, `open-source`                              |
+| `logo`        | string  | `ipfs://` or `https://`                                               |
+| `tips`        | TipJar  | Per-project tip jar, independent of the profile-level one             |
+| `slug`        | string  | **Added by the API** — see below                                      |
+| `urls.page`   | string  | **Added by the API** — `/u/:label/p/:slug`                            |
+
+Unknown project keys are preserved verbatim, so a member can carry extra metadata and it survives the API round trip.
+
+**TipJar** — `{ enabled, title?, desc?, amounts?, customAmount?, payTo?, tokens? }`. `amounts` are tez decimal strings (max 3). `tokens[]` are `{ contract, tokenId, standard: "fa1.2"|"fa2", symbol, name?, decimals, thumbnail?, amounts? }`. This is jar *configuration*; for how much has actually been tipped, use `?tips=1` or `/api/v1/tips/:name`.
+
+**Slugs.** `slug` is derived from the project name: lowercased, runs of non-alphanumerics collapsed to a single dash, leading/trailing dashes stripped, truncated to 60 characters. It is unique per member only if their project names are — two projects that slugify identically share a URL, and `/u/:label/p/:slug` resolves to the first. Key on `member.label` + `slug`, never on `slug` alone.
 
 ---
 
 ### GET /api/v1/domains
 
 Paginated list of all hack.tez registrations. Backed by TED GraphQL (domain + profile data) and TzKT (registration timestamps and operation hashes). Response is served from Redis cache when warm (~5 ms) with background revalidation.
+
+> Registry view — one row per registration, default 50. If you want profiles and projects, use [`/api/v1/members`](#get-apiv1members) instead: it returns everyone by default, resolves project slugs and URLs, and supports filtering.
 
 **Query parameters:**
 
@@ -575,7 +860,8 @@ Network is selected via `VITE_TEZOS_NETWORK` env var (default: `ghostnet`).
 
 | Code                 | HTTP    | When                                                                   |
 | -------------------- | ------- | ---------------------------------------------------------------------- |
-| `INVALID_INPUT`      | 400     | Bad label (too short/long/invalid chars), invalid Tezos address format |
+| `INVALID_INPUT`      | 400     | Bad label (too short/long/invalid chars), invalid Tezos address format, bad `limit` / `offset` / `sort` |
+| `NOT_FOUND`          | 404     | Name or resource does not exist                                        |
 | `METHOD_NOT_ALLOWED` | 405     | Non-GET request                                                        |
 | `UPSTREAM_ERROR`     | 502/503 | TED GraphQL or TzKT unreachable, or registrar address not configured   |
 
@@ -628,4 +914,53 @@ console.log(`Got ${data.length} of ${count} total domains`);
 data.forEach((d) => {
     console.log(d.label, d.profile.bio, d.profile.skills);
 });
+```
+
+### Mirror the whole community
+
+```typescript
+// One call gets every member, every profile field, every project.
+const { data: members, total, generatedAt } = await fetch("https://hacktez.com/api/v1/members").then((r) => r.json());
+
+const rows = members.flatMap((m) =>
+    (m.profile.projects ?? []).map((p) => ({
+        project: p.name,
+        env: p.environment ?? "unknown",
+        status: p.status ?? "unknown",
+        page: p.urls.page,
+        builder: m.profile.name ?? m.label,
+        builderPage: m.urls.profile,
+    })),
+);
+
+console.log(`${rows.length} projects from ${total} members (snapshot ${generatedAt})`);
+```
+
+### Build a project showcase
+
+```typescript
+// Live Tezos projects, newest members first — projects are the rows here.
+const { data } = await fetch("https://hacktez.com/api/v1/projects?environment=tezos&status=live").then((r) =>
+    r.json(),
+);
+
+const cards = data.map((p) => ({
+    title: p.name,
+    blurb: p.desc,
+    logo: p.logo,
+    contract: p.address ?? null,
+    links: { site: p.url, repo: p.repo, hacktez: p.urls.page },
+    by: { name: p.member.displayName, avatar: p.member.urls.avatar, profile: p.member.urls.profile },
+}));
+```
+
+### Resolve a builder's whole public presence
+
+```typescript
+// Everything the site itself knows about one member, in one request.
+const { data } = await fetch("https://hacktez.com/api/v1/members/alice?tips=1").then((r) => r.json());
+
+console.log(data.profile.bio, data.profile.skills);
+console.log("avatar:", data.urls.avatar); // falls back to a generated hackatar
+console.log("tipped:", data.tipCounters?.count ?? "unknown");
 ```

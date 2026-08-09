@@ -28,9 +28,12 @@ import {
 	seedFromHash,
 	selectTraits,
 } from "../../src/lib/hackatar/index.ts";
+import type { HackProfile, ProjectEntry } from "../../src/types/profile.ts";
 import { parseProfileFromData, projectSlug } from "../../src/types/profile.ts";
+import type { TipCountersWithProjects } from "./tipCounters.ts";
 import {
 	readTipCounters,
+	readTipCountersBulk,
 	recordTip,
 	TipVerifyError,
 	verifyTipOperation,
@@ -931,6 +934,44 @@ interface TedDomainsPage {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 1000; // safety cap on internal pagination
 
+/**
+ * Page through TED for every domain under `parent`, up to `limit` items.
+ * TED GraphQL caps `first` at 50 — paginate via cursor to satisfy larger limits.
+ */
+async function fetchTedDomains(
+	parent: string,
+	limit: number,
+	net: ReturnType<typeof getNetwork>,
+): Promise<TedDomainsPage["domains"]["items"]> {
+	const items: TedDomainsPage["domains"]["items"] = [];
+	let after: string | null = null;
+
+	while (items.length < limit) {
+		const pageSize = Math.min(50, limit - items.length);
+		const page: TedDomainsPage = await tedGql(
+			net.domainsGraphql,
+			`query AllDomains($parent: String!, $first: Int!, $after: String) {
+              domains(where: { name: { endsWith: $parent } }, first: $first, after: $after, order: { field: NAME, direction: ASC }) {
+                items {
+                  name
+                  owner
+                  address
+                  data { key value }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }`,
+			{ parent: `.${parent}`, first: pageSize, after },
+		);
+		items.push(...page.domains.items);
+		if (!page.domains.pageInfo.hasNextPage || !page.domains.pageInfo.endCursor)
+			break;
+		after = page.domains.pageInfo.endCursor;
+	}
+
+	return items;
+}
+
 /** GET /api/v1/domains?limit=50 — list all hack.tez registrations */
 async function handleDomains(
 	url: URL,
@@ -1015,39 +1056,8 @@ async function buildDomainsResponse(
 	limit: number,
 	net: ReturnType<typeof getNetwork>,
 ): Promise<{ data: unknown[]; count: number; limit: number; network: string }> {
-	// TED GraphQL caps `first` at 50 — paginate via cursor to satisfy larger limits.
-	const items: TedDomainsPage["domains"]["items"] = [];
-	let after: string | null = null;
-	const fetchAll = (async () => {
-		while (items.length < limit) {
-			const pageSize = Math.min(50, limit - items.length);
-			const page: TedDomainsPage = await tedGql(
-				net.domainsGraphql,
-				`query AllDomains($parent: String!, $first: Int!, $after: String) {
-                  domains(where: { name: { endsWith: $parent } }, first: $first, after: $after, order: { field: NAME, direction: ASC }) {
-                    items {
-                      name
-                      owner
-                      address
-                      data { key value }
-                    }
-                    pageInfo { hasNextPage endCursor }
-                  }
-                }`,
-				{ parent: `.${parent}`, first: pageSize, after },
-			);
-			items.push(...page.domains.items);
-			if (
-				!page.domains.pageInfo.hasNextPage ||
-				!page.domains.pageInfo.endCursor
-			)
-				break;
-			after = page.domains.pageInfo.endCursor;
-		}
-	})();
-
-	const [, regHashes] = await Promise.all([
-		fetchAll,
+	const [items, regHashes] = await Promise.all([
+		fetchTedDomains(parent, limit, net),
 		getAllRegistrationHashes(net),
 	]);
 
@@ -1104,6 +1114,503 @@ function getRegistrarAddresses(net: ReturnType<typeof getNetwork>): string[] {
 		}
 	}
 	return addrs;
+}
+
+// ---------------------------------------------------------------------------
+// Members & projects directory
+// ---------------------------------------------------------------------------
+//
+// `/domains` is the registry view: one row per registration, profile attached
+// as parsed. `/members` is the *directory* view of the same data — every
+// member with their whole profile, every project carrying its slug and the
+// canonical URLs the site itself uses, so a consumer never has to re-derive
+// `projectSlug()` or guess a path. `/projects` is that same set pivoted so
+// projects are the rows.
+//
+// Both are built from one cached snapshot of the directory, then filtered in
+// memory: filters are cheap and would otherwise fragment the cache key.
+
+/** Upper bound on how many members one snapshot materializes. */
+const MEMBERS_MAX = 1000;
+/** Soft freshness window for the snapshot (seconds). */
+const MEMBERS_CACHE_FRESH_SEC = 60;
+/** Hard TTL in Redis (seconds). */
+const MEMBERS_CACHE_TTL_SEC = 600;
+
+/** One member: a hack.tez registration plus its parsed profile. */
+interface MemberRecord {
+	name: string;
+	label: string;
+	owner: string;
+	address: string | null;
+	registeredAt: string | null;
+	opHash: string | null;
+	profile: HackProfile;
+}
+
+/** A ProjectEntry with the slug and page URL the site resolves it at. */
+interface ApiProject extends ProjectEntry {
+	slug: string;
+	urls: { page: string };
+}
+
+/** A profile whose projects carry the API's added routing fields. */
+interface ApiMemberProfile extends Omit<HackProfile, "projects"> {
+	projects?: ApiProject[];
+}
+
+interface ApiMember {
+	name: string;
+	label: string;
+	owner: string;
+	address: string | null;
+	registeredAt: string | null;
+	opHash: string | null;
+	urls: {
+		profile: string;
+		api: string;
+		avatar: string;
+		hackatar: string;
+		shareCard: string;
+		tips: string;
+	};
+	profile: ApiMemberProfile;
+	counts: { projects: number; skills: number };
+	tipCounters?: TipCountersWithProjects | null;
+}
+
+/** Build the directory snapshot from upstream (TED + TzKT). */
+async function fetchMemberRecords(
+	net: ReturnType<typeof getNetwork>,
+): Promise<MemberRecord[]> {
+	const parent = `hack.${net.tld}`;
+	const [items, regHashes] = await Promise.all([
+		fetchTedDomains(parent, MEMBERS_MAX, net),
+		getAllRegistrationHashes(net),
+	]);
+
+	return items.flatMap((d) => {
+		const label = d.name.replace(`.${parent}`, "");
+		// Deeper subdomains (a.b.hack.tez) belong to a member, they are not one.
+		if (label.includes(".")) return [];
+		const reg = regHashes.get(label);
+		return [
+			{
+				name: d.name,
+				label,
+				owner: d.owner,
+				address: d.address,
+				registeredAt: reg?.timestamp ?? null,
+				opHash: reg?.hash ?? null,
+				profile: parseProfileFromData(d.data ?? []),
+			},
+		];
+	});
+}
+
+async function refreshMemberRecords(
+	net: ReturnType<typeof getNetwork>,
+	redis: Redis,
+	cacheKey: string,
+): Promise<void> {
+	const members = await fetchMemberRecords(net);
+	await redis.set(
+		cacheKey,
+		{ json: JSON.stringify(members), builtAt: Date.now() },
+		{ ex: MEMBERS_CACHE_TTL_SEC },
+	);
+}
+
+/** Directory snapshot, Redis-backed with serve-stale-while-revalidate. */
+async function getMemberRecords(net: ReturnType<typeof getNetwork>): Promise<{
+	members: MemberRecord[];
+	builtAt: number;
+	cache: "HIT" | "STALE" | "MISS";
+}> {
+	const redis = getRedis();
+	const cacheKey = `members:v1:${net.name}`;
+
+	if (redis) {
+		try {
+			const cached = await redis.get<RedisCacheEntry>(cacheKey);
+			if (cached?.json && cached?.builtAt) {
+				const members = JSON.parse(cached.json) as MemberRecord[];
+				const ageSeconds = (Date.now() - cached.builtAt) / 1000;
+				if (ageSeconds >= MEMBERS_CACHE_FRESH_SEC) {
+					// Stale — answer from it now, rebuild for the next caller.
+					refreshMemberRecords(net, redis, cacheKey).catch(() => {});
+					return { members, builtAt: cached.builtAt, cache: "STALE" };
+				}
+				return { members, builtAt: cached.builtAt, cache: "HIT" };
+			}
+		} catch {
+			// Redis unavailable or entry unparseable — fall through to a live build.
+		}
+	}
+
+	const members = await fetchMemberRecords(net);
+	const builtAt = Date.now();
+	if (redis) {
+		redis
+			.set(
+				cacheKey,
+				{ json: JSON.stringify(members), builtAt },
+				{ ex: MEMBERS_CACHE_TTL_SEC },
+			)
+			.catch(() => {});
+	}
+	return { members, builtAt, cache: "MISS" };
+}
+
+function shapeProjects(
+	member: MemberRecord,
+	siteUrl: string,
+): ApiProject[] {
+	return (member.profile.projects ?? []).map((p) => {
+		const slug = projectSlug(p.name);
+		return {
+			...p,
+			slug,
+			urls: {
+				page: `${siteUrl}/u/${encodeURIComponent(member.label)}/p/${encodeURIComponent(slug)}`,
+			},
+		};
+	});
+}
+
+function shapeMember(member: MemberRecord, siteUrl: string): ApiMember {
+	const label = encodeURIComponent(member.label);
+	const projects = shapeProjects(member, siteUrl);
+
+	const { projects: _raw, ...rest } = member.profile;
+	const profile: ApiMemberProfile = { ...rest };
+	if (projects.length > 0) profile.projects = projects;
+
+	return {
+		name: member.name,
+		label: member.label,
+		owner: member.owner,
+		address: member.address,
+		registeredAt: member.registeredAt,
+		opHash: member.opHash,
+		urls: {
+			profile: `${siteUrl}/u/${label}`,
+			api: `${siteUrl}/api/v1/members/${label}`,
+			avatar: `${siteUrl}/api/v1/avatar/${label}`,
+			hackatar: `${siteUrl}/api/v1/hackatar/${label}`,
+			shareCard: `${siteUrl}/api/v1/share-card/${label}`,
+			tips: `${siteUrl}/api/v1/tips/${label}`,
+		},
+		profile,
+		counts: {
+			projects: projects.length,
+			skills: member.profile.skills?.length ?? 0,
+		},
+	};
+}
+
+/** Case-insensitive substring match across a set of optional haystacks. */
+function matchesQuery(haystacks: Array<string | undefined>, q: string): boolean {
+	const needle = q.toLowerCase();
+	return haystacks.some((h) => h?.toLowerCase().includes(needle));
+}
+
+/** True when the member or any of their projects has a tip jar switched on. */
+function hasTipJar(member: MemberRecord): boolean {
+	if (member.profile.tips?.enabled) return true;
+	return (member.profile.projects ?? []).some((p) => p.tips?.enabled);
+}
+
+/**
+ * Attach chain-verified tip counters to the given members (`?tips=1`).
+ * Only members with a jar are looked up, and the lookup is pipelined, so the
+ * whole directory costs two Redis round trips. Sets `null` when the counter
+ * store is unavailable, so a consumer can tell "no tips" from "unknown".
+ */
+async function attachTipCounters(
+	shaped: ApiMember[],
+	records: Map<string, MemberRecord>,
+	net: ReturnType<typeof getNetwork>,
+): Promise<void> {
+	const redis = getRedis();
+	if (!redis) {
+		for (const m of shaped) m.tipCounters = null;
+		return;
+	}
+
+	const labels = shaped
+		.filter((m) => {
+			const rec = records.get(m.label);
+			return rec ? hasTipJar(rec) : false;
+		})
+		.map((m) => m.label);
+
+	let counters: Map<string, TipCountersWithProjects>;
+	try {
+		counters = await readTipCountersBulk({ redis, net: net.name, labels });
+	} catch {
+		for (const m of shaped) m.tipCounters = null;
+		return;
+	}
+
+	for (const m of shaped) {
+		m.tipCounters = counters.get(m.label) ?? {
+			count: 0,
+			totals: [],
+			projects: [],
+		};
+	}
+}
+
+/** Parse and clamp `limit` / `offset`. Returns an error message when invalid. */
+function parseWindow(
+	url: URL,
+	defaultLimit: number,
+	maxLimit: number,
+): { limit: number; offset: number } | string {
+	const rawLimit = url.searchParams.get("limit");
+	let limit = defaultLimit;
+	if (rawLimit !== null) {
+		const parsed = Number.parseInt(rawLimit, 10);
+		if (Number.isNaN(parsed) || parsed < 1)
+			return "limit must be a positive integer";
+		limit = Math.min(parsed, maxLimit);
+	}
+
+	const rawOffset = url.searchParams.get("offset");
+	let offset = 0;
+	if (rawOffset !== null) {
+		const parsed = Number.parseInt(rawOffset, 10);
+		if (Number.isNaN(parsed) || parsed < 0)
+			return "offset must be a non-negative integer";
+		offset = parsed;
+	}
+
+	return { limit, offset };
+}
+
+/** GET /api/v1/members — every member with their whole profile and projects */
+async function handleMembers(
+	url: URL,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const window = parseWindow(url, MEMBERS_MAX, MEMBERS_MAX);
+	if (typeof window === "string") return err(window, "INVALID_INPUT");
+
+	const status = url.searchParams.get("status")?.trim().toLowerCase() ?? "";
+	const skill = url.searchParams.get("skill")?.trim().toLowerCase() ?? "";
+	const q = url.searchParams.get("q")?.trim() ?? "";
+	const hasProjects = url.searchParams.get("hasProjects") === "1";
+	const withProjects = url.searchParams.get("projects") !== "none";
+	const withTips = url.searchParams.get("tips") === "1";
+	const sort = url.searchParams.get("sort") ?? "name";
+	if (sort !== "name" && sort !== "newest" && sort !== "oldest")
+		return err("sort must be one of: name, newest, oldest", "INVALID_INPUT");
+
+	const { members, builtAt, cache } = await getMemberRecords(net);
+
+	let filtered = members;
+	if (status) filtered = filtered.filter((m) => m.profile.status === status);
+	if (skill) {
+		filtered = filtered.filter((m) =>
+			(m.profile.skills ?? []).some((s) => s.toLowerCase() === skill),
+		);
+	}
+	if (hasProjects)
+		filtered = filtered.filter((m) => (m.profile.projects ?? []).length > 0);
+	if (q) {
+		filtered = filtered.filter((m) =>
+			matchesQuery(
+				[
+					m.label,
+					m.profile.name,
+					m.profile.nickname,
+					m.profile.bio,
+					m.profile.location,
+					...(m.profile.skills ?? []),
+					...(m.profile.projects ?? []).flatMap((p) => [p.name, p.desc]),
+				],
+				q,
+			),
+		);
+	}
+
+	if (sort !== "name") {
+		// Registration time is unknown for preloaded domains — park those last
+		// either way, so the head of the list is always meaningful.
+		const dir = sort === "newest" ? -1 : 1;
+		filtered = [...filtered].sort((a, b) => {
+			if (!a.registeredAt && !b.registeredAt) return 0;
+			if (!a.registeredAt) return 1;
+			if (!b.registeredAt) return -1;
+			return dir * a.registeredAt.localeCompare(b.registeredAt);
+		});
+	}
+
+	const total = filtered.length;
+	const page = filtered.slice(window.offset, window.offset + window.limit);
+	const siteUrl = url.origin;
+	const shaped = page.map((m) => shapeMember(m, siteUrl));
+
+	if (!withProjects) {
+		// Counts stay accurate — only the project bodies are dropped.
+		for (const m of shaped) delete m.profile.projects;
+	}
+
+	if (withTips) {
+		await attachTipCounters(
+			shaped,
+			new Map(page.map((m) => [m.label, m])),
+			net,
+		);
+	}
+
+	return json(
+		{
+			data: shaped,
+			count: shaped.length,
+			total,
+			limit: window.limit,
+			offset: window.offset,
+			network: net.name,
+			generatedAt: new Date(builtAt).toISOString(),
+		},
+		200,
+		{
+			"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+			"X-Cache": cache,
+		},
+	);
+}
+
+/** GET /api/v1/members/:name — one member in the same shape as the list */
+async function handleMember(
+	name: string,
+	url: URL,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const label = normalizeLabel(name, net.tld);
+	const labelErr = validateLabel(label);
+	if (labelErr) return err(labelErr, "INVALID_INPUT");
+
+	const fullName = `${label}.hack.${net.tld}`;
+
+	// Read through to TED rather than the directory snapshot: a single lookup
+	// should reflect a profile edit immediately, not on the next snapshot.
+	const [result, regInfo] = await Promise.all([
+		tedGql<{
+			domain: {
+				name: string;
+				address: string | null;
+				owner: string;
+				data: Array<{ key: string; value: unknown }>;
+			} | null;
+		}>(
+			net.domainsGraphql,
+			`query GetMember($name: String!) {
+              domain(name: $name) {
+                name
+                address
+                owner
+                data { key value }
+              }
+            }`,
+			{ name: fullName },
+		),
+		getRegistrationHash(label, net),
+	]);
+
+	if (!result.domain) return err("Member not found", "NOT_FOUND", 404);
+
+	const record: MemberRecord = {
+		name: result.domain.name,
+		label,
+		owner: result.domain.owner,
+		address: result.domain.address,
+		registeredAt: regInfo?.timestamp ?? null,
+		opHash: regInfo?.hash ?? null,
+		profile: parseProfileFromData(result.domain.data ?? []),
+	};
+
+	const shaped = shapeMember(record, url.origin);
+	if (url.searchParams.get("tips") === "1") {
+		await attachTipCounters([shaped], new Map([[label, record]]), net);
+	}
+
+	return json({ data: shaped, network: net.name }, 200, {
+		"Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
+	});
+}
+
+/** GET /api/v1/projects — every project from every member, flattened */
+async function handleProjects(
+	url: URL,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const window = parseWindow(url, MEMBERS_MAX, MEMBERS_MAX);
+	if (typeof window === "string") return err(window, "INVALID_INPUT");
+
+	const environment =
+		url.searchParams.get("environment")?.trim().toLowerCase() ?? "";
+	const status = url.searchParams.get("status")?.trim().toLowerCase() ?? "";
+	const memberFilter = url.searchParams.get("member")?.trim() ?? "";
+	const q = url.searchParams.get("q")?.trim() ?? "";
+
+	const { members, builtAt, cache } = await getMemberRecords(net);
+	const siteUrl = url.origin;
+
+	const memberLabel = memberFilter
+		? normalizeLabel(memberFilter, net.tld)
+		: "";
+
+	let rows = members.flatMap((m) => {
+		if (memberLabel && m.label !== memberLabel) return [];
+		const label = encodeURIComponent(m.label);
+		return shapeProjects(m, siteUrl).map((p) => ({
+			...p,
+			member: {
+				name: m.name,
+				label: m.label,
+				address: m.address,
+				owner: m.owner,
+				displayName: m.profile.name ?? m.profile.nickname ?? m.label,
+				picture: m.profile.picture ?? null,
+				urls: {
+					profile: `${siteUrl}/u/${label}`,
+					api: `${siteUrl}/api/v1/members/${label}`,
+					avatar: `${siteUrl}/api/v1/avatar/${label}`,
+				},
+			},
+		}));
+	});
+
+	if (environment) rows = rows.filter((p) => p.environment === environment);
+	if (status) rows = rows.filter((p) => p.status === status);
+	if (q) {
+		rows = rows.filter((p) =>
+			matchesQuery([p.name, p.desc, p.url, p.repo, p.member.label], q),
+		);
+	}
+
+	const total = rows.length;
+	const page = rows.slice(window.offset, window.offset + window.limit);
+
+	return json(
+		{
+			data: page,
+			count: page.length,
+			total,
+			limit: window.limit,
+			offset: window.offset,
+			network: net.name,
+			generatedAt: new Date(builtAt).toISOString(),
+		},
+		200,
+		{
+			"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+			"X-Cache": cache,
+		},
+	);
 }
 
 /** GET /api/v1/activity?limit=30 — recent claim (register) and commit events */
@@ -2060,6 +2567,16 @@ export default async function handler(
 	try {
 		if (resource === "domains")
 			return await handleDomains(new URL(req.url), net);
+		if (resource === "members")
+			return param
+				? await handleMember(
+						decodeURIComponent(param),
+						new URL(req.url),
+						net,
+					)
+				: await handleMembers(new URL(req.url), net);
+		if (resource === "projects")
+			return await handleProjects(new URL(req.url), net);
 		if (resource === "domain" && param)
 			return await handleDomain(decodeURIComponent(param), net);
 		if (resource === "profile" && param)
@@ -2102,6 +2619,9 @@ export default async function handler(
 				version: "1",
 				network: net.name,
 				endpoints: [
+					`/api/v1/members`,
+					`/api/v1/members/:name`,
+					`/api/v1/projects`,
 					`/api/v1/domains?limit=50`,
 					`/api/v1/domain/:name`,
 					`/api/v1/profile/:name`,

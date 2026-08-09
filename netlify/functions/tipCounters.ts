@@ -275,30 +275,102 @@ function shapeCounters(hash: Record<string, unknown> | null): TipCounters {
 	return { count: Number(hash.count ?? 0), totals };
 }
 
+export interface TipCountersWithProjects extends TipCounters {
+	projects: Array<TipCounters & { slug: string }>;
+}
+
+const EMPTY_COUNTERS: TipCountersWithProjects = {
+	count: 0,
+	totals: [],
+	projects: [],
+};
+
+/** Commands per pipelined request — keeps any one HTTP body small. */
+const PIPELINE_CHUNK = 200;
+
+/** Run `build` over chunks of `items`, concatenating the pipeline results. */
+async function pipelined<T>(
+	redis: Redis,
+	items: T[],
+	build: (pipeline: ReturnType<Redis["pipeline"]>, item: T) => void,
+	perItem: number,
+): Promise<unknown[]> {
+	const size = Math.max(1, Math.floor(PIPELINE_CHUNK / perItem));
+	const results: unknown[] = [];
+	for (let i = 0; i < items.length; i += size) {
+		const pipeline = redis.pipeline();
+		for (const item of items.slice(i, i + size)) build(pipeline, item);
+		results.push(...(await pipeline.exec<unknown[]>()));
+	}
+	return results;
+}
+
+/**
+ * Counters for many labels in two pipelined rounds.
+ *
+ * Upstash is REST, so one command is one HTTP request — reading a whole
+ * directory label-by-label would be hundreds of them. Pipelining collapses
+ * that to a handful: round 1 fetches every profile hash and project set,
+ * round 2 fetches the project hashes those sets revealed.
+ */
+export async function readTipCountersBulk(params: {
+	redis: Redis;
+	net: string;
+	labels: string[];
+}): Promise<Map<string, TipCountersWithProjects>> {
+	const { redis, net, labels } = params;
+
+	const out = new Map<string, TipCountersWithProjects>();
+	const unique = [...new Set(labels)];
+	if (unique.length === 0) return out;
+
+	const hashesAndSets = await pipelined(
+		redis,
+		unique,
+		(p, label) => {
+			p.hgetall(profileKey(net, label));
+			p.smembers(projectSetKey(net, label));
+		},
+		2,
+	);
+
+	const pairs: Array<{ label: string; slug: string }> = [];
+	unique.forEach((label, i) => {
+		const hash = hashesAndSets[i * 2] as Record<string, unknown> | null;
+		const slugs = hashesAndSets[i * 2 + 1] as string[] | null;
+		out.set(label, { ...shapeCounters(hash), projects: [] });
+		if (Array.isArray(slugs)) {
+			for (const slug of slugs) pairs.push({ label, slug });
+		}
+	});
+
+	if (pairs.length === 0) return out;
+
+	const projectHashes = await pipelined(
+		redis,
+		pairs,
+		(p, { label, slug }) => p.hgetall(projectKey(net, label, slug)),
+		1,
+	);
+
+	pairs.forEach(({ label, slug }, i) => {
+		const shaped = shapeCounters(
+			projectHashes[i] as Record<string, unknown> | null,
+		);
+		// A project set entry survives even if its counters were never written;
+		// only report projects that actually took a tip.
+		if (shaped.count > 0) out.get(label)?.projects.push({ slug, ...shaped });
+	});
+
+	return out;
+}
+
 export async function readTipCounters(params: {
 	redis: Redis;
 	net: string;
 	label: string;
-}): Promise<TipCounters & { projects: Array<TipCounters & { slug: string }> }> {
+}): Promise<TipCountersWithProjects> {
 	const { redis, net, label } = params;
-
-	const [profileHash, slugs] = await Promise.all([
-		redis.hgetall<Record<string, unknown>>(profileKey(net, label)),
-		redis.smembers<string[]>(projectSetKey(net, label)),
-	]);
-
-	const projects: Array<TipCounters & { slug: string }> = [];
-	if (Array.isArray(slugs) && slugs.length > 0) {
-		const hashes = await Promise.all(
-			slugs.map((s) =>
-				redis.hgetall<Record<string, unknown>>(projectKey(net, label, s)),
-			),
-		);
-		slugs.forEach((slug, i) => {
-			const shaped = shapeCounters(hashes[i]);
-			if (shaped.count > 0) projects.push({ slug, ...shaped });
-		});
-	}
-
-	return { ...shapeCounters(profileHash), projects };
+	const map = await readTipCountersBulk({ redis, net, labels: [label] });
+	return map.get(label) ?? EMPTY_COUNTERS;
 }

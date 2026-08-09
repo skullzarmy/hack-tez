@@ -21,6 +21,15 @@ const NAV: NavSection[] = [
     { id: "rate-limits", label: "Rate Limits" },
     { id: "error-codes", label: "Error Codes" },
     {
+        id: "directory",
+        label: "Directory",
+        children: [
+            { id: "ep-members", label: "All Members" },
+            { id: "ep-member", label: "Get Member" },
+            { id: "ep-projects", label: "All Projects" },
+        ],
+    },
+    {
         id: "endpoints",
         label: "Endpoints",
         children: [
@@ -654,6 +663,495 @@ export default function Developers() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </section>
+
+                    {/* ---- Directory heading ---- */}
+                    <section style={{ marginBottom: "2rem" }}>
+                        <SectionHeading id="directory">Directory</SectionHeading>
+                        <p
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.78rem",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.8,
+                                maxWidth: "560px",
+                            }}
+                        >
+                            The whole community in one call. Where{" "}
+                            <code style={{ color: "var(--fg)" }}>/domains</code> is the registry view — one row per
+                            registration — the directory endpoints are the <em>people</em> view: every member with their
+                            complete profile, and every project carrying the slug and canonical page URL the site itself
+                            resolves it at. Nothing is truncated and no field is dropped, so you never have to
+                            re-derive a slug or issue a second call per member.
+                        </p>
+                        <p
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.78rem",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.8,
+                                maxWidth: "560px",
+                                marginTop: "0.9rem",
+                            }}
+                        >
+                            All three read one Redis-cached snapshot of the directory (60 s fresh, 10 min hard TTL,
+                            serve-stale-while-revalidate) and filter it in memory, so filters cost nothing extra. The{" "}
+                            <code style={{ color: "var(--fg)" }}>X-Cache</code> response header reports{" "}
+                            <code style={{ color: "var(--fg)" }}>HIT</code>,{" "}
+                            <code style={{ color: "var(--fg)" }}>STALE</code> or{" "}
+                            <code style={{ color: "var(--fg)" }}>MISS</code>, and{" "}
+                            <code style={{ color: "var(--fg)" }}>generatedAt</code> tells you when the snapshot was
+                            built.
+                        </p>
+                    </section>
+
+                    {/* ---- GET /api/v1/members ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-members" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                All Members
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/members
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Every hack.{tld} member with their full profile — bio, location, status, skills, every
+                                social handle, tip jar config, and every project with all of its metadata. Returns all
+                                members by default (no paging needed); use{" "}
+                                <code style={{ color: "var(--fg)" }}>limit</code> /{" "}
+                                <code style={{ color: "var(--fg)" }}>offset</code> if you want to page anyway.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "limit",
+                                        kind: "query",
+                                        type: "integer",
+                                        default: "1000 (all)",
+                                        description: "Max members to return (max 1000)",
+                                    },
+                                    {
+                                        name: "offset",
+                                        kind: "query",
+                                        type: "integer",
+                                        default: "0",
+                                        description: "Skip this many members, applied after filtering",
+                                    },
+                                    {
+                                        name: "sort",
+                                        kind: "query",
+                                        type: "name | newest | oldest",
+                                        default: "name",
+                                        description: "Alphabetical, or by registration time (unregistered last)",
+                                    },
+                                    {
+                                        name: "status",
+                                        kind: "query",
+                                        type: "string",
+                                        description: "Builder status: building, open-to-collab, available, hiring",
+                                    },
+                                    {
+                                        name: "skill",
+                                        kind: "query",
+                                        type: "string",
+                                        description: "Exact skill match, case-insensitive",
+                                    },
+                                    {
+                                        name: "q",
+                                        kind: "query",
+                                        type: "string",
+                                        description:
+                                            "Substring search over label, name, bio, location, skills, project names + descriptions",
+                                    },
+                                    {
+                                        name: "hasProjects",
+                                        kind: "query",
+                                        type: "1",
+                                        description: "Only members with at least one project",
+                                    },
+                                    {
+                                        name: "projects",
+                                        kind: "query",
+                                        type: "none",
+                                        description: "Omit project bodies for a lighter payload (counts stay accurate)",
+                                    },
+                                    {
+                                        name: "tips",
+                                        kind: "query",
+                                        type: "1",
+                                        description: "Include chain-verified tip counters as tipCounters",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/members" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: [
+                                            {
+                                                name: `alice.hack.${tld}`,
+                                                label: "alice",
+                                                owner: "tz1...",
+                                                address: "tz1...",
+                                                registeredAt: "2025-03-27T08:01:29Z",
+                                                opHash: "oo...",
+                                                urls: {
+                                                    profile: "https://hacktez.com/u/alice",
+                                                    api: "https://hacktez.com/api/v1/members/alice",
+                                                    avatar: "https://hacktez.com/api/v1/avatar/alice",
+                                                    hackatar: "https://hacktez.com/api/v1/hackatar/alice",
+                                                    shareCard: "https://hacktez.com/api/v1/share-card/alice",
+                                                    tips: "https://hacktez.com/api/v1/tips/alice",
+                                                },
+                                                profile: {
+                                                    name: "Alice",
+                                                    picture: "ipfs://bafybei...",
+                                                    bio: "building on tezos",
+                                                    location: "berlin",
+                                                    status: "building",
+                                                    skills: ["typescript", "smartpy"],
+                                                    github: "alice",
+                                                    tips: { enabled: true, amounts: ["1", "5", "10"] },
+                                                    projects: [
+                                                        {
+                                                            name: "Cold Milk",
+                                                            desc: "on-chain generative art",
+                                                            url: "https://coldmilk.xyz",
+                                                            repo: "https://github.com/alice/coldmilk",
+                                                            environment: "tezos",
+                                                            address: "KT1...",
+                                                            status: "live",
+                                                            logo: "ipfs://bafybei...",
+                                                            tips: { enabled: true, amounts: ["5"] },
+                                                            slug: "cold-milk",
+                                                            urls: {
+                                                                page: "https://hacktez.com/u/alice/p/cold-milk",
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                                counts: { projects: 1, skills: 2 },
+                                            },
+                                        ],
+                                        count: 1,
+                                        total: 1,
+                                        limit: 1000,
+                                        offset: 0,
+                                        network,
+                                        generatedAt: "2025-03-27T08:05:00.000Z",
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.72rem",
+                                    color: "var(--fg-3)",
+                                    lineHeight: 1.8,
+                                    marginTop: "1rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <strong style={{ color: "var(--fg-2)" }}>Notes.</strong>{" "}
+                                <code style={{ color: "var(--fg)" }}>profile</code> is the same object{" "}
+                                <code style={{ color: "var(--fg)" }}>/api/v1/profile/:name</code> returns, with{" "}
+                                <code style={{ color: "var(--fg)" }}>slug</code> and{" "}
+                                <code style={{ color: "var(--fg)" }}>urls</code> added to each project — every other
+                                key is byte-for-byte the on-chain value. Keys the member never set are simply absent.{" "}
+                                <code style={{ color: "var(--fg)" }}>count</code> is the size of this page,{" "}
+                                <code style={{ color: "var(--fg)" }}>total</code> the size of the filtered set. Nested
+                                subdomains (<code style={{ color: "var(--fg)" }}>a.b.hack.{tld}</code>) belong to a
+                                member and are never listed as one. With{" "}
+                                <code style={{ color: "var(--fg)" }}>?tips=1</code>,{" "}
+                                <code style={{ color: "var(--fg)" }}>tipCounters</code> is{" "}
+                                <code style={{ color: "var(--fg)" }}>null</code> when the counter store is unreachable —
+                                distinguishable from a real zero.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/members/:name ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-member" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                Get Member
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/members/:name
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                One member, in exactly the shape the list returns — so code written against{" "}
+                                <code style={{ color: "var(--fg)" }}>/members</code> works unchanged on a single
+                                record. Reads through to TED rather than the directory snapshot, so a profile edit shows
+                                up immediately. Prefer this over{" "}
+                                <code style={{ color: "var(--fg)" }}>/api/v1/profile/:name</code> when you want project
+                                slugs and URLs resolved for you.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "name",
+                                        kind: "path",
+                                        type: "string",
+                                        description: `Label (alice) or full name (alice.hack.${tld})`,
+                                    },
+                                    {
+                                        name: "tips",
+                                        kind: "query",
+                                        type: "1",
+                                        description: "Include chain-verified tip counters as tipCounters",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock lang="http" code="GET https://hacktez.com/api/v1/members/alice?tips=1" />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: {
+                                            name: `alice.hack.${tld}`,
+                                            label: "alice",
+                                            owner: "tz1...",
+                                            address: "tz1...",
+                                            registeredAt: "2025-03-27T08:01:29Z",
+                                            opHash: "oo...",
+                                            urls: { profile: "https://hacktez.com/u/alice", "…": "…" },
+                                            profile: { name: "Alice", projects: ["…"] },
+                                            counts: { projects: 1, skills: 2 },
+                                            tipCounters: {
+                                                count: 4,
+                                                totals: [{ asset: "tez", symbol: "tez", total: "21.5" }],
+                                                projects: [
+                                                    {
+                                                        slug: "cold-milk",
+                                                        count: 2,
+                                                        totals: [{ asset: "tez", symbol: "tez", total: "10" }],
+                                                    },
+                                                ],
+                                            },
+                                        },
+                                        network,
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.72rem",
+                                    color: "var(--fg-3)",
+                                    lineHeight: 1.8,
+                                    marginTop: "1rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                Returns <code style={{ color: "var(--fg)" }}>404 NOT_FOUND</code> when the name is not
+                                registered.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- GET /api/v1/projects ---- */}
+                    <section style={{ marginBottom: "3rem" }}>
+                        <Divider />
+                        <div id="ep-projects" style={{ scrollMarginTop: `${NAV_OFFSET + 16}px` }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--fg)",
+                                    margin: "0 0 0.35rem 0",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                All Projects
+                            </h3>
+                            <div
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.9rem" }}
+                            >
+                                <MethodBadge />
+                                <code style={{ fontFamily: "var(--font)", fontSize: "0.78rem", color: "var(--fg-2)" }}>
+                                    /api/v1/projects
+                                </code>
+                            </div>
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.78rem",
+                                    color: "var(--fg-2)",
+                                    lineHeight: 1.8,
+                                    marginBottom: "1.25rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                The same directory pivoted so projects are the rows: every project every member has
+                                published, with its full metadata plus an embedded{" "}
+                                <code style={{ color: "var(--fg)" }}>member</code> block. Use it to build an ecosystem
+                                showcase without walking members yourself.
+                            </p>
+                            <ParamTable
+                                params={[
+                                    {
+                                        name: "environment",
+                                        kind: "query",
+                                        type: "string",
+                                        description: "web, tezos, etherlink, tezlink, other",
+                                    },
+                                    {
+                                        name: "status",
+                                        kind: "query",
+                                        type: "string",
+                                        description: "Project status: live, wip, archived, open-source",
+                                    },
+                                    {
+                                        name: "member",
+                                        kind: "query",
+                                        type: "string",
+                                        description: "Only this member's projects (label or full name)",
+                                    },
+                                    {
+                                        name: "q",
+                                        kind: "query",
+                                        type: "string",
+                                        description: "Substring search over name, desc, url, repo and member label",
+                                    },
+                                    {
+                                        name: "limit",
+                                        kind: "query",
+                                        type: "integer",
+                                        default: "1000 (all)",
+                                        description: "Max projects to return (max 1000)",
+                                    },
+                                    {
+                                        name: "offset",
+                                        kind: "query",
+                                        type: "integer",
+                                        default: "0",
+                                        description: "Skip this many projects, applied after filtering",
+                                    },
+                                ]}
+                            />
+                            <CodeBlock
+                                lang="http"
+                                code="GET https://hacktez.com/api/v1/projects?environment=tezos&status=live"
+                            />
+                            <div style={{ height: "0.5rem" }} />
+                            <CodeBlock
+                                code={JSON.stringify(
+                                    {
+                                        data: [
+                                            {
+                                                name: "Cold Milk",
+                                                desc: "on-chain generative art",
+                                                url: "https://coldmilk.xyz",
+                                                repo: "https://github.com/alice/coldmilk",
+                                                environment: "tezos",
+                                                address: "KT1...",
+                                                status: "live",
+                                                logo: "ipfs://bafybei...",
+                                                tips: { enabled: true, amounts: ["5"] },
+                                                slug: "cold-milk",
+                                                urls: { page: "https://hacktez.com/u/alice/p/cold-milk" },
+                                                member: {
+                                                    name: `alice.hack.${tld}`,
+                                                    label: "alice",
+                                                    address: "tz1...",
+                                                    owner: "tz1...",
+                                                    displayName: "Alice",
+                                                    picture: "ipfs://bafybei...",
+                                                    urls: {
+                                                        profile: "https://hacktez.com/u/alice",
+                                                        api: "https://hacktez.com/api/v1/members/alice",
+                                                        avatar: "https://hacktez.com/api/v1/avatar/alice",
+                                                    },
+                                                },
+                                            },
+                                        ],
+                                        count: 1,
+                                        total: 1,
+                                        limit: 1000,
+                                        offset: 0,
+                                        network,
+                                        generatedAt: "2025-03-27T08:05:00.000Z",
+                                    },
+                                    null,
+                                    2,
+                                )}
+                            />
+                            <p
+                                style={{
+                                    fontFamily: "var(--font)",
+                                    fontSize: "0.72rem",
+                                    color: "var(--fg-3)",
+                                    lineHeight: 1.8,
+                                    marginTop: "1rem",
+                                    maxWidth: "560px",
+                                }}
+                            >
+                                <strong style={{ color: "var(--fg-2)" }}>Slugs.</strong>{" "}
+                                <code style={{ color: "var(--fg)" }}>slug</code> is derived from the project name —
+                                lowercased, runs of non-alphanumerics collapsed to a single dash, trimmed to 60
+                                characters. It is unique per member only if their project names are: two projects that
+                                slugify identically share a URL, and{" "}
+                                <code style={{ color: "var(--fg)" }}>/u/:label/p/:slug</code> resolves to the first.
+                                Key on <code style={{ color: "var(--fg)" }}>member.label</code> +{" "}
+                                <code style={{ color: "var(--fg)" }}>slug</code>, not on{" "}
+                                <code style={{ color: "var(--fg)" }}>slug</code> alone.
+                            </p>
                         </div>
                     </section>
 
@@ -2801,7 +3299,7 @@ async function getDisplayName(address) {
                                 commit-reveal flow, and TypeScript patterns in a single compact file.
                             </p>
                             <a
-                                href="/hack-tez-api.md"
+                                href="/skills/hack-tez-api.md"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
