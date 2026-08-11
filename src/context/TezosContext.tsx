@@ -39,6 +39,9 @@ interface TezosState {
     address: string | null;
     domain: string | null;
     connecting: boolean;
+    /** True while the wallet is showing the sign-in signature request. Lets the
+     *  UI say "approve this in your wallet" instead of a generic spinner. */
+    awaitingSignature: boolean;
     /** True while restoring a previous wallet session on mount. */
     restoring: boolean;
     token: string | null;
@@ -243,6 +246,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         seed?.activeDomain ?? seed?.domains[0] ?? null,
     );
     const [connecting, setConnecting] = useState(false);
+    const [awaitingSignature, setAwaitingSignature] = useState(false);
     const [restoring, setRestoring] = useState(
         () => typeof window !== "undefined" && hasBeaconSession(),
     );
@@ -439,6 +443,12 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         setDomain(name);
     }, []);
 
+    // True while connect() is between "wallet permissions granted" and "SIWE
+    // signature accepted". Publishing `address` in that window would flip the
+    // whole app into its signed-in UI while the wallet is still showing the
+    // sign prompt, so the connect flow holds it back until auth lands.
+    const awaitingAuthRef = useRef(false);
+
     const initClient = useCallback(async (): Promise<DAppClient> => {
         const c = await getOrCreateClient();
         if (!subscribedRef.current) {
@@ -446,7 +456,9 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             const sdk = await loadSDK();
             c.subscribeToEvent(sdk.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
                 if (account) {
-                    hydrateAccount(account.address);
+                    // requestPermissions() fires this before we've asked for a
+                    // signature. connect() hydrates once authenticated.
+                    if (!awaitingAuthRef.current) hydrateAccount(account.address);
                 }
                 // Beacon emits ACTIVE_ACCOUNT_SET with `account=null` during
                 // transient reconnect/restore flux even when the wallet is
@@ -485,6 +497,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     const connect = useCallback(async () => {
         setConnecting(true);
         setAuthError(null);
+        awaitingAuthRef.current = true;
         try {
             const sdk = await loadSDK();
             const c = await initClient();
@@ -511,8 +524,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 addr = account.address;
             }
 
-            void hydrateAccount(addr);
-
             // Reuse stored JWT only if it's for THIS address (loadAuthSession
             // already enforces version + expiry).
             const stored = loadAuthSession();
@@ -521,16 +532,31 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 const sub = (payload?.sub ?? payload?.address) as string | undefined;
                 if (sub === addr) {
                     applySession(stored);
+                    awaitingAuthRef.current = false;
+                    void hydrateAccount(addr);
                     return;
                 }
             }
 
+            // Signature first — the signed-in UI only appears once the wallet
+            // has actually approved the challenge.
+            setAwaitingSignature(true);
             const session = await authenticateWallet(c, addr);
             applySession(session);
+            awaitingAuthRef.current = false;
+            void hydrateAccount(addr);
         } catch (err: unknown) {
             const errObj = err as Record<string, unknown>;
-            const msg = err instanceof Error ? err.message : String(errObj?.message || "Authentication failed");
-            setAuthError(msg);
+            const raw = err instanceof Error ? err.message : String(errObj?.message || "Authentication failed");
+            // Beacon reports a user-rejected permission/signature as an abort.
+            // That's a choice, not a fault — word it that way.
+            const aborted =
+                errObj?.errorType === "ABORTED_ERROR" || /abort|reject|denied|cancel/i.test(raw);
+            setAuthError(
+                aborted
+                    ? "Sign-in cancelled — approve the signature request in your wallet to continue."
+                    : raw,
+            );
             if (import.meta.env.DEV) {
                 console.error("Wallet connection failed:", {
                     errorType: errObj?.errorType,
@@ -540,6 +566,11 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 });
             }
         } finally {
+            // Never leave the gate closed: a rejected signature leaves the
+            // wallet paired but signed-out, and the next connect() goes
+            // straight back to the sign prompt.
+            awaitingAuthRef.current = false;
+            setAwaitingSignature(false);
             setConnecting(false);
         }
     }, [hydrateAccount, initClient, applySession]);
@@ -650,6 +681,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 address,
                 domain,
                 connecting,
+                awaitingSignature,
                 restoring,
                 token,
                 chatDomains,

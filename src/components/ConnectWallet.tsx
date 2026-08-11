@@ -17,6 +17,8 @@ export default function ConnectWallet() {
         address,
         domain,
         connecting,
+        awaitingSignature,
+        authError,
         connect,
         disconnect,
         chatDomains,
@@ -27,15 +29,43 @@ export default function ConnectWallet() {
 
     if (!address) {
         return (
-            <button
-                onClick={connect}
-                disabled={connecting}
-                className="btn btn-primary btn-sm"
-                aria-label="Connect Tezos wallet"
-                data-onboarding="connect-wallet"
-            >
-                {connecting ? "Connecting…" : "Connect Wallet"}
-            </button>
+            <div style={{ position: "relative", display: "inline-flex" }}>
+                <button
+                    onClick={connect}
+                    disabled={connecting}
+                    className="btn btn-primary btn-sm"
+                    aria-label="Connect Tezos wallet"
+                    data-onboarding="connect-wallet"
+                >
+                    {awaitingSignature
+                        ? "Approve in wallet…"
+                        : connecting
+                          ? "Connecting…"
+                          : "Connect Wallet"}
+                </button>
+                {authError && !connecting && (
+                    <span
+                        role="alert"
+                        style={{
+                            position: "absolute",
+                            top: "calc(100% + 0.4rem)",
+                            right: 0,
+                            zIndex: 60,
+                            width: "max-content",
+                            maxWidth: "min(17rem, 80vw)",
+                            padding: "0.4rem 0.55rem",
+                            fontSize: "0.7rem",
+                            lineHeight: 1.35,
+                            fontFamily: "var(--font-mono)",
+                            background: "var(--err-bg, rgba(255,107,107,0.1))",
+                            color: "var(--err, #ff6b6b)",
+                            border: "1px solid var(--err, #ff6b6b)",
+                        }}
+                    >
+                        {authError}
+                    </span>
+                )}
+            </div>
         );
     }
 
