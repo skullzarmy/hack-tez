@@ -72,7 +72,7 @@ function Header() {
                 // LABS
             </h1>
             <p style={{ color: "var(--fg-muted)", fontSize: "0.9rem", maxWidth: "60ch" }}>
-                fafolab experiments, early access for hack.tez members. Half-built, mostly working, all yours.
+                FAFOlab experiments, early access for hack.tez members. Half-built, mostly working, all yours.
             </p>
         </header>
     );
@@ -197,8 +197,8 @@ function LabCard({
 export default function Labs() {
     const { domain, restoring } = useTezos();
     usePageMeta({
-        title: "Labs — fafolab early access — hack.tez",
-        description: "Early-access fafolab experiments for hack.tez members. Browser extensions, tools, things still warm from the oven.",
+        title: "Labs — FAFOlab early access — hack.tez",
+        description: "Early-access FAFOlab experiments for hack.tez members. Browser extensions, tools, things still warm from the oven.",
         path: "/labs",
     });
 

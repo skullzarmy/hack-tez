@@ -4,7 +4,7 @@
  * Store layout: `labs-releases` blob store. Keys are `<slug>/<filename>`.
  * Slug is the lab's frontmatter slug (e.g. "cloudnine"); filename is the
  * release artifact (e.g. "cloudnine-v0.4.0.zip"). One store reusable for any
- * future fafolab release (extension, CLI, app, etc.).
+ * future FAFOlab release (extension, CLI, app, etc.).
  *
  * Auth: requires a valid hack.tez session JWT. We rely on Authorization
  * headers, so the frontend fetches via `authedFetch` and triggers the

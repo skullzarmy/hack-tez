@@ -382,7 +382,7 @@ export default function Home() {
 							<h3 className="feature-title">Beta Access</h3>
 							<p className="feature-body">
 								Be the FO to our FA. The hack.tez community is the first call
-								for beta testers on upcoming FAFO projects — help us find out
+								for beta testers on upcoming FAFOlab projects — help us find out
 								what breaks, what sticks, and what gets built next.
 							</p>
 							<span className="feature-unlock">// domain required</span>

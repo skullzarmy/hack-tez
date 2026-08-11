@@ -3,7 +3,7 @@
  *
  * Stores under blob store `labs-releases` with key `<slug>/<basename(zip)>` —
  * the same key the `/api/labs/download` function reads. Reusable for any
- * future fafolab release (extension, CLI, app, etc.).
+ * future FAFOlab release (extension, CLI, app, etc.).
  *
  * Usage:
  *   tsx scripts/upload-lab-release.ts <slug> <local-zip-path>

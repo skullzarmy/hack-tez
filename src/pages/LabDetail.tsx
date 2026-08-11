@@ -100,7 +100,7 @@ export default function LabDetail() {
         lab
             ? {
                   title: `${lab.title} v${lab.version} — Labs — hack.tez`,
-                  description: lab.summary || `${lab.title} — early access fafolab experiment for hack.tez members.`,
+                  description: lab.summary || `${lab.title} — early access FAFOlab experiment for hack.tez members.`,
                   path: `/labs/${lab.slug}`,
               }
             : null,
