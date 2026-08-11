@@ -489,7 +489,25 @@ function drawCard(
 	ctx.closePath();
 	ctx.clip();
 	if (avatarImage) {
-		ctx.drawImage(avatarImage, avatarX, avatarY, avatarSize, avatarSize);
+		// Center-crop ("cover") so non-square avatars are not squished into the circle.
+		const naturalWidth = avatarImage.naturalWidth || avatarImage.width;
+		const naturalHeight = avatarImage.naturalHeight || avatarImage.height;
+		if (naturalWidth > 0 && naturalHeight > 0) {
+			const side = Math.min(naturalWidth, naturalHeight);
+			ctx.drawImage(
+				avatarImage,
+				(naturalWidth - side) / 2,
+				(naturalHeight - side) / 2,
+				side,
+				side,
+				avatarX,
+				avatarY,
+				avatarSize,
+				avatarSize,
+			);
+		} else {
+			ctx.drawImage(avatarImage, avatarX, avatarY, avatarSize, avatarSize);
+		}
 	} else {
 		ctx.fillStyle = `${preset.accent}35`;
 		ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
