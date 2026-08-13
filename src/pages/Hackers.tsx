@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import config from "../config/tezos";
 import { useHackerProfiles } from "../hooks/useHackerProfiles";
@@ -9,6 +9,7 @@ import { Hackatar } from "../components/Hackatar";
 import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -21,6 +22,17 @@ function safeHref(url: string | undefined): string | null {
 
 const POLL_MS = 60_000;
 const PAGE_SIZE = 24;
+/** Divisible by every gallery column count (5 / 4 / 3 / 2) so pages fill whole rows */
+const GALLERY_PAGE_SIZE = 60;
+
+/**
+ * Intrinsic tile size. CSS scales tiles to their grid column; this is the
+ * width the image is laid out at before that, and keeps the pre-CSS/SSR
+ * render from collapsing.
+ */
+const GALLERY_TILE_PX = 200;
+
+type ViewMode = "cards" | "gallery";
 
 const STATUS_STYLES: Record<BuilderStatus, { color: string; bg: string; label: string }> = {
     building: { color: "var(--info)", bg: "var(--info-bg)", label: "building" },
@@ -101,12 +113,10 @@ function SkillTag({
     return (
         <button
             type="button"
-            onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onClick(skill);
-            }}
+            onClick={() => onClick(skill)}
             style={{
+                position: "relative",
+                zIndex: 1,
                 fontFamily: "var(--font)",
                 fontSize: "0.6rem",
                 padding: "0.25rem 0.5rem",
@@ -132,8 +142,9 @@ function LinkIcon({ href, label, children }: { href: string; label: string; chil
             rel="noopener noreferrer"
             title={label}
             aria-label={label}
-            onClick={(e) => e.stopPropagation()}
             style={{
+                position: "relative",
+                zIndex: 1,
                 color: "var(--fg-3)",
                 textDecoration: "none",
                 display: "inline-flex",
@@ -175,142 +186,194 @@ function HackerCard({
     const projectCount = profile.projects?.length ?? 0;
 
     return (
-        <Link
-            to={`/u/${label}`}
-            style={{ textDecoration: "none", color: "inherit", display: "block" }}
-            onMouseEnter={() => setCardHover(true)}
-            onMouseLeave={() => setCardHover(false)}
+        <div
+            className="hacker-card"
+            style={{
+                position: "relative",
+                border: "1px solid var(--border)",
+                padding: "1.25rem",
+                background: "var(--bg-card, var(--bg-3))",
+                transition: "border-color 0.15s, background 0.15s",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+            }}
         >
-            <div
-                className="hacker-card"
-                style={{
-                    border: "1px solid var(--border)",
-                    padding: "1.25rem",
-                    background: "var(--bg-card, var(--bg-3))",
-                    transition: "border-color 0.15s, background 0.15s",
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.75rem",
-                }}
-            >
-                {/* Top row: avatar + name + status */}
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <Avatar picture={profile.picture} label={label} playing={cardHover} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
+            {/* Top row: avatar + name + status */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <Avatar picture={profile.picture} label={label} playing={cardHover} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                    {/* Stretched link: covers the card via ::after so the whole
+                        card is clickable — and hoverable — without nesting the
+                        icon anchors inside another anchor. */}
+                    <Link
+                        className="hacker-card__link"
+                        to={`/u/${label}`}
+                        onMouseEnter={() => setCardHover(true)}
+                        onMouseLeave={() => setCardHover(false)}
+                        onFocus={() => setCardHover(true)}
+                        onBlur={() => setCardHover(false)}
+                        style={{
+                            fontFamily: "var(--font)",
+                            fontWeight: 700,
+                            fontSize: "0.85rem",
+                            letterSpacing: "-0.02em",
+                            color: "inherit",
+                            textDecoration: "none",
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {name}
+                    </Link>
+                    {!hasProfile && (
                         <div
                             style={{
                                 fontFamily: "var(--font)",
-                                fontWeight: 700,
-                                fontSize: "0.85rem",
-                                letterSpacing: "-0.02em",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
+                                fontSize: "0.65rem",
+                                color: "var(--fg-3)",
+                                letterSpacing: "0.04em",
+                                marginTop: "0.15rem",
+                            }}
+                            title={owner}
+                        >
+                            {ownerShort}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Status + project count */}
+            {(profile.status || projectCount > 0) && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                    {profile.status && <StatusBadge status={profile.status} />}
+                    {projectCount > 0 && (
+                        <span
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.6rem",
+                                color: "var(--fg-3)",
+                                letterSpacing: "0.06em",
                             }}
                         >
-                            {name}
-                        </div>
-                        {!hasProfile && (
-                            <div
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "0.65rem",
-                                    color: "var(--fg-3)",
-                                    letterSpacing: "0.04em",
-                                    marginTop: "0.15rem",
-                                }}
-                                title={owner}
-                            >
-                                {ownerShort}
-                            </div>
-                        )}
-                    </div>
+                            {projectCount} project{projectCount !== 1 ? "s" : ""}
+                        </span>
+                    )}
                 </div>
+            )}
 
-                {/* Status + project count */}
-                {(profile.status || projectCount > 0) && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                        {profile.status && <StatusBadge status={profile.status} />}
-                        {projectCount > 0 && (
-                            <span
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "0.6rem",
-                                    color: "var(--fg-3)",
-                                    letterSpacing: "0.06em",
-                                }}
-                            >
-                                {projectCount} project{projectCount !== 1 ? "s" : ""}
-                            </span>
-                        )}
-                    </div>
-                )}
+            {/* Bio */}
+            {bio && (
+                <p
+                    style={{
+                        fontFamily: "var(--font)",
+                        fontSize: "0.7rem",
+                        color: "var(--fg-2)",
+                        lineHeight: 1.6,
+                        margin: 0,
+                    }}
+                >
+                    {bio}
+                </p>
+            )}
 
-                {/* Bio */}
-                {bio && (
-                    <p
-                        style={{
-                            fontFamily: "var(--font)",
-                            fontSize: "0.7rem",
-                            color: "var(--fg-2)",
-                            lineHeight: 1.6,
-                            margin: 0,
-                        }}
-                    >
-                        {bio}
-                    </p>
-                )}
+            {/* Skill tags */}
+            {visibleSkills.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                    {visibleSkills.map((s) => (
+                        <SkillTag key={s} skill={s} onClick={onSkillClick} />
+                    ))}
+                    {moreCount > 0 && (
+                        <span
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.6rem",
+                                color: "var(--fg-3)",
+                                alignSelf: "center",
+                            }}
+                        >
+                            +{moreCount} more
+                        </span>
+                    )}
+                </div>
+            )}
 
-                {/* Skill tags */}
-                {visibleSkills.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                        {visibleSkills.map((s) => (
-                            <SkillTag key={s} skill={s} onClick={onSkillClick} />
-                        ))}
-                        {moreCount > 0 && (
-                            <span
-                                style={{
-                                    fontFamily: "var(--font)",
-                                    fontSize: "0.6rem",
-                                    color: "var(--fg-3)",
-                                    alignSelf: "center",
-                                }}
-                            >
-                                +{moreCount} more
-                            </span>
-                        )}
-                    </div>
-                )}
+            {/* Link icons — pushed to bottom */}
+            {(profile.github || profile.twitter || profile.website) && (
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "0.75rem",
+                        marginTop: "auto",
+                        paddingTop: "0.25rem",
+                    }}
+                >
+                    {profile.github && (
+                        <LinkIcon href={`https://github.com/${profile.github}`} label={`@${profile.github} on GitHub`}>
+                            <SiGithub size={12} />
+                        </LinkIcon>
+                    )}
+                    {profile.twitter && (
+                        <LinkIcon href={`https://x.com/${profile.twitter}`} label={`@${profile.twitter} on X`}>
+                            <SiX size={12} />
+                        </LinkIcon>
+                    )}
+                    {safeHref(profile.website) && (
+                        <LinkIcon href={safeHref(profile.website)!} label={profile.website ?? "Website"}>
+                            <Globe size={12} />
+                        </LinkIcon>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
-                {/* Link icons — pushed to bottom */}
-                {(profile.github || profile.twitter || profile.website) && (
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: "0.75rem",
-                            marginTop: "auto",
-                            paddingTop: "0.25rem",
-                        }}
-                    >
-                        {profile.github && (
-                            <LinkIcon href={`https://github.com/${profile.github}`} label={`@${profile.github} on GitHub`}>
-                                <SiGithub size={12} />
-                            </LinkIcon>
-                        )}
-                        {profile.twitter && (
-                            <LinkIcon href={`https://x.com/${profile.twitter}`} label={`@${profile.twitter} on X`}>
-                                <SiX size={12} />
-                            </LinkIcon>
-                        )}
-                        {safeHref(profile.website) && (
-                            <LinkIcon href={safeHref(profile.website)!} label={profile.website ?? "Website"}>
-                                <Globe size={12} />
-                            </LinkIcon>
-                        )}
-                    </div>
-                )}
-            </div>
+/**
+ * Gallery tile: a hackatar at full animation, with the member's name.
+ *
+ * Animation is gated on the tile actually being on screen — a full page of
+ * tiles is a full page of animated GIFs, and only the visible ones are worth
+ * fetching. Once a tile has been seen it stays animated, so scrolling back up
+ * doesn't re-request anything.
+ */
+function HackatarTile({ hacker }: { hacker: HackerEntry }) {
+    const { label, name } = hacker;
+    const ref = useRef<HTMLAnchorElement | null>(null);
+    const [seen, setSeen] = useState(false);
+    const reducedMotion = usePrefersReducedMotion();
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el || seen) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setSeen(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: "300px" },
+        );
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [seen]);
+
+    return (
+        <Link ref={ref} className="hackatar-tile" to={`/u/${label}`}>
+            <Hackatar
+                label={label}
+                size={GALLERY_TILE_PX}
+                animated={seen && !reducedMotion}
+                hoverAnimate={reducedMotion ? false : undefined}
+                borderRadius="0"
+            />
+            <span className="hackatar-tile__name" title={name}>
+                {name}
+            </span>
         </Link>
     );
 }
@@ -503,6 +566,7 @@ export default function Hackers() {
     const query = searchParams.get("q") ?? "";
     const activeStatus = (searchParams.get("status") as BuilderStatus | null) ?? null;
     const activeSkill = searchParams.get("skill") ?? null;
+    const view: ViewMode = searchParams.get("view") === "gallery" ? "gallery" : "cards";
     const pageParam = parseInt(searchParams.get("page") ?? "1", 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
@@ -536,10 +600,11 @@ export default function Hackers() {
         });
     }, [hackers, query, activeStatus, activeSkill]);
 
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const pageSize = view === "gallery" ? GALLERY_PAGE_SIZE : PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
     const safePage = Math.min(page, totalPages);
-    const pageStart = (safePage - 1) * PAGE_SIZE;
-    const pageSlice = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+    const pageStart = (safePage - 1) * pageSize;
+    const pageSlice = filtered.slice(pageStart, pageStart + pageSize);
 
     const handleSkillClick = useCallback(
         (skill: string) => updateParam("skill", skill),
@@ -647,9 +712,48 @@ export default function Hackers() {
                 </p>
             ) : (
                 <>
-                    <p className="section-body" style={{ marginBottom: "1.5rem", color: "var(--fg-3)" }}>
-                        {hackers.length} hacker{hackers.length !== 1 ? "s" : ""} on hack.{config.tld}
-                    </p>
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: "0.75rem",
+                            marginBottom: "1.5rem",
+                        }}
+                    >
+                        <p className="section-body" style={{ margin: 0, color: "var(--fg-3)" }}>
+                            {hackers.length} hacker{hackers.length !== 1 ? "s" : ""} on hack.{config.tld}
+                        </p>
+                        <div style={{ display: "flex" }}>
+                            {(["cards", "gallery"] as ViewMode[]).map((v) => {
+                                const active = view === v;
+                                return (
+                                    <button
+                                        key={v}
+                                        type="button"
+                                        onClick={() => updateParam("view", v === "cards" ? null : v)}
+                                        aria-pressed={active}
+                                        style={{
+                                            fontFamily: "var(--font)",
+                                            fontSize: "0.6rem",
+                                            letterSpacing: "0.08em",
+                                            textTransform: "uppercase",
+                                            padding: "0.35rem 0.7rem",
+                                            color: active ? "var(--ok)" : "var(--fg-3)",
+                                            background: active ? "var(--ok-bg)" : "transparent",
+                                            border: `1px solid ${active ? "var(--ok)" : "var(--border)"}`,
+                                            marginLeft: v === "cards" ? 0 : "-1px",
+                                            cursor: "pointer",
+                                            transition: "all 0.15s",
+                                        }}
+                                    >
+                                        {v === "cards" ? "cards" : "hackatars"}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {/* Filter bar */}
                     <FilterBar
@@ -681,6 +785,12 @@ export default function Hackers() {
                         <p style={{ color: "var(--fg-3)", fontFamily: "var(--font)", fontSize: "0.75rem" }}>
                             No matches.
                         </p>
+                    ) : view === "gallery" ? (
+                        <div className="hackatar-gallery">
+                            {pageSlice.map((h) => (
+                                <HackatarTile key={h.name} hacker={h} />
+                            ))}
+                        </div>
                     ) : (
                         <div
                             style={{
