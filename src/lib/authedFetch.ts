@@ -29,6 +29,12 @@ export interface SessionSnapshot {
   token: string | null;
   activeDomain: string | null;
   domains: string[];
+  /**
+   * The wallet's primary domain. Optional and unused by authedFetch itself —
+   * it only rides along so a refresh result can carry it back to the context.
+   * Absent on older stored sessions and on workers that predate the field.
+   */
+  primary?: string | null;
 }
 
 /**

@@ -5,6 +5,8 @@
  *   GET /api/v1/domain/:name        — domain record by full name or label
  *   GET /api/v1/profile/:name       — domain record + parsed profile data
  *   GET /api/v1/availability/:label — check if a label is free to register
+ *   GET /api/v1/members             — directory: one row per domain, full profile
+ *   GET /api/v1/hackers             — directory: one row per person (primary domain)
  *   GET /api/v1/owner/:address      — all hack.tez domains owned by a wallet
  *   GET /api/v1/resolve/:address    — reverse-resolve wallet → primary domain
  *   GET /api/v1/config              — contract config (commit age, max, paused)
@@ -29,7 +31,11 @@ import {
 	selectTraits,
 } from "../../src/lib/hackatar/index.ts";
 import type { HackProfile, ProjectEntry } from "../../src/types/profile.ts";
-import { parseProfileFromData, projectSlug } from "../../src/types/profile.ts";
+import {
+	parseProfileFromData,
+	projectSlug,
+	resolvePrimary,
+} from "../../src/types/profile.ts";
 import type { TipCountersWithProjects } from "./tipCounters.ts";
 import {
 	readTipCounters,
@@ -704,27 +710,43 @@ async function handleOwner(
 				name: string;
 				address: string | null;
 				owner: string;
+				data: Array<{ key: string; value: unknown }>;
 			}>;
 		};
 	}>(
 		net.domainsGraphql,
 		`query OwnerDomains($owner: Address!, $parent: String!) {
-          domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
-            items { name address owner }
+          domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }, order: { field: NAME, direction: ASC }) {
+            items { name address owner data { key value } }
           }
         }`,
 		{ owner: address, parent: `.hack.${net.tld}` },
 	);
 
+	const suffix = `.hack.${net.tld}`;
+	const candidates = data.domains.items.flatMap((d) =>
+		d.name.slice(0, -suffix.length).includes(".")
+			? []
+			: [
+					{
+						name: d.name,
+						owner: d.owner,
+						profile: parseProfileFromData(d.data ?? []),
+					},
+				],
+	);
+	const primary = resolvePrimary(address, candidates);
+
 	const domains = data.domains.items.map((d) => ({
 		name: d.name,
-		label: d.name.replace(`.hack.${net.tld}`, ""),
+		label: d.name.replace(suffix, ""),
 		address: d.address,
 		owner: d.owner,
+		primary: d.name === primary,
 	}));
 
 	return json(
-		{ data: domains, count: domains.length, network: net.name },
+		{ data: domains, count: domains.length, primary, network: net.name },
 		200,
 		{
 			"Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
@@ -743,12 +765,18 @@ async function handleResolve(
 	// Run both queries in parallel
 	const [ownerData, reverseData] = await Promise.all([
 		tedGql<{
-			domains: { items: Array<{ name: string }> };
+			domains: {
+				items: Array<{
+					name: string;
+					owner: string;
+					data: Array<{ key: string; value: unknown }>;
+				}>;
+			};
 		}>(
 			net.domainsGraphql,
 			`query OwnerDomains($owner: Address!, $parent: String!) {
-              domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
-                items { name }
+              domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }, order: { field: NAME, direction: ASC }) {
+                items { name owner data { key value } }
               }
             }`,
 			{ owner: address, parent: `.hack.${net.tld}` },
@@ -767,15 +795,36 @@ async function handleResolve(
 	]);
 
 	const hackTezDomains = ownerData.domains.items.map((d) => d.name);
-	// TED reverse record if set, else first owned hack.tez domain, else null
+	const suffix = `.hack.${net.tld}`;
+	const hackTezPrimary = resolvePrimary(
+		address,
+		ownerData.domains.items.flatMap((d) =>
+			// Sub-subdomains belong to a member, they are not one.
+			d.name.slice(0, -suffix.length).includes(".")
+				? []
+				: [
+						{
+							name: d.name,
+							owner: d.owner,
+							profile: parseProfileFromData(d.data ?? []),
+						},
+					],
+		),
+	);
+
+	// `primary` keeps its published contract: the TED reverse record wins
+	// outright, so a wallet whose reverse record is a .tez name still resolves
+	// to it. Only the old arbitrary `hackTezDomains[0]` fallback changes, and
+	// that value was never deterministic (the query had no ORDER BY).
 	const primary =
-		reverseData.reverseRecord?.domain?.name ?? hackTezDomains[0] ?? null;
+		reverseData.reverseRecord?.domain?.name ?? hackTezPrimary ?? null;
 
 	return json(
 		{
 			address,
 			primary,
 			hackTez: hackTezDomains,
+			hackTezPrimary,
 			network: net.name,
 		},
 		200,
@@ -1061,7 +1110,7 @@ async function buildDomainsResponse(
 		getAllRegistrationHashes(net),
 	]);
 
-	const domains = items.flatMap((d) => {
+	const rows = items.flatMap((d) => {
 		const label = d.name.replace(`.${parent}`, "");
 		if (label.includes(".")) return [];
 		const reg = regHashes.get(label);
@@ -1077,6 +1126,13 @@ async function buildDomainsResponse(
 			},
 		];
 	});
+
+	// `primary` is owner-scoped, so it needs the whole page grouped by owner.
+	const primaries = primaryByOwner(rows);
+	const domains = rows.map((d) => ({
+		...d,
+		primary: primaries.get(d.owner) === d.name,
+	}));
 
 	return {
 		data: domains,
@@ -1130,6 +1186,35 @@ function getRegistrarAddresses(net: ReturnType<typeof getNetwork>): string[] {
 // Both are built from one cached snapshot of the directory, then filtered in
 // memory: filters are cheap and would otherwise fragment the cache key.
 
+/**
+ * Group rows by owner and resolve each owner's primary domain name.
+ * One pass, no I/O: `resolvePrimary` reads the `hack:primary` marker already
+ * parsed into each profile and falls back to lexicographic order.
+ */
+function primaryByOwner(
+	rows: Array<{ name: string; owner: string; profile: HackProfile }>,
+): Map<string, string> {
+	const byOwner = new Map<string, typeof rows>();
+	for (const r of rows) {
+		const list = byOwner.get(r.owner);
+		if (list) list.push(r);
+		else byOwner.set(r.owner, [r]);
+	}
+	const out = new Map<string, string>();
+	for (const [owner, list] of byOwner) {
+		const primary = resolvePrimary(owner, list);
+		if (primary) out.set(owner, primary);
+	}
+	return out;
+}
+
+/** The owner-level block attached to every member row. */
+interface HackerBlock {
+	owner: string;
+	primary: string | null;
+	domains: string[];
+}
+
 /** Upper bound on how many members one snapshot materializes. */
 const MEMBERS_MAX = 1000;
 /** Soft freshness window for the snapshot (seconds). */
@@ -1176,7 +1261,13 @@ interface ApiMember {
 	};
 	profile: ApiMemberProfile;
 	counts: { projects: number; skills: number };
+	/** True when this is its owner's designated primary domain. */
+	primary: boolean;
+	/** The person this membership belongs to. */
+	hacker: HackerBlock;
 	tipCounters?: TipCountersWithProjects | null;
+	/** Only on /hackers: the owner's other domains, same shape as this row. */
+	alternates?: ApiMember[];
 }
 
 /** Build the directory snapshot from upstream (TED + TzKT). */
@@ -1228,7 +1319,7 @@ async function getMemberRecords(net: ReturnType<typeof getNetwork>): Promise<{
 	cache: "HIT" | "STALE" | "MISS";
 }> {
 	const redis = getRedis();
-	const cacheKey = `members:v1:${net.name}`;
+	const cacheKey = `members:v2:${net.name}`;
 
 	if (redis) {
 		try {
@@ -1278,7 +1369,11 @@ function shapeProjects(
 	});
 }
 
-function shapeMember(member: MemberRecord, siteUrl: string): ApiMember {
+function shapeMember(
+	member: MemberRecord,
+	siteUrl: string,
+	hacker: HackerBlock,
+): ApiMember {
 	const label = encodeURIComponent(member.label);
 	const projects = shapeProjects(member, siteUrl);
 
@@ -1306,7 +1401,34 @@ function shapeMember(member: MemberRecord, siteUrl: string): ApiMember {
 			projects: projects.length,
 			skills: member.profile.skills?.length ?? 0,
 		},
+		primary: hacker.primary === member.name,
+		hacker,
 	};
+}
+
+/** Build the owner-level block for one member out of the whole snapshot. */
+function hackerBlockFor(
+	member: MemberRecord,
+	byOwner: Map<string, MemberRecord[]>,
+	primaries: Map<string, string>,
+): HackerBlock {
+	const siblings = byOwner.get(member.owner) ?? [member];
+	return {
+		owner: member.owner,
+		primary: primaries.get(member.owner) ?? null,
+		domains: siblings.map((m) => m.name),
+	};
+}
+
+/** Index the snapshot by owner once per request. */
+function groupByOwner(members: MemberRecord[]): Map<string, MemberRecord[]> {
+	const byOwner = new Map<string, MemberRecord[]>();
+	for (const m of members) {
+		const list = byOwner.get(m.owner);
+		if (list) list.push(m);
+		else byOwner.set(m.owner, [m]);
+	}
+	return byOwner;
 }
 
 /** Case-insensitive substring match across a set of optional haystacks. */
@@ -1400,6 +1522,10 @@ async function handleMembers(
 	const status = url.searchParams.get("status")?.trim().toLowerCase() ?? "";
 	const skill = url.searchParams.get("skill")?.trim().toLowerCase() ?? "";
 	const q = url.searchParams.get("q")?.trim() ?? "";
+	const owner = url.searchParams.get("owner")?.trim() ?? "";
+	if (owner && !TZ_ADDRESS_RE.test(owner))
+		return err("owner must be a Tezos address", "INVALID_INPUT");
+	const primaryOnly = url.searchParams.get("primary") === "1";
 	const hasProjects = url.searchParams.get("hasProjects") === "1";
 	const withProjects = url.searchParams.get("projects") !== "none";
 	const withTips = url.searchParams.get("tips") === "1";
@@ -1409,7 +1535,16 @@ async function handleMembers(
 
 	const { members, builtAt, cache } = await getMemberRecords(net);
 
+	// Owner grouping is computed over the WHOLE snapshot, never the filtered
+	// page: a member's `hacker.domains` must list every domain they own, even
+	// when a filter excludes some of them from the rows.
+	const byOwner = groupByOwner(members);
+	const primaries = primaryByOwner(members);
+
 	let filtered = members;
+	if (owner) filtered = filtered.filter((m) => m.owner === owner);
+	if (primaryOnly)
+		filtered = filtered.filter((m) => primaries.get(m.owner) === m.name);
 	if (status) filtered = filtered.filter((m) => m.profile.status === status);
 	if (skill) {
 		filtered = filtered.filter((m) =>
@@ -1450,7 +1585,9 @@ async function handleMembers(
 	const total = filtered.length;
 	const page = filtered.slice(window.offset, window.offset + window.limit);
 	const siteUrl = url.origin;
-	const shaped = page.map((m) => shapeMember(m, siteUrl));
+	const shaped = page.map((m) =>
+		shapeMember(m, siteUrl, hackerBlockFor(m, byOwner, primaries)),
+	);
 
 	if (!withProjects) {
 		// Counts stay accurate — only the project bodies are dropped.
@@ -1481,6 +1618,175 @@ async function handleMembers(
 			"X-Cache": cache,
 		},
 	);
+}
+
+/**
+ * GET /api/v1/hackers — the people-level directory: one row per owner.
+ *
+ * The row IS that owner's primary member object, so anything written against
+ * /members works on it unchanged; their other domains hang off `alternates`.
+ * Filters match if ANY of the owner's domains match, and the row returned is
+ * still the primary.
+ */
+async function handleHackers(
+	url: URL,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Response> {
+	const window = parseWindow(url, MEMBERS_MAX, MEMBERS_MAX);
+	if (typeof window === "string") return err(window, "INVALID_INPUT");
+
+	const status = url.searchParams.get("status")?.trim().toLowerCase() ?? "";
+	const skill = url.searchParams.get("skill")?.trim().toLowerCase() ?? "";
+	const q = url.searchParams.get("q")?.trim() ?? "";
+	const owner = url.searchParams.get("owner")?.trim() ?? "";
+	if (owner && !TZ_ADDRESS_RE.test(owner))
+		return err("owner must be a Tezos address", "INVALID_INPUT");
+	const hasProjects = url.searchParams.get("hasProjects") === "1";
+	const withProjects = url.searchParams.get("projects") !== "none";
+	const withTips = url.searchParams.get("tips") === "1";
+	const sort = url.searchParams.get("sort") ?? "name";
+	if (sort !== "name" && sort !== "newest" && sort !== "oldest")
+		return err("sort must be one of: name, newest, oldest", "INVALID_INPUT");
+
+	const { members, builtAt, cache } = await getMemberRecords(net);
+	const byOwner = groupByOwner(members);
+	const primaries = primaryByOwner(members);
+
+	const matches = (m: MemberRecord): boolean => {
+		if (status && m.profile.status !== status) return false;
+		if (
+			skill &&
+			!(m.profile.skills ?? []).some((s) => s.toLowerCase() === skill)
+		)
+			return false;
+		if (hasProjects && (m.profile.projects ?? []).length === 0) return false;
+		if (
+			q &&
+			!matchesQuery(
+				[
+					m.label,
+					m.profile.name,
+					m.profile.nickname,
+					m.profile.bio,
+					m.profile.location,
+					...(m.profile.skills ?? []),
+					...(m.profile.projects ?? []).flatMap((p) => [p.name, p.desc]),
+				],
+				q,
+			)
+		)
+			return false;
+		return true;
+	};
+
+	// One entry per owner, represented by their primary domain.
+	let rows: MemberRecord[] = [];
+	for (const [ownerAddr, list] of byOwner) {
+		if (owner && ownerAddr !== owner) continue;
+		if (!list.some(matches)) continue;
+		const primaryName = primaries.get(ownerAddr);
+		const rep = list.find((m) => m.name === primaryName) ?? list[0];
+		if (rep) rows.push(rep);
+	}
+
+	rows.sort((a, b) => a.name.localeCompare(b.name));
+	if (sort !== "name") {
+		const dir = sort === "newest" ? -1 : 1;
+		rows = [...rows].sort((a, b) => {
+			if (!a.registeredAt && !b.registeredAt) return 0;
+			if (!a.registeredAt) return 1;
+			if (!b.registeredAt) return -1;
+			return dir * a.registeredAt.localeCompare(b.registeredAt);
+		});
+	}
+
+	const total = rows.length;
+	const page = rows.slice(window.offset, window.offset + window.limit);
+	const siteUrl = url.origin;
+
+	const shaped = page.map((m) => {
+		const hacker = hackerBlockFor(m, byOwner, primaries);
+		const row = shapeMember(m, siteUrl, hacker);
+		const others = (byOwner.get(m.owner) ?? []).filter(
+			(o) => o.name !== m.name,
+		);
+		if (others.length > 0) {
+			row.alternates = others.map((o) => shapeMember(o, siteUrl, hacker));
+		}
+		return row;
+	});
+
+	if (!withProjects) {
+		for (const m of shaped) {
+			delete m.profile.projects;
+			for (const alt of m.alternates ?? []) delete alt.profile.projects;
+		}
+	}
+
+	if (withTips) {
+		await attachTipCounters(
+			shaped,
+			new Map(page.map((m) => [m.label, m])),
+			net,
+		);
+	}
+
+	return json(
+		{
+			data: shaped,
+			count: shaped.length,
+			total,
+			limit: window.limit,
+			offset: window.offset,
+			network: net.name,
+			generatedAt: new Date(builtAt).toISOString(),
+		},
+		200,
+		{
+			"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+			"X-Cache": cache,
+		},
+	);
+}
+
+/**
+ * Every top-level hack.tez domain an address owns, with profiles parsed.
+ * Used by the read-through paths that need owner-scoped facts (`primary`)
+ * without going near the directory snapshot.
+ */
+async function fetchOwnerCandidates(
+	owner: string,
+	net: ReturnType<typeof getNetwork>,
+): Promise<Array<{ name: string; owner: string; profile: HackProfile }>> {
+	const suffix = `.hack.${net.tld}`;
+	const data = await tedGql<{
+		domains: {
+			items: Array<{
+				name: string;
+				owner: string;
+				data: Array<{ key: string; value: unknown }>;
+			}>;
+		};
+	}>(
+		net.domainsGraphql,
+		`query OwnerCandidates($owner: Address!, $parent: String!) {
+              domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }, order: { field: NAME, direction: ASC }) {
+                items { name owner data { key value } }
+              }
+            }`,
+		{ owner, parent: suffix },
+	);
+	return data.domains.items.flatMap((d) => {
+		// Sub-subdomains belong to a member, they are not one.
+		if (d.name.slice(0, -suffix.length).includes(".")) return [];
+		return [
+			{
+				name: d.name,
+				owner: d.owner,
+				profile: parseProfileFromData(d.data ?? []),
+			},
+		];
+	});
 }
 
 /** GET /api/v1/members/:name — one member in the same shape as the list */
@@ -1532,7 +1838,26 @@ async function handleMember(
 		profile: parseProfileFromData(result.domain.data ?? []),
 	};
 
-	const shaped = shapeMember(record, url.origin);
+	// `primary` is owner-scoped, so it cannot be derived from this record
+	// alone. One extra read-through query keeps the field as live as the
+	// profile beside it. If it fails, fall back to this domain standing alone
+	// rather than failing the whole request.
+	let siblings: Array<{ name: string; owner: string; profile: HackProfile }> = [
+		record,
+	];
+	try {
+		siblings = await fetchOwnerCandidates(record.owner, net);
+	} catch {
+		// Degrade: the member is still fully described, `primary` just reflects
+		// this domain in isolation.
+	}
+	const hacker: HackerBlock = {
+		owner: record.owner,
+		primary: resolvePrimary(record.owner, siblings),
+		domains: siblings.map((d) => d.name),
+	};
+
+	const shaped = shapeMember(record, url.origin, hacker);
 	if (url.searchParams.get("tips") === "1") {
 		await attachTipCounters([shaped], new Map([[label, record]]), net);
 	}
@@ -1558,6 +1883,7 @@ async function handleProjects(
 
 	const { members, builtAt, cache } = await getMemberRecords(net);
 	const siteUrl = url.origin;
+	const primaries = primaryByOwner(members);
 
 	const memberLabel = memberFilter
 		? normalizeLabel(memberFilter, net.tld)
@@ -1575,6 +1901,8 @@ async function handleProjects(
 				owner: m.owner,
 				displayName: m.profile.name ?? m.profile.nickname ?? m.label,
 				picture: m.profile.picture ?? null,
+				primary: primaries.get(m.owner) === m.name,
+				primaryDomain: primaries.get(m.owner) ?? null,
 				urls: {
 					profile: `${siteUrl}/u/${label}`,
 					api: `${siteUrl}/api/v1/members/${label}`,
@@ -2575,6 +2903,14 @@ export default async function handler(
 						net,
 					)
 				: await handleMembers(new URL(req.url), net);
+		if (resource === "hackers")
+			return param
+				? await handleMember(
+						decodeURIComponent(param),
+						new URL(req.url),
+						net,
+					)
+				: await handleHackers(new URL(req.url), net);
 		if (resource === "projects")
 			return await handleProjects(new URL(req.url), net);
 		if (resource === "domain" && param)
@@ -2621,6 +2957,7 @@ export default async function handler(
 				endpoints: [
 					`/api/v1/members`,
 					`/api/v1/members/:name`,
+					`/api/v1/hackers`,
 					`/api/v1/projects`,
 					`/api/v1/domains?limit=50`,
 					`/api/v1/domain/:name`,

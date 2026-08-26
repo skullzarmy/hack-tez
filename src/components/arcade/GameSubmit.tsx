@@ -18,8 +18,8 @@ const TEMPLATE_TREE_URL = "https://github.com/skullzarmy/hack-tez/tree/main/hack
 
 export default function GameSubmit() {
     const nav = useNavigate();
-    const { activeDomain, address, chatDomains, connect } = useTezos();
-    const submitDomain = activeDomain ?? chatDomains[0] ?? null;
+    const { activeDomain, primaryDomain, address, chatDomains, connect } = useTezos();
+    const submitDomain = activeDomain ?? primaryDomain ?? chatDomains[0] ?? null;
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("arcade");

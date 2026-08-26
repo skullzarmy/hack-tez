@@ -23,6 +23,7 @@ export default function ConnectWallet() {
         disconnect,
         chatDomains,
         activeDomain,
+        primaryDomain,
         setActiveDomain,
     } = useTezos();
     const [busy, setBusy] = useState(false);
@@ -149,6 +150,19 @@ export default function ConnectWallet() {
                                         {isActive ? "●" : ""}
                                     </span>
                                     <span style={{ flex: 1 }}>{d}</span>
+                                    {d === primaryDomain && (
+                                        <span
+                                            title="Your primary identity"
+                                            style={{
+                                                fontSize: "0.55rem",
+                                                letterSpacing: "0.12em",
+                                                textTransform: "uppercase",
+                                                color: "var(--fg-3, #888)",
+                                            }}
+                                        >
+                                            primary
+                                        </span>
+                                    )}
                                 </DropdownMenuItem>
                             );
                         })}

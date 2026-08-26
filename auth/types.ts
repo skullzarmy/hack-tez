@@ -25,6 +25,9 @@ export type Network = "ghostnet" | "mainnet";
  *   sessions can be revoked without rotating secrets.
  * - `domains` is the set of hack.tez domains owned at issue time.
  * - `activeDomain` is the currently selected identity (subset of `domains`).
+ * - `primary` is the owner's designated primary domain at issue time.
+ *   Optional: tokens issued before the feature omit it, and adding it did NOT
+ *   bump AUTH_VERSION, so those tokens keep verifying and refreshing normally.
  *
  * `iat` and `exp` are managed by jose; we keep TTL short (2h) and rely on
  * rolling refresh while the user is active.
@@ -35,6 +38,7 @@ export interface JwtClaims {
   sid: string;
   domains: string[];
   activeDomain: string | null;
+  primary?: string | null;
   iat: number;
   exp: number;
 }

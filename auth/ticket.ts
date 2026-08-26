@@ -27,8 +27,8 @@ export const DEFAULT_TICKET_TTL_SEC = 60;
 export async function signWsTicket(params: {
   secret: Uint8Array;
   kid: string;
-  /** Source session claims (sub, sid, domains, activeDomain). */
-  session: Pick<JwtClaims, "sub" | "sid" | "domains" | "activeDomain">;
+  /** Source session claims (sub, sid, domains, activeDomain, primary). */
+  session: Pick<JwtClaims, "sub" | "sid" | "domains" | "activeDomain" | "primary">;
   ttlSec?: number;
 }): Promise<{ ticket: string; exp: number }> {
   const ttl = params.ttlSec ?? DEFAULT_TICKET_TTL_SEC;

@@ -3,7 +3,7 @@
  */
 import config from "../config/tezos";
 import type { HackProfile } from "../types/profile";
-import { parseProfileFromData } from "../types/profile";
+import { parseProfileFromData, resolvePrimary } from "../types/profile";
 
 const GRAPHQL_URL = config.domainsGraphql;
 
@@ -160,8 +160,10 @@ export async function getSubdomainsByOwner(ownerAddress: string): Promise<Subdom
             }>;
         };
     }>(
+        // NAME ASC matters: without it TED returns an arbitrary order and every
+        // "first owned domain" fallback in the app flips between calls.
         `query OwnerDomains($owner: Address!, $parent: String!) {
-      domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }) {
+      domains(where: { owner: { equalTo: $owner }, name: { endsWith: $parent } }, order: { field: NAME, direction: ASC }) {
         items {
           name
           address
@@ -257,23 +259,36 @@ export async function resolveAddressToAlias(address: string): Promise<string | n
     }
 }
 
-/** Get the first hack.tez subdomain owned by an address (if any) */
-async function getFirstHackTezSubdomain(address: string): Promise<string | null> {
+/** Pick the primary record out of an owner's subdomains (null when they own none). */
+export function pickPrimary(
+    owner: string,
+    subdomains: SubdomainRecord[],
+): SubdomainRecord | null {
+    // Sub-subdomains belong to a member, they are never the member.
+    const topLevel = subdomains.filter(
+        (d) => d.name === `${d.name.split(".")[0]}.hack.${config.tld}`,
+    );
+    const name = resolvePrimary(owner, topLevel);
+    return name === null ? null : (topLevel.find((d) => d.name === name) ?? null);
+}
+
+/** Get the primary hack.tez subdomain owned by an address (if any) */
+async function getPrimaryHackTezSubdomain(address: string): Promise<string | null> {
     const subs = await getSubdomainsByOwner(address);
-    return subs[0]?.name ?? null;
+    return pickPrimary(address, subs)?.name ?? null;
 }
 
 /**
  * Resolve the best available display name for a tz address.
  * Priority (best → fallback):
- *   1. Owned hack.tez subdomain
+ *   1. Primary hack.tez subdomain
  *   2. Tezos Domains reverse record
  *   3. tzkt profile alias
  *   4. null (caller shows truncated address)
  */
 export async function resolveDisplayName(address: string): Promise<string | null> {
     const [hackTez, domain, alias] = await Promise.allSettled([
-        getFirstHackTezSubdomain(address),
+        getPrimaryHackTezSubdomain(address),
         resolveAddressToDomain(address),
         resolveAddressToAlias(address),
     ]);

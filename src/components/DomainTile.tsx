@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link as LinkIcon, SquarePen, Eye, ArrowDown, ArrowUp, Globe } from "lucide-react";
+import { Link as LinkIcon, SquarePen, Eye, ArrowDown, ArrowUp, Globe, Star } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import config from "../config/tezos";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
@@ -78,7 +78,28 @@ function StatusBadge({ status }: { status: BuilderStatus }) {
 
 // ── DomainTile ───────────────────────────────────────────────────────
 
-export default function DomainTile({ domain, onMutate }: { domain: SubdomainRecord; onMutate: () => void }) {
+interface DomainTileProps {
+    domain: SubdomainRecord;
+    onMutate: () => void;
+    /** True when this tile is the wallet's primary. */
+    isPrimary?: boolean;
+    /**
+     * Set this domain as primary. Only provided when the wallet holds more
+     * than one domain — with a single domain there is nothing to choose
+     * between, so the whole control stays hidden.
+     */
+    onMakePrimary?: () => void;
+    /** True while a set-primary transaction is in flight. */
+    settingPrimary?: boolean;
+}
+
+export default function DomainTile({
+    domain,
+    onMutate,
+    isPrimary = false,
+    onMakePrimary,
+    settingPrimary = false,
+}: DomainTileProps) {
     const [expanded, setExpanded] = useState(false);
     const label = domain.name.replace(`.hack.${config.tld}`, "");
     const { profile } = domain;
@@ -107,7 +128,14 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
             <div className="domain-tile-header">
                 <Avatar picture={profile.picture} label={label} />
                 <div className="domain-tile-identity">
-                    <div className="domain-tile-name">{displayName}</div>
+                    <div className="domain-tile-name">
+                        {displayName}
+                        {isPrimary && (
+                            <span className="domain-tile-primary" title="Your primary identity">
+                                primary
+                            </span>
+                        )}
+                    </div>
                     <div className="domain-tile-fqdn">{domain.name}</div>
                 </div>
             </div>
@@ -225,6 +253,18 @@ export default function DomainTile({ domain, onMutate }: { domain: SubdomainReco
                         size={14}
                     />
                 </a>
+                {onMakePrimary && !isPrimary && (
+                    <button
+                        type="button"
+                        onClick={onMakePrimary}
+                        disabled={settingPrimary}
+                        className="btn btn-ghost btn-sm domain-tile-action"
+                        aria-label={`Make ${domain.name} your primary identity`}
+                    >
+                        <Star size={14} aria-hidden="true" />
+                        {settingPrimary ? "Confirm in wallet…" : "Make primary"}
+                    </button>
+                )}
             </div>
 
             {/* Expandable sub-subdomains */}

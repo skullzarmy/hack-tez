@@ -57,6 +57,8 @@ export async function signJwt(params: SignParams): Promise<IssuedToken> {
     iat,
     exp,
   };
+  // Only emit when the caller knows it — an absent claim is valid.
+  if (params.claims.primary !== undefined) claims.primary = params.claims.primary;
   const token = await new SignJWT({ ...claims })
     .setProtectedHeader({ alg: "HS256", kid: params.kid })
     .setIssuedAt(iat)

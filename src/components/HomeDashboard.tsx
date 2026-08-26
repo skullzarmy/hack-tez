@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
-import { useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
     MessageCircle,
@@ -21,6 +21,11 @@ import {
 } from "./icons/animated";
 
 import { useOnboarding } from "../context/OnboardingContext";
+import { useTezos } from "../context/TezosContext";
+import { submitSetPrimary } from "../lib/contract";
+import { waitForOperation } from "../lib/tzkt";
+import { pickPrimary } from "../lib/domains";
+import config from "../config/tezos";
 import { useRecentActivity, truncateAddr } from "../hooks/useRecentActivity";
 import { useDomainCount } from "../hooks/useDomainCount";
 import DomainTile from "./DomainTile";
@@ -97,6 +102,9 @@ interface HomeDashboardProps {
 export default function HomeDashboard({ subdomains, loading, refresh }: HomeDashboardProps) {
 
     const { step: onboardingStep } = useOnboarding();
+    const { address, client } = useTezos();
+    const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
+    const [primaryError, setPrimaryError] = useState<string | null>(null);
     const { events, isLoading: activityLoading } = useRecentActivity();
     const totalDomains = useDomainCount();
     const [refreshing, setRefreshing] = useState(false);
@@ -109,6 +117,56 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
     }, [refresh]);
 
     const topLevel = subdomains.filter((d) => d.name.split(".").length === 3);
+
+    // Primary only means anything with more than one domain. With one, there
+    // is nothing to choose between and the whole control stays hidden.
+    const multi = topLevel.length > 1;
+    const primaryName = useMemo(
+        () => (address ? (pickPrimary(address, topLevel)?.name ?? null) : null),
+        [address, topLevel],
+    );
+
+    // Primary first, then alphabetical — the identity you use leads the grid.
+    const ordered = useMemo(() => {
+        if (!multi) return topLevel;
+        return [...topLevel].sort((a, b) => {
+            if (a.name === primaryName) return -1;
+            if (b.name === primaryName) return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [topLevel, primaryName, multi]);
+
+    const handleMakePrimary = useCallback(
+        async (fullName: string) => {
+            if (!client || !address) return;
+            const suffix = `.hack.${config.tld}`;
+            const label = fullName.replace(suffix, "");
+            // Clear every other domain that currently carries a marker, so the
+            // newest choice can't lose to the lexicographic tie-break.
+            const clear = topLevel
+                .filter((d) => d.name !== fullName && d.profile.primaryFor === address)
+                .map((d) => d.name.replace(suffix, ""));
+
+            setSettingPrimary(fullName);
+            setPrimaryError(null);
+            try {
+                const hash = await submitSetPrimary(label, clear, client);
+                const result = await waitForOperation(hash);
+                if (result.status !== "applied") {
+                    setPrimaryError(result.errorMessage ?? "Transaction failed on-chain");
+                    return;
+                }
+                // Give TED GraphQL a moment to index the new data map.
+                await new Promise((r) => setTimeout(r, 5000));
+                await refresh();
+            } catch (e) {
+                setPrimaryError(e instanceof Error ? e.message : "Transaction failed");
+            } finally {
+                setSettingPrimary(null);
+            }
+        },
+        [client, address, topLevel, refresh],
+    );
 
     return (
         <div className="container dashboard">
@@ -195,6 +253,12 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
 
                 {onboardingStep === "profile" && topLevel.length > 0 && <ProfileHint />}
 
+                {primaryError && (
+                    <div className="status-panel status-panel--err" role="alert">
+                        {primaryError}
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="dashboard-loading" role="status" aria-live="polite">
                         Loading…
@@ -205,9 +269,17 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                         aria-label="Your subdomains"
                         className={`dashboard-domains-grid${topLevel.length === 1 ? " dashboard-domains-grid--single" : ""}`}
                     >
-                        {topLevel.map((d) => (
+                        {ordered.map((d) => (
                             <div key={d.name} role="listitem" className="dashboard-domain-item">
-                                <DomainTile domain={d} onMutate={refresh} />
+                                <DomainTile
+                                    domain={d}
+                                    onMutate={refresh}
+                                    isPrimary={multi && d.name === primaryName}
+                                    onMakePrimary={
+                                        multi ? () => void handleMakePrimary(d.name) : undefined
+                                    }
+                                    settingPrimary={settingPrimary === d.name}
+                                />
                             </div>
                         ))}
                     </div>

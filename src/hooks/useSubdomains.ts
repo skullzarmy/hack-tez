@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { getSubdomainsByOwner, type SubdomainRecord } from "../lib/domains";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { getSubdomainsByOwner, pickPrimary, type SubdomainRecord } from "../lib/domains";
 
 const POLL_INTERVAL_MS = 30_000; // 30s auto-refresh
 
@@ -43,5 +43,12 @@ export function useSubdomains(address: string | null) {
         };
     }, [refresh]);
 
-    return { subdomains, loading, error, refresh };
+    // The wallet's primary record: the hack:primary marker if set, else the
+    // lexicographically first owned domain. Null when they own none.
+    const primary = useMemo(
+        () => (address ? pickPrimary(address, subdomains) : null),
+        [address, subdomains],
+    );
+
+    return { subdomains, primary, loading, error, refresh };
 }

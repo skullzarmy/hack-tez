@@ -11,7 +11,7 @@
  */
 import type { DAppClient, TezosOperationType } from "@tezos-x/octez.connect-sdk";
 import type { HackProfile } from "../types/profile";
-import { profileToDataEntries } from "../types/profile";
+import { PROFILE_KEY_MAP, profileToDataEntries } from "../types/profile";
 import config, { getTedContracts } from "../config/tezos";
 
 /**
@@ -193,23 +193,44 @@ export async function submitProfileUpdate(
 
     const fullName = `${label}.hack.${config.tld}`;
 
-    // 1. Fetch raw data map from TzKT bigmap (hex bytes — no JSON roundtrip)
-    const raw = await fetchRawDataMap(ted.nameRegistry, fullName);
+    // Only the keys the editor touched; every other key is preserved
+    // byte-for-byte by buildUpdateRecordOp.
+    const changes = new Map<string, string | null>(
+        profileToDataEntries(profile).map(({ key, value }) => [key, value]),
+    );
 
-    // 2. Clone the raw hex map as our baseline (preserves foreign keys byte-for-byte)
+    const op = await buildUpdateRecordOp(
+        fullName,
+        changes,
+        proxyAddress,
+        ted.nameRegistry,
+    );
+    const result = await client.requestOperation({ operationDetails: [op] });
+
+    return result.transactionHash;
+}
+
+/**
+ * Build one `update_record` operation that merges `changes` into a domain's
+ * TED data map. Extracted from submitProfileUpdate so several domains can be
+ * changed inside a single wallet confirmation.
+ *
+ * `changes` values are already-JSON-encoded strings, or null to delete the key.
+ * Every other key is preserved byte-for-byte.
+ */
+async function buildUpdateRecordOp(
+    fullName: string,
+    changes: Map<string, string | null>,
+    proxyAddress: string,
+    nameRegistry: string,
+) {
+    const raw = await fetchRawDataMap(nameRegistry, fullName);
     const mergedHex = new Map(raw.data);
-
-    // 3. Safe merge: apply only the keys the profile editor touched
-    const entries = profileToDataEntries(profile);
-    for (const { key, value } of entries) {
-        if (value === null) {
-            mergedHex.delete(key);
-        } else {
-            mergedHex.set(key, stringToHex(value));
-        }
+    for (const [key, value] of changes) {
+        if (value === null) mergedHex.delete(key);
+        else mergedHex.set(key, stringToHex(value));
     }
 
-    // 4. Encode merged data as Michelson map (sorted by key for deterministic ordering)
     const dataMap = Array.from(mergedHex.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, hexValue]) => ({
@@ -217,45 +238,94 @@ export async function submitProfileUpdate(
             args: [{ string: key }, { bytes: hexValue }],
         }));
 
-    // 5. Build address option (preserve the current resolution address)
     const addressArg = raw.address
         ? { prim: "Some" as const, args: [{ string: raw.address }] }
         : { prim: "None" as const };
 
-    // 6. Submit update_record to the TED UpdateRecord proxy
-    //    Parameter type: pair bytes (pair (option address) (pair address (map string bytes)))
-    const result = await client.requestOperation({
-        operationDetails: [
-            {
-                kind: "transaction" as TezosOperationType.TRANSACTION,
-                destination: proxyAddress,
-                amount: "0",
-                parameters: {
-                    entrypoint: "update_record",
-                    value: {
-                        prim: "Pair",
+    // `as const` on the prims is load-bearing: inlined in requestOperation the
+    // literals were contextually typed, but extracted they widen to `string`
+    // and no longer satisfy MichelineMichelsonV1Expression.
+    return {
+        kind: "transaction" as TezosOperationType.TRANSACTION,
+        destination: proxyAddress,
+        amount: "0",
+        parameters: {
+            entrypoint: "update_record",
+            value: {
+                prim: "Pair" as const,
+                args: [
+                    { bytes: labelToHexBytes(fullName) },
+                    {
+                        prim: "Pair" as const,
                         args: [
-                            { bytes: labelToHexBytes(fullName) },
+                            addressArg,
                             {
-                                prim: "Pair",
-                                args: [
-                                    addressArg,
-                                    {
-                                        prim: "Pair",
-                                        args: [
-                                            { string: raw.owner },
-                                            dataMap,
-                                        ],
-                                    },
-                                ],
+                                prim: "Pair" as const,
+                                args: [{ string: raw.owner }, dataMap],
                             },
                         ],
                     },
-                },
+                ],
             },
-        ],
-    });
+        },
+    };
+}
 
+/** Cap on how many stale markers we clear in one batch, to bound gas. */
+const MAX_PRIMARY_CLEARS = 4;
+
+/**
+ * Set `label` as the wallet's primary hack.tez domain.
+ *
+ * Batches the clear of every currently-marked domain together with the set,
+ * so the whole switch is ONE wallet confirmation. Without the clear, two live
+ * markers would fall to the lexicographic tie-break and the user's newest
+ * choice could lose to alphabetical order.
+ *
+ * The marker value is the owner's own address, so it stops counting the moment
+ * the domain is transferred (see `resolvePrimary`).
+ */
+export async function submitSetPrimary(
+    label: string,
+    clearLabels: string[],
+    client: DAppClient,
+): Promise<string> {
+    const ted = await getTedContracts();
+    const proxyAddress = ted.updateRecord;
+    if (!proxyAddress) {
+        throw new Error(`UpdateRecord proxy not found for ${config.name}`);
+    }
+
+    const account = await client.getActiveAccount();
+    if (!account?.address) throw new Error("No active wallet account");
+    const owner = account.address;
+
+    const key = PROFILE_KEY_MAP.primaryFor;
+    const suffix = `.hack.${config.tld}`;
+
+    const targets: Array<{ name: string; changes: Map<string, string | null> }> = [
+        ...clearLabels
+            .filter((l) => l !== label)
+            .slice(0, MAX_PRIMARY_CLEARS)
+            .map((l) => ({
+                name: `${l}${suffix}`,
+                changes: new Map<string, string | null>([[key, null]]),
+            })),
+        {
+            name: `${label}${suffix}`,
+            changes: new Map<string, string | null>([
+                [key, JSON.stringify(owner)],
+            ]),
+        },
+    ];
+
+    const operationDetails = await Promise.all(
+        targets.map((t) =>
+            buildUpdateRecordOp(t.name, t.changes, proxyAddress, ted.nameRegistry),
+        ),
+    );
+
+    const result = await client.requestOperation({ operationDetails });
     return result.transactionHash;
 }
 

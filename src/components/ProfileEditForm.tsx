@@ -2065,6 +2065,17 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
 
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+			{/* ── Avatar Upload ─────────────────────────────── */}
+			{/* Leads the form: it's the most identity-like field, and an image
+			    picker down beside Projects read as a project logo. */}
+			<div style={SECTION_STYLE}>
+				<AvatarUpload
+					currentUri={form.picture}
+					pendingFile={pendingAvatar}
+					onFileSelected={setPendingAvatar}
+				/>
+			</div>
+
 			{/* ── Bio ─────────────────────────────────────────── */}
 			<div style={SECTION_STYLE}>
 				<div>
@@ -2203,14 +2214,6 @@ export function ProfileEditFormBody({ state }: { state: ProfileEditState }) {
 				</button>
 			</fieldset>
 
-			{/* ── Avatar Upload ─────────────────────────────── */}
-			<div style={{ ...SECTION_STYLE, marginBottom: "1rem" }}>
-				<AvatarUpload
-					currentUri={form.picture}
-					pendingFile={pendingAvatar}
-					onFileSelected={setPendingAvatar}
-				/>
-			</div>
 
 			{/* ── Stale data warning ──────────────────────────── */}
 			{staleWarning && (

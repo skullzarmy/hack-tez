@@ -58,6 +58,7 @@ export default function Home() {
 
 	const {
 		subdomains,
+		primary: primarySubdomain,
 		loading: subdomainsLoading,
 		refresh: refreshSubdomains,
 	} = useSubdomains(address);
@@ -66,7 +67,7 @@ export default function Home() {
 
 	// Real on-chain subdomain takes priority over the just-claimed one
 	const displaySubdomain: SubdomainRecord | null =
-		subdomains[0] ?? claimedSubdomain;
+		primarySubdomain ?? subdomains[0] ?? claimedSubdomain;
 
 	const hasSubdomain = !!displaySubdomain;
 	const isStatusLoading = address ? subdomainsLoading || regLoading : false;

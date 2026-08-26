@@ -85,6 +85,7 @@ function deriveStep(
     address: string | null,
     subdomainsLoaded: boolean,
     subdomains: Array<{ profile: HackProfile }>,
+    primary: { profile: HackProfile } | null,
     pushSubscribed: boolean,
     pushSupported: boolean,
     dismissed: Set<string>,
@@ -101,7 +102,8 @@ function deriveStep(
         return dismissed.has("claim") ? "complete" : "claim";
     }
 
-    if (!hasProfileData(subdomains[0].profile)) {
+    // Prompt against the domain they actually use, not an arbitrary one.
+    if (!hasProfileData((primary ?? subdomains[0]).profile)) {
         return dismissed.has("profile") ? "push" : "profile";
     }
 
@@ -125,7 +127,7 @@ const PUSH_POLL_MS = 10_000;
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
     const { address } = useTezos();
-    const { subdomains, loading: subdomainsLoading } = useSubdomains(address);
+    const { subdomains, primary, loading: subdomainsLoading } = useSubdomains(address);
     const hasFetched = useRef(false);
 
     // Track whether initial subdomain fetch has completed
@@ -157,7 +159,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         return () => { cancelled = true; clearInterval(id); };
     }, []);
 
-    const step = deriveStep(address, subdomainsLoaded, subdomains, pushSubscribed, pushSupported, dismissed);
+    const step = deriveStep(address, subdomainsLoaded, subdomains, primary, pushSubscribed, pushSupported, dismissed);
     const ready = step !== "loading";
 
     const dismiss = useCallback((s: OnboardingStep) => {

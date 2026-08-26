@@ -39,9 +39,21 @@ hack.tez is a free Tezos subdomain registrar. Anyone can claim `name.hack.tez` (
 
 ## Directory API
 
-The whole community in one call. `/domains` is the **registry** view (one row per registration); `/members` and `/projects` are the **directory** view — every member with their complete profile, every project with all of its metadata plus the slug and canonical page URL the site itself resolves it at.
+The whole community in one call. Three nouns, three different things:
+
+| Noun | A row is | Endpoint |
+| ---- | -------- | -------- |
+| **domain** | a registration, registry facts only | `/api/v1/domains` |
+| **member** | a membership: one domain with its full profile | `/api/v1/members` |
+| **hacker** | a person: one wallet, keyed by its primary domain | `/api/v1/hackers` |
+
+A wallet can own several hack.tez domains, so one person can be several **members**. Use `/hackers` when you want people, `/members` when you want memberships.
+
+`/domains` is the **registry** view (one row per registration); `/members` and `/projects` are the **directory** view — every member with their complete profile, every project with all of its metadata plus the slug and canonical page URL the site itself resolves it at.
 
 Use the directory endpoints when you want profiles and projects. Use `/domains` when you want registration facts.
+
+Rows on `/domains`, `/members` and `/hackers` all carry a `primary` boolean: `true` when that domain is its owner's designated primary identity.
 
 All three read one Redis-cached snapshot and filter it in memory, so filters are free. Every response carries:
 
@@ -114,7 +126,13 @@ Every hack.tez member with their full profile: bio, location, builder status, sk
                     }
                 ]
             },
-            "counts": { "projects": 1, "skills": 2 }
+            "counts": { "projects": 1, "skills": 2 },
+            "primary": true,
+            "hacker": {
+                "owner": "tz1...",
+                "primary": "alice.hack.tez",
+                "domains": ["alice.hack.tez", "al.hack.tez"]
+            }
         }
     ],
     "count": 1,
@@ -129,6 +147,7 @@ Every hack.tez member with their full profile: bio, location, builder status, sk
 **Notes:**
 
 - `profile` is exactly what `/api/v1/profile/:name` returns, with `slug` and `urls` added to each project. Every other key is the on-chain value verbatim.
+- `primary` is `true` when this domain is its owner's designated primary. `hacker` is the person the membership belongs to: their wallet, their primary domain, and every domain they own. Both are computed across the whole directory, so `hacker.domains` is complete even when a filter hides some of those rows.
 - Keys the member never set are **absent**, not null. Treat every profile field as optional.
 - Nested subdomains (`a.b.hack.tez`) belong to a member and are never listed as one.
 - With `?tips=1`, `tipCounters` is `null` when the counter store is unreachable — distinguishable from a genuine zero. Counters are only looked up for members who actually have a tip jar; the lookup is pipelined, so it costs a couple of round trips regardless of directory size.
@@ -178,6 +197,12 @@ Reads through to TED rather than the directory snapshot, so a profile edit is vi
         "urls": { "profile": "https://hacktez.com/u/alice", "...": "..." },
         "profile": { "name": "Alice", "projects": ["..."] },
         "counts": { "projects": 1, "skills": 2 },
+        "primary": true,
+        "hacker": {
+            "owner": "tz1...",
+            "primary": "alice.hack.tez",
+            "domains": ["alice.hack.tez", "al.hack.tez"]
+        },
         "tipCounters": {
             "count": 4,
             "totals": [{ "asset": "tez", "symbol": "tez", "total": "21.5" }],
@@ -194,6 +219,72 @@ Reads through to TED rather than the directory snapshot, so a profile edit is vi
 | ------ | --------------- | ----------------------------- |
 | 400    | `INVALID_INPUT` | Label fails validation        |
 | 404    | `NOT_FOUND`     | Name is not registered        |
+
+---
+
+### GET /api/v1/hackers
+
+The people-level directory: **one row per wallet**, not per domain. Use this when you want the community as humans and do not want the same person appearing three times because they hold three subdomains.
+
+The row **is** that person's primary member object, so anything written against `/members` works on it unchanged. Their other domains hang off `alternates`.
+
+**Query parameters:** same as `/members` (`limit`, `offset`, `sort`, `status`, `skill`, `q`, `hasProjects`, `owner`, `projects=none`, `tips=1`). Filters match if **any** of the person's domains match; the row returned is still their primary.
+
+**Response:**
+
+```json
+{
+    "data": [
+        {
+            "name": "alice.hack.tez",
+            "label": "alice",
+            "owner": "tz1...",
+            "primary": true,
+            "hacker": {
+                "owner": "tz1...",
+                "primary": "alice.hack.tez",
+                "domains": ["alice.hack.tez", "al.hack.tez"]
+            },
+            "urls": { "profile": "https://hacktez.com/u/alice", "...": "..." },
+            "profile": { "name": "Alice", "skills": ["typescript"], "projects": ["..."] },
+            "counts": { "projects": 1, "skills": 2 },
+            "alternates": [
+                {
+                    "name": "al.hack.tez",
+                    "label": "al",
+                    "primary": false,
+                    "profile": { "...": "..." },
+                    "counts": { "projects": 0, "skills": 0 }
+                }
+            ]
+        }
+    ],
+    "count": 1,
+    "total": 1,
+    "limit": 1000,
+    "offset": 0,
+    "network": "mainnet",
+    "generatedAt": "2025-03-27T08:05:00.000Z"
+}
+```
+
+**Notes:**
+
+- `alternates` is **absent** when the person owns exactly one domain, which is the common case.
+- Which domain is primary comes from the `hack:primary` key in the domain's TED data map. When a wallet has never set one, the alphabetically first owned domain is used, deterministically.
+- `total` counts people; on `/members` it counts memberships. The two numbers differ by however many multi-domain wallets exist.
+
+**Usage:**
+
+```typescript
+// Every person in the community, once each
+const { data } = await fetch("https://hacktez.com/api/v1/hackers").then((r) => r.json());
+for (const h of data) {
+    console.log(h.hacker.primary, `${h.hacker.domains.length} domain(s)`);
+}
+```
+
+**Cache:** `s-maxage=120, stale-while-revalidate=300` + Redis SWR (60 s fresh / 10 min hard TTL)
 
 ---
 
@@ -287,6 +378,7 @@ Every key the directory can return. All are optional — a key the member never 
 | `skills`        | string[]          | `hack:skills`           | Max 10                                                      |
 | `projects`      | ProjectEntry[]    | `hack:projects`         | See below                                                   |
 | `tips`          | TipJar            | `hack:tips`             | Profile-level tip jar                                       |
+| `primaryFor`    | string            | `hack:primary`          | Raw primary marker — the owner address it was set for. Prefer the resolved `primary` boolean on `/members` and `/hackers`. |
 | `mastodon`      | string            | `hack:mastodon`         |                                                             |
 | `farcaster`     | string            | `hack:farcaster`        |                                                             |
 | `telegram`      | string            | `hack:telegram`         |                                                             |
@@ -448,6 +540,8 @@ All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (n
 
 **Path parameter:** Any valid `tz1...`, `tz2...`, `tz3...`, or `KT1...` address.
 
+Top-level `primary` is the wallet's designated hack.tez identity, and each row carries a matching `primary` boolean. Both are null/false when the address owns nothing.
+
 **Response:**
 
 ```json
@@ -457,10 +551,12 @@ All hack.tez subdomains owned by a given Tezos wallet. Returns an empty array (n
             "name": "alice.hack.tez",
             "label": "alice",
             "address": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-            "owner": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+            "owner": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
+            "primary": true
         }
     ],
     "count": 1,
+    "primary": "alice.hack.tez",
     "network": "mainnet"
 }
 ```
@@ -488,23 +584,25 @@ Reverse-resolve a Tezos address to its primary domain and all owned hack.tez sub
     "address": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
     "primary": "alice.tez",
     "hackTez": ["alice.hack.tez", "builder.hack.tez"],
+    "hackTezPrimary": "alice.hack.tez",
     "network": "mainnet"
 }
 ```
 
 **Fields:**
 
-- `primary` — TED reverse record if set, else first owned hack.tez subdomain, else null.
+- `primary` — best display name for this address across any TLD: the TED reverse record if set, else `hackTezPrimary`, else null.
 - `hackTez` — array of all hack.tez subdomains currently owned by this address. Empty array if none.
+- `hackTezPrimary` — this wallet's **hack.tez identity**: the domain carrying the `hack:primary` marker, or the alphabetically first owned one. Read this rather than `hackTez[0]`, which is not ordered by significance.
 
 **Usage:**
 
 ```typescript
-const { primary, hackTez } = await fetch(`https://hacktez.com/api/v1/resolve/${walletAddress}`).then((r) =>
+const { primary, hackTezPrimary } = await fetch(`https://hacktez.com/api/v1/resolve/${walletAddress}`).then((r) =>
     r.json(),
 );
 
-const displayName = primary ?? hackTez[0] ?? walletAddress.slice(0, 8) + "…";
+const displayName = primary ?? walletAddress.slice(0, 8) + "…";
 ```
 
 ---

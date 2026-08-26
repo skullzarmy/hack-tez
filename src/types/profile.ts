@@ -108,6 +108,14 @@ export interface HackProfile {
   projects?: ProjectEntry[];
   tips?: TipJar;
 
+  /**
+   * Raw `hack:primary` marker: the owner address this domain was marked
+   * primary for. Only counts while it equals the domain's current owner, so
+   * the mark self-invalidates on transfer. Use `isPrimaryFor` / `resolvePrimary`
+   * rather than reading this directly.
+   */
+  primaryFor?: string;
+
   // hack.tez social keys — one per platform, ecosystem-safe
   mastodon?: string;
   farcaster?: string;
@@ -135,6 +143,7 @@ export const PROFILE_KEY_MAP = {
   skills: "hack:skills",
   projects: "hack:projects",
   tips: "hack:tips",
+  primaryFor: "hack:primary",
   mastodon: "hack:mastodon",
   farcaster: "hack:farcaster",
   telegram: "hack:telegram",
@@ -442,6 +451,12 @@ export function parseProfileFromData(
         case "tips":
           profile.tips = parseTipJar(value);
           break;
+        case "primaryFor":
+          // Strict: only an address counts. `true` and anything else is ignored.
+          if (typeof value === "string" && isTezosAddress(value)) {
+            profile.primaryFor = value.trim();
+          }
+          break;
       }
     } else {
       // TED native keys — values are already decoded strings
@@ -476,6 +491,60 @@ export function parseProfileFromData(
   }
 
   return profile;
+}
+
+// ── Primary domain ───────────────────────────────────────────────────
+
+/**
+ * A domain considered when resolving an owner's primary. Deliberately the
+ * smallest shape every caller already has (TED GraphQL, the API snapshot, the
+ * client's SubdomainRecord all satisfy it).
+ */
+export interface PrimaryCandidate {
+  name: string;
+  owner: string;
+  profile: HackProfile;
+}
+
+/**
+ * True when this domain carries a valid `hack:primary` marker for `owner`.
+ * The marker must name the CURRENT owner, so a transferred domain never
+ * arrives pre-marked for whoever receives it.
+ */
+export function isPrimaryFor(profile: HackProfile, owner: string): boolean {
+  return profile.primaryFor !== undefined && profile.primaryFor === owner;
+}
+
+/**
+ * Resolve one owner's primary hack.tez domain.
+ *
+ * Order:
+ *   1. Marker — domains whose `hack:primary` names `owner`. Lexicographically
+ *      smallest wins if several are marked (possible when set out-of-band
+ *      through TED's own UI).
+ *   2. Fallback — lexicographically smallest owned domain. Deterministic, so
+ *      an unmarked wallet resolves the same way on every call.
+ *   3. null when the wallet owns nothing.
+ *
+ * Candidates must already be filtered to top-level domains the wallet owns;
+ * this function does no I/O.
+ */
+export function resolvePrimary(
+  owner: string,
+  candidates: PrimaryCandidate[],
+): string | null {
+  let marked: string | null = null;
+  let first: string | null = null;
+
+  for (const c of candidates) {
+    if (c.owner !== owner) continue;
+    if (first === null || c.name < first) first = c.name;
+    if (isPrimaryFor(c.profile, owner)) {
+      if (marked === null || c.name < marked) marked = c.name;
+    }
+  }
+
+  return marked ?? first;
 }
 
 // ── Serialization ────────────────────────────────────────────────────

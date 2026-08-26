@@ -6,7 +6,7 @@ import {
   signWsTicket,
   verifyJwt as verifyJwtCore,
   verifyTezosSignature,
-  getOwnedDomains,
+  getOwnedDomainsWithPrimary,
   parseChallenge,
   validateChallenge,
   type JwtClaims,
@@ -35,7 +35,7 @@ interface Env {
 }
 
 /** What the rest of the worker code consumes. Aligns with shared `JwtClaims` minus iat/exp. */
-type JwtPayload = Pick<JwtClaims, "sub" | "sid" | "domains" | "activeDomain"> & {
+type JwtPayload = Pick<JwtClaims, "sub" | "sid" | "domains" | "activeDomain" | "primary"> & {
   /** Back-compat alias for `sub` so existing callers using `.address` keep working. */
   address: string;
 };
@@ -178,6 +178,7 @@ async function verifyJwt(request: Request, env: Env): Promise<JwtPayload | null>
     sid: claims.sid,
     domains: claims.domains,
     activeDomain,
+    primary: claims.primary ?? null,
   };
 }
 
@@ -342,12 +343,14 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
 
   // Look up owned domains.
   let domains: string[];
+  let primary: string | null;
   try {
-    domains = await getOwnedDomains(address, network);
+    ({ domains, primary } = await getOwnedDomainsWithPrimary(address, network));
   } catch {
     return errorResponse(request, "Failed to query domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
-  const activeDomain = domains.length > 0 ? domains[0] : null;
+  // Sign in as the wallet's designated primary, not an arbitrary owned domain.
+  const activeDomain = primary;
 
   // Issue v2 token with fresh sid + record session in D1.
   const sid = newSessionId();
@@ -356,7 +359,7 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
   const issued = await signJwt({
     secret: secrets[kid],
     kid,
-    claims: { sub: address, sid, domains, activeDomain },
+    claims: { sub: address, sid, domains, activeDomain, primary },
   });
 
   try {
@@ -376,7 +379,7 @@ async function handleAuth(request: Request, env: Env): Promise<Response> {
 
   return corsResponse(
     request,
-    JSON.stringify({ token: issued.token, domains, activeDomain, sid, expiresAt: issued.claims.exp }),
+    JSON.stringify({ token: issued.token, domains, activeDomain, primary, sid, expiresAt: issued.claims.exp }),
   );
 }
 
@@ -434,20 +437,23 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
   // Re-verify domain ownership before issuing a new token.
   const network = getNetwork(env);
   let domains: string[];
+  let primary: string | null;
   try {
-    domains = await getOwnedDomains(claims.sub, network);
+    ({ domains, primary } = await getOwnedDomainsWithPrimary(claims.sub, network));
   } catch {
     return errorResponse(request, "Failed to verify domain ownership", "DOMAIN_LOOKUP_ERROR", 502);
   }
 
   // Honor X-Active-Domain header (used by the domain picker to switch identity).
-  // Falls back to the previous active domain, then first owned, then null.
+  // Falls back to the previous active domain, then the primary, then null.
+  // The previous activeDomain deliberately outranks `primary`: a rolling
+  // refresh must never re-point a live session onto a different identity.
   const requested = request.headers.get("X-Active-Domain");
   const activeDomain = requested && domains.includes(requested)
     ? requested
     : claims.activeDomain && domains.includes(claims.activeDomain)
       ? claims.activeDomain
-      : domains.length > 0 ? domains[0] : null;
+      : primary;
 
   // Refresh keeps the same sid (it's the same session, just rolled forward).
   const kid = getCurrentKid(env);
@@ -455,7 +461,7 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
   const issued = await signJwt({
     secret: secrets[kid],
     kid,
-    claims: { sub: claims.sub, sid: claims.sid, domains, activeDomain },
+    claims: { sub: claims.sub, sid: claims.sid, domains, activeDomain, primary },
   });
 
   try {
@@ -473,7 +479,7 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
 
   return corsResponse(
     request,
-    JSON.stringify({ token: issued.token, domains, activeDomain, sid: claims.sid, expiresAt: issued.claims.exp }),
+    JSON.stringify({ token: issued.token, domains, activeDomain, primary, sid: claims.sid, expiresAt: issued.claims.exp }),
   );
 }
 
@@ -489,7 +495,7 @@ async function handleWsTicket(request: Request, env: Env): Promise<Response> {
   const { ticket, exp } = await signWsTicket({
     secret: secrets[kid],
     kid,
-    session: { sub: user.address, sid: user.sid, domains: user.domains, activeDomain: user.activeDomain },
+    session: { sub: user.address, sid: user.sid, domains: user.domains, activeDomain: user.activeDomain, primary: user.primary },
   });
   return corsResponse(request, JSON.stringify({ ticket, expiresAt: exp }));
 }

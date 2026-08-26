@@ -41,7 +41,7 @@ export {
   type ChallengeParams,
 } from "./challenge.js";
 
-export { getOwnedDomains } from "./domains.js";
+export { getOwnedDomains, getOwnedDomainsWithPrimary } from "./domains.js";
 export { verifyTezosSignature, packMichelineString } from "./tezos.js";
 
 export {

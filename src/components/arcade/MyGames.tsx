@@ -22,8 +22,8 @@ const STATUS_GROUPS: { key: string; label: string; toneVar: string }[] = [
 ];
 
 export default function MyGames() {
-    const { activeDomain, chatDomains, address } = useTezos();
-    const myDomain = activeDomain ?? chatDomains[0] ?? null;
+    const { activeDomain, primaryDomain, chatDomains, address } = useTezos();
+    const myDomain = activeDomain ?? primaryDomain ?? chatDomains[0] ?? null;
     const { data, loading, error, reload } = useMyGames(myDomain);
     const games = data?.games ?? [];
 

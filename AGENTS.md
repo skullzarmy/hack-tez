@@ -92,7 +92,11 @@ All responses: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ e
 | `GET /api/v1/domain/:name`              | Domain record by label or full name. `available: true` + `data: null` if unclaimed |
 | `GET /api/v1/availability/:label`       | Returns `{ available: boolean }`                                                   |
 | `GET /api/v1/owner/:address`            | All hack.tez domains owned by a wallet                                             |
-| `GET /api/v1/resolve/:address`          | Reverse-resolve wallet → primary domain (hack.tez preferred over .tez)             |
+| `GET /api/v1/resolve/:address`          | Reverse-resolve wallet → primary domain. `hackTezPrimary` = the hack.tez identity  |
+| `GET /api/v1/members`                   | Directory: one row per **domain**, full profile + projects                         |
+| `GET /api/v1/members/:name`             | One member, read-through to TED so profile edits show immediately                  |
+| `GET /api/v1/hackers`                   | Directory: one row per **person**, keyed by their primary domain                   |
+| `GET /api/v1/projects`                  | Every project from every member, flattened                                         |
 | `GET /api/v1/config`                    | Contract config: `minCommitAgeSec`, `maxCommitAgeSec`, `maxPerWallet`, `paused`    |
 | `GET /api/v1/activity?limit=30`         | Recent on-chain claim + commit events                                              |
 | `GET /api/v1/profile/:name`             | Parsed builder profile for a domain                                                |
@@ -156,6 +160,9 @@ Produces output dirs in project root — clean up after (`rm -rf Commit/ Admin_f
 - **No Netlify Functions for resolution.** The API in `netlify/functions/api.mts` is a pure proxy to TED GraphQL + TzKT.
 - **Netlify Functions v2** — use `export const config: Config = { path: "..." }` for routing, not `netlify.toml` redirects.
 - **Domain = chat identity.** Messages are stored with `sender_domain`, not wallet address. Transferring a domain transfers the chat identity. Wallets with multiple domains get an identity selector.
+- **One domain per wallet is the *primary*.** Marked on-chain by `hack:primary` in the domain's TED data map, valued with **the owner address it was set for** (not `true`) so the mark self-invalidates on transfer instead of handing primacy to whoever buys the domain. `resolvePrimary()` in `src/types/profile.ts` is the single implementation: marker first, then the lexicographically smallest owned domain. Never fall back to `domains[0]` — TED owner queries must all carry `order: { field: NAME, direction: ASC }`, and an unordered `[0]` used to flip a wallet's identity between page loads. The primary is what `/auth` signs the user into, what the dashboard leads with, and what `/api/v1/hackers` keys a person on.
+- **API vocabulary: domain / member / hacker.** A **domain** is a registration (`/domains`), a **member** is one domain with its profile (`/members`), a **hacker** is a person (`/hackers`, one row per wallet, keyed by their primary). A wallet owning three domains is three members but one hacker. `/members` predates the split and keeps its shape — do not collapse it.
+- **`auth/` may import `src/types/profile.ts`, never the reverse.** That one direction keeps the marker-parsing logic single-sourced across the Worker, PartyKit, Functions and the browser. `chat/tsconfig.json` includes the file explicitly for typechecking.
 - **JWT is the trust boundary.** CF Worker issues short-lived JWTs (2h TTL, rolling refresh) after verifying wallet signature + TED domain ownership. JWTs include `kid` (for secret rotation) and `sid` (for revocation via D1 `auth_sessions` table). All authenticated client calls go through `src/lib/authedFetch.ts` (singleton with `BroadcastChannel` cross-tab sync, `navigator.locks` refresh dedupe, pre-flight expiry check, single-401-retry).
 - **Auth challenge is SIWE-style** (see `auth/challenge.ts`): structured `domain / address / statement / URI / Version / Chain ID / Nonce / Issued At` message. Server re-parses to enforce nonce + freshness for replay protection.
 - **WebSocket auth uses single-use tickets.** Client calls `POST /auth/ws-ticket` (60s TTL, sid-bound) before connecting; ticket goes in WS query string, not the long-lived JWT. PartyKit verifies tickets locally via shared `auth/ticket.ts` — no worker round-trip per connection.

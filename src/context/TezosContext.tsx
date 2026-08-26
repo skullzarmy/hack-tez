@@ -32,6 +32,16 @@ interface AuthSession {
     token: string;
     domains: string[];
     activeDomain: string | null;
+    /** Optional: sessions stored before primary domains existed lack it. */
+    primary?: string | null;
+}
+
+/** Body of /auth and /auth/refresh. `primary` is absent on older workers. */
+interface AuthResponse {
+    token: string;
+    domains: string[];
+    activeDomain: string | null;
+    primary?: string | null;
 }
 
 interface TezosState {
@@ -47,6 +57,9 @@ interface TezosState {
     token: string | null;
     chatDomains: string[];
     activeDomain: string | null;
+    /** The wallet's designated primary domain — the identity we sign them into
+     *  and the default for anything that needs "which one is you". */
+    primaryDomain: string | null;
     /** True if any of the wallet's owned domains is the network's admin domain
      *  (admin.hack.tez on mainnet, admin.hack.gho on ghostnet). Centralized so
      *  no component re-implements admin gating. */
@@ -191,8 +204,13 @@ async function authenticateWallet(c: DAppClient, addr: string): Promise<AuthSess
         throw new Error((body as Record<string, string>).error ?? `HTTP ${res.status}`);
     }
 
-    const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
-    return { token: data.token, domains: data.domains, activeDomain: data.activeDomain };
+    const data = (await res.json()) as AuthResponse;
+    return {
+        token: data.token,
+        domains: data.domains,
+        activeDomain: data.activeDomain,
+        primary: data.primary ?? null,
+    };
 }
 
 /**
@@ -215,10 +233,15 @@ async function callRefresh(token: string, activeDomainOverride?: string): Promis
         if (activeDomainOverride) headers["X-Active-Domain"] = activeDomainOverride;
         const res = await fetch(`${hackchatUrl}/auth/refresh`, { method: "POST", headers });
         if (res.ok) {
-            const data = (await res.json()) as { token: string; domains: string[]; activeDomain: string | null };
+            const data = (await res.json()) as AuthResponse;
             return {
                 ok: true,
-                session: { token: data.token, domains: data.domains, activeDomain: data.activeDomain },
+                session: {
+                    token: data.token,
+                    domains: data.domains,
+                    activeDomain: data.activeDomain,
+                    primary: data.primary ?? null,
+                },
             };
         }
         // 401/403: server says this token is invalid/revoked. Permanent.
@@ -243,7 +266,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
 
     const [address, setAddress] = useState<string | null>(null);
     const [domain, setDomain] = useState<string | null>(
-        seed?.activeDomain ?? seed?.domains[0] ?? null,
+        seed?.activeDomain ?? seed?.primary ?? seed?.domains[0] ?? null,
     );
     const [connecting, setConnecting] = useState(false);
     const [awaitingSignature, setAwaitingSignature] = useState(false);
@@ -257,6 +280,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     const [token, setToken] = useState<string | null>(seed?.token ?? null);
     const [chatDomains, setChatDomains] = useState<string[]>(seed?.domains ?? []);
     const [activeDomain, setActiveDomainState] = useState<string | null>(seed?.activeDomain ?? null);
+    const [primaryDomain, setPrimaryDomain] = useState<string | null>(seed?.primary ?? null);
     const tokenRef = useRef<string | null>(seed?.token ?? null);
     // User's last explicit picker choice. Survives across in-flight refreshes
     // so a stale-in-flight /auth/refresh response (still echoing the old
@@ -298,6 +322,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         setToken(effective.token);
         setChatDomains(effective.domains);
         setActiveDomainState(effective.activeDomain);
+        setPrimaryDomain(effective.primary ?? null);
         tokenRef.current = effective.token;
         // Keep the intent in sync with what we actually applied so future
         // applySession calls have a fresh anchor (rather than locking forever
@@ -314,6 +339,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         setToken(null);
         setChatDomains([]);
         setActiveDomainState(null);
+        setPrimaryDomain(null);
         tokenRef.current = null;
         activeDomainIntentRef.current = null;
         clearAuthStorage();
@@ -379,19 +405,25 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 setToken(null);
                 setChatDomains([]);
                 setActiveDomainState(null);
+                setPrimaryDomain(null);
                 tokenRef.current = null;
                 clearAuthStorage();
                 return;
             }
             // Another tab refreshed/logged in — adopt their session.
+            // The broadcast snapshot carries only what authedFetch needs, so
+            // read `primary` back off the shared storage the other tab wrote.
+            const primary = loadAuthSession()?.primary ?? null;
             setToken(snap.token);
             setChatDomains(snap.domains);
             setActiveDomainState(snap.activeDomain);
+            setPrimaryDomain(primary);
             tokenRef.current = snap.token;
             saveAuthSession({
                 token: snap.token,
                 domains: snap.domains,
                 activeDomain: snap.activeDomain,
+                primary,
             });
         });
         return unsub;
@@ -686,6 +718,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 token,
                 chatDomains,
                 activeDomain,
+                primaryDomain,
                 isAdmin,
                 connect,
                 disconnect,

@@ -3717,6 +3717,23 @@ a:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Only rendered when a wallet holds more than one domain. */
+.domain-tile-primary {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.4rem;
+    color: var(--accent);
+    background: var(--accent-bg, rgba(102, 204, 255, 0.12));
+    border: 1px solid var(--accent);
 }
 
 .domain-tile-fqdn {
