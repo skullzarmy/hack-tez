@@ -28,6 +28,7 @@ import { useTezos } from "../context/TezosContext";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useTedContracts } from "../hooks/useTedContracts";
+import { avatarThumbnail, useAvatarSrc } from "../lib/avatarUrl";
 import type { DomainRecord } from "../lib/domains";
 import { getDomainRecord } from "../lib/domains";
 import { safeHref, truncateAddress } from "../lib/profileDisplay";
@@ -36,31 +37,25 @@ import { tipJarIsLive } from "../types/profile";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function resolveAvatarUrl(
+/**
+ * Whether the profile points at a real picture, or whether we should skip
+ * straight to the deterministic hackatar (server resolves label → opHash).
+ */
+function hasCustomAvatar(
 	profile: HackProfile,
 	gravatar: string | null,
-	label: string,
-): { type: "image"; url: string } | { type: "hackatar"; label: string } {
-	if (profile.picture) {
-		if (
-			profile.picture.startsWith("ipfs://") ||
-			profile.picture.startsWith("https://")
-		) {
-			return {
-				type: "image",
-				url: `/api/v1/avatar/${encodeURIComponent(label)}`,
-			};
-		}
+): boolean {
+	if (
+		profile.picture?.startsWith("ipfs://") ||
+		profile.picture?.startsWith("https://")
+	) {
+		return true;
 	}
-	if (gravatar) {
-		return {
-			type: "image",
-			url: `/api/v1/avatar/${encodeURIComponent(label)}`,
-		};
-	}
-	// Server resolves label → opHash → deterministic hackatar
-	return { type: "hackatar", label };
+	return Boolean(gravatar);
 }
+
+/** Largest circle the share card draws: min(1080, 1350) * 0.15, doubled. */
+const SHARE_CARD_AVATAR_PX = 512;
 
 // ── Social link helpers ──────────────────────────────────────────────
 
@@ -81,17 +76,72 @@ const SOCIAL_PLATFORMS: Array<{
 	icon: React.ReactNode;
 	buildUrl: (handle: string) => string | null;
 }> = [
-	{ field: "github",    label: "GitHub",    icon: <SiGithub size={14} />,    buildUrl: (h) => `https://github.com/${h}` },
-	{ field: "twitter",   label: "X / Twitter", icon: <SiX size={14} />,       buildUrl: (h) => `https://x.com/${h}` },
-	{ field: "bluesky",   label: "Bluesky",   icon: <SiBluesky size={14} />,   buildUrl: (h) => `https://bsky.app/profile/${h}` },
-	{ field: "mastodon",  label: "Mastodon",  icon: <SiMastodon size={14} />,  buildUrl: mastodonUrl },
-	{ field: "farcaster", label: "Farcaster", icon: <SiFarcaster size={14} />, buildUrl: (h) => `https://warpcast.com/${h}` },
-	{ field: "telegram",  label: "Telegram",  icon: <SiTelegram size={14} />,  buildUrl: (h) => `https://t.me/${h}` },
-	{ field: "discord",   label: "Discord",   icon: <SiDiscord size={14} />,   buildUrl: () => null },
-	{ field: "instagram", label: "Instagram", icon: <SiInstagram size={14} />, buildUrl: (h) => `https://instagram.com/${h}` },
-	{ field: "youtube",   label: "YouTube",   icon: <SiYoutube size={14} />,   buildUrl: (h) => `https://youtube.com/@${h.replace(/^@/, "")}` },
-	{ field: "twitch",    label: "Twitch",    icon: <SiTwitch size={14} />,    buildUrl: (h) => `https://twitch.tv/${h}` },
-	{ field: "website",   label: "Website",   icon: <Globe size={14} />,        buildUrl: safeHref },
+	{
+		field: "github",
+		label: "GitHub",
+		icon: <SiGithub size={14} />,
+		buildUrl: (h) => `https://github.com/${h}`,
+	},
+	{
+		field: "twitter",
+		label: "X / Twitter",
+		icon: <SiX size={14} />,
+		buildUrl: (h) => `https://x.com/${h}`,
+	},
+	{
+		field: "bluesky",
+		label: "Bluesky",
+		icon: <SiBluesky size={14} />,
+		buildUrl: (h) => `https://bsky.app/profile/${h}`,
+	},
+	{
+		field: "mastodon",
+		label: "Mastodon",
+		icon: <SiMastodon size={14} />,
+		buildUrl: mastodonUrl,
+	},
+	{
+		field: "farcaster",
+		label: "Farcaster",
+		icon: <SiFarcaster size={14} />,
+		buildUrl: (h) => `https://warpcast.com/${h}`,
+	},
+	{
+		field: "telegram",
+		label: "Telegram",
+		icon: <SiTelegram size={14} />,
+		buildUrl: (h) => `https://t.me/${h}`,
+	},
+	{
+		field: "discord",
+		label: "Discord",
+		icon: <SiDiscord size={14} />,
+		buildUrl: () => null,
+	},
+	{
+		field: "instagram",
+		label: "Instagram",
+		icon: <SiInstagram size={14} />,
+		buildUrl: (h) => `https://instagram.com/${h}`,
+	},
+	{
+		field: "youtube",
+		label: "YouTube",
+		icon: <SiYoutube size={14} />,
+		buildUrl: (h) => `https://youtube.com/@${h.replace(/^@/, "")}`,
+	},
+	{
+		field: "twitch",
+		label: "Twitch",
+		icon: <SiTwitch size={14} />,
+		buildUrl: (h) => `https://twitch.tv/${h}`,
+	},
+	{
+		field: "website",
+		label: "Website",
+		icon: <Globe size={14} />,
+		buildUrl: safeHref,
+	},
 ];
 
 const STATUS_STYLES: Record<
@@ -380,6 +430,7 @@ export default function Profile() {
 	// The hook handles undefined input (returns null), so passing the
 	// pre-load value of profile.bluesky is safe.
 	const bskyDisplayHandle = useBlueskyHandle(record?.profile.bluesky);
+	const avatar = useAvatarSrc(label, 96);
 
 	// ── Loading State ────────────────────────────────────────────────
 	if (loading) return <ProfileSkeleton />;
@@ -448,7 +499,7 @@ export default function Profile() {
 		SOCIAL_PLATFORMS.some((p) => !!profile[p.field])
 	);
 
-	const avatar = resolveAvatarUrl(profile, gravatar, label);
+	const avatarSrc = hasCustomAvatar(profile, gravatar) ? avatar.src : null;
 	const displayName = profile.name || profile.nickname || label;
 
 	const hasLinks = SOCIAL_PLATFORMS.some((p) => !!profile[p.field]);
@@ -469,10 +520,11 @@ export default function Profile() {
 						marginBottom: "2rem",
 					}}
 				>
-					{avatar.type === "image" ? (
+					{avatarSrc ? (
 						<img
-							src={avatar.url}
+							src={avatarSrc}
 							alt={`${displayName} avatar`}
+							onError={avatar.onError}
 							style={{
 								width: 96,
 								height: 96,
@@ -482,7 +534,7 @@ export default function Profile() {
 							}}
 						/>
 					) : (
-						<Hackatar label={avatar.label} size={96} animated />
+						<Hackatar label={label} size={96} animated />
 					)}
 
 					<CopyableDomain name={fullName} />
@@ -584,7 +636,11 @@ export default function Profile() {
 								label={label}
 								fullName={fullName}
 								displayName={displayName}
-								avatarUrl={avatar.type === "image" ? avatar.url : null}
+								avatarUrl={
+									hasCustomAvatar(profile, gravatar)
+										? avatarThumbnail(label, SHARE_CARD_AVATAR_PX)
+										: null
+								}
 								bio={profile.bio}
 								status={profile.status}
 							/>

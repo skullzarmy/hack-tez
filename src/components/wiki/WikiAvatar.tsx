@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useAvatarSrc } from "../../lib/avatarUrl";
 import { Hackatar } from "../Hackatar";
 
 interface WikiAvatarProps {
@@ -22,15 +22,14 @@ export default function WikiAvatar({
   playing,
   borderRadius = "50%",
 }: WikiAvatarProps) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const url = `/api/v1/avatar/${encodeURIComponent(label)}`;
+  const { src, onError } = useAvatarSrc(label, size);
 
-  if (!imgFailed) {
+  if (src) {
     return (
       <img
-        src={url}
+        src={src}
         alt={`${label} avatar`}
-        onError={() => setImgFailed(true)}
+        onError={onError}
         style={{
           width: size,
           height: size,
