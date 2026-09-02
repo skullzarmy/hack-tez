@@ -105,6 +105,7 @@ export default function DomainTile({
     const { profile } = domain;
     const displayName = profile.name || profile.nickname || label;
     const bskyHandle = useBlueskyHandle(profile.bluesky);
+    const websiteHref = safeHref(profile.website);
 
     const viewTrigger = useAnimatedIconTrigger();
     const editTrigger = useAnimatedIconTrigger();
@@ -203,9 +204,9 @@ export default function DomainTile({
                             <SiX size={16} />
                         </a>
                     )}
-                    {safeHref(profile.website) && (
+                    {websiteHref && (
                         <a
-                            href={safeHref(profile.website)!}
+                            href={websiteHref}
                             target="_blank"
                             rel="noopener noreferrer"
                             title={profile.website ?? "Website"}

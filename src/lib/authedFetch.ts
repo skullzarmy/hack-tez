@@ -176,7 +176,8 @@ let refreshInflight: Promise<RefreshResult> | null = null;
  * rejection (permanent) from transient failure (preserve session, retry later).
  */
 export async function refreshSession(): Promise<RefreshResult> {
-  if (!handlers) return { ok: false, permanent: false };
+  const auth = handlers;
+  if (!auth) return { ok: false, permanent: false };
   if (refreshInflight) return refreshInflight;
   refreshInflight = (async () => {
     try {
@@ -188,7 +189,7 @@ export async function refreshSession(): Promise<RefreshResult> {
         if (expAtStart && expAtStart - Date.now() > REFRESH_THRESHOLD_MS && tokenAtStart) {
           return { ok: true, session: { ...current, token: tokenAtStart } };
         }
-        return handlers!.refresh();
+        return auth.refresh();
       });
     } finally {
       refreshInflight = null;

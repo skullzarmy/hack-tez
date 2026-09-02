@@ -10,7 +10,8 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 
-const root = document.getElementById("root")!;
+const root = document.getElementById("root");
+if (!root) throw new Error("index.html is missing its #root element");
 
 // If the root already has SSR-rendered content, hydrate (attach event handlers
 // to existing HTML). Otherwise create a fresh client-side render.

@@ -315,7 +315,7 @@ export function useDM(config: UseDMConfig): UseDMReturn {
                 const r = reactions[idx];
                 const newCount = r.count - 1;
                 if (newCount <= 0) reactions.splice(idx, 1);
-                else reactions[idx] = { ...r, count: newCount, domains: r.domains!.filter((d) => d !== domain) };
+                else reactions[idx] = { ...r, count: newCount, domains: (r.domains ?? []).filter((d) => d !== domain) };
             } else if (idx >= 0) {
                 const r = reactions[idx];
                 reactions[idx] = { ...r, count: r.count + 1, domains: [...(r.domains ?? []), domain] };

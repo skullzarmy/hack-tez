@@ -188,17 +188,18 @@ export function buildObjktCreateAskOp(input: ObjktRelistInputs): PreparedOp {
     const shares: Array<[string, string]> = input.sourceShares.map(
         ([r, a]) => [r, String(a)] as [string, string],
     );
-    if (input.tip && input.tip.basisPoints > 0) {
+    const tip = input.tip;
+    if (tip && tip.basisPoints > 0) {
         // If the tip recipient already appears in shares, add to it instead
         // of duplicating the key (Michelson map keys must be unique).
-        const existing = shares.find(([r]) => r === input.tip!.recipient);
+        const existing = shares.find(([r]) => r === tip.recipient);
         if (existing) {
             // BigInt-safe addition — share amounts are nats and can in principle
             // be arbitrary precision. Avoid Number() coercion which would risk
             // NaN or precision loss on malformed/large source values.
-            existing[1] = (BigInt(existing[1] || "0") + BigInt(input.tip.basisPoints)).toString();
+            existing[1] = (BigInt(existing[1] || "0") + BigInt(tip.basisPoints)).toString();
         } else {
-            shares.push([input.tip.recipient, String(input.tip.basisPoints)]);
+            shares.push([tip.recipient, String(tip.basisPoints)]);
         }
     }
     return {

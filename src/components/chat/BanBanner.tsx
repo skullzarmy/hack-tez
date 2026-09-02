@@ -30,10 +30,11 @@ export default function BanBanner({ ban, onExpired }: BanBannerProps) {
     });
 
     useEffect(() => {
-        if (!ban.expiresAt) return;
+        const expiresAt = ban.expiresAt;
+        if (!expiresAt) return;
 
         const tick = () => {
-            const ms = Math.max(0, new Date(ban.expiresAt!).getTime() - Date.now());
+            const ms = Math.max(0, new Date(expiresAt).getTime() - Date.now());
             setRemaining(ms);
             if (ms <= 0) onExpired();
         };
@@ -65,7 +66,7 @@ export default function BanBanner({ ban, onExpired }: BanBannerProps) {
                     <>You are permanently banned · {ban.reason}</>
                 )}
                 {!isPermanent && !isExpired && (
-                    <>Banned for {formatCountdown(remaining!)} · {ban.reason}</>
+                    <>Banned for {formatCountdown(remaining ?? 0)} · {ban.reason}</>
                 )}
                 {!isPermanent && isExpired && (
                     <>Ban expired · Reconnecting…</>

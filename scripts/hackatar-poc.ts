@@ -8,12 +8,14 @@
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createPrng, seedFromHash, selectTraits, renderFrames } from "../src/lib/hackatar/index.ts";
 import gifenc from "gifenc";
 const { GIFEncoder, quantize, applyPalette } = gifenc;
 
-const OUTPUT_DIR = join(import.meta.dirname!, "hackatar-output");
+const here = dirname(fileURLToPath(import.meta.url));
+const OUTPUT_DIR = join(here, "hackatar-output");
 mkdirSync(OUTPUT_DIR, { recursive: true });
 
 // Sample seeds — simulate different opHash values

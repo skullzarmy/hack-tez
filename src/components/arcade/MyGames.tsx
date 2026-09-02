@@ -34,7 +34,8 @@ export default function MyGames() {
         });
         for (const g of games) {
             const key = g.status ?? "active";
-            (m.get(key) ?? m.get("active")!).push(g);
+            const bucket = m.get(key) ?? m.get("active");
+            bucket?.push(g);
         }
         return m;
     }, [games]);

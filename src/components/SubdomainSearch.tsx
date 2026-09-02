@@ -23,7 +23,7 @@ export default function SubdomainSearch({ onCommit }: { onCommit?: () => void })
 
         const validation = validateLabel(label);
         if (!validation.valid) {
-            setError(validation.error!);
+            setError(validation.error ?? "That label isn't valid.");
             return;
         }
         if (isReserved(label)) {

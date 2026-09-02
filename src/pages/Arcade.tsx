@@ -237,7 +237,7 @@ function PlayRoute() {
                 )}
             </div>
 
-            <Leaderboard board={data!.leaderboard} myDomain={activeDomain} />
+            <Leaderboard board={data?.leaderboard ?? []} myDomain={activeDomain} />
 
             <ConfirmAction
                 open={flagOpen}

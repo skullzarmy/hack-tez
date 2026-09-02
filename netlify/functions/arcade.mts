@@ -94,14 +94,18 @@ async function arcadeAudit(action: string, target: string, actor: string, detail
 }
 
 /** Verify JWT and require an active hack.tez domain (i.e. authenticated as a domain holder). */
-async function requireDomainHolder(req: Request): Promise<JwtPayload | Response> {
+/** Anything past requireDomainHolder has an active domain — the guard below is
+    what makes that true, so the type says so and callers stop asserting it. */
+type DomainHolder = JwtPayload & { activeDomain: string };
+
+async function requireDomainHolder(req: Request): Promise<DomainHolder | Response> {
     const user = await verifyJwt(req);
     if (!user) return err("Unauthorized", "AUTH_REQUIRED", 401);
     if (!user.activeDomain) return err("Active hack.tez domain required", "DOMAIN_REQUIRED", 403);
-    return user;
+    return user as DomainHolder;
 }
 
-async function requireAdmin(req: Request): Promise<JwtPayload | Response> {
+async function requireAdmin(req: Request): Promise<DomainHolder | Response> {
     const user = await requireDomainHolder(req);
     if (user instanceof Response) return user;
     if (!isAdmin(user)) return err("Admin only", "FORBIDDEN", 403);
@@ -589,7 +593,7 @@ async function submitGame(req: Request): Promise<Response> {
     // NOTE: no arcade_game_versions row yet — v1 is only created on approval.
     // Keeping it out avoids the pending submission also showing up as a "pending update".
 
-    await arcadeAudit("game_submit", slug, user.activeDomain!, {
+    await arcadeAudit("game_submit", slug, user.activeDomain, {
         bundleKey: stored.key,
         coverKey: coverStored.key,
         coverContentType: coverStored.contentType,
@@ -640,7 +644,7 @@ async function updateGame(req: Request, slug: string): Promise<Response> {
         INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status)
         VALUES (${game.id}, ${newVersion}, ${stored.key}, ${user.activeDomain}, ${scoresReset}, 'pending')`;
 
-    await arcadeAudit("game_update_submit", slug, user.activeDomain!, {
+    await arcadeAudit("game_update_submit", slug, user.activeDomain, {
         bundleKey: stored.key,
         version: newVersion,
         scoresReset,
@@ -803,7 +807,7 @@ async function editGame(req: Request, slug: string): Promise<Response> {
         }
     }
 
-    await arcadeAudit("game_edit", slug, user.activeDomain!, {
+    await arcadeAudit("game_edit", slug, user.activeDomain, {
         fields: Object.keys(updates),
         zipReplaced: !!newCid,
         coverReplaced,
@@ -839,7 +843,7 @@ async function rescindGame(req: Request, slug: string): Promise<Response> {
     // Best-effort blob cleanup — failures shouldn't block the rescind.
     await deleteBundle(game.id, 1).catch(() => {});
     await deleteCover(game.id).catch(() => {});
-    await arcadeAudit("game_rescind", slug, user.activeDomain!);
+    await arcadeAudit("game_rescind", slug, user.activeDomain);
     return json({ ok: true });
 }
 
@@ -854,7 +858,7 @@ async function flagGame(req: Request, slug: string): Promise<Response> {
     if (!rows.length) return err("Game not found", "NOT_FOUND", 404);
     await sql`UPDATE arcade_games SET status='flagged', flagged_reason=${reason}, updated_at=NOW()
               WHERE slug=${slug} AND status='active'`;
-    await arcadeAudit("game_flag", slug, user.activeDomain!, { reason });
+    await arcadeAudit("game_flag", slug, user.activeDomain, { reason });
     return json({ ok: true });
 }
 
@@ -917,7 +921,7 @@ async function approveGame(req: Request, slug: string): Promise<Response> {
         INSERT INTO arcade_game_versions (game_id, version, ipfs_cid, uploaded_by, scores_reset, status, approved_by, approved_at)
         VALUES (${g.id}, ${g.version}, ${g.ipfs_cid}, ${g.builder_domain}, FALSE, 'approved', ${user.activeDomain}, NOW())
         ON CONFLICT (game_id, version) DO NOTHING`;
-    await arcadeAudit("game_approve", slug, user.activeDomain!);
+    await arcadeAudit("game_approve", slug, user.activeDomain);
     return json({ ok: true });
 }
 
@@ -933,7 +937,7 @@ async function rejectGame(req: Request, slug: string): Promise<Response> {
         WHERE slug=${slug} AND status='pending'
         RETURNING id`;
     if (!rows.length) return err("Game not found or not pending", "NOT_FOUND", 404);
-    await arcadeAudit("game_reject", slug, user.activeDomain!, { reason });
+    await arcadeAudit("game_reject", slug, user.activeDomain, { reason });
     return json({ ok: true });
 }
 
@@ -1016,7 +1020,7 @@ async function approveUpdate(req: Request, slug: string): Promise<Response> {
 
     if (affectedDomains.length) await recomputePlayerStats(affectedDomains);
 
-    await arcadeAudit("game_update_approve", slug, user.activeDomain!, {
+    await arcadeAudit("game_update_approve", slug, user.activeDomain, {
         version: Number(v.version),
         cid: v.ipfs_cid,
         scoresReset: !!v.scores_reset,
@@ -1048,7 +1052,7 @@ async function rejectUpdate(req: Request, slug: string): Promise<Response> {
     const rejectedVersion = Number(rowsAs<VersionRow>(rows)[0].version);
     await deleteBundle(gameId, rejectedVersion).catch(() => {});
 
-    await arcadeAudit("game_update_reject", slug, user.activeDomain!, { reason, version: rejectedVersion });
+    await arcadeAudit("game_update_reject", slug, user.activeDomain, { reason, version: rejectedVersion });
     return json({ ok: true });
 }
 
@@ -1073,7 +1077,7 @@ async function removeGame(req: Request, slug: string): Promise<Response> {
 
     if (affected.length) await recomputePlayerStats(affected);
 
-    await arcadeAudit("game_remove", slug, user.activeDomain!, { reason, affectedPlayers: affected.length });
+    await arcadeAudit("game_remove", slug, user.activeDomain, { reason, affectedPlayers: affected.length });
     return json({ ok: true });
 }
 
@@ -1084,7 +1088,7 @@ async function unflagGame(req: Request, slug: string): Promise<Response> {
         UPDATE arcade_games SET status='active', flagged_reason=NULL, updated_at=NOW()
         WHERE slug=${slug} AND status='flagged' RETURNING id`;
     if (!rows.length) return err("Game not flagged", "NOT_FOUND", 404);
-    await arcadeAudit("game_unflag", slug, user.activeDomain!);
+    await arcadeAudit("game_unflag", slug, user.activeDomain);
     return json({ ok: true });
 }
 

@@ -171,6 +171,7 @@ function HackerCard({
 }) {
     const { label, name, owner, ownerShort, profile } = hacker;
     const [cardHover, setCardHover] = useState(false);
+    const websiteHref = safeHref(profile.website);
     const hasProfile = !!(profile.bio || profile.status || profile.skills?.length || profile.github || profile.twitter || profile.website);
 
     const bio = profile.bio
@@ -321,8 +322,8 @@ function HackerCard({
                             <SiX size={12} />
                         </LinkIcon>
                     )}
-                    {safeHref(profile.website) && (
-                        <LinkIcon href={safeHref(profile.website)!} label={profile.website ?? "Website"}>
+                    {websiteHref && (
+                        <LinkIcon href={websiteHref} label={profile.website ?? "Website"}>
                             <Globe size={12} />
                         </LinkIcon>
                     )}

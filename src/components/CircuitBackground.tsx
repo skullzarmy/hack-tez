@@ -374,7 +374,7 @@ export function CircuitBackground() {
 
     // ── observers ─────────────────────────────────────────────────────────
     const ro = new ResizeObserver(resize);
-    ro.observe(canvas.parentElement!);
+    if (canvas.parentElement) ro.observe(canvas.parentElement);
     const io = new IntersectionObserver(
       (e) => { visible = e[0].isIntersecting; }, { threshold: 0 }
     );

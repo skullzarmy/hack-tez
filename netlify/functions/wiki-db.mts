@@ -85,7 +85,12 @@ export async function verifyJwt(req: Request): Promise<JwtPayload | null> {
   };
 }
 
-export function getDomain(user: JwtPayload): string { return user.activeDomain!; }
+/** Every caller guards activeDomain first; failing loudly beats silently
+    attributing a record to the wrong domain if one ever forgets. */
+export function getDomain(user: JwtPayload): string {
+  if (!user.activeDomain) throw new Error("session has no active domain");
+  return user.activeDomain;
+}
 
 const NETWORK = process.env.VITE_TEZOS_NETWORK ?? "ghostnet";
 export function isAdmin(jwt: JwtPayload): boolean {

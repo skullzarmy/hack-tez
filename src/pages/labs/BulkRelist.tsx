@@ -1807,6 +1807,7 @@ function SubmitModalBody({
     // states all carry a plan (ready / signing / done / error-with-plan).
     // The non-null assertion is safe but won't narrow `state` itself, so the
     // implicit-any maps below are typed via explicit annotations.
+    // biome-ignore lint/style/noNonNullAssertion: states without a plan are filtered out above; `state` itself won't narrow
     const plan: BulkRelistPlan = state.plan!;
     const hashes = "hashes" in state && state.hashes ? state.hashes : [];
     const currentIdx = state.status === "signing" || state.status === "ready" ? state.batchIdx : hashes.length;
