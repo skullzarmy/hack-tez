@@ -2253,49 +2253,71 @@ async function handleAvatar(
 	const profile = parseProfileFromData(data);
 	const gravatar = data.find((entry) => entry.key === "gravatar:hash")?.value;
 
-	let sourceUrl: string | null = null;
+	let sourceUrls: string[] = [];
 	if (profile.picture?.startsWith("ipfs://")) {
 		const cid = profile.picture.replace("ipfs://", "");
-		sourceUrl = `https://ipfs.fileship.xyz/ipfs/${cid}`;
+		sourceUrls = IPFS_GATEWAYS.map((base) => `${base}${cid}`);
 	} else if (profile.picture?.startsWith("https://")) {
-		sourceUrl = profile.picture;
+		sourceUrls = [profile.picture];
 	} else if (typeof gravatar === "string" && gravatar.trim().length > 0) {
-		sourceUrl = `https://www.gravatar.com/avatar/${gravatar}?s=400&d=identicon`;
+		sourceUrls = [
+			`https://www.gravatar.com/avatar/${gravatar}?s=400&d=identicon`,
+		];
 	}
 
-	if (!sourceUrl) {
+	const fallbackToHackatar = async () => {
 		const staticHackatarUrl = new URL(reqUrl);
 		staticHackatarUrl.searchParams.set("static", "1");
 		return await handleHackatar(normalizedLabel, staticHackatarUrl, net);
-	}
+	};
+
+	if (sourceUrls.length === 0) return await fallbackToHackatar();
 
 	try {
-		const upstream = await fetch(sourceUrl, {
-			headers: { Accept: "image/*" },
-			redirect: "follow",
-		});
-		if (!upstream.ok)
-			throw new Error(`Avatar upstream returned ${upstream.status}`);
-
-		const contentType =
-			upstream.headers.get("Content-Type")?.toLowerCase() ?? "";
-		if (!contentType.startsWith("image/"))
-			throw new Error("Avatar upstream did not return an image");
-
-		const bytes = await upstream.arrayBuffer();
-		return new Response(bytes, {
+		// Race the candidates: IPFS gateways vary wildly in latency for the same
+		// CID, and a single slow one used to hang the whole function past
+		// Netlify's timeout. First image to arrive within the budget wins.
+		const image = await Promise.any(
+			sourceUrls.map((url) => fetchAvatarImage(url)),
+		);
+		return new Response(image.bytes, {
 			headers: {
-				"Content-Type": contentType,
+				"Content-Type": image.contentType,
 				"Cache-Control":
 					"public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
 				...CORS_HEADERS,
 			},
 		});
 	} catch {
-		const staticHackatarUrl = new URL(reqUrl);
-		staticHackatarUrl.searchParams.set("static", "1");
-		return await handleHackatar(normalizedLabel, staticHackatarUrl, net);
+		return await fallbackToHackatar();
 	}
+}
+
+const IPFS_GATEWAYS = [
+	"https://ipfs.fileship.xyz/ipfs/",
+	"https://ipfs.io/ipfs/",
+	"https://gateway.pinata.cloud/ipfs/",
+];
+
+/** Hard ceiling on an upstream avatar fetch, well under the function timeout. */
+const AVATAR_FETCH_TIMEOUT_MS = 6000;
+
+async function fetchAvatarImage(
+	url: string,
+): Promise<{ contentType: string; bytes: ArrayBuffer }> {
+	const upstream = await fetch(url, {
+		headers: { Accept: "image/*" },
+		redirect: "follow",
+		signal: AbortSignal.timeout(AVATAR_FETCH_TIMEOUT_MS),
+	});
+	if (!upstream.ok)
+		throw new Error(`Avatar upstream returned ${upstream.status}`);
+
+	const contentType = upstream.headers.get("Content-Type")?.toLowerCase() ?? "";
+	if (!contentType.startsWith("image/"))
+		throw new Error("Avatar upstream did not return an image");
+
+	return { contentType, bytes: await upstream.arrayBuffer() };
 }
 
 async function handleShareCard(
