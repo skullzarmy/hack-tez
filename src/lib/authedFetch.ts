@@ -88,7 +88,9 @@ function ensureChannel() {
       // explicit user logout. This prevents one tab's transient auth failure
       // from nuking other tabs' valid sessions.
       current = data.session;
-      subscribers.forEach((cb) => cb(current));
+      subscribers.forEach((cb) => {
+          cb(current);
+      });
     } else if (data.type === "logout" && typeof data.address === "string") {
       // Another tab told us a specific wallet logged out. Only clear if our
       // local session belongs to the same wallet — otherwise this logout
@@ -96,7 +98,9 @@ function ensureChannel() {
       const localSub = current.token ? jwtSub(current.token) : null;
       if (localSub && localSub === data.address) {
         current = { token: null, activeDomain: null, domains: [] };
-        subscribers.forEach((cb) => cb(current));
+        subscribers.forEach((cb) => {
+          cb(current);
+        });
       }
     }
   };
@@ -125,7 +129,9 @@ export function getSession(): SessionSnapshot {
 /** Update the current session (called by TezosContext on login/refresh/logout). */
 export function setSession(snapshot: SessionSnapshot, opts: { broadcast?: boolean } = {}) {
   current = snapshot;
-  subscribers.forEach((cb) => cb(snapshot));
+  subscribers.forEach((cb) => {
+    cb(snapshot);
+  });
   // Only broadcast POSITIVE snapshots (token present). Logout MUST go through
   // broadcastLogout(address) so receivers can verify the clear applies to them.
   if (opts.broadcast !== false && snapshot.token) {

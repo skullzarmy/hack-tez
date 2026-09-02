@@ -57,7 +57,9 @@ function setLinkHref(selector: string, href: string): void {
 }
 
 function setStructuredData(nodes: StructuredData[] | undefined): void {
-    document.head.querySelectorAll(`script[${PAGEMETA_LD_ATTR}]`).forEach((n) => n.remove());
+    document.head.querySelectorAll(`script[${PAGEMETA_LD_ATTR}]`).forEach((n) => {
+        n.remove();
+    });
     if (!nodes?.length) return;
     for (const node of nodes) {
         const script = document.createElement("script");

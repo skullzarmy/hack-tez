@@ -115,7 +115,9 @@ function clearBeaconState() {
         const key = localStorage.key(i);
         if (key?.startsWith("beacon:")) keysToRemove.push(key);
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    keysToRemove.forEach((k) => {
+        localStorage.removeItem(k);
+    });
 }
 
 function hasBeaconSession(): boolean {

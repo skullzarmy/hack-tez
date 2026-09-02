@@ -51,7 +51,9 @@ export default function PendingCommitsPanel({
         const load = () => {
             const all = loadPendingCommits().filter((c) => c.targetAddress === address);
             const now = Date.now();
-            all.filter((c) => now - c.commitTime >= maxCommitAgeMs).forEach((c) => removePendingCommit(c.label));
+            all.filter((c) => now - c.commitTime >= maxCommitAgeMs).forEach((c) => {
+                removePendingCommit(c.label);
+            });
             setCommits(all.filter((c) => now - c.commitTime < maxCommitAgeMs));
         };
         load();

@@ -29,7 +29,9 @@ export default function MyGames() {
 
     const grouped = useMemo(() => {
         const m = new Map<string, ArcadeGame[]>();
-        STATUS_GROUPS.forEach((g) => m.set(g.key, []));
+        STATUS_GROUPS.forEach((g) => {
+            m.set(g.key, []);
+        });
         for (const g of games) {
             const key = g.status ?? "active";
             (m.get(key) ?? m.get("active")!).push(g);
