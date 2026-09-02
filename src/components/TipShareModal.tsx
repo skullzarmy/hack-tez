@@ -127,7 +127,6 @@ export function TipShareModal({
     const target = ctx.projectName ?? ctx.displayName;
 
     return (
-        // biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled globally above
         // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
         <div
             style={OVERLAY}

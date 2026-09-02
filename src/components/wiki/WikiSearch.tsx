@@ -34,6 +34,7 @@ export default function WikiSearch() {
             placeholder="Search wiki…"
             defaultValue={initialQ}
             onChange={(e) => search(e.target.value)}
+            // biome-ignore lint/a11y/noAutofocus: the field is the reason the dialog opened, so focusing it on open is the expected behaviour
             autoFocus
             style={{
               width: "100%",

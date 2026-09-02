@@ -28,6 +28,7 @@ export default function IdentitySelector({ domains, activeDomain, onSwitch }: Id
                     whiteSpace: "nowrap",
                 }}
                 title={activeDomain}
+                role="status"
                 aria-label={`Active identity: ${activeDomain}`}
             >
                 {shortLabel(activeDomain)}

@@ -16,7 +16,8 @@
         ]
     },
     "formatter": {
-        "enabled": true,
+        "$comment": "Disabled on purpose. The settings below are what this repo actually uses (4-space, 100 columns) so that turning the formatter on formats correctly rather than to biome's tab defaults. Enabling it reformats ~160 of 214 files in one go, so that is a deliberate decision, not a side effect of running a lint fix.",
+        "enabled": false,
         "indentStyle": "space",
         "indentWidth": 4,
         "lineWidth": 100

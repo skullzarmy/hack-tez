@@ -131,6 +131,7 @@ export default function DeleteMessageModal({ messageId, senderDomain, onConfirm,
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="e.g., Spam, Harassment, Off-topic"
+                        // biome-ignore lint/a11y/noAutofocus: the field is the reason the dialog opened, so focusing it on open is the expected behaviour
                         autoFocus
                         onKeyDown={(e) => { if (e.key === "Enter" && reason.trim()) handleSubmit(); }}
                         style={{

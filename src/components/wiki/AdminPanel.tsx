@@ -380,6 +380,7 @@ export default function AdminPanel() {
                                             <input
                                                 value={editing.name}
                                                 onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                                                // biome-ignore lint/a11y/noAutofocus: the field is the reason the dialog opened, so focusing it on open is the expected behaviour
                                                 autoFocus
                                                 style={{
                                                     fontFamily: "var(--font)",

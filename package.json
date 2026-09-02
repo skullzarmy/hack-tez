@@ -11,9 +11,8 @@
         "preview": "vite preview",
         "wiki:load": "tsx scripts/wiki/loader.mts",
         "pack-game": "tsx scripts/pack-game.ts",
-        "format": "biome format --write",
         "lint": "biome lint",
-        "check": "biome check --write"
+        "lint:fix": "biome lint --write"
     },
     "dependencies": {
         "@blocknote/core": "^0.48.1",

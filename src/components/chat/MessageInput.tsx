@@ -520,6 +520,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
                             onChange={handleFileSelect}
                             style={{ display: "none" }}
                             aria-hidden="true"
+                            tabIndex={-1}
                         />
                         <button
                             type="button"

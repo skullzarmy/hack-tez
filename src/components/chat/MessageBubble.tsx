@@ -893,6 +893,7 @@ export default function MessageBubble({
                 aria-label={`Message from ${sender}`}
                 className="group flex flex-col max-w-[95%] md:max-w-[80%] gap-1 self-end items-end"
                 style={{ position: "relative", outline: "2px solid transparent" }}
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable article items are the ARIA feed pattern for a scrollable message list; the tab stop is how a keyboard reaches a message's actions
                 tabIndex={0}
             >
 
@@ -981,6 +982,7 @@ export default function MessageBubble({
             aria-label={`Message from ${sender}`}
             style={{ position: "relative", gap: "8px", outline: "2px solid transparent" }}
             className="group flex max-w-[95%] md:max-w-[80%] self-start"
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable article items are the ARIA feed pattern for a scrollable message list; the tab stop is how a keyboard reaches a message's actions
             tabIndex={0}
         >
             {/* Avatar column — fixed width for alignment */}

@@ -257,15 +257,18 @@ export default function Select({
     const dropdown =
         open &&
         createPortal(
+            // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: aria-activedescendant keeps focus on the trigger; the listbox and its options are never focused directly
             <ul ref={listRef} id={listboxId} role="listbox" aria-label={ariaLabel} style={dropdownStyle}>
                 {options.map((opt, i) => {
                     const isSelected = opt.value === value;
                     const isFocused = i === focusIndex;
                     return (
                         // biome-ignore lint/a11y/useKeyWithClickEvents: the listbox owns keyboard navigation via focusIndex and aria-activedescendant
+                        // biome-ignore lint/a11y/useFocusableInteractive: aria-activedescendant keeps focus on the trigger; options are never focused directly
                         <li
                             key={opt.value}
                             id={optionId(i)}
+                            // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: aria-activedescendant keeps focus on the trigger; the listbox and its options are never focused directly
                             role="option"
                             aria-selected={isSelected}
                             onClick={() => handleSelect(opt.value)}

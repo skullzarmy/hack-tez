@@ -158,8 +158,6 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
         fontFamily: monoFont,
     };
 
-    // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
-    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
     return (
         // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
         // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
@@ -367,10 +365,11 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
                                                 href={b.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
+                                                aria-label={`Open the link for ${b.title}`}
                                                 style={{ display: "flex", alignItems: "center", gap: "2px", color: "var(--accent)" }}
                                             >
                                                 <ExternalLink size={10} />
-                                                link
+                                                Open
                                             </a>
                                         )}
                                     </div>
