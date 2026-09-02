@@ -171,8 +171,9 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
                 {/* Compose form */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
                     <div>
-                        <label style={labelStyle}>Title *</label>
+                        <label htmlFor="broadcast-title" style={labelStyle}>Title *</label>
                         <input
+                            id="broadcast-title"
                             style={inputStyle}
                             value={title}
                             onChange={(e) => setTitle(e.target.value.slice(0, 100))}
@@ -186,8 +187,9 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
                     </div>
 
                     <div>
-                        <label style={labelStyle}>Message *</label>
+                        <label htmlFor="broadcast-body" style={labelStyle}>Message *</label>
                         <textarea
+                            id="broadcast-body"
                             style={{ ...inputStyle, resize: "vertical", minHeight: "80px" }}
                             value={body}
                             onChange={(e) => setBody(e.target.value.slice(0, 500))}
@@ -201,8 +203,9 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
                     </div>
 
                     <div>
-                        <label style={labelStyle}>Link (optional)</label>
+                        <label htmlFor="broadcast-url" style={labelStyle}>Link (optional)</label>
                         <input
+                            id="broadcast-url"
                             style={inputStyle}
                             value={url}
                             onChange={(e) => setUrl(e.target.value)}

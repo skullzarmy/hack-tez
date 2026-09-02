@@ -226,7 +226,10 @@ export default function EditGameForm({
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+
+            // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as {children} and rendered inside this label, which biome cannot follow through the prop
+                   <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}
+        >
             <span style={{ display: "flex", justifyContent: "space-between", opacity: 0.85 }}>
                 <span>{label}</span>
                 {hint && <span style={{ opacity: 0.55 }}>{hint}</span>}

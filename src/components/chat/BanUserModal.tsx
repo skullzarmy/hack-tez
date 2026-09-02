@@ -158,8 +158,8 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     </p>
 
                     {/* Ban type */}
-                    <label style={labelStyle}>Ban type</label>
-                    <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                    <span id="ban-type-label" style={labelStyle}>Ban type</span>
+                    <div role="group" aria-labelledby="ban-type-label" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
                         <button type="button" onClick={() => setBanType("soft")} style={radioStyle(banType === "soft")}>
                             Soft (temporary)
                         </button>
@@ -171,8 +171,8 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     {/* Duration (soft ban only) */}
                     {banType === "soft" && (
                         <>
-                            <label style={labelStyle}>Duration</label>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+                            <span id="ban-duration-label" style={labelStyle}>Duration</span>
+                            <div role="group" aria-labelledby="ban-duration-label" style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
                                 {DURATION_PRESETS.map((p) => (
                                     <button
                                         key={p.seconds}
@@ -221,8 +221,8 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     )}
 
                     {/* Scope */}
-                    <label style={labelStyle}>Scope</label>
-                    <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                    <span id="ban-scope-label" style={labelStyle}>Scope</span>
+                    <div role="group" aria-labelledby="ban-scope-label" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
                         <button type="button" onClick={() => setScope("global")} style={radioStyle(scope === "global")}>
                             Global chat only
                         </button>
@@ -232,8 +232,9 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     </div>
 
                     {/* Reason */}
-                    <label style={labelStyle}>Reason (required, public)</label>
+                    <label htmlFor="ban-reason" style={labelStyle}>Reason (required, public)</label>
                     <input
+                        id="ban-reason"
                         type="text"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
@@ -253,8 +254,9 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     />
 
                     {/* Notes (internal) */}
-                    <label style={labelStyle}>Internal notes (not public)</label>
+                    <label htmlFor="ban-notes" style={labelStyle}>Internal notes (not public)</label>
                     <textarea
+                        id="ban-notes"
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Optional context for future reference..."

@@ -375,8 +375,9 @@ export default function ArticleEditor({ slug }: Props) {
 
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "1 1 200px" }}>
-            <label style={{ display: "block", fontFamily: "var(--font)", fontSize: "0.6rem", color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }}>Category</label>
+            <label style={{ display: "block", fontFamily: "var(--font)", fontSize: "0.6rem", color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }} htmlFor="article-category">Category</label>
             <select
+              id="article-category"
               value={categoryId ?? ""}
               onChange={(e) => setCategoryId(e.target.value || null)}
               style={{ fontFamily: "var(--font)", fontSize: "0.75rem", padding: "0.5rem 0.75rem", background: "var(--bg-2)", border: "1px solid var(--border)", color: "var(--fg)", width: "100%", outline: "none", cursor: "pointer" }}
@@ -389,7 +390,7 @@ export default function ArticleEditor({ slug }: Props) {
           </div>
 
           <div style={{ flex: "2 1 300px" }}>
-            <label style={{ display: "block", fontFamily: "var(--font)", fontSize: "0.6rem", color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }}>Tags</label>
+            <label style={{ display: "block", fontFamily: "var(--font)", fontSize: "0.6rem", color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }} htmlFor="article-tag-input">Tags</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
               {tags.map((tag) => (
                 <span key={tag} style={{ fontFamily: "var(--font)", fontSize: "0.65rem", padding: "0.3rem 0.5rem", background: "var(--bg-2)", border: "1px solid var(--border)", color: "var(--fg)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -398,6 +399,7 @@ export default function ArticleEditor({ slug }: Props) {
                 </span>
               ))}
               <input
+                id="article-tag-input"
                 type="text"
                 placeholder="+ tag (enter)"
                 value={tagInput}

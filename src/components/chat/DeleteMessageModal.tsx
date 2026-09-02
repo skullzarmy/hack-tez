@@ -101,6 +101,7 @@ export default function DeleteMessageModal({ messageId, senderDomain, onConfirm,
 
                     {/* Reason */}
                     <label
+                        htmlFor="delete-reason"
                         style={{
                             display: "block",
                             fontFamily: "var(--font-mono)",
@@ -114,6 +115,7 @@ export default function DeleteMessageModal({ messageId, senderDomain, onConfirm,
                         Reason (required)
                     </label>
                     <input
+                        id="delete-reason"
                         type="text"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
