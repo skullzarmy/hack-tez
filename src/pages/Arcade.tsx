@@ -288,6 +288,7 @@ function Leaderboard({
                 const isMe = !!myDomain && row.domain === myDomain;
                 return (
                     <div
+                        // biome-ignore lint/suspicious/noArrayIndexKey: leaderboard row keyed by domain; i is the rank shown beside it, not a fallback identity
                         key={`${row.domain}-${i}`}
                         style={{
                             display: "grid",

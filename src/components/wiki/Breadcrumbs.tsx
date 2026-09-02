@@ -24,6 +24,7 @@ export default function Breadcrumbs({ items }: { items: Crumb[] }) {
         {items.map((it, idx) => {
           const isLast = idx === items.length - 1;
           return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a breadcrumb trail is positional by definition and is rebuilt from the route each render
             <li key={`${it.label}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
               {it.href && !isLast ? (
                 <a href={it.href} style={{ color: "var(--fg-3)", textDecoration: "none" }}>{it.label}</a>

@@ -79,6 +79,9 @@ interface MockIdentity {
 }
 
 interface LogEntry {
+    /** Monotonic, assigned on push. The log is capped by splicing off the front,
+        so positional keys would remap surviving entries onto reused keys. */
+    id: number;
     ts: number;
     dir: "in" | "out";
     type: string;
@@ -131,9 +134,11 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
         return { domain: id.domain, label: id.label, address: id.address, avatarUrl: hackatarUrl, hackatarUrl };
     }, []);
 
-    const pushLog = useCallback((entry: LogEntry) => {
+    const nextLogId = useRef(0);
+    const pushLog = useCallback((entry: Omit<LogEntry, "id">) => {
+        const withId: LogEntry = { ...entry, id: nextLogId.current++ };
         setLog((l) => {
-            const next = [...l, entry];
+            const next = [...l, withId];
             if (next.length > 200) next.splice(0, next.length - 200);
             return next;
         });
@@ -523,7 +528,7 @@ function SidePanel({
                     {!log.length && <div style={{ opacity: 0.5 }}>No messages yet…</div>}
                     {log.map((e, i) => (
                         <div
-                            key={i}
+                            key={e.id}
                             style={{
                                 padding: "4px 0",
                                 borderBottom: i < log.length - 1 ? "1px solid var(--border)" : "none",

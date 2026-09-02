@@ -41,7 +41,8 @@
                 "noImportantStyles": "off"
             },
             "style": {
-                "noNonNullAssertion": "warn"
+                "noNonNullAssertion": "warn",
+                "noDescendingSpecificity": "off"
             }
         }
     },

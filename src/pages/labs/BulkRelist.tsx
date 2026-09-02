@@ -1878,6 +1878,7 @@ function SubmitModalBody({
                     const hash = hashes[i];
                     return (
                         <li
+                            // biome-ignore lint/suspicious/noArrayIndexKey: i is the batch number itself, compared against hashes.length and currentIdx just above
                             key={i}
                             style={{
                                 border: `1px solid ${isCurrent ? "var(--ok)" : "var(--border)"}`,

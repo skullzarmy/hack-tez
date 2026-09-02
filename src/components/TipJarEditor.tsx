@@ -98,6 +98,7 @@ function AmountRow({
                 {slots.map((value, i) => {
                     const invalid = value.trim() !== "" && !isValidTipAmount(value, decimals);
                     return (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length preset amount slots, edited in place; the position is the slot's identity
                         <div key={`${idPrefix}-amt-${i}`}>
                             <input
                                 id={`${idPrefix}-amt-${i}`}
