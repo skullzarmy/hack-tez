@@ -187,7 +187,7 @@ function PlayRoute() {
         return (
             <div className="arcade-page" style={{ padding: 16, color: "var(--err)" }}>
                 {error || "Not found"}{" "}
-                <button className="arcade-btn arcade-btn--sm" onClick={() => nav("/arcade")}>
+                <button type="button" className="arcade-btn arcade-btn--sm" onClick={() => nav("/arcade")}>
                     Back to lobby
                 </button>
             </div>
@@ -220,7 +220,7 @@ function PlayRoute() {
                             (flagDone ? (
                                 <span style={{ color: "var(--warn)", fontSize: 12 }}>✓ Reported</span>
                             ) : (
-                                <button
+                                <button type="button"
                                     className="arcade-btn arcade-btn--sm arcade-btn--warn"
                                     onClick={() => setFlagOpen(true)}
                                     title="Report this game"

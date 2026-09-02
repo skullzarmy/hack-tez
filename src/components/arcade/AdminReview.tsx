@@ -102,16 +102,16 @@ function PendingCard({ game, reload }: { game: ArcadeGame; reload: () => void })
             </p>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <button className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("approve")}>
+                <button type="button" className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("approve")}>
                     Approve
                 </button>
-                <button className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("reject")}>
+                <button type="button" className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("reject")}>
                     Reject
                 </button>
-                <button className="arcade-btn" onClick={() => setEditOpen(true)}>
+                <button type="button" className="arcade-btn" onClick={() => setEditOpen(true)}>
                     Edit
                 </button>
-                <button className="arcade-btn" onClick={() => setShowPreview((s) => !s)}>
+                <button type="button" className="arcade-btn" onClick={() => setShowPreview((s) => !s)}>
                     {showPreview ? "Hide preview" : "Preview"}
                 </button>
                 <span className="arcade-meta" style={{ marginLeft: "auto" }}>bundle: {short(game.ipfsCid)}</span>
@@ -194,7 +194,7 @@ function UpdateCard({ update, reload }: { update: ArcadePendingUpdate; reload: (
                         Current v{update.currentVersion}
                     </div>
                     <div className="arcade-meta">{short(update.currentCid)}</div>
-                    <button className="arcade-btn arcade-btn--sm" onClick={() => setShowCurrent((s) => !s)}>
+                    <button type="button" className="arcade-btn arcade-btn--sm" onClick={() => setShowCurrent((s) => !s)}>
                         {showCurrent ? "Hide" : "Preview"}
                     </button>
                     {showCurrent && (
@@ -208,7 +208,7 @@ function UpdateCard({ update, reload }: { update: ArcadePendingUpdate; reload: (
                         New v{update.newVersion}
                     </div>
                     <div className="arcade-meta">{short(update.newCid)}</div>
-                    <button className="arcade-btn arcade-btn--sm" onClick={() => setShowNew((s) => !s)}>
+                    <button type="button" className="arcade-btn arcade-btn--sm" onClick={() => setShowNew((s) => !s)}>
                         {showNew ? "Hide" : "Preview"}
                     </button>
                     {showNew && (
@@ -220,10 +220,10 @@ function UpdateCard({ update, reload }: { update: ArcadePendingUpdate; reload: (
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("approve")}>
+                <button type="button" className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("approve")}>
                     Approve update
                 </button>
-                <button className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("reject")}>
+                <button type="button" className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("reject")}>
                     Reject update
                 </button>
             </div>
@@ -273,10 +273,10 @@ function FlaggedCard({ game, reload }: { game: ArcadeGame; reload: () => void })
                 </div>
             )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("unflag")}>
+                <button type="button" className="arcade-btn arcade-btn--primary" onClick={() => setConfirmKind("unflag")}>
                     Unflag
                 </button>
-                <button className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("remove")}>
+                <button type="button" className="arcade-btn arcade-btn--danger" onClick={() => setConfirmKind("remove")}>
                     Remove
                 </button>
                 <Link to={`/arcade/play/${game.slug}`} className="arcade-btn">

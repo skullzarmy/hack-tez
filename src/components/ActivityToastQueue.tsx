@@ -110,7 +110,7 @@ export default function ActivityToastQueue({ newEvents }: Props) {
                                 </time>
                             </div>
                         </div>
-                        <button
+                        <button type="button"
                             className="toast-dismiss"
                             onClick={() => dismiss(toast.id)}
                             aria-label="Dismiss notification"

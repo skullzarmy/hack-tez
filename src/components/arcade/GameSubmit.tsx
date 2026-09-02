@@ -53,7 +53,7 @@ export default function GameSubmit() {
                     You need a hack.tez name to submit so players know who built it.
                 </p>
                 {!address ? (
-                    <button className="arcade-btn arcade-btn--primary" onClick={() => void connect()}>
+                    <button type="button" className="arcade-btn arcade-btn--primary" onClick={() => void connect()}>
                         Connect wallet
                     </button>
                 ) : (
@@ -111,10 +111,10 @@ export default function GameSubmit() {
                     Bundle: {success.ipfsCid}
                 </p>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button className="arcade-btn arcade-btn--primary" onClick={() => nav("/arcade/my-games")}>
+                    <button type="button" className="arcade-btn arcade-btn--primary" onClick={() => nav("/arcade/my-games")}>
                         My games
                     </button>
-                    <button className="arcade-btn" onClick={() => nav("/arcade")}>
+                    <button type="button" className="arcade-btn" onClick={() => nav("/arcade")}>
                         Back to lobby
                     </button>
                 </div>

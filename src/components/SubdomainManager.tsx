@@ -183,7 +183,7 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
                     </div>
                 )}
                 <div className="panel-action">
-                    <button onClick={reset} className="btn btn-ghost btn-sm">
+                    <button type="button" onClick={reset} className="btn btn-ghost btn-sm">
                         Create another
                     </button>
                 </div>
@@ -438,7 +438,7 @@ export default function SubdomainManager({ domain, onMutate }: SubdomainManagerP
                         </span>
                     )}
                 </span>
-                <button
+                <button type="button"
                     onClick={() => setShowCreate(!showCreate)}
                     className="btn btn-ghost btn-sm"
                     aria-label={showCreate ? "Cancel creating subdomain" : "Create new sub-subdomain"}
@@ -525,7 +525,7 @@ export function PinToSubdomainButton({
     if (slug.length < 3) return null;
 
     return (
-        <button
+        <button type="button"
             onClick={() => onPin(slug)}
             className="btn btn-ghost btn-sm"
             title={`Create ${slug}.${parentName}`}

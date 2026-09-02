@@ -159,7 +159,7 @@ export default function GameLobby() {
                     body={
                         <>
                             Nothing matches your filters.{" "}
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     setSearch("");
                                     setCategory(null);
@@ -205,7 +205,7 @@ function GameCard({ game }: { game: ArcadeGame }) {
     const nav = useNavigate();
     const isNew = Date.now() - +new Date(game.createdAt) < 72 * 3600_000;
     return (
-        <button
+        <button type="button"
             onClick={() => nav(`/arcade/play/${encodeURIComponent(game.slug)}`)}
             className="arcade-game-card"
         >

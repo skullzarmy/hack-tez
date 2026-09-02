@@ -67,7 +67,7 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
 
     if (permission === "denied") {
         return (
-            <button
+            <button type="button"
                 className={className ?? "btn btn-ghost btn-sm"}
                 style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", opacity: 0.5, cursor: "not-allowed", fontSize: "0.7rem", ...style }}
                 disabled

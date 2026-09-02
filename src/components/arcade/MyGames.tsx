@@ -202,16 +202,16 @@ function GameRow({
                         Play
                     </Link>
                 )}
-                <button className="arcade-btn arcade-btn--sm" onClick={onEdit}>
+                <button type="button" className="arcade-btn arcade-btn--sm" onClick={onEdit}>
                     Edit
                 </button>
                 {status === "active" && (
-                    <button className="arcade-btn arcade-btn--sm" onClick={onUpdate}>
+                    <button type="button" className="arcade-btn arcade-btn--sm" onClick={onUpdate}>
                         Update
                     </button>
                 )}
                 {status === "pending" && (
-                    <button className="arcade-btn arcade-btn--sm arcade-btn--danger" onClick={onRescind}>
+                    <button type="button" className="arcade-btn arcade-btn--sm arcade-btn--danger" onClick={onRescind}>
                         Rescind
                     </button>
                 )}

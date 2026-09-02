@@ -129,7 +129,7 @@ export default function SubdomainSearch({ onCommit }: { onCommit?: () => void })
                         .hack.{config.tld}
                     </span>
                 </div>
-                <button
+                <button type="button"
                     onClick={handleSearch}
                     disabled={!label || status === "checking" || contractConfig.paused}
                     className="search-btn"
@@ -172,7 +172,7 @@ export default function SubdomainSearch({ onCommit }: { onCommit?: () => void })
                             <p style={{ color: "var(--fg-2)", fontSize: "0.75rem", marginBottom: "0.75rem" }}>
                                 Two steps: commit now, then register after {waitDescription}. Prevents frontrunning.
                             </p>
-                            <button onClick={handleCommit} className="btn btn-primary btn-full">
+                            <button type="button" onClick={handleCommit} className="btn btn-primary btn-full">
                                 Step 1 — Commit to {label}.hack.{config.tld}
                             </button>
                         </div>

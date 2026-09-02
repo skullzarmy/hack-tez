@@ -31,7 +31,7 @@ export default function ConnectWallet() {
     if (!address) {
         return (
             <div style={{ position: "relative", display: "inline-flex" }}>
-                <button
+                <button type="button"
                     onClick={connect}
                     disabled={connecting}
                     className="btn btn-primary btn-sm"

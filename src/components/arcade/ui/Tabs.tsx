@@ -24,7 +24,7 @@ export default function Tabs({ tabs, active, onChange, size = "md" }: TabsProps)
             {tabs.map((t) => {
                 const isActive = t.id === active;
                 return (
-                    <button
+                    <button type="button"
                         key={t.id}
                         role="tab"
                         aria-selected={isActive}

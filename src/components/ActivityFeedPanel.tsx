@@ -64,7 +64,7 @@ export default function ActivityFeedPanel({ events, isLoading }: Props) {
                 <span className="activity-panel-title" aria-hidden="true">
                     ⚡ RECENT
                 </span>
-                <button
+                <button type="button"
                     className="activity-panel-toggle"
                     onClick={toggle}
                     aria-expanded={!collapsed}

@@ -256,7 +256,7 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
                 )}
 
                 {/* Send button */}
-                <button
+                <button type="button"
                     onClick={() => void handleSend()}
                     disabled={!title.trim() || !body.trim() || sending || !client}
                     style={{

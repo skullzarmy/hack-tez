@@ -253,7 +253,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                 {status === "error" && (
                     <Overlay>
                         <div style={{ color: "var(--err)", fontSize: 16 }}>{error || "Failed to load"}</div>
-                        <button onClick={() => void replay()} className="arcade-btn">
+                        <button type="button" onClick={() => void replay()} className="arcade-btn">
                             Retry
                         </button>
                     </Overlay>
@@ -262,10 +262,10 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
                     <Overlay>
                         <GameoverContent final={final} submitting={submitting} domain={domain} submitError={submitError} />
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                            <button onClick={() => void replay()} className="arcade-btn arcade-btn--primary">
+                            <button type="button" onClick={() => void replay()} className="arcade-btn arcade-btn--primary">
                                 Play again
                             </button>
-                            <button onClick={onExit} className="arcade-btn">
+                            <button type="button" onClick={onExit} className="arcade-btn">
                                 Lobby
                             </button>
                         </div>
