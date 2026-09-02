@@ -188,6 +188,8 @@ export default function WikiHome() {
                     }}
                     onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--info)"}
                     onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+                    onFocus={(e) => e.currentTarget.style.borderColor = "var(--info)"}
+                    onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
                   >
                     <strong style={{ fontSize: "1rem", fontFamily: "var(--font-mono)" }}>{r.title}</strong>
                     {r.excerpt && (
@@ -310,6 +312,8 @@ export default function WikiHome() {
                   }}
                   onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--info)"}
                   onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+                  onFocus={(e) => e.currentTarget.style.borderColor = "var(--info)"}
+                  onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem" }}>
                     <strong style={{ fontSize: "1rem", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>{cat.name}</strong>
@@ -383,6 +387,8 @@ export default function WikiHome() {
                     }}
                     onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--info)"}
                     onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+                    onFocus={(e) => e.currentTarget.style.borderColor = "var(--info)"}
+                    onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
                   >
                     <div style={{ minWidth: 0, flex: "1 1 250px" }}>
                       <strong style={{ fontSize: "1rem", fontFamily: "var(--font-mono)" }}>{article.title}</strong>

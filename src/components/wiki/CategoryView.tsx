@@ -120,6 +120,8 @@ export default function CategoryView({ slug }: Props) {
                   }}
                   onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--info)"}
                   onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+                  onFocus={(e) => e.currentTarget.style.borderColor = "var(--info)"}
+                  onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
                 >
                   <div style={{ minWidth: 0, flex: "1 1 250px" }}>
                     <strong style={{ fontSize: "1rem", fontFamily: "var(--font-mono)" }}>{article.title}</strong>

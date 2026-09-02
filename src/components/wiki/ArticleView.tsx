@@ -320,6 +320,8 @@ export default function ArticleView({ slug }: Props) {
                 }}
                 onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--info)"}
                 onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--info)"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
               >
                 {tag.name}
               </a>
@@ -374,6 +376,8 @@ export default function ArticleView({ slug }: Props) {
             }}
             onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--info)"}
             onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+            onFocus={(e) => e.currentTarget.style.borderColor = "var(--info)"}
+            onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
           >
             <History size={14} /> History
           </a>
