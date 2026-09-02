@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "netlify:dev": "cross-env NODE_OPTIONS='--require ./scripts/netlify-dev-patch.cjs' VITE_HMR_CLIENT_PORT=8888 netlify dev",
+        "netlify:dev": "node scripts/netlify-dev.mjs",
         "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
         "preview": "vite preview",
         "wiki:load": "tsx scripts/wiki/loader.mts",
