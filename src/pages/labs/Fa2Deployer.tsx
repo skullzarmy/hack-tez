@@ -61,10 +61,8 @@ function Field({
     multiline?: boolean;
 }) {
     return (
-        <label
-            // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as {children} and rendered inside this label, which biome cannot follow through the prop
-            style={{ display: "block", flex: 1, minWidth: 0 }}
-        >
+        // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as {children} and rendered inside this label; biome cannot follow it through the prop
+        <label style={{ display: "block", flex: 1, minWidth: 0 }}>
             <span style={labelStyle}>{label}</span>
             {multiline ? (
                 <textarea
