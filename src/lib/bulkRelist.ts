@@ -676,7 +676,7 @@ export function tezToMutez(tez: string): string | null {
     if (!trimmed) return null;
     if (!/^\d+(\.\d{0,6})?$/.test(trimmed)) return null;
     const [whole, frac = ""] = trimmed.split(".");
-    const padded = (frac + "000000").slice(0, 6);
+    const padded = (`${frac}000000`).slice(0, 6);
     const big = BigInt(whole) * 1_000_000n + BigInt(padded || "0");
     return big.toString();
 }

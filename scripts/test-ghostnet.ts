@@ -22,7 +22,7 @@ import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
 import { packDataBytes } from "@taquito/michel-codec";
 import { blake2b } from "blakejs";
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 
 // ─── Config ──────────────────────────────────────────────────────────
 const RPC_URL = "https://rpc.ghostnet.teztnets.com";
@@ -126,10 +126,10 @@ async function checkPreconditions() {
     console.log(`  Name registry: ${storage.name_registry}`);
     console.log(`  Parent name: ${Buffer.from(storage.parent_name, "hex").toString("utf8")} (${storage.parent_name})`);
     console.log(
-        `  Min commit age: ${storage.min_commit_age}s (${Math.round(parseInt(storage.min_commit_age) / 3600)}h)`,
+        `  Min commit age: ${storage.min_commit_age}s (${Math.round(parseInt(storage.min_commit_age, 10) / 3600)}h)`,
     );
     console.log(
-        `  Max commit age: ${storage.max_commit_age}s (${Math.round(parseInt(storage.max_commit_age) / 3600)}h)`,
+        `  Max commit age: ${storage.max_commit_age}s (${Math.round(parseInt(storage.max_commit_age, 10) / 3600)}h)`,
     );
     console.log(`  Max per wallet: ${storage.max_per_wallet}`);
 
@@ -233,11 +233,11 @@ async function doCommit(
     const commitmentsBigMap = storage.commitments;
     try {
         const existing = await fetchJson(`${TZKT_API}/bigmaps/${commitmentsBigMap}/keys/${commitmentHash}`);
-        if (existing && existing.active) {
+        if (existing?.active) {
             const commitTime = new Date(existing.value).getTime();
             const ageS = Math.floor((Date.now() - commitTime) / 1000);
-            const minAge = parseInt(storage.min_commit_age);
-            const maxAge = parseInt(storage.max_commit_age);
+            const minAge = parseInt(storage.min_commit_age, 10);
+            const maxAge = parseInt(storage.max_commit_age, 10);
             console.log(`\n  ⚠️  Commitment already exists!`);
             console.log(`  Committed: ${existing.value} (${ageS}s ago)`);
             if (ageS >= minAge && ageS <= maxAge) {
@@ -260,7 +260,7 @@ async function doCommit(
     const labelsBigMap = storage.registered_labels;
     try {
         const existing = await fetchJson(`${TZKT_API}/bigmaps/${labelsBigMap}/keys/${labelHex}`);
-        if (existing && existing.active) {
+        if (existing?.active) {
             console.log(
                 `\n  ❌ Label "${Buffer.from(labelHex, "hex").toString("utf8")}" is already registered by ${existing.value}`,
             );
@@ -284,14 +284,14 @@ async function doCommit(
     await op.confirmation(1);
     console.log(`  ✅ Commit confirmed!`);
     console.log(
-        `  ⏳ Must wait ${parseInt(storage.min_commit_age)}s (${Math.round(parseInt(storage.min_commit_age) / 3600)}h) before register`,
+        `  ⏳ Must wait ${parseInt(storage.min_commit_age, 10)}s (${Math.round(parseInt(storage.min_commit_age, 10) / 3600)}h) before register`,
     );
 
     return {
         commitmentHash,
         alreadyCommitted: false,
         readyToRegister: false,
-        waitSeconds: parseInt(storage.min_commit_age),
+        waitSeconds: parseInt(storage.min_commit_age, 10),
     };
 }
 
@@ -339,7 +339,7 @@ async function verify(labelHex: string) {
     const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
     try {
         const entry = await fetchJson(`${TZKT_API}/bigmaps/${storage.registered_labels}/keys/${labelHex}`);
-        if (entry && entry.active) {
+        if (entry?.active) {
             console.log(`  ✅ Label registered in contract — owner: ${entry.value}`);
         } else {
             console.log(`  ❌ Label not found in contract's registered_labels`);

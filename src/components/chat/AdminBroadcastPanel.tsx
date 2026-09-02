@@ -327,7 +327,7 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
                                         </span>
                                         <span style={{ fontSize: "10px", color: "var(--fg-3, #666)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "3px" }}>
                                             <Clock size={10} />
-                                            {new Date(b.createdAt + "Z").toLocaleDateString()}
+                                            {new Date(`${b.createdAt}Z`).toLocaleDateString()}
                                         </span>
                                     </div>
                                     <div style={{ fontSize: "12px", color: "var(--fg-2, #aaa)", marginTop: "4px" }}>

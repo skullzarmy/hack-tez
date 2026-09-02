@@ -21,8 +21,8 @@
  */
 'use strict';
 
-const net = require('net');
-const EventEmitter = require('events');
+const net = require('node:net');
+const EventEmitter = require('node:events');
 
 // Fix 1: swallow ECONNRESET/EPIPE on bare sockets with no error listener
 const originalEmit = EventEmitter.prototype.emit;

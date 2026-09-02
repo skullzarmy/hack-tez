@@ -298,7 +298,6 @@ export default function BulkRelist() {
                 }
                 case "created-asc":
                     return a.createdAt.localeCompare(b.createdAt);
-                case "created-desc":
                 default:
                     return b.createdAt.localeCompare(a.createdAt);
             }

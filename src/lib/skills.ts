@@ -45,12 +45,12 @@ function parseFrontmatter(raw: string): { data: Record<string, string | string[]
 function parseSkill(filePath: string, raw: string): SkillMeta {
     const { data, content } = parseFrontmatter(raw);
     const slug = slugFromPath(filePath);
-    const tags = data["tags"];
+    const tags = data.tags;
     return {
         slug,
         filename: `${slug}.md`,
-        title: (data["title"] as string | undefined) ?? slug,
-        description: (data["description"] as string | undefined) ?? "",
+        title: (data.title as string | undefined) ?? slug,
+        description: (data.description as string | undefined) ?? "",
         tags: Array.isArray(tags) ? tags : [],
         raw: content,
     };

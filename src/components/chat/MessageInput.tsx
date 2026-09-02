@@ -128,7 +128,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
 
         const label = domain.split(".")[0];
         const after = value.slice(cursorPos);
-        const newValue = beforeCursor.slice(0, atIdx) + `@${label} ` + after;
+        const newValue = `${beforeCursor.slice(0, atIdx)}@${label} ${after}`;
         setValue(newValue);
         setMentionQuery(null);
 

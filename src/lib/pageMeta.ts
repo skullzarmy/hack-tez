@@ -58,7 +58,7 @@ function setLinkHref(selector: string, href: string): void {
 
 function setStructuredData(nodes: StructuredData[] | undefined): void {
     document.head.querySelectorAll(`script[${PAGEMETA_LD_ATTR}]`).forEach((n) => n.remove());
-    if (!nodes || !nodes.length) return;
+    if (!nodes?.length) return;
     for (const node of nodes) {
         const script = document.createElement("script");
         script.type = "application/ld+json";
@@ -166,7 +166,7 @@ export function applyPageMetaToHtml(html: string, meta: PageMeta, siteUrl?: stri
     // Strip any prior page-level JSON-LD and inject fresh nodes
     next = next.replace(PAGEMETA_LD_BLOCK_RE, "");
     const nodes = asArray(meta.structuredData);
-    if (nodes && nodes.length) {
+    if (nodes?.length) {
         const scripts = nodes
             .map(
                 (n) =>

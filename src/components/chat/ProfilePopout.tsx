@@ -175,7 +175,7 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
                             marginBottom: "8px",
                             wordBreak: "break-word",
                         }}>
-                            {profile.bio.length > 140 ? profile.bio.slice(0, 140) + "…" : profile.bio}
+                            {profile.bio.length > 140 ? `${profile.bio.slice(0, 140)}…` : profile.bio}
                         </p>
                     )}
 

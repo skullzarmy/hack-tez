@@ -350,7 +350,7 @@ async function submitScore(req: Request): Promise<Response> {
               metadata?: Record<string, unknown>;
           }
         | null;
-    if (!body?.sessionId || typeof body.score !== "number" || !isFinite(body.score)) {
+    if (!body?.sessionId || typeof body.score !== "number" || !Number.isFinite(body.score)) {
         return err("Missing sessionId or score", "INVALID_INPUT", 400);
     }
     const score = Math.max(0, Math.floor(body.score));
@@ -522,7 +522,7 @@ function clampStr(s: unknown, max: number): string {
 function parseOptionalNumber(s: string | undefined, max: number): number | null {
     if (!s) return null;
     const n = Number(s);
-    if (!isFinite(n) || n < 0) return null;
+    if (!Number.isFinite(n) || n < 0) return null;
     return Math.min(n, max);
 }
 
@@ -684,7 +684,7 @@ async function editGame(req: Request, slug: string): Promise<Response> {
     if (!isCreator && !isAdmin(user)) return err("Not the creator", "FORBIDDEN", 403);
 
     const ct = req.headers.get("content-type") ?? "";
-    let fields: Record<string, string> = {};
+    const fields: Record<string, string> = {};
     let zipBytes: Uint8Array | null = null;
     let coverSwap: { bytes: Uint8Array; contentType: string } | null = null;
 

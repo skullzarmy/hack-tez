@@ -193,7 +193,6 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
                     if (!indexHtmlPath && /(^|\/)index\.html?$/i.test(path)) {
                         indexHtmlPath = path;
                         indexHtmlBytes = bytes;
-                        continue;
                     }
                 }
 

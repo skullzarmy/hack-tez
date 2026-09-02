@@ -117,7 +117,7 @@ export default function PendingCommitsPanel({
         let subdomain: SubdomainRecord;
         try {
             subdomain = await fetchSubdomainWithRetry(address, commit.label);
-        } catch (e) {
+        } catch (_e) {
             setClaimState((s) => ({ ...s, [commit.label]: "error" }));
             setClaimError((s) => ({
                 ...s,

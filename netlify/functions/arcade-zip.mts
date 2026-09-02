@@ -78,18 +78,18 @@ function injectSdkScript(html: string): { html: string; injected: boolean } {
     const headClose = html.match(/<\/head\s*>/i);
     if (headClose && typeof headClose.index === "number") {
         return {
-            html: html.slice(0, headClose.index) + `    ${SDK_TAG}\n` + html.slice(headClose.index),
+            html: `${html.slice(0, headClose.index)}    ${SDK_TAG}\n${html.slice(headClose.index)}`,
             injected: true,
         };
     }
     const bodyClose = html.match(/<\/body\s*>/i);
     if (bodyClose && typeof bodyClose.index === "number") {
         return {
-            html: html.slice(0, bodyClose.index) + `    ${SDK_TAG}\n` + html.slice(bodyClose.index),
+            html: `${html.slice(0, bodyClose.index)}    ${SDK_TAG}\n${html.slice(bodyClose.index)}`,
             injected: true,
         };
     }
-    return { html: SDK_TAG + "\n" + html, injected: true };
+    return { html: `${SDK_TAG}\n${html}`, injected: true };
 }
 
 /**
@@ -128,8 +128,8 @@ export function validateAndExtractGameZip(zipBytes: Uint8Array, sdkBytes: Uint8A
     if (topSegs.size === 1) {
         const only = [...topSegs][0];
         // Only strip if this one top-seg is a directory (some entry contains a slash after it).
-        const isDir = rawPaths.some((p) => p.startsWith(only + "/"));
-        if (isDir) prefix = only + "/";
+        const isDir = rawPaths.some((p) => p.startsWith(`${only}/`));
+        if (isDir) prefix = `${only}/`;
     }
 
     const files: ExtractedFile[] = [];

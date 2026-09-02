@@ -111,7 +111,7 @@ export function shouldPlayChatNotification({
         if (
             event.source === "dm" &&
             activeView.type === "dm" &&
-            Boolean(event.roomId) &&
+            event.roomId &&
             activeView.roomId === event.roomId
         ) {
             return false;

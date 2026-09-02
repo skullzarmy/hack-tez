@@ -2460,7 +2460,7 @@ async function verifyBlueskyAuth(
 
 	// Validate timestamp window
 	const ts = new Date(timestamp).getTime();
-	if (isNaN(ts)) return err("Invalid timestamp", "BAD_REQUEST");
+	if (Number.isNaN(ts)) return err("Invalid timestamp", "BAD_REQUEST");
 	const nowMs = Date.now();
 	if (Math.abs(nowMs - ts) > BLUESKY_TIMESTAMP_WINDOW_SEC * 1000) {
 		return err("Timestamp expired", "TIMESTAMP_INVALID", 401);
@@ -2853,7 +2853,7 @@ export default async function handler(
 		return new Response(null, { status: 204, headers: CORS_HEADERS });
 	}
 
-	const route = ctx.params?.["route"] ?? "";
+	const route = ctx.params?.route ?? "";
 	const segments = route.split("/").filter(Boolean);
 	const [resource, param] = segments;
 

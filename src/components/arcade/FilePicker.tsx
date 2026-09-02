@@ -39,7 +39,7 @@ function summarizeAccept(accept: string): string {
     const list = [...exts];
     if (list.length === 0) return "any file";
     if (list.length <= 4) return list.join(", ");
-    return list.slice(0, 4).join(", ") + "…";
+    return `${list.slice(0, 4).join(", ")}…`;
 }
 
 export default function FilePicker({
@@ -100,7 +100,7 @@ export default function FilePicker({
         (disabled ? " arcade-droparea--disabled" : "");
 
     function handleFiles(list: FileList | null) {
-        if (!list || !list.length) return;
+        if (!list?.length) return;
         // Mirror the file into the native input so HTML5 form validation
         // (required) sees a value even when the user dropped instead of clicked.
         if (inputRef.current && inputRef.current.files !== list) {

@@ -155,7 +155,7 @@ async function fetchCollectRefs(tokenIds: string[], minters: Map<string, string>
             const from = t["from.address"];
             const to = t["to.address"];
             const tid = t["token.tokenId"];
-            if (from && from.startsWith("KT1") && to && to.startsWith("tz") && to !== minters.get(tid)) {
+            if (from?.startsWith("KT1") && to?.startsWith("tz") && to !== minters.get(tid)) {
                 refs.push({ tokenId: tid, opId: t.transactionId, marketplace: from });
             }
         }

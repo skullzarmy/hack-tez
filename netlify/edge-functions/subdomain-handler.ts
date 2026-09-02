@@ -11,7 +11,7 @@ const LABEL_RE = /^([a-z0-9][a-z0-9-]{0,61}[a-z0-9]?)\.hacktez\.com$/i;
 export default async function handler(
     request: Request,
     context: { next(): Promise<Response> },
-): Promise<Response | void> {
+): Promise<Response | undefined> {
     const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
     const match = LABEL_RE.exec(host);
     if (!match) return context.next();

@@ -50,7 +50,7 @@ async function getArticle(req: Request, slug: string) {
   const authHeader = req.headers.get("Authorization");
   if (authHeader) {
     const user = await verifyJwt(req).catch(() => null);
-    if (user && user.activeDomain) {
+    if (user?.activeDomain) {
       currentUserIsMod = (await isModerator(getDomain(user))) || isAdmin(user);
     }
   }
@@ -201,7 +201,7 @@ async function updateArticle(req: Request, slug: string) {
   if (article.status === "locked") {
     if (article.lock_expires && new Date(article.lock_expires) < new Date()) {
       await sql`UPDATE wiki_articles SET status='published',locked_by=NULL,locked_at=NULL,lock_reason=NULL,lock_expires=NULL WHERE id=${article.id}`;
-    } else { return err("Article is locked: " + (article.lock_reason ?? ""), "ARTICLE_LOCKED", 423); }
+    } else { return err(`Article is locked: ${article.lock_reason ?? ""}`, "ARTICLE_LOCKED", 423); }
   }
   if (article.status === "archived") return err("Cannot edit archived article", "ARTICLE_ARCHIVED", 403);
   const body: any = await req.json();

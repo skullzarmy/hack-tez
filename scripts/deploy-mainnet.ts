@@ -28,9 +28,9 @@
 
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const RPC_URL = "https://rpc.tzkt.io/mainnet";
@@ -135,7 +135,7 @@ async function fetchAllHackTezDomains(): Promise<{
         for (const { name, owner } of items) {
             const label = name.endsWith(PARENT_SUFFIX) ? name.slice(0, -PARENT_SUFFIX.length) : "";
             if (!label || label.includes(".")) continue;
-            const labelHex = "0x" + Buffer.from(label, "utf8").toString("hex");
+            const labelHex = `0x${Buffer.from(label, "utf8").toString("hex")}`;
             claimedLabels.set(labelHex, owner);
             ownerCounts.set(owner, (ownerCounts.get(owner) ?? 0) + 1);
             totalDomains++;

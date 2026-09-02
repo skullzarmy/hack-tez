@@ -66,7 +66,7 @@ function getRedis(): Redis | null {
 function packMichelineString(str: string): string {
     const bytes = new TextEncoder().encode(str);
     const lenHex = bytes.length.toString(16).padStart(8, "0");
-    return "0501" + lenHex + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `0501${lenHex}${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 const CORS_HEADERS: Record<string, string> = {
@@ -184,10 +184,10 @@ export default async function handler(req: Request, _ctx: Context): Promise<Resp
 
     const fileCount = parseInt(fileCountStr, 10);
     const fileIndex = parseInt(fileIndexStr, 10);
-    if (isNaN(fileCount) || fileCount < 1 || fileCount > MAX_BATCH_SIZE) {
+    if (Number.isNaN(fileCount) || fileCount < 1 || fileCount > MAX_BATCH_SIZE) {
         return err(`fileCount must be 1-${MAX_BATCH_SIZE}`, "BAD_REQUEST");
     }
-    if (isNaN(fileIndex) || fileIndex < 0 || fileIndex >= fileCount) {
+    if (Number.isNaN(fileIndex) || fileIndex < 0 || fileIndex >= fileCount) {
         return err("fileIndex out of range", "BAD_REQUEST");
     }
 
@@ -211,7 +211,7 @@ export default async function handler(req: Request, _ctx: Context): Promise<Resp
 
     // --- Validate timestamp (replay protection) ---
     const timestamp = parseInt(timestampStr, 10);
-    if (isNaN(timestamp)) return err("Invalid timestamp", "BAD_REQUEST");
+    if (Number.isNaN(timestamp)) return err("Invalid timestamp", "BAD_REQUEST");
     const now = Math.floor(Date.now() / 1000);
     if (Math.abs(now - timestamp) > TIMESTAMP_WINDOW_SEC) {
         return err("Timestamp expired or too far in the future", "TIMESTAMP_INVALID", 401);

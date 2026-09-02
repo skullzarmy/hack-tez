@@ -1,4 +1,4 @@
-import * as React from "react";
+import type * as React from "react";
 import { Component, lazy, Suspense, forwardRef, useCallback, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 

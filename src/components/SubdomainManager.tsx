@@ -113,7 +113,7 @@ function CreateSubdomainForm({ parentLabel, parentName, projects, onCreated }: C
 
     function handleProjectSelect(e: React.ChangeEvent<HTMLSelectElement>) {
         const idx = parseInt(e.target.value, 10);
-        if (isNaN(idx) || idx < 0) return;
+        if (Number.isNaN(idx) || idx < 0) return;
         const project = projects[idx];
         if (!project) return;
         const slug = slugify(project.name);

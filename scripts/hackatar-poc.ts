@@ -7,8 +7,8 @@
  * Writes to scripts/hackatar-output/ — one animated GIF + one static PNG per seed.
  */
 
-import { mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createPrng, seedFromHash, selectTraits, renderFrames } from "../src/lib/hackatar/index.ts";
 import gifenc from "gifenc";
 const { GIFEncoder, quantize, applyPalette } = gifenc;

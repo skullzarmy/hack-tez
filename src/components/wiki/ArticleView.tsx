@@ -45,7 +45,7 @@ export default function ArticleView({ slug }: Props) {
           title: `${article.title} — Wiki — hack.tez`,
           description:
             article.summary?.trim() ||
-            (article.content ? `${article.content.replace(/[#*_`>\[\]\(\)]/g, "").slice(0, 180).trim()}…` : `${article.title} on the hack.tez community wiki.`),
+            (article.content ? `${article.content.replace(/[#*_`>[\]()]/g, "").slice(0, 180).trim()}…` : `${article.title} on the hack.tez community wiki.`),
           path: `/wiki/${slug}`,
         }
       : null,

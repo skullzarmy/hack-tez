@@ -67,7 +67,7 @@ export default function ArticleEditor({ slug }: Props) {
 
       // Parse content to blocks
       try {
-        if (article.content && article.content.trim().startsWith("[")) {
+        if (article.content?.trim().startsWith("[")) {
           // If we have actual blocknote JSON, parse and replace blocks
           const blocks = JSON.parse(article.content);
           editor.replaceBlocks(editor.document, blocks);
@@ -172,7 +172,7 @@ export default function ArticleEditor({ slug }: Props) {
     if (!slug) return;
     if (!lockReason.trim()) { setError("Lock reason is required."); return; }
     const hrs = parseInt(lockHours, 10);
-    if (isNaN(hrs) || hrs < 0) { setError("Invalid lock duration."); return; }
+    if (Number.isNaN(hrs) || hrs < 0) { setError("Invalid lock duration."); return; }
     setSaving(true);
     setError(null);
     try {

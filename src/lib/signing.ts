@@ -44,7 +44,7 @@ export function stringToHex(str: string): string {
 export function packMichelineString(str: string): string {
   const bytes = new TextEncoder().encode(str);
   const lenHex = bytes.length.toString(16).padStart(8, "0");
-  return "0501" + lenHex + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `0501${lenHex}${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 /** Build the human-readable message shown in the wallet approval dialog. */
