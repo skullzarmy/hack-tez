@@ -21,7 +21,7 @@ function EventRow({ event }: { event: ActivityEvent }) {
     const colorClass = event.type === "claimed" ? "activity-ok" : "activity-info";
 
     return (
-        <div className="activity-row" role="listitem">
+        <li className="activity-row">
             <div className="activity-row-main">
                 <span className="activity-addr" title={event.address}>
                     {addr}
@@ -40,7 +40,7 @@ function EventRow({ event }: { event: ActivityEvent }) {
             >
                 {formatUTC(event.timestamp)}
             </time>
-        </div>
+        </li>
     );
 }
 
@@ -79,11 +79,11 @@ export default function ActivityFeedPanel({ events, isLoading }: Props) {
                 {isLoading && <p className="activity-empty">loading…</p>}
                 {!isLoading && events.length === 0 && <p className="activity-empty">no activity yet</p>}
                 {!isLoading && events.length > 0 && (
-                    <div role="list" className="activity-list">
+                    <ul className="activity-list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                         {events.map((e) => (
                             <EventRow key={e.id} event={e} />
                         ))}
-                    </div>
+                    </ul>
                 )}
             </div>
         </aside>

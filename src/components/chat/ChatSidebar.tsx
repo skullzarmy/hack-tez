@@ -410,9 +410,8 @@ export default function ChatSidebar({
     return (
         <>
             {/* Desktop sidebar */}
-            <aside
+            <nav
                 className="hidden md:flex flex-col shrink-0"
-                role="navigation"
                 aria-label="Chat navigation"
                 style={{
                     width: "240px",
@@ -421,7 +420,7 @@ export default function ChatSidebar({
                 }}
             >
                 {sidebarContent}
-            </aside>
+            </nav>
 
             {/* Mobile drawer backdrop */}
             {/* Always render for CSS transition; visibility controlled by opacity + pointer-events */}
@@ -438,9 +437,8 @@ export default function ChatSidebar({
             />
 
             {/* Mobile drawer */}
-            <aside
+            <nav
                 className="fixed inset-y-0 left-0 z-50 flex flex-col md:hidden"
-                role="navigation"
                 aria-label="Chat navigation"
                 style={{
                     width: "280px",
@@ -453,7 +451,7 @@ export default function ChatSidebar({
                 }}
             >
                 {sidebarContent}
-            </aside>
+            </nav>
         </>
     );
 }

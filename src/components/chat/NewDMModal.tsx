@@ -191,67 +191,72 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                 </div>
 
                 {/* User list */}
-                <div className="flex-1 overflow-y-auto min-h-0" role="list" aria-label="Online users">
+                <ul
+                    className="flex-1 overflow-y-auto min-h-0"
+                    style={{ listStyle: "none", margin: 0, padding: 0 }}
+                    aria-label="Online users"
+                >
                     {filteredUsers.map((domain) => (
-                        <button
-                            key={domain}
-                            type="button"
-                            onClick={() => onStartDM(domain)}
-                            role="listitem"
-                            className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] px-5 gap-3"
-                            style={{
-                                cursor: "pointer",
-                                border: "none",
-                                borderBottom: "1px solid var(--border-2, #222)",
-                                background: "transparent",
-                                minHeight: "44px",
-                                outlineColor: "var(--accent)",
-                            }}
-                        >
-                            <span
-                                className="inline-block w-2 h-2 rounded-full shrink-0"
-                                style={{ background: "var(--accent)" }}
-                                aria-hidden="true"
-                            />
-                            <span
-                                className="text-xs font-bold truncate"
+                        <li key={domain}>
+                            <button
+                                type="button"
+                                onClick={() => onStartDM(domain)}
+                                className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] px-5 gap-3"
                                 style={{
-                                    color: "var(--fg, #eee)",
-                                    fontFamily: "var(--font-mono)",
+                                    cursor: "pointer",
+                                    border: "none",
+                                    borderBottom: "1px solid var(--border-2, #222)",
+                                    background: "transparent",
+                                    minHeight: "44px",
+                                    outlineColor: "var(--accent)",
                                 }}
                             >
-                                {domain}
-                            </span>
-                        </button>
+                                <span
+                                    className="inline-block w-2 h-2 rounded-full shrink-0"
+                                    style={{ background: "var(--accent)" }}
+                                    aria-hidden="true"
+                                />
+                                <span
+                                    className="text-xs font-bold truncate"
+                                    style={{
+                                        color: "var(--fg, #eee)",
+                                        fontFamily: "var(--font-mono)",
+                                    }}
+                                >
+                                    {domain}
+                                </span>
+                            </button>
+                        </li>
                     ))}
 
                     {/* Manual entry hint */}
                     {canSendManual && (
-                        <button
-                            type="button"
-                            onClick={handleManualSend}
-                            role="listitem"
-                            className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] px-5 gap-3"
-                            style={{
-                                cursor: "pointer",
-                                border: "none",
-                                borderBottom: "1px solid var(--border-2, #222)",
-                                background: "var(--accent-bg)",
-                                minHeight: "44px",
-                                outlineColor: "var(--accent)",
-                            }}
-                        >
-                            <MessageSquare size={14} style={{ color: "var(--accent)" }} aria-hidden="true" />
-                            <span
-                                className="text-xs"
-                                style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                        <li>
+                            <button
+                                type="button"
+                                onClick={handleManualSend}
+                                className="flex items-center w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] px-5 gap-3"
+                                style={{
+                                    cursor: "pointer",
+                                    border: "none",
+                                    borderBottom: "1px solid var(--border-2, #222)",
+                                    background: "var(--accent-bg)",
+                                    minHeight: "44px",
+                                    outlineColor: "var(--accent)",
+                                }}
                             >
-                                Message{" "}
-                                <span style={{ color: "var(--accent)", fontWeight: 700 }}>
-                                    {manualTarget.domain}
+                                <MessageSquare size={14} style={{ color: "var(--accent)" }} aria-hidden="true" />
+                                <span
+                                    className="text-xs"
+                                    style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", fontFamily: "var(--font-mono)" }}
+                                >
+                                    Message{" "}
+                                    <span style={{ color: "var(--accent)", fontWeight: 700 }}>
+                                        {manualTarget.domain}
+                                    </span>
                                 </span>
-                            </span>
-                        </button>
+                            </button>
+                        </li>
                     )}
 
                     {search.trim() && !canSendManual && !filteredUsers.length && !manualTarget.valid && (
@@ -276,7 +281,7 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
                             {search ? "No matching users online" : "No other users online"}
                         </div>
                     )}
-                </div>
+                </ul>
             </div>
         </div>
     );

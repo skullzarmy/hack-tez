@@ -121,6 +121,7 @@ export default function FilePicker({
     }
 
     return (
+        // biome-ignore lint/a11y/useSemanticElements: the dropzone renders its own <button> inside, so it cannot be one itself without nesting them
         <div
             className={cls}
             role="button"

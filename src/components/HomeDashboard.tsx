@@ -52,7 +52,7 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
     const colorClass = event.type === "claimed" ? "activity-ok" : "activity-info";
 
     return (
-        <div className="activity-row" role="listitem">
+        <li className="activity-row">
             <div className="activity-row-main">
                 <span className="activity-addr" title={event.address}>{addr}</span>
                 <span className={`activity-verb ${colorClass}`}>{verb}</span>
@@ -67,7 +67,7 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
             >
                 {formatUTC(event.timestamp)}
             </time>
-        </div>
+        </li>
     );
 }
 
@@ -264,13 +264,13 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                         Loading…
                     </div>
                 ) : (
-                    <div
-                        role="list"
+                    <ul
                         aria-label="Your subdomains"
                         className={`dashboard-domains-grid${topLevel.length === 1 ? " dashboard-domains-grid--single" : ""}`}
+                        style={{ listStyle: "none", margin: 0, padding: 0 }}
                     >
                         {ordered.map((d) => (
-                            <div key={d.name} role="listitem" className="dashboard-domain-item">
+                            <li key={d.name} className="dashboard-domain-item">
                                 <DomainTile
                                     domain={d}
                                     onMutate={refresh}
@@ -280,9 +280,9 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                                     }
                                     settingPrimary={settingPrimary === d.name}
                                 />
-                            </div>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 )}
             </section>
 
@@ -304,11 +304,11 @@ export default function HomeDashboard({ subdomains, loading, refresh }: HomeDash
                 ) : events.length === 0 ? (
                     <p className="dashboard-activity-empty">no activity yet</p>
                 ) : (
-                    <div role="list" className="activity-list">
+                    <ul className="activity-list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                         {events.map((e) => (
                             <ActivityRow key={e.id} event={e} />
                         ))}
-                    </div>
+                    </ul>
                 )}
             </section>
 

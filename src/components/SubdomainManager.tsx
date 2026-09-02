@@ -460,20 +460,21 @@ export default function SubdomainManager({ domain, onMutate }: SubdomainManagerP
                     Loading…
                 </div>
             ) : children.length > 0 ? (
-                <div
+                <ul
                     style={{
+                        listStyle: "none",
+                        padding: 0,
                         border: "1px solid var(--border)",
                         marginBottom: showCreate ? "1rem" : 0,
                     }}
-                    role="list"
                     aria-label={`Sub-subdomains of ${domain.name}`}
                 >
                     {children.map((child) => (
-                        <div key={child.name} role="listitem">
+                        <li key={child.name}>
                             <SubSubdomainCard domain={child} />
-                        </div>
+                        </li>
                     ))}
-                </div>
+                </ul>
             ) : !showCreate ? (
                 <div
                     style={{

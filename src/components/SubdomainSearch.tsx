@@ -103,7 +103,7 @@ export default function SubdomainSearch({ onCommit }: { onCommit?: () => void })
                 </div>
             )}
 
-            <div className="search-row" role="search">
+            <search className="search-row">
                 <div className="search-input-wrap">
                     <label htmlFor="subdomain-input" className="sr-only">
                         Subdomain name
@@ -137,7 +137,7 @@ export default function SubdomainSearch({ onCommit }: { onCommit?: () => void })
                 >
                     {status === "checking" ? "…" : "Search"}
                 </button>
-            </div>
+            </search>
 
             {error && (
                 <div className="status-panel status-panel--err" role="alert">

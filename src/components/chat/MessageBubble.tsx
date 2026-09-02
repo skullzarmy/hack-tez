@@ -189,7 +189,7 @@ function formatContent(raw: string, onMentionClick?: (label: string) => void): R
 function SystemMessage({ content, timestamp }: { content: string; timestamp: string }) {
     const relativeTime = useRelativeTime(timestamp);
     return (
-        <div className="flex items-center py-2 gap-3" role="article" aria-label={`System: ${content}`}>
+        <article className="flex items-center py-2 gap-3" aria-label={`System: ${content}`}>
             <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
             <span
                 className="text-[11px] uppercase tracking-widest shrink-0"
@@ -203,7 +203,7 @@ function SystemMessage({ content, timestamp }: { content: string; timestamp: str
                 <span className="opacity-60 ml-2">{relativeTime}</span>
             </span>
             <span className="flex-1 h-px" style={{ background: "var(--border, rgba(255,255,255,0.1))" }} />
-        </div>
+        </article>
     );
 }
 
@@ -214,8 +214,7 @@ function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
 }) {
     const relativeTime = useRelativeTime(timestamp);
     return (
-        <div
-            role="article"
+        <article
             aria-label={`Removed message from ${sender}`}
             className={`flex flex-col max-w-[95%] md:max-w-[80%] gap-1 ${isOwn ? "self-end items-end" : "self-start items-start"}`}
         >
@@ -251,7 +250,7 @@ function DeletedMessage({ sender, timestamp, deleteReason, isOwn }: {
             >
                 {relativeTime}
             </span>
-        </div>
+        </article>
     );
 }
 
@@ -890,8 +889,7 @@ export default function MessageBubble({
     // Own messages: right-aligned, no avatar
     if (isOwn) {
         return (
-            <div
-                role="article"
+            <article
                 aria-label={`Message from ${sender}`}
                 className="group flex flex-col max-w-[95%] md:max-w-[80%] gap-1 self-end items-end"
                 style={{ position: "relative", outline: "2px solid transparent" }}
@@ -973,14 +971,13 @@ export default function MessageBubble({
                         </span>
                     )}
                 </div>
-            </div>
+            </article>
         );
     }
 
     // Other users: avatar on left, content on right
     return (
-        <div
-            role="article"
+        <article
             aria-label={`Message from ${sender}`}
             style={{ position: "relative", gap: "8px", outline: "2px solid transparent" }}
             className="group flex max-w-[95%] md:max-w-[80%] self-start"
@@ -1077,6 +1074,6 @@ export default function MessageBubble({
                     )}
                 </div>
             </div>
-        </div>
+        </article>
     );
 }
