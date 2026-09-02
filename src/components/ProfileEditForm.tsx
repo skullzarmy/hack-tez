@@ -264,7 +264,6 @@ function AvatarUpload({
 			}
 			return;
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pendingFile, preview]);
 
 	const displayUrl =

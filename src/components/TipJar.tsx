@@ -91,6 +91,7 @@ export function TipJar({
     const [countersKey, setCountersKey] = useState(0);
 
     const live = tipJarIsLive(jar);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: countersKey is a bump-to-refetch trigger, not a value the effect reads
     useEffect(() => {
         if (!live) return;
         let cancelled = false;

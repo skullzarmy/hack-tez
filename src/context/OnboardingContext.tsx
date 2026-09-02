@@ -135,6 +135,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (!subdomainsLoading && address) hasFetched.current = true;
     }, [subdomainsLoading, address]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: address is the trigger for resetting the fetch guard when the wallet changes
     useEffect(() => { hasFetched.current = false; }, [address]);
 
     // Per-wallet dismissed steps

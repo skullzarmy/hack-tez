@@ -87,6 +87,7 @@ export default function MessageInput({ onSend, onTyping, disabled, replyTarget, 
     }, [uploadError]);
 
     // Auto-resize textarea
+    // biome-ignore lint/correctness/useExhaustiveDependencies: value drives the textarea auto-resize; without it the height freezes at the first render
     useEffect(() => {
         const el = textareaRef.current;
         if (!el) return;

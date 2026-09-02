@@ -61,7 +61,6 @@ export default function ArticleView({ slug }: Props) {
       for (const r of data.revisions) names.add(r.editor);
       setContributors(Array.from(names));
     }).catch(() => { /* silent */ });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, api, article?.author, article?.lastEditor]);
 
   function labelFromDomain(name: string | null | undefined): string {

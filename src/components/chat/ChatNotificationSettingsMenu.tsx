@@ -120,6 +120,7 @@ export default function ChatNotificationSettingsMenu({
         return () => { cancelled = true; };
     }, [authToken]);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: authToken re-runs load() when the session changes; it is read inside load, not in the effect body
     const handleTogglePush = useCallback(async () => {
         setPushLoading(true);
         try {

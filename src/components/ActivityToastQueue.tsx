@@ -58,10 +58,10 @@ export default function ActivityToastQueue({ newEvents }: Props) {
         }
     }
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: addToast is rebuilt every render; depending on it would re-fire the toasts for newEvents on each one
     useEffect(() => {
         if (newEvents.length === 0) return;
         for (const event of newEvents) addToast(event);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [newEvents]);
 
     // Cleanup timers on unmount

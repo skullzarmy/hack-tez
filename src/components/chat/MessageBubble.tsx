@@ -80,6 +80,7 @@ function subscribeTick(cb: () => void) {
 
 function useRelativeTime(iso: string): string {
     const [, setTick] = useState(0);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: iso re-subscribes the ticker when the message timestamp changes
     useEffect(() => subscribeTick(() => setTick((t) => t + 1)), [iso]);
     return formatRelativeTime(iso);
 }

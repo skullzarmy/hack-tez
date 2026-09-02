@@ -304,6 +304,7 @@ export default function Sandbox({ initialZip = null, compact = false }: SandboxP
         [cleanupBlobs]
     );
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a bump-to-reload trigger, not a value the effect reads
     useEffect(() => {
         if (zip) void buildSrcDoc(zip);
         else {

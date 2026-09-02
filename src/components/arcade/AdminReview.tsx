@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTezos } from "../../context/TezosContext";
 import {
@@ -333,7 +333,7 @@ function PreviewIframe({ cid, title }: { cid: string; title: string }) {
     const { activeDomain, address } = useTezos();
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-    const sendInit = () => {
+    const sendInit = useCallback(() => {
         if (!iframeRef.current?.contentWindow) return;
         const player = activeDomain
             ? { domain: activeDomain, label: activeDomain.split(".")[0], address: address ?? null, isGuest: false }
@@ -342,7 +342,7 @@ function PreviewIframe({ cid, title }: { cid: string; title: string }) {
             { type: "hackcade:init", player, sessionId: `admin-preview-${Date.now()}`, gameSlug: title },
             "*",
         );
-    };
+    }, [activeDomain, address, title]);
 
     useEffect(() => {
         function onMessage(e: MessageEvent) {
@@ -353,8 +353,7 @@ function PreviewIframe({ cid, title }: { cid: string; title: string }) {
         }
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeDomain, address]);
+    }, [sendInit]);
 
     return (
         <div

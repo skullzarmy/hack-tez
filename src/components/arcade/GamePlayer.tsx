@@ -79,6 +79,7 @@ export default function GamePlayer({ game, domain, address, onExit }: Props) {
         };
     }, [game.slug, domain]);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: iframeNonce is a bump-to-remount trigger, not a value the effect reads
     useEffect(() => {
         if (status !== "booting") return;
         const id = window.setTimeout(() => {
