@@ -113,7 +113,7 @@ async function searchArticles(url: URL) {
   if (!q || q.length < 2) return err("Query too short", "INVALID_INPUT", 400);
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 100);
   const tsquery = q.split(/\s+/).map(t => `${t.replace(/[^a-zA-Z0-9]/g, "")}:*`).join(" & ");
-  const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.updated_at, ts_headline('english',a.markdown,to_tsquery('english',${tsquery}),${'StartSel=' + HL_START + ',StopSel=' + HL_END + ',MaxFragments=2,MaxWords=40'}) AS excerpt FROM wiki_articles a WHERE a.status='published' AND a.search_vector @@ to_tsquery('english',${tsquery}) ORDER BY ts_rank(a.search_vector,to_tsquery('english',${tsquery})) DESC LIMIT ${limit}`;
+  const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.updated_at, ts_headline('english',a.markdown,to_tsquery('english',${tsquery}),${`StartSel=${HL_START},StopSel=${HL_END},MaxFragments=2,MaxWords=40`}) AS excerpt FROM wiki_articles a WHERE a.status='published' AND a.search_vector @@ to_tsquery('english',${tsquery}) ORDER BY ts_rank(a.search_vector,to_tsquery('english',${tsquery})) DESC LIMIT ${limit}`;
   return json({ query: q, results: rows.map((r: SearchRow) => ({ slug: r.slug, title: r.title, summary: r.summary, excerpt: renderExcerpt(r.excerpt), author: r.author, updatedAt: r.updated_at })) });
 }
 

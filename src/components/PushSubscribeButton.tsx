@@ -58,6 +58,11 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
         }
     }, [subscribed, token]);
 
+    // Must run before the early returns below: permission flips at runtime
+    // (unsupported/denied/granted), and a conditional hook would change the
+    // call order between renders.
+    const { iconRef, handlers } = useAnimatedIconTrigger();
+
     if (permission === "unsupported") return null;
 
     if (permission === "denied") {
@@ -76,7 +81,6 @@ export default function PushSubscribeButton({ className, style }: PushSubscribeB
     const FallbackIcon = subscribed ? BellRing : Bell;
     const label = subscribed ? "This device subscribed" : "Notify this device";
     const btnClass = className ?? "btn btn-ghost btn-sm";
-    const { iconRef, handlers } = useAnimatedIconTrigger();
 
     return (
         <button

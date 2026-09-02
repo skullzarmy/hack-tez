@@ -402,7 +402,7 @@ async function main() {
     console.log(`📄 Contract: ${REGISTRAR}`);
 
     // ─── Preconditions ───────────────────────────────────────────
-    const { storage } = await checkPreconditions();
+    await checkPreconditions();
 
     if (fixReg) {
         await fixRegistry(tezos, senderAddress);

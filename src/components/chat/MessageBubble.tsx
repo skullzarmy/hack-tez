@@ -844,14 +844,6 @@ export default function MessageBubble({
     onShowProfile,
     chatToken,
 }: MessageBubbleProps) {
-    if (sender === "__system__") {
-        return <SystemMessage content={content ?? ""} timestamp={timestamp} />;
-    }
-
-    if (deleted) {
-        return <DeletedMessage sender={sender} timestamp={timestamp} deleteReason={deleteReason} isOwn={isOwn} />;
-    }
-
     const handleMentionClick = useCallback((label: string) => {
         if (!onShowProfile) return;
         // Build a synthetic anchor rect from the clicked element (fall back to center of viewport)
@@ -866,6 +858,17 @@ export default function MessageBubble({
     const relativeTime = useRelativeTime(timestamp);
     const senderLabel = useMemo(() => sender.split(".")[0], [sender]);
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // Early returns come after every hook: a message can become deleted while
+    // it is on screen (moderation), and bailing out earlier would drop hooks
+    // from the render that already ran with them.
+    if (sender === "__system__") {
+        return <SystemMessage content={content ?? ""} timestamp={timestamp} />;
+    }
+
+    if (deleted) {
+        return <DeletedMessage sender={sender} timestamp={timestamp} deleteReason={deleteReason} isOwn={isOwn} />;
+    }
 
     // Own messages: right-aligned, no avatar
     if (isOwn) {
