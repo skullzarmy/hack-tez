@@ -20,7 +20,11 @@
 
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
-import { packDataBytes } from "@taquito/michel-codec";
+import {
+    type MichelsonData,
+    type MichelsonType,
+    packDataBytes,
+} from "@taquito/michel-codec";
 import { blake2b } from "blakejs";
 import { randomBytes } from "node:crypto";
 
@@ -30,6 +34,38 @@ const REGISTRAR = process.env.REGISTRAR_ADDRESS || "KT1KY1VkJeNYrCpDbP33u6eMEoPu
 const SET_CHILD_RECORD_PROXY = "KT1HpddfW7rX5aT2cTdsDaQZnH46bU7jQSTU";
 const NAME_REGISTRY = "KT1REqKBXwULnmU6RpZxnRBUgcBmESnXhCWs";
 const TZKT_API = "https://api.ghostnet.tzkt.io/v1";
+
+// ─── TzKT response shapes ────────────────────────────────────────────
+// Only the fields this script reads; TzKT returns a good deal more.
+
+/** HackTezRegistrar storage, as TzKT renders it (numerics come back as strings). */
+interface RegistrarStorage {
+    admin_address: string;
+    paused: boolean;
+    name_registry: string;
+    parent_name: string;
+    min_commit_age: string;
+    max_commit_age: string;
+    max_per_wallet: string;
+    /** Big map ids, which TzKT returns as numbers. */
+    commitments: number;
+    registered_labels: number;
+}
+
+interface TzktTransaction {
+    hash: string;
+    status: string;
+    level: number;
+    parameter?: { value?: unknown };
+}
+
+interface TzktEntrypoint {
+    name: string;
+}
+
+interface UpdateOperatorItem {
+    add_operator?: { operator?: string };
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -63,7 +99,7 @@ function generateSalt(): string {
  *   (label: bytes, (salt: bytes, (sender: address, target_address: address)))
  */
 function computeCommitmentHash(labelHex: string, sender: string, targetAddress: string, saltHex: string): string {
-    const data: any = {
+    const data: MichelsonData = {
         prim: "Pair",
         args: [
             { bytes: labelHex },
@@ -80,7 +116,7 @@ function computeCommitmentHash(labelHex: string, sender: string, targetAddress: 
         ],
     };
 
-    const type: any = {
+    const type: MichelsonType = {
         prim: "pair",
         args: [
             { prim: "bytes" },
@@ -119,7 +155,9 @@ async function checkPreconditions() {
     let allGood = true;
 
     // 1. Contract exists and is accessible
-    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
+    const storage = (await fetchJson(
+        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
+    )) as RegistrarStorage;
     console.log(`  Contract: ${REGISTRAR}`);
     console.log(`  Admin: ${storage.admin_address}`);
     console.log(`  Paused: ${storage.paused}`);
@@ -152,13 +190,15 @@ async function checkPreconditions() {
     }
 
     // 4. Check that the contract is an operator on the hack.gho NFT
-    const ops: any[] = await fetchJson(
+    const ops = (await fetchJson(
         `${TZKT_API}/operations/transactions?target=${NAME_REGISTRY}&entrypoint=update_operators&limit=50&sort.desc=id`,
-    );
-    const operatorAdded = ops.some((op: any) => {
+    )) as TzktTransaction[];
+    const operatorAdded = ops.some((op) => {
         const val = op.parameter?.value;
         if (!Array.isArray(val)) return false;
-        return val.some((v: any) => v.add_operator?.operator === REGISTRAR);
+        return (val as UpdateOperatorItem[]).some(
+            (v) => v.add_operator?.operator === REGISTRAR,
+        );
     });
     if (operatorAdded) {
         console.log(`  ✅ Contract is set as FA2 operator on hack.gho`);
@@ -167,8 +207,10 @@ async function checkPreconditions() {
     }
 
     // 5. Check SetChildRecord proxy has set_child_record entrypoint
-    const eps: any[] = await fetchJson(`${TZKT_API}/contracts/${SET_CHILD_RECORD_PROXY}/entrypoints`);
-    const hasSetChild = eps.some((e: any) => e.name === "set_child_record");
+    const eps = (await fetchJson(
+        `${TZKT_API}/contracts/${SET_CHILD_RECORD_PROXY}/entrypoints`,
+    )) as TzktEntrypoint[];
+    const hasSetChild = eps.some((e) => e.name === "set_child_record");
     if (hasSetChild) {
         console.log(`  ✅ SetChildRecord proxy has set_child_record entrypoint`);
     } else {
@@ -184,7 +226,9 @@ async function checkPreconditions() {
 async function fixRegistry(tezos: TezosToolkit, senderAddress: string) {
     console.log("\n🔧 Fixing name_registry...\n");
 
-    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
+    const storage = (await fetchJson(
+        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
+    )) as RegistrarStorage;
 
     if (storage.name_registry === SET_CHILD_RECORD_PROXY) {
         console.log("  ✅ name_registry already correct, nothing to do");
@@ -229,7 +273,9 @@ async function doCommit(
     console.log(`  Commitment hash: ${commitmentHash}`);
 
     // Check if commitment already exists
-    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
+    const storage = (await fetchJson(
+        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
+    )) as RegistrarStorage;
     const commitmentsBigMap = storage.commitments;
     try {
         const existing = await fetchJson(`${TZKT_API}/bigmaps/${commitmentsBigMap}/keys/${commitmentHash}`);
@@ -336,7 +382,9 @@ async function verify(labelHex: string) {
     console.log(`\n🔎 Verifying registration of ${label}.hack.gho...\n`);
 
     // Check our contract's registered_labels
-    const storage: any = await fetchJson(`${TZKT_API}/contracts/${REGISTRAR}/storage`);
+    const storage = (await fetchJson(
+        `${TZKT_API}/contracts/${REGISTRAR}/storage`,
+    )) as RegistrarStorage;
     try {
         const entry = await fetchJson(`${TZKT_API}/bigmaps/${storage.registered_labels}/keys/${labelHex}`);
         if (entry?.active) {
@@ -355,9 +403,9 @@ async function verify(labelHex: string) {
     try {
         // TED stores records by encoded name — this is complex
         // Let's just check via TzKT events or recent set_child_record calls
-        const ops: any[] = await fetchJson(
+        const ops = (await fetchJson(
             `${TZKT_API}/operations/transactions?target=${SET_CHILD_RECORD_PROXY}&entrypoint=set_child_record&sender=${REGISTRAR}&sort.desc=id&limit=5`,
-        );
+        )) as TzktTransaction[];
         if (ops.length > 0) {
             const latest = ops[0];
             console.log(`  ✅ set_child_record call found!`);
