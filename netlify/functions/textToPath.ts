@@ -2,13 +2,13 @@
  * Convert text to SVG paths using opentype.js
  * This eliminates font rendering issues - text becomes vector paths
  */
-import opentype from "opentype.js";
+import opentype, { type Font } from "opentype.js";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 
 // Cache loaded fonts
-let font400: opentype.Font | null = null;
-let font700: opentype.Font | null = null;
+let font400: Font | null = null;
+let font700: Font | null = null;
 
 function getFontPath(weight: 400 | 700): string {
     const fileName = weight === 400 ? "space-mono-latin-400-normal.woff" : "space-mono-latin-700-normal.woff";
@@ -24,7 +24,7 @@ function getFontPath(weight: 400 | 700): string {
     throw new Error(`Font file not found: ${fileName}`);
 }
 
-function getFont(weight: 400 | 700): opentype.Font {
+function getFont(weight: 400 | 700): Font {
     if (weight === 400 && font400) return font400;
     if (weight === 700 && font700) return font700;
 

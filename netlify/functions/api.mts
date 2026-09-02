@@ -21,7 +21,6 @@ import type { Config, Context } from "@netlify/functions";
 import { Resvg } from "@resvg/resvg-js";
 import { getPkhfromPk, verifySignature } from "@taquito/utils";
 import { Redis } from "@upstash/redis";
-// @ts-expect-error — gifenc is CJS, no proper ESM types
 import gifenc from "gifenc";
 import {
 	createPrng,

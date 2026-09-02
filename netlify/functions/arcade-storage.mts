@@ -27,6 +27,15 @@ export interface StoreBundleResult {
 }
 
 /** Write all files under the given key prefix. Existing files at that prefix are deleted first. */
+/** Netlify Blobs takes `string | ArrayBuffer | Blob`, not a typed-array view.
+    Slicing by byteOffset/byteLength keeps views into a larger buffer correct. */
+function toBlobInput(bytes: Uint8Array): ArrayBuffer {
+    return bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer;
+}
+
 export async function storeGameBundle(
     gameId: string,
     version: number | string,
@@ -44,7 +53,7 @@ export async function storeGameBundle(
         const path = f.path.replace(/^\/+/, "");
         const blobKey = `${key}/${path}`;
         const contentType = guessContentType(path);
-        await store.set(blobKey, new Uint8Array(f.bytes), {
+        await store.set(blobKey, toBlobInput(new Uint8Array(f.bytes)), {
             metadata: { contentType, path },
         });
         totalBytes += f.bytes.byteLength;
@@ -74,7 +83,7 @@ export async function storeCover(
     }
     const key = coverKey(gameId);
     const store = arcadeBlobStore();
-    await store.set(key, bytes, { metadata: { contentType, path: "cover" } });
+    await store.set(key, toBlobInput(bytes), { metadata: { contentType, path: "cover" } });
     return { key, bytes: bytes.byteLength, contentType };
 }
 

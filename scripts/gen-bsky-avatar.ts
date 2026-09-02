@@ -8,7 +8,7 @@
  *   tsx scripts/gen-bsky-avatar.ts
  */
 import { Resvg } from "@resvg/resvg-js";
-import opentype from "opentype.js";
+import opentype, { type Font } from "opentype.js";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,7 +25,7 @@ const LETTER_SPACING_EM = 0.05;
 
 // Load the same Space Mono Bold the site uses, so we can measure actual glyph
 // advances rather than guessing the em width.
-function loadFont(): opentype.Font {
+function loadFont(): Font {
     const candidates = [
         resolve(
             process.cwd(),
