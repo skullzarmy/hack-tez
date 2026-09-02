@@ -30,6 +30,153 @@ function renderExcerpt(raw: unknown): string {
   return escapeHtml(raw).split(HL_START).join("<mark>").split(HL_END).join("</mark>");
 }
 
+// ---------------------------------------------------------------------------
+// Row and body shapes
+//
+// The pg driver hands back untyped records, so each query names the columns its
+// own SELECT asked for. Column names stay snake_case, as they arrive.
+// ---------------------------------------------------------------------------
+
+function rowsAs<T>(rows: unknown): T[] {
+  return rows as T[];
+}
+
+interface ArticleListRow {
+  slug: string;
+  title: string;
+  summary: string | null;
+  author: string;
+  last_editor: string | null;
+  cat_slug: string | null;
+  cat_name: string | null;
+  updated_at: string;
+  revision: number;
+}
+
+interface ArticleRow {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  markdown: string;
+  summary: string | null;
+  category_id: string | null;
+  author: string;
+  last_editor: string | null;
+  status: string;
+  locked_by: string | null;
+  lock_reason: string | null;
+  lock_expires: string | null;
+  created_at: string;
+  updated_at: string;
+  revision: number;
+  cat_slug: string | null;
+  cat_name: string | null;
+}
+
+interface RevisionListRow {
+  id: string;
+  revision: number;
+  title: string;
+  editor: string;
+  edit_summary: string | null;
+  created_at: string;
+}
+
+interface RevisionRow {
+  revision: number;
+  title: string;
+  content: string;
+  markdown: string;
+  summary: string | null;
+  editor: string;
+  edit_summary: string | null;
+  created_at: string;
+}
+
+interface CategoryRow {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  parent_id: string | null;
+  count: string | number;
+}
+
+interface TagRow {
+  slug: string;
+  name: string;
+  count: string | number;
+}
+
+interface ProposalRow {
+  id: string;
+  target: string;
+  proposer: string;
+  reason: string;
+  evidence: unknown;
+  status: string;
+  decided_by: string | null;
+  decision_note: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+interface AuditRow {
+  id: string;
+  action: string;
+  target: string;
+  actor: string;
+  details: unknown;
+  created_at: string;
+}
+
+interface ModeratorRow {
+  domain: string;
+  granted_by: string;
+  permissions: unknown;
+  created_at: string;
+}
+
+/** Request bodies arrive as untyped JSON; fields are optional until validated. */
+interface ArticleBody {
+  title?: string;
+  content?: string;
+  markdown?: string;
+  summary?: string;
+  categoryId?: string | null;
+  tags?: string[];
+  editSummary?: string;
+}
+
+interface LockBody {
+  reason?: string;
+  durationHours?: number;
+}
+
+interface SoftBanBody {
+  domain?: string;
+  reason?: string;
+  expiresHours?: number;
+}
+
+interface BanProposalBody {
+  target?: string;
+  reason?: string;
+  evidence?: unknown;
+}
+
+interface ModeratorBody {
+  domain?: string;
+}
+
+interface CategoryBody {
+  id?: string;
+  name?: string;
+  description?: string | null;
+  sortOrder?: number;
+}
+
 function nanoid(n = 21) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let id = ""; for (let i = 0; i < n; i++) id += chars[Math.floor(Math.random() * chars.length)];
@@ -50,14 +197,14 @@ async function listArticles(url: URL) {
   } else {
     rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.last_editor,a.updated_at,a.revision,c.slug AS cat_slug,c.name AS cat_name FROM wiki_articles a LEFT JOIN wiki_categories c ON a.category_id=c.id WHERE a.status='published' ORDER BY a.updated_at DESC LIMIT ${limit} OFFSET ${offset}`;
   }
-  const articles = rows.map((r: any) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision }));
+  const articles = rowsAs<ArticleListRow>(rows).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision }));
   return json({ articles, total: articles.length, limit, offset });
 }
 
 async function getArticle(req: Request, slug: string) {
   const rows = await sql`SELECT a.*,c.slug AS cat_slug,c.name AS cat_name FROM wiki_articles a LEFT JOIN wiki_categories c ON a.category_id=c.id WHERE a.slug=${slug}`;
   if (!rows.length) return err("Article not found", "NOT_FOUND", 404);
-  const r: any = rows[0];
+  const r = rowsAs<ArticleRow>(rows)[0];
 
   if (r.status === "archived") {
     // Only author, mod, or admin can view archived articles
@@ -87,7 +234,7 @@ async function getRevisions(slug: string) {
   const art = await sql`SELECT id FROM wiki_articles WHERE slug=${slug}`;
   if (!art.length) return err("Article not found", "NOT_FOUND", 404);
   const rows = await sql`SELECT id,revision,title,editor,edit_summary,created_at FROM wiki_revisions WHERE article_id=${art[0].id} ORDER BY revision DESC LIMIT 100`;
-  return json({ revisions: rows.map((r: any) => ({ id: r.id, revision: r.revision, title: r.title, editor: r.editor, editSummary: r.edit_summary, createdAt: r.created_at })) });
+  return json({ revisions: rowsAs<RevisionListRow>(rows).map((r) => ({ id: r.id, revision: r.revision, title: r.title, editor: r.editor, editSummary: r.edit_summary, createdAt: r.created_at })) });
 }
 
 async function getRevision(slug: string, revNum: string) {
@@ -95,7 +242,7 @@ async function getRevision(slug: string, revNum: string) {
   if (!art.length) return err("Article not found", "NOT_FOUND", 404);
   const rows = await sql`SELECT revision,title,content,markdown,summary,editor,edit_summary,created_at FROM wiki_revisions WHERE article_id=${art[0].id} AND revision=${Number(revNum)}`;
   if (!rows.length) return err("Revision not found", "NOT_FOUND", 404);
-  const r: any = rows[0];
+  const r = rowsAs<RevisionRow>(rows)[0];
   return json({ slug: art[0].slug, title: r.title, content: r.content, markdown: r.markdown, summary: r.summary, author: r.editor, editSummary: r.edit_summary, createdAt: r.created_at, revision: r.revision });
 }
 
@@ -120,7 +267,7 @@ async function searchArticles(url: URL) {
 async function getRecent(url: URL) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 50);
   const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.last_editor,a.updated_at,a.revision,c.slug AS cat_slug,c.name AS cat_name FROM wiki_articles a LEFT JOIN wiki_categories c ON a.category_id=c.id WHERE a.status='published' ORDER BY a.updated_at DESC LIMIT ${limit}`;
-  return json({ articles: rows.map((r: any) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision })) });
+  return json({ articles: rowsAs<ArticleListRow>(rows).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision })) });
 }
 
 async function getStats() {
@@ -140,7 +287,7 @@ async function listCategories() {
     ORDER BY c.sort_order ASC
   `;
   return json({ 
-    categories: rows.map((r: any) => ({ 
+    categories: rowsAs<CategoryRow>(rows).map((r) => ({ 
       id: r.id, 
       slug: r.slug, 
       name: r.name, 
@@ -153,7 +300,7 @@ async function listCategories() {
 
 async function listTags() {
   const rows = await sql`SELECT t.slug,t.name,COUNT(at2.article_id) AS count FROM wiki_tags t LEFT JOIN wiki_article_tags at2 ON t.id=at2.tag_id GROUP BY t.id ORDER BY count DESC`;
-  return json({ tags: rows.map((r: any) => ({ slug: r.slug, name: r.name, count: Number(r.count) })) });
+  return json({ tags: rowsAs<TagRow>(rows).map((r) => ({ slug: r.slug, name: r.name, count: Number(r.count) })) });
 }
 
 async function getLlmsTxt() {
@@ -203,7 +350,7 @@ async function createArticle(req: Request) {
   if (!user) return err("Unauthorized", "AUTH_REQUIRED", 401);
   if (!user.activeDomain) return err("A hack.tez domain is required", "NO_DOMAIN", 403);
   if (await isBanned(getDomain(user))) return err("You are banned from editing", "BANNED", 403);
-  const body: any = await req.json();
+  const body: ArticleBody = await req.json();
   const title = body.title?.trim();
   const content = body.content;
   const markdown = body.markdown ?? "";
@@ -230,14 +377,14 @@ async function updateArticle(req: Request, slug: string) {
   if (await isBanned(getDomain(user))) return err("You are banned from editing", "BANNED", 403);
   const rows = await sql`SELECT * FROM wiki_articles WHERE slug=${slug}`;
   if (!rows.length) return err("Article not found", "NOT_FOUND", 404);
-  const article: any = rows[0];
+  const article = rowsAs<ArticleRow>(rows)[0];
   if (article.status === "locked") {
     if (article.lock_expires && new Date(article.lock_expires) < new Date()) {
       await sql`UPDATE wiki_articles SET status='published',locked_by=NULL,locked_at=NULL,lock_reason=NULL,lock_expires=NULL WHERE id=${article.id}`;
     } else { return err(`Article is locked: ${article.lock_reason ?? ""}`, "ARTICLE_LOCKED", 423); }
   }
   if (article.status === "archived") return err("Cannot edit archived article", "ARTICLE_ARCHIVED", 403);
-  const body: any = await req.json();
+  const body: ArticleBody = await req.json();
   const title = body.title?.trim() ?? article.title;
   const content = body.content ?? article.content;
   const markdown = body.markdown ?? article.markdown;
@@ -267,7 +414,7 @@ async function deleteArticle(req: Request, slug: string) {
 
   const rows = await sql`SELECT id FROM wiki_articles WHERE slug=${slug}`;
   if (!rows.length) return err("Article not found", "NOT_FOUND", 404);
-  const article: any = rows[0];
+  const article = rowsAs<ArticleRow>(rows)[0];
 
   await sql`DELETE FROM wiki_articles WHERE id=${article.id}`;
   await auditLog("article_delete", slug, domain);
@@ -283,7 +430,7 @@ async function archiveArticle(req: Request, slug: string) {
   
   const rows = await sql`SELECT id, author FROM wiki_articles WHERE slug=${slug}`;
   if (!rows.length) return err("Article not found", "NOT_FOUND", 404);
-  const article: any = rows[0];
+  const article = rowsAs<ArticleRow>(rows)[0];
 
   const isMod = await isModerator(domain);
   if (article.author !== domain && !isAdmin(user) && !isMod) {
@@ -304,7 +451,7 @@ async function lockArticle(req: Request, slug: string) {
   if (!user.activeDomain) return err("No domain", "NO_DOMAIN", 403);
   const domain = getDomain(user);
   if (!isAdmin(user) && !(await isModerator(domain))) return err("Moderator access required", "FORBIDDEN", 403);
-  const body: any = await req.json();
+  const body: LockBody = await req.json();
   const reason = body.reason?.trim();
   if (!reason) return err("Reason is required", "INVALID_INPUT", 400);
   const expires = body.durationHours ? new Date(Date.now() + body.durationHours * 3600000).toISOString() : null;
@@ -332,7 +479,7 @@ async function softBan(req: Request) {
   if (!user.activeDomain) return err("No domain", "NO_DOMAIN", 403);
   const domain = getDomain(user);
   if (!isAdmin(user) && !(await isModerator(domain))) return err("Moderator access required", "FORBIDDEN", 403);
-  const body: any = await req.json();
+  const body: SoftBanBody = await req.json();
   const target = body.domain?.trim(); const reason = body.reason?.trim();
   if (!target || !reason) return err("domain and reason required", "INVALID_INPUT", 400);
   const expires = body.expiresHours ? new Date(Date.now() + body.expiresHours * 3600000).toISOString() : null;
@@ -347,7 +494,7 @@ async function proposeHardBan(req: Request) {
   if (!user.activeDomain) return err("No domain", "NO_DOMAIN", 403);
   const domain = getDomain(user);
   if (!isAdmin(user) && !(await isModerator(domain))) return err("Moderator access required", "FORBIDDEN", 403);
-  const body: any = await req.json();
+  const body: BanProposalBody = await req.json();
   const target = body.target?.trim(); const reason = body.reason?.trim();
   if (!target || !reason) return err("target and reason required", "INVALID_INPUT", 400);
   const id = nanoid();
@@ -359,13 +506,13 @@ async function proposeHardBan(req: Request) {
 async function listProposals(url: URL) {
   const status = url.searchParams.get("status") ?? "open";
   const rows = await sql`SELECT * FROM wiki_ban_proposals WHERE status=${status} ORDER BY created_at DESC`;
-  return json({ proposals: rows.map((r: any) => ({ id: r.id, target: r.target, proposer: r.proposer, reason: r.reason, evidence: r.evidence, status: r.status, decidedBy: r.decided_by, decisionNote: r.decision_note, createdAt: r.created_at, decidedAt: r.decided_at })) });
+  return json({ proposals: rowsAs<ProposalRow>(rows).map((r) => ({ id: r.id, target: r.target, proposer: r.proposer, reason: r.reason, evidence: r.evidence, status: r.status, decidedBy: r.decided_by, decisionNote: r.decision_note, createdAt: r.created_at, decidedAt: r.decided_at })) });
 }
 
 async function getAuditLog(url: URL) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
   const rows = await sql`SELECT * FROM wiki_audit_log ORDER BY created_at DESC LIMIT ${limit}`;
-  return json({ entries: rows.map((r: any) => ({ id: r.id, action: r.action, target: r.target, actor: r.actor, details: r.details, createdAt: r.created_at })) });
+  return json({ entries: rowsAs<AuditRow>(rows).map((r) => ({ id: r.id, action: r.action, target: r.target, actor: r.actor, details: r.details, createdAt: r.created_at })) });
 }
 
 // --- Admin handlers ---
@@ -374,7 +521,7 @@ async function addModerator(req: Request) {
   const user = await verifyJwt(req);
   if (!user) return err("Unauthorized", "AUTH_REQUIRED", 401);
   if (!isAdmin(user)) return err("Admin only", "FORBIDDEN", 403);
-  const body: any = await req.json();
+  const body: ModeratorBody = await req.json();
   const domain = body.domain?.trim();
   if (!domain) return err("domain required", "INVALID_INPUT", 400);
   await sql`INSERT INTO wiki_moderators (domain,granted_by) VALUES (${domain},${getDomain(user)}) ON CONFLICT (domain) DO NOTHING`;
@@ -396,14 +543,14 @@ async function listModerators(req: Request) {
   if (!user) return err("Unauthorized", "AUTH_REQUIRED", 401);
   if (!isAdmin(user)) return err("Admin only", "FORBIDDEN", 403);
   const rows = await sql`SELECT domain,granted_by,permissions,created_at FROM wiki_moderators ORDER BY created_at`;
-  return json({ moderators: rows.map((r: any) => ({ domain: r.domain, grantedBy: r.granted_by, permissions: r.permissions, createdAt: r.created_at })) });
+  return json({ moderators: rowsAs<ModeratorRow>(rows).map((r) => ({ domain: r.domain, grantedBy: r.granted_by, permissions: r.permissions, createdAt: r.created_at })) });
 }
 
 async function upsertCategory(req: Request) {
   const user = await verifyJwt(req);
   if (!user) return err("Unauthorized", "AUTH_REQUIRED", 401);
   if (!isAdmin(user)) return err("Admin only", "FORBIDDEN", 403);
-  const body: any = await req.json();
+  const body: CategoryBody = await req.json();
   const name = body.name?.trim();
   if (!name) return err("name required", "INVALID_INPUT", 400);
   const slug = slugify(name);

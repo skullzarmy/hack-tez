@@ -133,7 +133,7 @@ async function listGames(url: URL): Promise<Response> {
                     ORDER BY play_count DESC, updated_at DESC
                     LIMIT ${limit} OFFSET ${offset}`;
 
-    return json({ games: rows.map(toGameSummary), limit, offset });
+    return json({ games: rowsAs<GameRow>(rows).map(toGameSummary), limit, offset });
 }
 
 async function getGame(slug: string): Promise<Response> {
@@ -154,7 +154,7 @@ async function getGame(slug: string): Promise<Response> {
 
     return json({
         game: toGameDetail(g),
-        leaderboard: top.map((r: any) => ({
+        leaderboard: rowsAs<ScoreRow>(top).map((r) => ({
             domain: r.player_domain,
             label: r.player_label,
             score: Number(r.best_score),
@@ -167,7 +167,7 @@ async function getLeaderboard(url: URL, slug: string): Promise<Response> {
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 200);
     const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug} AND status IN ('active','flagged')`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const gameId = (games[0] as any).id as string;
+    const gameId = rowsAs<GameRow>(games)[0].id;
     const rows = await sql`
         SELECT player_domain, player_label, MAX(score) AS best_score, MAX(created_at) AS last_played
         FROM arcade_scores
@@ -177,7 +177,7 @@ async function getLeaderboard(url: URL, slug: string): Promise<Response> {
         LIMIT ${limit}`;
     return json({
         slug,
-        leaderboard: rows.map((r: any, i: number) => ({
+        leaderboard: rowsAs<ScoreRow>(rows).map((r, i) => ({
             rank: i + 1,
             domain: r.player_domain,
             label: r.player_label,
@@ -195,7 +195,7 @@ async function getChampions(url: URL): Promise<Response> {
         ORDER BY total_score DESC
         LIMIT ${limit}`;
     return json({
-        champions: rows.map((r: any, i: number) => ({
+        champions: rowsAs<ChampionRow>(rows).map((r, i) => ({
             rank: i + 1,
             domain: r.domain,
             label: r.label,
@@ -220,14 +220,14 @@ async function getPlayer(domain: string): Promise<Response> {
         domain,
         stats: stats.length
             ? {
-                  label: (stats[0] as any).label,
-                  totalPlays: Number((stats[0] as any).total_plays),
-                  gamesPlayed: Number((stats[0] as any).games_played),
-                  totalScore: Number((stats[0] as any).total_score),
-                  firstPlaceCount: Number((stats[0] as any).first_place_count),
+                  label: rowsAs<PlayerStatsRow>(stats)[0].label,
+                  totalPlays: Number(rowsAs<PlayerStatsRow>(stats)[0].total_plays),
+                  gamesPlayed: Number(rowsAs<PlayerStatsRow>(stats)[0].games_played),
+                  totalScore: Number(rowsAs<PlayerStatsRow>(stats)[0].total_score),
+                  firstPlaceCount: Number(rowsAs<PlayerStatsRow>(stats)[0].first_place_count),
               }
             : null,
-        recent: recent.map((r: any) => ({
+        recent: rowsAs<PlayedRow>(recent).map((r) => ({
             slug: r.slug,
             title: r.title,
             score: Number(r.score),
@@ -246,7 +246,7 @@ async function getRecent(url: URL): Promise<Response> {
         ORDER BY s.created_at DESC
         LIMIT ${limit}`;
     return json({
-        recent: rows.map((r: any) => ({
+        recent: rowsAs<RecentRow>(rows).map((r) => ({
             domain: r.player_domain,
             label: r.player_label,
             score: Number(r.score),
@@ -267,7 +267,7 @@ async function listMyGames(req: Request): Promise<Response> {
         FROM arcade_games
         WHERE builder_domain=${user.activeDomain}
         ORDER BY updated_at DESC`;
-    const ids = rows.map((r: any) => r.slug);
+    const ids = rowsAs<GameRow>(rows).map((r) => r.slug);
     const pendingUpdates = ids.length
         ? await sql`
             SELECT g.slug, v.version, v.created_at, v.scores_reset
@@ -275,11 +275,11 @@ async function listMyGames(req: Request): Promise<Response> {
             JOIN arcade_games g ON g.id = v.game_id
             WHERE g.builder_domain=${user.activeDomain} AND v.status='pending'`
         : [];
-    const pendingMap = new Map<string, any>();
-    for (const r of pendingUpdates) pendingMap.set((r as any).slug, r);
+    const pendingMap = new Map<string, PendingVersionRow>();
+    for (const r of rowsAs<PendingVersionRow>(pendingUpdates)) pendingMap.set(r.slug, r);
 
     return json({
-        games: rows.map((r: any) => ({
+        games: rowsAs<GameRow>(rows).map((r) => ({
             slug: r.slug,
             title: r.title,
             description: r.description,
@@ -297,13 +297,7 @@ async function listMyGames(req: Request): Promise<Response> {
             flaggedReason: r.flagged_reason,
             createdAt: r.created_at,
             updatedAt: r.updated_at,
-            pendingUpdate: pendingMap.has(r.slug)
-                ? {
-                      version: Number(pendingMap.get(r.slug).version),
-                      scoresReset: !!pendingMap.get(r.slug).scores_reset,
-                      submittedAt: pendingMap.get(r.slug).created_at,
-                  }
-                : null,
+            pendingUpdate: toPendingUpdate(pendingMap.get(r.slug)),
         })),
     });
 }
@@ -320,7 +314,7 @@ async function startSession(req: Request): Promise<Response> {
 
     const games = await sql`SELECT id FROM arcade_games WHERE slug=${body.slug} AND status IN ('active','flagged')`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const gameId = (games[0] as any).id as string;
+    const gameId = rowsAs<GameRow>(games)[0].id;
 
     // Invalidate any prior unsubmitted active session for this player+game.
     await sql`
@@ -366,7 +360,7 @@ async function submitScore(req: Request): Promise<Response> {
         SELECT id, game_id, player_domain, expires_at, score_submitted
         FROM arcade_sessions WHERE id=${body.sessionId}`;
     if (!sessions.length) return err("Session not found", "SESSION_NOT_FOUND", 404);
-    const session = sessions[0] as any;
+    const session = rowsAs<SessionRow>(sessions)[0];
 
     if (session.player_domain !== user.activeDomain) {
         return err("Session does not belong to this player", "FORBIDDEN", 403);
@@ -377,7 +371,7 @@ async function submitScore(req: Request): Promise<Response> {
     const games = await sql`SELECT id, slug, max_possible_score, max_score_per_second
                             FROM arcade_games WHERE id=${session.game_id}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const game = games[0] as any;
+    const game = rowsAs<GameRow>(games)[0];
 
     if (game.max_possible_score != null && score > Number(game.max_possible_score)) {
         return err("Score exceeds max possible", "SCORE_TOO_HIGH", 422);
@@ -396,7 +390,7 @@ async function submitScore(req: Request): Promise<Response> {
     // Capture previous best BEFORE inserting so we can report personal-best delta.
     const prevBestRow = await sql`SELECT MAX(score)::int AS best FROM arcade_scores
                                   WHERE game_id=${game.id} AND player_domain=${user.activeDomain}`;
-    const prevBest = ((prevBestRow[0] as any)?.best as number | null) ?? 0;
+    const prevBest = rowsAs<BestRow>(prevBestRow)[0]?.best ?? 0;
 
     await sql`
         INSERT INTO arcade_scores (id, game_id, player_domain, player_label, player_address, score, duration_ms, metadata, session_id)
@@ -412,7 +406,7 @@ async function submitScore(req: Request): Promise<Response> {
     const priorPlays = await sql`
         SELECT COUNT(*)::int AS c FROM arcade_scores
         WHERE game_id=${game.id} AND player_domain=${user.activeDomain} AND id<>${scoreId}`;
-    const isNewPlayer = ((priorPlays[0] as any).c as number) === 0;
+    const isNewPlayer = Number(rowsAs<CountRow>(priorPlays)[0].c) === 0;
 
     await sql`
         UPDATE arcade_games
@@ -424,7 +418,7 @@ async function submitScore(req: Request): Promise<Response> {
     // Best score for this player on this game (used for total_score sum).
     const bestRow = await sql`SELECT MAX(score)::int AS best FROM arcade_scores
                               WHERE game_id=${game.id} AND player_domain=${user.activeDomain}`;
-    const best = ((bestRow[0] as any).best as number) ?? score;
+    const best = rowsAs<BestRow>(bestRow)[0].best ?? score;
 
     await sql`
         INSERT INTO arcade_player_stats (domain, label, total_plays, games_played, total_score, updated_at)
@@ -446,7 +440,7 @@ async function submitScore(req: Request): Promise<Response> {
         SELECT 1 + COUNT(DISTINCT player_domain) AS rank
         FROM arcade_scores
         WHERE game_id=${game.id} AND score > ${best}`;
-    const rank = Number((rankRow[0] as any).rank);
+    const rank = Number(rowsAs<RankRow>(rankRow)[0].rank);
 
     const isPersonalBest = score > prevBest;
     return json({
@@ -614,7 +608,7 @@ async function updateGame(req: Request, slug: string): Promise<Response> {
 
     const games = await sql`SELECT id, version, builder_domain FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const game = games[0] as any;
+    const game = rowsAs<GameRow>(games)[0];
 
     const isCreator = game.builder_domain === user.activeDomain;
     if (!isCreator && !isAdmin(user)) return err("Not the creator", "FORBIDDEN", 403);
@@ -678,7 +672,7 @@ async function editGame(req: Request, slug: string): Promise<Response> {
 
     const games = await sql`SELECT id, version, status, builder_domain FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const game = games[0] as any;
+    const game = rowsAs<GameRow>(games)[0];
 
     const isCreator = game.builder_domain === user.activeDomain;
     if (!isCreator && !isAdmin(user)) return err("Not the creator", "FORBIDDEN", 403);
@@ -834,7 +828,7 @@ async function rescindGame(req: Request, slug: string): Promise<Response> {
 
     const games = await sql`SELECT id, status, builder_domain FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const game = games[0] as any;
+    const game = rowsAs<GameRow>(games)[0];
 
     if (game.builder_domain !== user.activeDomain) return err("Not the creator", "FORBIDDEN", 403);
     if (game.status !== "pending") {
@@ -886,7 +880,7 @@ async function listPendingUpdates(req: Request): Promise<Response> {
         JOIN arcade_games g ON g.id = v.game_id
         WHERE v.status='pending'
         ORDER BY v.created_at ASC`;
-    const pendingUpdates = rows.map((r: any) => ({
+    const pendingUpdates = rowsAs<PendingReviewRow>(rows).map((r) => ({
         id: r.version_id,
         versionId: r.version_id,
         slug: r.slug,
@@ -992,7 +986,7 @@ async function approveUpdate(req: Request, slug: string): Promise<Response> {
 
     const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const gameId = (games[0] as any).id as string;
+    const gameId = rowsAs<GameRow>(games)[0].id;
 
     const pending = await sql`
         SELECT id, version, ipfs_cid, scores_reset
@@ -1000,12 +994,12 @@ async function approveUpdate(req: Request, slug: string): Promise<Response> {
         WHERE game_id=${gameId} AND status='pending'
         ORDER BY version DESC LIMIT 1`;
     if (!pending.length) return err("No pending update", "NOT_FOUND", 404);
-    const v = pending[0] as any;
+    const v = rowsAs<GameVersionRow>(pending)[0];
 
     let affectedDomains: string[] = [];
     if (v.scores_reset) {
         const before = await sql`SELECT DISTINCT player_domain FROM arcade_scores WHERE game_id=${gameId}`;
-        affectedDomains = (before as any[]).map((r) => r.player_domain as string);
+        affectedDomains = rowsAs<PlayerDomainRow>(before).map((r) => r.player_domain);
         await sql`DELETE FROM arcade_scores WHERE game_id=${gameId}`;
         await sql`UPDATE arcade_games SET play_count=0, player_count=0, updated_at=NOW() WHERE id=${gameId}`;
     }
@@ -1041,7 +1035,7 @@ async function rejectUpdate(req: Request, slug: string): Promise<Response> {
 
     const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const gameId = (games[0] as any).id as string;
+    const gameId = rowsAs<GameRow>(games)[0].id;
 
     const rows = await sql`
         UPDATE arcade_game_versions
@@ -1051,7 +1045,7 @@ async function rejectUpdate(req: Request, slug: string): Promise<Response> {
     if (!rows.length) return err("No pending update", "NOT_FOUND", 404);
 
     // Best-effort blob cleanup for the rejected version's bundle.
-    const rejectedVersion = Number((rows[0] as any).version);
+    const rejectedVersion = Number(rowsAs<VersionRow>(rows)[0].version);
     await deleteBundle(gameId, rejectedVersion).catch(() => {});
 
     await arcadeAudit("game_update_reject", slug, user.activeDomain!, { reason, version: rejectedVersion });
@@ -1066,12 +1060,12 @@ async function removeGame(req: Request, slug: string): Promise<Response> {
 
     const games = await sql`SELECT id FROM arcade_games WHERE slug=${slug}`;
     if (!games.length) return err("Game not found", "NOT_FOUND", 404);
-    const gameId = (games[0] as any).id as string;
+    const gameId = rowsAs<GameRow>(games)[0].id;
 
     // Snapshot affected players before flipping the game's status (the recompute
     // query filters on status='active' so the rows we want to fix become invisible).
     const before = await sql`SELECT DISTINCT player_domain FROM arcade_scores WHERE game_id=${gameId}`;
-    const affected = (before as any[]).map((r) => r.player_domain as string);
+    const affected = rowsAs<PlayerDomainRow>(before).map((r) => r.player_domain);
 
     await sql`UPDATE arcade_games
         SET status='removed', flagged_reason=${reason || null}, updated_at=NOW()
@@ -1106,6 +1100,110 @@ async function listFlagged(req: Request): Promise<Response> {
 // Row → API shape
 // ---------------------------------------------------------------------------
 
+/** Shapes a builder's in-flight version for the response, or null if none. */
+function toPendingUpdate(v: PendingVersionRow | undefined) {
+    if (!v) return null;
+    return {
+        version: Number(v.version),
+        scoresReset: !!v.scores_reset,
+        submittedAt: v.created_at,
+    };
+}
+
+/** The pg driver returns untyped records; each query names its own columns. */
+function rowsAs<T>(rows: unknown): T[] {
+    return rows as T[];
+}
+
+interface ScoreRow {
+    player_domain: string;
+    player_label: string;
+    best_score: number | string;
+    last_played: string;
+}
+
+interface RecentRow {
+    player_domain: string;
+    player_label: string;
+    score: number | string;
+    slug: string;
+    title: string;
+    created_at: string;
+}
+
+interface ChampionRow {
+    domain: string;
+    label: string;
+    total_plays: number | string;
+    games_played: number | string;
+    total_score: number | string;
+    first_place_count: number | string;
+}
+
+interface PlayerStatsRow {
+    label: string;
+    total_plays: number | string;
+    games_played: number | string;
+    total_score: number | string;
+    first_place_count: number | string;
+}
+
+interface PlayedRow {
+    slug: string;
+    title: string;
+    score: number | string;
+    created_at: string;
+}
+
+interface SessionRow {
+    id: string;
+    game_id: string;
+    player_domain: string;
+    expires_at: string;
+    score_submitted: boolean;
+}
+
+/** Builder-side: "does my game have an update in flight?" */
+interface PendingVersionRow {
+    slug: string;
+    version: number | string;
+    created_at: string;
+    scores_reset: boolean;
+}
+
+/** Straight out of arcade_game_versions, no join. */
+interface GameVersionRow {
+    id: string;
+    version: number | string;
+    ipfs_cid: string;
+    scores_reset: boolean;
+}
+
+/** Admin-side review queue: the same version joined against the live game. */
+interface PendingReviewRow {
+    version_id: string;
+    slug: string;
+    title: string;
+    description: string;
+    category: string;
+    builder_domain: string;
+    cover_key: string | null;
+    current_cid: string;
+    current_version: number | string;
+    new_cid: string;
+    new_version: number | string;
+    uploaded_by: string;
+    scores_reset: boolean;
+    created_at: string;
+}
+
+/** Single-column aggregates from COUNT/MAX/RANK queries. */
+interface BestRow { best: number | null; }
+interface CountRow { c: number | string; }
+interface RankRow { rank: number | string; }
+interface VersionRow { version: number | string; }
+interface PlayerDomainRow { player_domain: string; }
+
 interface GameRow {
     id: string;
     slug: string;
@@ -1130,7 +1228,7 @@ interface GameRow {
     updated_at: string;
 }
 
-function toGameSummary(r: any) {
+function toGameSummary(r: GameRow) {
     return {
         slug: r.slug,
         title: r.title,
