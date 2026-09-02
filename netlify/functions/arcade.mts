@@ -565,7 +565,7 @@ async function submitGame(req: Request): Promise<Response> {
     const id = nanoid(24);
 
     // Store bundle to Netlify Blobs under <gameId>/v1.
-    let stored;
+    let stored: Awaited<ReturnType<typeof storeGameBundle>>;
     try {
         stored = await storeGameBundle(id, 1, validation.files);
     } catch (e) {
@@ -574,7 +574,7 @@ async function submitGame(req: Request): Promise<Response> {
     }
 
     // Store cover under <gameId>/cover (no version — survives version bumps).
-    let coverStored;
+    let coverStored: Awaited<ReturnType<typeof storeCover>>;
     try {
         coverStored = await storeCover(id, cover.bytes, cover.contentType);
     } catch (e) {
@@ -634,7 +634,7 @@ async function updateGame(req: Request, slug: string): Promise<Response> {
     if (!validation.ok) return err(validation.error.message, validation.error.code, 422);
 
     const newVersion = Number(game.version) + 1;
-    let stored;
+    let stored: Awaited<ReturnType<typeof storeGameBundle>>;
     try {
         stored = await storeGameBundle(game.id, newVersion, validation.files);
     } catch (e) {

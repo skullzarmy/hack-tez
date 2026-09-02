@@ -185,6 +185,7 @@ export default function WikiHome() {
                           marginTop: "0.5rem",
                           lineHeight: 1.6,
                         }}
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: wiki search escapes the excerpt server-side and re-inserts only <mark>, see renderExcerpt in wiki.mts
                         dangerouslySetInnerHTML={{ __html: r.excerpt }}
                       />
                     )}

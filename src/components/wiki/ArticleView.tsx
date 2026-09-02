@@ -384,6 +384,7 @@ export default function ArticleView({ slug }: Props) {
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD must be injected as script text; the < escaping below stops an article title containing a closing script tag from ending it early
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
@@ -399,7 +400,7 @@ export default function ArticleView({ slug }: Props) {
               name: "hack.tez Wiki",
               url: "https://hacktez.com/wiki",
             },
-          }),
+          }).replace(/</g, "\\u003c"),
         }}
       />
     </article>

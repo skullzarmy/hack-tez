@@ -6,6 +6,30 @@ function json(data: unknown, status = 200) {
 }
 function err(msg: string, code: string, status: number) { return json({ error: msg, code }, status); }
 
+// ts_headline wraps matches in whatever StartSel/StopSel we give it, but it does
+// NOT escape the surrounding article text — so asking Postgres for <mark> directly
+// hands raw author-written markup to the client, which renders excerpts with
+// dangerouslySetInnerHTML. Ask for sentinels instead, escape the whole string,
+// then put the real tags back. Control characters serve as the sentinels
+// because article prose cannot contain them, and escapeHtml passes them
+// through untouched, which is what lets the swap happen after escaping.
+const HL_START = "\u0001";
+const HL_END = "\u0002";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderExcerpt(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return escapeHtml(raw).split(HL_START).join("<mark>").split(HL_END).join("</mark>");
+}
+
 function nanoid(n = 21) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let id = ""; for (let i = 0; i < n; i++) id += chars[Math.floor(Math.random() * chars.length)];
@@ -20,7 +44,7 @@ async function listArticles(url: URL) {
   const cat = url.searchParams.get("category");
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
   const offset = Math.max(Number(url.searchParams.get("offset") ?? 0), 0);
-  let rows;
+  let rows: Awaited<ReturnType<typeof sql>>;
   if (cat) {
     rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.last_editor,a.updated_at,a.revision,c.slug AS cat_slug,c.name AS cat_name FROM wiki_articles a LEFT JOIN wiki_categories c ON a.category_id=c.id WHERE a.status='published' AND c.slug=${cat} ORDER BY a.updated_at DESC LIMIT ${limit} OFFSET ${offset}`;
   } else {
@@ -75,13 +99,22 @@ async function getRevision(slug: string, revNum: string) {
   return json({ slug: art[0].slug, title: r.title, content: r.content, markdown: r.markdown, summary: r.summary, author: r.editor, editSummary: r.edit_summary, createdAt: r.created_at, revision: r.revision });
 }
 
+interface SearchRow {
+  slug: string;
+  title: string;
+  summary: string | null;
+  excerpt: string | null;
+  author: string | null;
+  updated_at: string;
+}
+
 async function searchArticles(url: URL) {
   const q = url.searchParams.get("q")?.trim();
   if (!q || q.length < 2) return err("Query too short", "INVALID_INPUT", 400);
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 100);
   const tsquery = q.split(/\s+/).map(t => `${t.replace(/[^a-zA-Z0-9]/g, "")}:*`).join(" & ");
-  const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.updated_at, ts_headline('english',a.markdown,to_tsquery('english',${tsquery}),'StartSel=<mark>,StopSel=</mark>,MaxFragments=2,MaxWords=40') AS excerpt FROM wiki_articles a WHERE a.status='published' AND a.search_vector @@ to_tsquery('english',${tsquery}) ORDER BY ts_rank(a.search_vector,to_tsquery('english',${tsquery})) DESC LIMIT ${limit}`;
-  return json({ query: q, results: rows.map((r: any) => ({ slug: r.slug, title: r.title, summary: r.summary, excerpt: r.excerpt, author: r.author, updatedAt: r.updated_at })) });
+  const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.updated_at, ts_headline('english',a.markdown,to_tsquery('english',${tsquery}),${'StartSel=' + HL_START + ',StopSel=' + HL_END + ',MaxFragments=2,MaxWords=40'}) AS excerpt FROM wiki_articles a WHERE a.status='published' AND a.search_vector @@ to_tsquery('english',${tsquery}) ORDER BY ts_rank(a.search_vector,to_tsquery('english',${tsquery})) DESC LIMIT ${limit}`;
+  return json({ query: q, results: rows.map((r: SearchRow) => ({ slug: r.slug, title: r.title, summary: r.summary, excerpt: renderExcerpt(r.excerpt), author: r.author, updatedAt: r.updated_at })) });
 }
 
 async function getRecent(url: URL) {

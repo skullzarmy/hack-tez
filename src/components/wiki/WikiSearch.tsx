@@ -99,7 +99,8 @@ export default function WikiSearch() {
                       marginTop: "0.35rem",
                       lineHeight: 1.5,
                     }}
-                    dangerouslySetInnerHTML={{ __html: r.excerpt }}
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: wiki search escapes the excerpt server-side and re-inserts only <mark>, see renderExcerpt in wiki.mts
+                        dangerouslySetInnerHTML={{ __html: r.excerpt }}
                   />
                 )}
                 <div style={{ fontSize: "0.7rem", color: "var(--fg-2)", marginTop: "0.4rem", fontFamily: "var(--font-mono)" }}>
