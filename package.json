@@ -10,7 +10,10 @@
         "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
         "preview": "vite preview",
         "wiki:load": "tsx scripts/wiki/loader.mts",
-        "pack-game": "tsx scripts/pack-game.ts"
+        "pack-game": "tsx scripts/pack-game.ts",
+        "format": "biome format --write",
+        "lint": "biome lint",
+        "check": "biome check --write"
     },
     "dependencies": {
         "@blocknote/core": "^0.48.1",
@@ -51,6 +54,7 @@
         "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
+        "@biomejs/biome": "2.5.11",
         "@netlify/functions": "^3.0.0",
         "@tailwindcss/typography": "^0.5.19",
         "@tailwindcss/vite": "^4.2.2",
