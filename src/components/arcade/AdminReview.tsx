@@ -4,6 +4,7 @@ import { useTezos } from "../../context/TezosContext";
 import {
     useArcadePending,
     useArcadePendingUpdates,
+    type ArcadePendingUpdate,
     useArcadeFlagged,
     adminAction,
     gameIframeUrl,
@@ -16,24 +17,6 @@ import ConfirmAction from "./ui/ConfirmAction";
 import Modal from "./ui/Modal";
 import EditGameForm, { type EditableGame } from "./EditGameForm";
 
-interface PendingUpdate {
-    id: number;
-    versionId: number;
-    slug: string;
-    title: string;
-    description?: string;
-    category?: string;
-    builderDomain?: string;
-    coverKey?: string | null;
-    currentCid: string;
-    currentVersion: number;
-    newCid: string;
-    newVersion: number;
-    uploadedBy?: string;
-    scoresReset: boolean;
-    createdAt?: string;
-}
-
 type TabKey = "pending" | "updates" | "flagged";
 
 export default function AdminReview() {
@@ -42,7 +25,7 @@ export default function AdminReview() {
     const flagged = useArcadeFlagged(true);
 
     const pendingItems = pending.data?.pending ?? [];
-    const updateItems = (updates.data?.pendingUpdates ?? []) as PendingUpdate[];
+    const updateItems = updates.data?.pendingUpdates ?? [];
     const flaggedItems = flagged.data?.flagged ?? [];
 
     const [tab, setTab] = useState<TabKey>("pending");
@@ -180,7 +163,7 @@ function PendingCard({ game, reload }: { game: ArcadeGame; reload: () => void })
     );
 }
 
-function UpdateCard({ update, reload }: { update: PendingUpdate; reload: () => void }) {
+function UpdateCard({ update, reload }: { update: ArcadePendingUpdate; reload: () => void }) {
     const [showCurrent, setShowCurrent] = useState(false);
     const [showNew, setShowNew] = useState(false);
     const [confirmKind, setConfirmKind] = useState<null | "approve" | "reject">(null);

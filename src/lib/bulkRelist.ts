@@ -20,6 +20,11 @@
  *  - Teia adapter: handles hen v2 + teia v1 as source contracts; recreate
  *    target is hen v2 for HEN OBJKTs, teia v1 otherwise.
  */
+import type {
+    DAppClient,
+    MichelineMichelsonV1Expression,
+    TezosOperationType,
+} from "@tezos-x/octez.connect-sdk";
 import {
     buildTeiaCancelOp,
     buildTeiaCreateSwapOp,
@@ -125,15 +130,16 @@ export interface AdapterRelistInput {
     share: { recipient: string; basisPoints: number } | null;
 }
 
-/** A marketplace-agnostic Tezos transaction op. Mirrors the shape used by
- *  octez.connect's requestOperation. We keep it as `unknown` here to avoid
- *  importing the SDK into this lib (it's lazy-loaded). The page assembles
- *  these into the real op list at submit time. */
+/** A marketplace-agnostic Tezos transaction op. Mirrors the shape octez.connect's
+ *  requestOperation expects. The SDK is imported for types only — those are
+ *  erased at build time, so the runtime client stays lazy-loaded. */
 export interface PreparedOp {
     destination: string;
     amount: string;
     entrypoint: string;
-    /** Micheline value for the entrypoint parameter. */
+    /** Micheline value for the entrypoint parameter. The adapters build these
+     *  as plain object literals, so they stay untyped until the submit
+     *  boundary casts them (see submitBatch). */
     value: unknown;
 }
 
@@ -642,16 +648,20 @@ export async function planBulkCancel(input: CancelPlanInputs): Promise<BulkRelis
  *  We cast through `unknown` at the boundary; the runtime contract is
  *  exactly the SDK's DAppClient.requestOperation. */
 export async function submitBatch(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    client: { requestOperation: (req: any) => Promise<{ transactionHash: string }> },
+    client: Pick<DAppClient, "requestOperation">,
     batch: PlannedBatch,
 ): Promise<{ transactionHash: string }> {
     if (batch.ops.length === 0) throw new Error("empty batch");
     const operationDetails = batch.ops.map((op) => ({
-        kind: "transaction",
+        kind: "transaction" as TezosOperationType.TRANSACTION,
         destination: op.destination,
         amount: op.amount,
-        parameters: { entrypoint: op.entrypoint, value: op.value },
+        // The adapters assemble Micheline as plain literals; this is the one
+        // point where that meets the SDK's expression type.
+        parameters: {
+            entrypoint: op.entrypoint,
+            value: op.value as MichelineMichelsonV1Expression,
+        },
     }));
     return client.requestOperation({ operationDetails });
 }

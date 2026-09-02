@@ -124,12 +124,42 @@ export function useMyGames(domain: string | null) {
     return { ...state, reload };
 }
 
+/** Error responses carry `{ error }`; anything else falls back to the status. */
+function apiError(body: unknown, status: number): string {
+    if (body && typeof body === "object" && "error" in body) {
+        const { error } = body as { error?: unknown };
+        if (typeof error === "string" && error) return error;
+    }
+    return `HTTP ${status}`;
+}
+
+/** A game update awaiting admin review, as returned by /pending-updates. */
+export interface ArcadePendingUpdate {
+    id: string;
+    versionId: string;
+    slug: string;
+    title: string;
+    description: string;
+    category: string;
+    builderDomain: string;
+    coverKey: string | null;
+    currentCid: string;
+    currentVersion: number;
+    newCid: string;
+    newVersion: number;
+    ipfsCid: string;
+    version: number;
+    uploadedBy: string;
+    scoresReset: boolean;
+    createdAt: string;
+}
+
 export function useArcadePending(isAdmin: boolean) {
     return useFetched<{ pending: ArcadeGame[] }>(isAdmin ? `${API_BASE}/pending` : null, { auth: true });
 }
 
 export function useArcadePendingUpdates(isAdmin: boolean) {
-    return useFetched<{ pendingUpdates: any[] }>(isAdmin ? `${API_BASE}/pending-updates` : null, { auth: true });
+    return useFetched<{ pendingUpdates: ArcadePendingUpdate[] }>(isAdmin ? `${API_BASE}/pending-updates` : null, { auth: true });
 }
 
 export function useArcadeFlagged(isAdmin: boolean) {
@@ -150,7 +180,7 @@ export async function startArcadeSession(slug: string): Promise<SessionResult> {
     });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
     return (await res.json()) as SessionResult;
 }
@@ -174,7 +204,7 @@ export async function submitArcadeScore(args: {
     });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
     return (await res.json()) as {
         rank: number;
@@ -193,7 +223,7 @@ export async function flagArcadeGame(slug: string, reason: string): Promise<void
     });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
 }
 
@@ -209,7 +239,7 @@ export async function adminAction(
     });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
 }
 
@@ -217,7 +247,7 @@ export async function submitArcadeGame(form: FormData): Promise<{ slug: string; 
     const res = await authedFetch(`${API_BASE}/submit`, { method: "POST", body: form });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
     return (await res.json()) as { slug: string; ipfsCid: string };
 }
@@ -229,7 +259,7 @@ export async function updateArcadeGame(slug: string, form: FormData): Promise<{ 
     });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
     return (await res.json()) as { version: number; ipfsCid: string };
 }
@@ -253,7 +283,7 @@ export async function editArcadeGame(
     const res = await authedFetch(`${API_BASE}/games/${encodeURIComponent(slug)}/edit`, init);
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
     return (await res.json()) as { slug: string; ipfsCid?: string };
 }
@@ -262,7 +292,7 @@ export async function rescindArcadeGame(slug: string): Promise<void> {
     const res = await authedFetch(`${API_BASE}/games/${encodeURIComponent(slug)}/rescind`, { method: "POST" });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as any)?.error || `HTTP ${res.status}`);
+        throw new Error(apiError(j, res.status));
     }
 }
 

@@ -7,6 +7,23 @@ import { Search, BookOpen, Clock, Users, TrendingUp, PenLine, Shield, Settings }
 import WikiAvatar from "./WikiAvatar";
 import { usePageMeta } from "../../hooks/usePageMeta";
 
+type WikiStats = { articles: number; contributors: number; revisions: number };
+
+/** Reads a named array off an untyped API payload, or [] if it isn't one. */
+function arrayField<T>(payload: unknown, key: string): T[] {
+  if (!payload || typeof payload !== "object") return [];
+  const value = (payload as Record<string, unknown>)[key];
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function isStats(payload: unknown): payload is WikiStats {
+  return (
+    !!payload &&
+    typeof payload === "object" &&
+    typeof (payload as Record<string, unknown>).articles === "number"
+  );
+}
+
 export default function WikiHome() {
   usePageMeta({
     title: "Wiki — Community knowledge base — hack.tez",
@@ -20,7 +37,7 @@ export default function WikiHome() {
 
   const [recent, setRecent] = useState<WikiArticleSummary[]>([]);
   const [categories, setCategories] = useState<WikiCategory[]>([]);
-  const [stats, setStats] = useState<{ articles: number; contributors: number; revisions: number } | null>(null);
+  const [stats, setStats] = useState<WikiStats | null>(null);
   const [loading, setLoading] = useState(true);
   const hasFetchedRef = useRef(false);
 
@@ -33,14 +50,10 @@ export default function WikiHome() {
       api.listCategories(),
       api.getStats(),
     ]).then(([recentData, catData, statsData]) => {
-      // Be defensive: ensure arrays/objects have expected shapes
-      setRecent(Array.isArray((recentData as any)?.articles) ? (recentData as any).articles : []);
-      setCategories(Array.isArray((catData as any)?.categories) ? (catData as any).categories : []);
-      setStats(
-        statsData && typeof (statsData as any).articles === "number"
-          ? (statsData as any)
-          : null,
-      );
+      // Be defensive: these come off the network, so check before trusting.
+      setRecent(arrayField<WikiArticleSummary>(recentData, "articles"));
+      setCategories(arrayField<WikiCategory>(catData, "categories"));
+      setStats(isStats(statsData) ? statsData : null);
     }).catch(() => {
       // Silent fail on initial load
     }).finally(() => setLoading(false));

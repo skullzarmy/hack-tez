@@ -9,7 +9,11 @@
  * SmartPy sorts record fields alphabetically, producing a right-combed pair:
  *   (label: bytes, (salt: bytes, (sender: address, target_address: address)))
  */
-import { packDataBytes } from "@taquito/michel-codec";
+import {
+    type MichelsonData,
+    type MichelsonType,
+    packDataBytes,
+} from "@taquito/michel-codec";
 import { blake2b } from "blakejs";
 
 /**
@@ -28,8 +32,7 @@ export function computeCommitmentHash(
     saltHex: string,
 ): string {
     // Micheline data: right-combed pair matching SmartPy alphabetical field order
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: any = {
+    const data: MichelsonData = {
         prim: "Pair",
         args: [
             { bytes: labelHex },
@@ -50,8 +53,7 @@ export function computeCommitmentHash(
     };
 
     // Michelson type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const type: any = {
+    const type: MichelsonType = {
         prim: "pair",
         args: [
             { prim: "bytes" },
