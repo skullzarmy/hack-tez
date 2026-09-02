@@ -662,22 +662,38 @@ function MediaRenderer({ media }: { media: MediaAttachment }) {
 
     return (
         <div style={{ marginTop: "4px", maxWidth: "min(320px, calc(100vw - 80px))", overflow: "hidden" }}>
-            <img
-                src={expanded ? displayUrl : thumbnailUrl}
-                alt={media.alt ?? (media.type === "gif" ? "GIF" : "Image")}
+            {/* Expanding is a real control, so it needs to be reachable and
+                announceable — a bare onClick on the img was mouse-only. */}
+            <button
+                type="button"
                 onClick={() => setExpanded((v) => !v)}
-                onError={() => setLoadError(true)}
-                loading="lazy"
+                aria-expanded={expanded}
+                aria-label={expanded ? "Collapse image" : "Expand image"}
                 style={{
-                    width: "100%",
-                    maxWidth: expanded ? "min(480px, calc(100vw - 40px))" : "min(320px, calc(100vw - 80px))",
-                    maxHeight: expanded ? "480px" : "200px",
-                    objectFit: "contain",
-                    cursor: "pointer",
-                    border: "1px solid var(--border, rgba(255,255,255,0.1))",
                     display: "block",
+                    width: "100%",
+                    padding: 0,
+                    border: "none",
+                    background: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
                 }}
-            />
+            >
+                <img
+                    src={expanded ? displayUrl : thumbnailUrl}
+                    alt={media.alt ?? (media.type === "gif" ? "GIF" : "Image")}
+                    onError={() => setLoadError(true)}
+                    loading="lazy"
+                    style={{
+                        width: "100%",
+                        maxWidth: expanded ? "min(480px, calc(100vw - 40px))" : "min(320px, calc(100vw - 80px))",
+                        maxHeight: expanded ? "480px" : "200px",
+                        objectFit: "contain",
+                        border: "1px solid var(--border, rgba(255,255,255,0.1))",
+                        display: "block",
+                    }}
+                />
+            </button>
             {media.provider && (
                 <span
                     style={{

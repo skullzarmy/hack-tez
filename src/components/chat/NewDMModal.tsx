@@ -103,12 +103,15 @@ export default function NewDMModal({ onlineUsers, activeDomain, onStartDM, onClo
     }, [handleFocusTrap]);
 
     return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
         <div
             className="fixed inset-0 z-50 flex items-center justify-center"
             style={{ background: "rgba(0, 0, 0, 0.7)" }}
             onClick={onClose}
             role="presentation"
         >
+            // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
+            // biome-ignore lint/a11y/useKeyWithClickEvents: this is the modal card catching the overlay's click so it does not close; it is not itself interactive
             <div
                 ref={dialogRef}
                 role="dialog"

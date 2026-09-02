@@ -22,6 +22,15 @@ interface AdminBroadcastPanelProps {
 }
 
 export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBroadcastPanelProps) {
+    // Escape closes the modal — the overlay click is a mouse-only convenience,
+    // so without this there is no keyboard way out.
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === "Escape") onClose();
+        }
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
     const { client, address } = useTezos();
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
@@ -149,8 +158,14 @@ export default function AdminBroadcastPanel({ token: _token, onClose }: AdminBro
         fontFamily: monoFont,
     };
 
+    // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
     return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
+        // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
         <div style={panelStyle} onClick={onClose}>
+            // biome-ignore lint/a11y/noStaticElementInteractions: this is the modal card catching the overlay's click so it does not close; it is not itself interactive
+            // biome-ignore lint/a11y/useKeyWithClickEvents: this is the modal card catching the overlay's click so it does not close; it is not itself interactive
             <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>

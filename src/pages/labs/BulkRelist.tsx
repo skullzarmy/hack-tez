@@ -1739,6 +1739,7 @@ interface SubmitModalProps {
 
 function SubmitModal({ state, priceFor, onClose, onSign }: SubmitModalProps) {
     return (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
         <div
             role="dialog"
             aria-modal="true"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2, X, Eye, EyeOff } from "lucide-react";
 
 interface DeleteMessageModalProps {
@@ -9,6 +9,15 @@ interface DeleteMessageModalProps {
 }
 
 export default function DeleteMessageModal({ messageId, senderDomain, onConfirm, onClose }: DeleteMessageModalProps) {
+    // Escape closes the modal — the overlay click is a mouse-only convenience,
+    // so without this there is no keyboard way out.
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === "Escape") onClose();
+        }
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
     const [reason, setReason] = useState("");
     const [visible, setVisible] = useState(true);
 
@@ -19,6 +28,8 @@ export default function DeleteMessageModal({ messageId, senderDomain, onConfirm,
     };
 
     return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
+        // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
         <div
             style={{
                 position: "fixed",

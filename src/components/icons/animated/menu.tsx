@@ -49,6 +49,7 @@ const MenuIcon = forwardRef<AnimatedIconHandle, MenuIconProps>(
         );
 
         return (
+            // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper exists only to drive a decorative hover animation on an aria-hidden svg; the real control is whatever button or link renders this icon
             <div
                 className={className}
                 onMouseEnter={handleMouseEnter}

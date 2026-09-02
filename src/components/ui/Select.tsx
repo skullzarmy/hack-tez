@@ -262,6 +262,7 @@ export default function Select({
                     const isSelected = opt.value === value;
                     const isFocused = i === focusIndex;
                     return (
+                        // biome-ignore lint/a11y/useKeyWithClickEvents: the listbox owns keyboard navigation via focusIndex and aria-activedescendant
                         <li
                             key={opt.value}
                             id={optionId(i)}

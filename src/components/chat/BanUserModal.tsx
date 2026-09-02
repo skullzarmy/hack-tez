@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ban, X } from "lucide-react";
 
 interface BanUserModalProps {
@@ -23,6 +23,15 @@ const DURATION_PRESETS: { label: string; seconds: number }[] = [
 ];
 
 export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModalProps) {
+    // Escape closes the modal — the overlay click is a mouse-only convenience,
+    // so without this there is no keyboard way out.
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === "Escape") onClose();
+        }
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
     const [banType, setBanType] = useState<"soft" | "hard">("soft");
     const [scope, setScope] = useState<"global" | "platform">("global");
     const [reason, setReason] = useState("");
@@ -75,6 +84,8 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
     };
 
     return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes this modal; the overlay click is a redundant mouse affordance
+        // biome-ignore lint/a11y/useKeyWithClickEvents: Escape closes this modal; the overlay click is a redundant mouse affordance
         <div
             style={{
                 position: "fixed",
