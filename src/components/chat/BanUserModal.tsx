@@ -158,39 +158,43 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     </p>
 
                     {/* Ban type */}
-                    <span id="ban-type-label" style={labelStyle}>Ban type</span>
-                    <div role="group" aria-labelledby="ban-type-label" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-                        <button type="button" onClick={() => setBanType("soft")} style={radioStyle(banType === "soft")}>
-                            Soft (temporary)
-                        </button>
-                        <button type="button" onClick={() => setBanType("hard")} style={radioStyle(banType === "hard")}>
-                            Hard (permanent)
-                        </button>
-                    </div>
+                    <fieldset style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+                        <legend style={labelStyle}>Ban type</legend>
+                        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                            <button type="button" onClick={() => setBanType("soft")} style={radioStyle(banType === "soft")}>
+                                Soft (temporary)
+                            </button>
+                            <button type="button" onClick={() => setBanType("hard")} style={radioStyle(banType === "hard")}>
+                                Hard (permanent)
+                            </button>
+                        </div>
+                    </fieldset>
 
                     {/* Duration (soft ban only) */}
                     {banType === "soft" && (
                         <>
-                            <span id="ban-duration-label" style={labelStyle}>Duration</span>
-                            <div role="group" aria-labelledby="ban-duration-label" style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-                                {DURATION_PRESETS.map((p) => (
+                            <fieldset style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+                                <legend style={labelStyle}>Duration</legend>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+                                    {DURATION_PRESETS.map((p) => (
+                                        <button
+                                            key={p.seconds}
+                                            type="button"
+                                            onClick={() => { setDurationSeconds(p.seconds); setUseCustom(false); }}
+                                            style={radioStyle(!useCustom && durationSeconds === p.seconds)}
+                                        >
+                                            {p.label}
+                                        </button>
+                                    ))}
                                     <button
-                                        key={p.seconds}
                                         type="button"
-                                        onClick={() => { setDurationSeconds(p.seconds); setUseCustom(false); }}
-                                        style={radioStyle(!useCustom && durationSeconds === p.seconds)}
+                                        onClick={() => setUseCustom(true)}
+                                        style={radioStyle(useCustom)}
                                     >
-                                        {p.label}
+                                        Custom
                                     </button>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => setUseCustom(true)}
-                                    style={radioStyle(useCustom)}
-                                >
-                                    Custom
-                                </button>
-                            </div>
+                                </div>
+                            </fieldset>
                             {useCustom && (
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
                                     <input
@@ -221,15 +225,17 @@ export default function BanUserModal({ domain, onConfirm, onClose }: BanUserModa
                     )}
 
                     {/* Scope */}
-                    <span id="ban-scope-label" style={labelStyle}>Scope</span>
-                    <div role="group" aria-labelledby="ban-scope-label" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-                        <button type="button" onClick={() => setScope("global")} style={radioStyle(scope === "global")}>
-                            Global chat only
-                        </button>
-                        <button type="button" onClick={() => setScope("platform")} style={radioStyle(scope === "platform")}>
-                            Platform-wide (+ DMs)
-                        </button>
-                    </div>
+                    <fieldset style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+                        <legend style={labelStyle}>Scope</legend>
+                        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                            <button type="button" onClick={() => setScope("global")} style={radioStyle(scope === "global")}>
+                                Global chat only
+                            </button>
+                            <button type="button" onClick={() => setScope("platform")} style={radioStyle(scope === "platform")}>
+                                Platform-wide (+ DMs)
+                            </button>
+                        </div>
+                    </fieldset>
 
                     {/* Reason */}
                     <label htmlFor="ban-reason" style={labelStyle}>Reason (required, public)</label>

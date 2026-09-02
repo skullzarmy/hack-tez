@@ -549,9 +549,9 @@ function SidePanel({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-
+        <label
             // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as {children} and rendered inside this label, which biome cannot follow through the prop
-                   <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, marginBottom: 6 }}
+            style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, marginBottom: 6 }}
         >
             <span style={{ opacity: 0.8 }}>{label}</span>
             {children}
