@@ -3,6 +3,7 @@ import { StaticRouter } from "react-router";
 import { StrictMode } from "react";
 import { TezosProvider } from "./context/TezosContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
+import { ConsoleProvider } from "./context/ConsoleContext";
 import { AppShell } from "./App";
 import { Writable } from "node:stream";
 
@@ -20,7 +21,9 @@ export function render(url: string): Promise<string> {
                 <StaticRouter location={url}>
                     <TezosProvider>
                         <OnboardingProvider>
-                            <AppShell />
+                            <ConsoleProvider>
+                                <AppShell />
+                            </ConsoleProvider>
                         </OnboardingProvider>
                     </TezosProvider>
                 </StaticRouter>
