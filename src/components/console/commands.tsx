@@ -15,7 +15,7 @@ export interface CommandDef {
 	aliases: string[];
 	description: string;
 	category: "Basic Commands" | "Tezos Commands" | "Secrets";
-	/** Secrets exist to be stumbled on, not advertised — hidden from `help`. */
+	/** Secrets exist to be stumbled on, not advertised. Hidden from `help`. */
 	hidden?: boolean;
 	run: Handler;
 }
@@ -115,13 +115,13 @@ Also: the marketplace that vanished one Tuesday in 2021 and took a slice of Tezo
 		aliases: ["teia"],
 		description: "teia.art",
 		category: "Tezos Commands",
-		run: () => ({ output: line("The fork that kept going after HEN didn't. Community-owned, still no CEO, still here.") }),
+		run: () => ({ output: line("The fork that showed up after HEN died and just kept going. Nobody's in charge and it still works.") }),
 	},
 	{
 		aliases: ["objkt"],
 		description: "objkt.com",
 		category: "Tezos Commands",
-		run: () => ({ output: line("The one that ate the market. No shade, just receipts.") }),
+		run: () => ({ output: line("The one that ended up eating the market. No hard feelings, it just happened.") }),
 	},
 	{
 		aliases: ["strongertogether"],
@@ -130,8 +130,8 @@ Also: the marketplace that vanished one Tuesday in 2021 and took a slice of Tezo
 		run: () => ({
 			output: (
 				<div>
-					#StrongerTogether — TheTezosCommunity's town hall for the whole Tezos ecosystem. Volunteer-run.
-					No VC, no gatekeepers, no shortcuts.{" "}
+					#StrongerTogether. TheTezosCommunity's town hall for the whole ecosystem. Nobody runs it, nobody
+					gets paid, and it's still going.{" "}
 					<a href="https://thetezos.com" target="_blank" rel="noopener noreferrer" className="dev-console-link">
 						thetezos.com
 					</a>
