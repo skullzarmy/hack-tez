@@ -41,3 +41,6 @@ dist-zips/
 
 # Labs release zips — uploaded to Netlify Blobs via scripts/upload-lab-release.ts
 labs-zips/
+
+# Claude Code local session state
+.claude/
