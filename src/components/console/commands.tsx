@@ -187,6 +187,22 @@ Also: the marketplace that vanished one Tuesday in 2021 and took a slice of Tezo
 			),
 		}),
 	},
+	{
+		aliases: ["wtf"],
+		description: "Easter egg command",
+		category: "Secrets",
+		hidden: true,
+		run: () => ({
+			output: (
+				<div>
+					oh you must be looking for{" "}
+					<a href="https://wtfos.app/" target="_blank" rel="noopener noreferrer" className="dev-console-link">
+						wtfos.app
+					</a>
+				</div>
+			),
+		}),
+	},
 ];
 
 export function findCommand(input: string): CommandDef | undefined {
