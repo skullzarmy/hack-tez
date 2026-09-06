@@ -1,6 +1,8 @@
 import { SiBluesky } from "@icons-pack/react-simple-icons";
+import { useConsole } from "../context/ConsoleContext";
 
 export default function Footer({ compact }: { compact?: boolean }) {
+	const { open } = useConsole();
 	return (
 		<footer
 			className="footer"
@@ -31,6 +33,14 @@ export default function Footer({ compact }: { compact?: boolean }) {
 					>
 						<SiBluesky size={11} aria-hidden="true" /> @hacktez.com
 					</a>
+					<button
+						type="button"
+						className="footer-console-btn"
+						onClick={open}
+						aria-label="Open developer console"
+					>
+						&gt;_
+					</button>
 				</span>
 				<span className="footer-oss">
 					hack.tez is open source and{" "}

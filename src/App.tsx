@@ -1,29 +1,32 @@
 /** biome-ignore-all lint/suspicious/noCommentText: <I said so> */
 /** biome-ignore-all lint/a11y/useSemanticElements: <I said so> */
-import { useState, useEffect, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { TezosProvider, useTezos } from "./context/TezosContext";
-import { OnboardingProvider } from "./context/OnboardingContext";
-import { Menu, X, Sun, Moon, Cpu } from "lucide-react";
+
+import { Cpu, Menu, Moon, Sun, X } from "lucide-react";
+import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ConnectWallet from "./components/ConnectWallet";
-import ConnectHint from "./components/onboarding/ConnectHint";
+import DevConsole from "./components/console/DevConsole";
+import Footer from "./components/Footer";
 import {
     AnimatedIcon,
-    StateAnimatedIcon,
-    LazyMenuIcon,
-    LazySunIcon,
-    LazyMoonIcon,
     LazyCpuIcon,
+    LazyMenuIcon,
+    LazyMoonIcon,
+    LazySunIcon,
+    StateAnimatedIcon,
     useAnimatedIconTrigger,
 } from "./components/icons/animated";
 import ChatHint from "./components/onboarding/ChatHint";
+import ConnectHint from "./components/onboarding/ConnectHint";
+import { ConsoleProvider } from "./context/ConsoleContext";
+import { OnboardingProvider } from "./context/OnboardingContext";
+import { TezosProvider, useTezos } from "./context/TezosContext";
+import { useRecentActivity } from "./hooks/useRecentActivity";
+import Developers from "./pages/Developers";
+import Hackers from "./pages/Hackers";
 import Home from "./pages/Home";
 import Manifesto from "./pages/Manifesto";
-import Hackers from "./pages/Hackers";
-import Developers from "./pages/Developers";
 import Policies from "./pages/Policies";
-import Footer from "./components/Footer";
-import { useRecentActivity } from "./hooks/useRecentActivity";
 
 const ActivityFeedPanel = lazy(() => import("./components/ActivityFeedPanel"));
 const ActivityToastQueue = lazy(() => import("./components/ActivityToastQueue"));
@@ -437,6 +440,7 @@ export function AppShell() {
             <Footer compact={isChat || isWiki} />
             <ConnectHint />
             <ChatHint />
+            <DevConsole />
         </div>
     );
 }
@@ -457,7 +461,9 @@ export default function App() {
             <TezosProvider>
                 <BrowserRouter>
                     <OnboardingProvider>
-                        <AppShell />
+                        <ConsoleProvider>
+                            <AppShell />
+                        </ConsoleProvider>
                     </OnboardingProvider>
                 </BrowserRouter>
             </TezosProvider>
