@@ -367,13 +367,13 @@ export default function Home() {
 							<span className="feature-eyebrow">// 05 — Community</span>
 							<h3 className="feature-title">HackChat</h3>
 							<p className="feature-body">
-								Member-only community chat. Connect with other builders on
-								hack.tez — share what you're working on, find collaborators, ask
-								questions. Your domain is your key.
+								Our chat host pulled support and hackchat is offline. We're
+								rethinking how communication works on hack.tez — feedback
+								welcome.
 							</p>
-							<span className="feature-unlock">// domain required</span>
+							<span className="feature-unlock">// retired</span>
 							<a href="/chat" className="feature-link">
-								open hackchat <ArrowRight size={11} aria-hidden="true" />
+								see status <ArrowRight size={11} aria-hidden="true" />
 							</a>
 						</div>
 

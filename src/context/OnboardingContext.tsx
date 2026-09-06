@@ -112,9 +112,7 @@ function deriveStep(
         return "push";
     }
 
-    if (!dismissed.has("chat")) {
-        return "chat";
-    }
+    // hackchat is retired — skip the chat step entirely.
 
     return "complete";
 }

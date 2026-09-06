@@ -1,216 +1,129 @@
-import { useState, useEffect, useRef } from "react";
-import { MessageCircle } from "lucide-react";
-import { useTezos } from "../../context/TezosContext";
-import ChatLayout from "./ChatLayout";
-import { pinFile } from "../../lib/pin";
 import { usePageMeta } from "../../hooks/usePageMeta";
 
-const IDENTITY_STORAGE_KEY = "hack-tez-chat-identity";
+const LOG_LINES = [
+    "$ hackchat --status",
+    "resolving infra... gone",
+    "host has withdrawn support",
+    "no fallback target configured",
+];
 
 export default function ChatPage() {
     usePageMeta({
-        title: "hackchat — wallet-native chat for hack.tez",
+        title: "hackchat — retired",
         description:
-            "hackchat is real-time chat for hack.tez subdomain holders. Your domain is your identity. End-to-end signed with your wallet.",
+            "hackchat is offline. Our server host pulled support and we're rethinking how communication works on hack.tez.",
         path: "/chat",
     });
-    const {
-        address,
-        client,
-        connect,
-        connecting,
-        token,
-        chatDomains,
-        activeDomain: contextActiveDomain,
-        setActiveDomain,
-        authError,
-    } = useTezos();
 
-    // Resolve initial domain from localStorage preference
-    const [resolvedDomain, setResolvedDomain] = useState<string | null>(() => {
-        if (!contextActiveDomain) return null;
-        const stored = localStorage.getItem(IDENTITY_STORAGE_KEY);
-        // Will be validated against chatDomains once available
-        return stored ?? contextActiveDomain;
-    });
-
-    // Sync resolved domain when context changes
-    useEffect(() => {
-        if (!contextActiveDomain) {
-            setResolvedDomain(null);
-            return;
-        }
-        const stored = localStorage.getItem(IDENTITY_STORAGE_KEY);
-        if (stored && chatDomains.includes(stored)) {
-            setResolvedDomain(stored);
-            if (stored !== contextActiveDomain) {
-                setActiveDomain(stored);
-            }
-        } else {
-            setResolvedDomain(contextActiveDomain);
-        }
-    }, [contextActiveDomain, chatDomains, setActiveDomain]);
-
-    // Migrate old sessionStorage session to new localStorage auth
-    const migratedRef = useRef(false);
-    useEffect(() => {
-        if (migratedRef.current) return;
-        migratedRef.current = true;
-        try {
-            const old = sessionStorage.getItem("hack-tez-chat-session");
-            if (old) sessionStorage.removeItem("hack-tez-chat-session");
-        } catch { /* ignore */ }
-    }, []);
-
-    // Gate 1: wallet not connected
-    if (!address || !client) {
-        return (
+    return (
+        <div
+            className="flex flex-col items-center justify-center"
+            style={{
+                flex: "1 1 0",
+                fontFamily: "var(--font)",
+                padding: "clamp(1.5rem, 4vw, 3rem)",
+            }}
+        >
             <div
-                className="flex flex-col items-center justify-center gap-6"
                 style={{
-                    flex: "1 1 0",
-                    fontFamily: "var(--font)",
-                    padding: "clamp(1.5rem, 4vw, 3rem)",
+                    width: "100%",
+                    maxWidth: "440px",
+                    border: "1px solid var(--fg-2, rgba(255,255,255,0.2))",
+                    borderRadius: "6px",
+                    overflow: "hidden",
+                    background: "var(--bg-2, rgba(255,255,255,0.02))",
                 }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent)", opacity: 0.4 }} aria-hidden="true" />
-                <h2
-                    className="text-sm font-bold uppercase tracking-widest text-center"
-                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
-                >
-                    Connect your wallet to enter hackchat
-                </h2>
-                <button
-                    type="button"
-                    onClick={connect}
-                    disabled={connecting}
-                    className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+                <div
                     style={{
-                        minHeight: "44px",
-                        outlineColor: "var(--accent)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                        padding: "0.6rem 0.9rem",
+                        borderBottom: "1px solid var(--fg-2, rgba(255,255,255,0.15))",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.7rem",
+                        color: "var(--fg-2, rgba(255,255,255,0.5))",
+                        letterSpacing: "0.05em",
                     }}
                 >
-                    {connecting ? "Connecting…" : "Connect Wallet"}
-                </button>
-            </div>
-        );
-    }
+                    <span aria-hidden="true" style={{ display: "inline-flex", gap: "0.3rem" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", opacity: 0.35 }} />
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", opacity: 0.35 }} />
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", opacity: 0.35 }} />
+                    </span>
+                    hackchat
+                </div>
 
-    // Gate 2: wallet connected but no JWT yet (signing in progress or failed)
-    if (!token) {
-        return (
-            <div
-                className="flex flex-col items-center justify-center gap-6"
-                style={{
-                    flex: "1 1 0",
-                    fontFamily: "var(--font)",
-                    padding: "clamp(1.5rem, 4vw, 3rem)",
-                }}
-            >
-                <MessageCircle size={48} style={{ color: "var(--accent)", opacity: 0.4 }} aria-hidden="true" />
-                <h2
-                    className="text-sm font-bold uppercase tracking-widest text-center"
-                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
+                <div
+                    style={{
+                        padding: "1rem 1.1rem",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.78rem",
+                        lineHeight: 1.9,
+                        color: "var(--fg-2, rgba(255,255,255,0.6))",
+                    }}
                 >
-                    {connecting ? "Authenticating…" : "Session expired"}
-                </h2>
-                <p
-                    className="text-xs text-center max-w-md"
-                    style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", lineHeight: "1.7" }}
-                >
-                    {connecting
-                        ? "Signing in with your wallet…"
-                        : "Your session has expired. Reconnect to re-sign and enter chat."}
-                </p>
-
-                {authError && !connecting && (
-                    <div
-                        className="text-xs px-4 py-2 text-center"
-                        style={{
-                            background: "var(--err-bg, rgba(255,107,107,0.1))",
-                            color: "var(--err, #ff6b6b)",
-                            border: "1px solid var(--err, #ff6b6b)",
-                            fontFamily: "var(--font-mono)",
-                        }}
-                    >
-                        Error: {authError}
+                    {LOG_LINES.map((line) => (
+                        <div key={line}>{line}</div>
+                    ))}
+                    <div style={{ color: "var(--err, #ff6b6b)" }}>
+                        build failed: hackchat retired
+                        <span aria-hidden="true" className="chat-retired-cursor">
+                            &nbsp;
+                        </span>
                     </div>
-                )}
-
-                {!connecting && (
-                    <button
-                        type="button"
-                        onClick={connect}
-                        className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-                        style={{ minHeight: "44px", outlineColor: "var(--accent)" }}
-                    >
-                        Reconnect
-                    </button>
-                )}
+                </div>
             </div>
-        );
-    }
 
-    // Gate 3: authenticated but no hack.tez domain
-    if (chatDomains.length === 0 || !resolvedDomain) {
-        return (
-            <div
-                className="flex flex-col items-center justify-center gap-6"
+            <p
+                className="text-xs text-center"
                 style={{
-                    flex: "1 1 0",
-                    fontFamily: "var(--font)",
-                    padding: "clamp(1.5rem, 4vw, 3rem)",
+                    maxWidth: "440px",
+                    marginTop: "1.5rem",
+                    color: "var(--fg-2, rgba(255,255,255,0.6))",
+                    lineHeight: 1.7,
                 }}
             >
-                <MessageCircle size={48} style={{ color: "var(--accent)", opacity: 0.4 }} aria-hidden="true" />
-                <h2
-                    className="text-sm font-bold uppercase tracking-widest text-center"
-                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}
+                Our server host pulled support for hackchat's infrastructure with no
+                notice. We're rethinking how communication works on hack.tez before
+                bringing something back — no timeline yet.
+            </p>
+
+            <div style={{ display: "flex", gap: "1.25rem", marginTop: "1.25rem", flexWrap: "wrap", justifyContent: "center" }}>
+                <a
+                    href="https://bsky.app/profile/hacktez.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs"
+                    style={{ color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" }}
                 >
-                    You need a hack.tez domain to chat
-                </h2>
-                <p
-                    className="text-xs text-center max-w-md"
-                    style={{ color: "var(--fg-2, rgba(255,255,255,0.6))", lineHeight: "1.7" }}
-                >
-                    Register a free subdomain on the home page, then come back here.
-                </p>
+                    Tell us what you'd want instead
+                </a>
                 <a
                     href="/"
-                    className="btn btn-primary focus-visible:outline-2 focus-visible:outline-offset-2"
-                    style={{ minHeight: "44px", outlineColor: "var(--accent)", textDecoration: "none" }}
+                    className="text-xs"
+                    style={{ color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" }}
                 >
-                    Register a domain
+                    Back home
                 </a>
             </div>
-        );
-    }
 
-    // Gate 4: authenticated with domain — enter chat
-    return (
-        <ChatLayout
-            token={token}
-            domains={chatDomains}
-            activeDomain={resolvedDomain}
-            onSwitchDomain={(newDomain) => {
-                localStorage.setItem(IDENTITY_STORAGE_KEY, newDomain);
-                setResolvedDomain(newDomain);
-                setActiveDomain(newDomain);
-            }}
-            onPinImage={async (file) => {
-                try {
-                    const { gatewayUrl } = await pinFile(file, client);
-                    const dims = await new Promise<{ width: number; height: number }>((resolve) => {
-                        const img = new Image();
-                        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-                        img.onerror = () => resolve({ width: 0, height: 0 });
-                        img.src = URL.createObjectURL(file);
-                    });
-                    return { url: gatewayUrl, width: dims.width, height: dims.height };
-                } catch {
-                    return null;
+            <style>{`
+                .chat-retired-cursor {
+                    display: inline-block;
+                    width: 0.55em;
+                    background: var(--err, #ff6b6b);
+                    animation: chat-retired-blink 1.1s steps(1) infinite;
                 }
-            }}
-        />
+                @keyframes chat-retired-blink {
+                    0%, 49% { opacity: 1; }
+                    50%, 100% { opacity: 0; }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .chat-retired-cursor { animation: none; }
+                }
+            `}</style>
+        </div>
     );
 }

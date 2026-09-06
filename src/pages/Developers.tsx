@@ -2824,9 +2824,9 @@ twitter:handle  → "alice"                        (JSON-encoded string)`}
                                     maxWidth: "560px",
                                 }}
                             >
-                                hack.tez chat is a real-time messaging system exclusively for domain holders. Access it at{" "}
-                                <code style={{ color: "var(--fg)" }}>/chat</code> on the site. No hack.tez domain = no
-                                entry.
+                                hackchat is currently retired — our server host pulled support for its
+                                infrastructure. The <code style={{ color: "var(--fg)" }}>/chat</code> route now shows
+                                a status notice while we rethink the communication layer.
                             </p>
                             <p
                                 style={{
