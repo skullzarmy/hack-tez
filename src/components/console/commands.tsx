@@ -130,8 +130,8 @@ Also: the marketplace that vanished one Tuesday in 2021 and took a slice of Tezo
 		run: () => ({
 			output: (
 				<div>
-					#StrongerTogether. TheTezosCommunity's town hall for the whole ecosystem. Nobody's getting paid to
-					run it, and it's still going.{" "}
+					#StrongerTogether. TheTezosCommunity: a community-organized Tezos town hall, operated by
+					volunteers.{" "}
 					<a href="https://thetezos.com" target="_blank" rel="noopener noreferrer" className="dev-console-link">
 						thetezos.com
 					</a>
