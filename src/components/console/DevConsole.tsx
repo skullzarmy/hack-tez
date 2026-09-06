@@ -285,11 +285,12 @@ export default function DevConsole() {
 		}
 		if (e.key !== "Tab") return;
 		const focusables = [resizeHandleRef.current, inputRef.current, closeButtonRef.current].filter(
-			(el): el is HTMLElement => el !== null,
-		);
+			(el) => el !== null,
+		) as HTMLElement[];
 		if (focusables.length === 0) return;
 		const first = focusables[0];
 		const last = focusables[focusables.length - 1];
+		if (!first || !last) return;
 		if (e.shiftKey && document.activeElement === first) {
 			e.preventDefault();
 			last.focus();
