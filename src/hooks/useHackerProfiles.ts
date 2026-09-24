@@ -15,7 +15,7 @@ export interface HackerEntry {
     opHash: string | null;
 }
 
-interface DomainsApiRecord {
+interface MembersApiRecord {
     name: string;
     label: string;
     owner: string;
@@ -25,14 +25,33 @@ interface DomainsApiRecord {
     profile: HackProfile;
 }
 
-const POLL_INTERVAL_MS = 60_000;
-const LIMIT = 200;
+interface MembersApiPage {
+    data: MembersApiRecord[];
+    total: number;
+}
 
+const POLL_INTERVAL_MS = 60_000;
+/** /api/v1/members page size cap — we page until `total`, so this is not a directory cap. */
+const PAGE_SIZE = 1000;
+/** Backstop so a misbehaving `total` can't spin forever. */
+const MAX_PAGES = 50;
+
+/**
+ * Every registration, paged from /api/v1/members (one row per domain, same
+ * cached snapshot the public API serves). This used to be a single
+ * `/api/v1/domains?limit=200` call, which silently dropped everyone past
+ * the 200th name alphabetically — from the directory and from sprinkles.
+ */
 async function fetchHackers(): Promise<HackerEntry[]> {
-    const res = await fetch(`/api/v1/domains?limit=${LIMIT}&offset=0`);
-    if (!res.ok) return [];
-    const json: { data: DomainsApiRecord[] } = await res.json();
-    return json.data.map((d): HackerEntry => ({
+    const rows: MembersApiRecord[] = [];
+    for (let page = 0; page < MAX_PAGES; page++) {
+        const res = await fetch(`/api/v1/members?limit=${PAGE_SIZE}&offset=${rows.length}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: MembersApiPage = await res.json();
+        rows.push(...json.data);
+        if (json.data.length === 0 || rows.length >= json.total) break;
+    }
+    return rows.map((d): HackerEntry => ({
         label: d.label,
         name: d.name,
         owner: d.owner,

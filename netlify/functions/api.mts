@@ -1214,8 +1214,15 @@ interface HackerBlock {
 	domains: string[];
 }
 
-/** Upper bound on how many members one snapshot materializes. */
+/** Largest page any members/hackers/projects list call returns. */
 const MEMBERS_MAX = 1000;
+/**
+ * Upper bound on how many members one snapshot materializes. Separate from
+ * the page size: every list endpoint pages over this snapshot, so capping it
+ * at one page silently hid everyone past #1000 (by name). TED is paged 50 at
+ * a time and stops at the last page, so real cost tracks the real count.
+ */
+const MEMBERS_SNAPSHOT_MAX = 20_000;
 /** Soft freshness window for the snapshot (seconds). */
 const MEMBERS_CACHE_FRESH_SEC = 60;
 /** Hard TTL in Redis (seconds). */
@@ -1275,7 +1282,7 @@ async function fetchMemberRecords(
 ): Promise<MemberRecord[]> {
 	const parent = `hack.${net.tld}`;
 	const [items, regHashes] = await Promise.all([
-		fetchTedDomains(parent, MEMBERS_MAX, net),
+		fetchTedDomains(parent, MEMBERS_SNAPSHOT_MAX, net),
 		getAllRegistrationHashes(net),
 	]);
 
