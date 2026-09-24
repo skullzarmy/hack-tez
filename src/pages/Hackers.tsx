@@ -10,6 +10,9 @@ import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { useTezos } from "../context/TezosContext";
+import { useFriends } from "../hooks/useFriends";
+import { openRandomSprinkle, sprinkleRecipients, SPRINKLE_MAX } from "../lib/sprinkle";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -440,6 +443,9 @@ function FilterBar({
     onStatusToggle,
     activeSkill,
     onSkillClear,
+    showFriends,
+    friendsOnly,
+    onFriendsToggle,
 }: {
     query: string;
     onQueryChange: (q: string) => void;
@@ -447,6 +453,10 @@ function FilterBar({
     onStatusToggle: (s: BuilderStatus | null) => void;
     activeSkill: string | null;
     onSkillClear: () => void;
+    /** Only signed-in wallets have a friends list to filter by. */
+    showFriends: boolean;
+    friendsOnly: boolean;
+    onFriendsToggle: () => void;
 }) {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
@@ -484,6 +494,28 @@ function FilterBar({
                 >
                     status:
                 </span>
+                {showFriends && (
+                    <button
+                        type="button"
+                        onClick={onFriendsToggle}
+                        aria-pressed={friendsOnly}
+                        style={{
+                            fontFamily: "var(--font)",
+                            fontSize: "0.6rem",
+                            letterSpacing: "0.06em",
+                            padding: "0.3rem 0.6rem",
+                            minHeight: "1.5rem",
+                            color: friendsOnly ? "var(--accent)" : "var(--fg-3)",
+                            background: "transparent",
+                            border: `1px solid ${friendsOnly ? "var(--accent)" : "var(--border)"}`,
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        friends
+                    </button>
+                )}
                 {ALL_STATUSES.map((s) => {
                     const st = STATUS_STYLES[s];
                     const active = activeStatus === s;
@@ -537,6 +569,53 @@ function FilterBar({
     );
 }
 
+// ── Sprinkle bar ─────────────────────────────────────────────────────
+
+/** Rolls up to nine tip-jar-enabled people from whatever's in view and opens Sprinkler. */
+function SprinkleBar({ pool, label, note }: { pool: string[]; label: string; note: string | null }) {
+    const n = Math.min(SPRINKLE_MAX, pool.length);
+    return (
+        <div
+            style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: "0.4rem 0.75rem",
+                marginBottom: "1.25rem",
+                fontFamily: "var(--font)",
+                fontSize: "0.65rem",
+                letterSpacing: "0.04em",
+                color: "var(--fg-3)",
+            }}
+        >
+            <button
+                type="button"
+                onClick={() => openRandomSprinkle(pool)}
+                disabled={n === 0}
+                title="Opens Sprinkler with a random pick — each click re-rolls. You choose the amount and sign there."
+                style={{
+                    fontFamily: "var(--font)",
+                    fontSize: "0.65rem",
+                    letterSpacing: "0.06em",
+                    padding: "0.35rem 0.7rem",
+                    color: n === 0 ? "var(--fg-3)" : "var(--ok)",
+                    background: n === 0 ? "transparent" : "var(--ok-bg)",
+                    border: `1px solid ${n === 0 ? "var(--border)" : "var(--ok)"}`,
+                    cursor: n === 0 ? "default" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                }}
+            >
+                sprinkle {n || SPRINKLE_MAX} random {label} <ArrowRight size={11} aria-hidden="true" />
+            </button>
+            <span>
+                {note ?? `${pool.length} with a tip jar on`}
+            </span>
+        </div>
+    );
+}
+
 // ── Main page ────────────────────────────────────────────────────────
 
 export default function Hackers() {
@@ -547,6 +626,8 @@ export default function Hackers() {
         path: "/hackers",
     });
     const { hackers, isLoading, refresh, lastUpdated } = useHackerProfiles();
+    const { address } = useTezos();
+    const friends = useFriends();
     const [searchParams, setSearchParams] = useSearchParams();
     const [starterPackUrl, setStarterPackUrl] = useState<string | null>(null);
     const [listUrl, setListUrl] = useState<string | null>(null);
@@ -567,6 +648,8 @@ export default function Hackers() {
     const query = searchParams.get("q") ?? "";
     const activeStatus = (searchParams.get("status") as BuilderStatus | null) ?? null;
     const activeSkill = searchParams.get("skill") ?? null;
+    // ?friends=1 is ignored when signed out rather than showing an empty page
+    const friendsOnly = friends.enabled && searchParams.get("friends") === "1";
     const view: ViewMode = searchParams.get("view") === "gallery" ? "gallery" : "cards";
     const pageParam = parseInt(searchParams.get("page") ?? "1", 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
@@ -597,9 +680,21 @@ export default function Hackers() {
             if (activeSkill && !(h.profile.skills?.some((s) => s.toLowerCase() === activeSkill.toLowerCase()))) {
                 return false;
             }
+            if (friendsOnly && !friends.following.has(h.owner)) return false;
             return true;
         });
-    }, [hackers, query, activeStatus, activeSkill]);
+    }, [hackers, query, activeStatus, activeSkill, friendsOnly, friends.following]);
+
+    // Whoever's in view with a tip jar on, one per person, never yourself
+    const sprinklePool = useMemo(
+        () => sprinkleRecipients(filtered, { exclude: address }),
+        [filtered, address],
+    );
+    const sprinkleLabel = friendsOnly
+        ? "friends"
+        : query || activeStatus || activeSkill
+            ? "from these"
+            : "hackers";
 
     const pageSize = view === "gallery" ? GALLERY_PAGE_SIZE : PAGE_SIZE;
     const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -764,10 +859,21 @@ export default function Hackers() {
                         onStatusToggle={(s) => updateParam("status", s)}
                         activeSkill={activeSkill}
                         onSkillClear={() => updateParam("skill", null)}
+                        showFriends={friends.enabled}
+                        friendsOnly={friendsOnly}
+                        onFriendsToggle={() => updateParam("friends", friendsOnly ? null : "1")}
+                    />
+
+                    <SprinkleBar
+                        pool={sprinklePool}
+                        label={sprinkleLabel}
+                        note={friendsOnly && friends.loaded && friends.following.size === 0
+                            ? "follow people from their profile page to fill this list"
+                            : friendsOnly ? friends.error : null}
                     />
 
                     {/* Results count when filtered */}
-                    {(query || activeStatus || activeSkill) && (
+                    {(query || activeStatus || activeSkill || friendsOnly) && (
                         <p
                             style={{
                                 fontFamily: "var(--font)",

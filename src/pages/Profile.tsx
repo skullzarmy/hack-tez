@@ -26,12 +26,14 @@ import { TipJar } from "../components/TipJar";
 import config from "../config/tezos";
 import { useTezos } from "../context/TezosContext";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
+import { useFriends } from "../hooks/useFriends";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useTedContracts } from "../hooks/useTedContracts";
 import { avatarThumbnail, useAvatarSrc } from "../lib/avatarUrl";
 import type { DomainRecord } from "../lib/domains";
 import { getDomainRecord } from "../lib/domains";
 import { safeHref, truncateAddress } from "../lib/profileDisplay";
+import { sprinkleUrl } from "../lib/sprinkle";
 import type { BuilderStatus, HackProfile } from "../types/profile";
 import { tipJarIsLive } from "../types/profile";
 
@@ -355,11 +357,93 @@ function ProfileSkeleton() {
 	);
 }
 
+// ── Social actions ───────────────────────────────────────────────────
+
+const actionButtonStyle = {
+	fontSize: "0.7rem",
+	border: "1px solid var(--border)",
+	borderRadius: "4px",
+	padding: "0.25rem 0.75rem",
+	letterSpacing: "0.06em",
+	textTransform: "uppercase",
+	background: "none",
+	cursor: "pointer",
+	fontFamily: "var(--font)",
+	textDecoration: "none",
+	color: "var(--fg-3)",
+} as const;
+
+/**
+ * Follow (private, per wallet) + Sprinkle (open Sprinkler with this builder
+ * in slot one). Sprinkle only shows when their tip jar is on — same consent
+ * signal the tip jar itself uses.
+ */
+function SocialActions({
+	canFollow,
+	following,
+	onFollow,
+	followError,
+	sprinkleHref,
+}: {
+	canFollow: boolean;
+	following: boolean;
+	onFollow: () => void;
+	followError: string | null;
+	sprinkleHref: string | null;
+}) {
+	return (
+		<div
+			style={{
+				display: "flex",
+				flexWrap: "wrap",
+				justifyContent: "center",
+				alignItems: "center",
+				gap: "0.5rem",
+				marginTop: "0.25rem",
+			}}
+		>
+			<button
+				type="button"
+				onClick={onFollow}
+				aria-pressed={canFollow ? following : undefined}
+				title={canFollow ? undefined : "Connect your wallet to follow"}
+				style={{
+					...actionButtonStyle,
+					color: following ? "var(--accent)" : "var(--fg-3)",
+					borderColor: following ? "var(--accent)" : "var(--border)",
+				}}
+			>
+				{following ? "Following" : "Follow"}
+			</button>
+			{sprinkleHref && (
+				<a
+					href={sprinkleHref}
+					target="_blank"
+					rel="noopener noreferrer"
+					title="Open Sprinkler with this builder in your nine — you pick the other eight, the amount, and sign there"
+					style={actionButtonStyle}
+				>
+					Sprinkle
+				</a>
+			)}
+			{canFollow && followError && (
+				<span
+					role="alert"
+					style={{ flexBasis: "100%", textAlign: "center", fontSize: "0.65rem", color: "var(--err)" }}
+				>
+					{followError}
+				</span>
+			)}
+		</div>
+	);
+}
+
 // ── Main Component ───────────────────────────────────────────────────
 
 export default function Profile() {
 	const { subdomain } = useParams<{ subdomain: string }>();
-	const { address: walletAddress } = useTezos();
+	const { address: walletAddress, connect } = useTezos();
+	const friends = useFriends();
 	const tedContracts = useTedContracts();
 	const [record, setRecord] = useState<DomainRecord | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -554,6 +638,24 @@ export default function Profile() {
 					)}
 
 					<CopyableAddress address={owner} />
+
+					{!isOwner && !editState.editing && (
+						<SocialActions
+							canFollow={friends.enabled}
+							following={friends.isFollowing(owner)}
+							onFollow={() =>
+								friends.enabled
+									? void (friends.isFollowing(owner)
+										? friends.unfollow(owner)
+										: friends.follow(owner))
+									: void connect()
+							}
+							followError={friends.error}
+							sprinkleHref={
+								tipJarIsLive(profile.tips) ? sprinkleUrl([tipRecipient]) : null
+							}
+						/>
+					)}
 
 					{profile.status && (
 						<span

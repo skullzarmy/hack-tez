@@ -60,6 +60,9 @@ Both must exit 0. Never commit with type errors.
 | `src/types/profile.ts`        | **Shared** profile schema/parsing (client + API). Import-free by design — see below |
 | `src/lib/tips.ts`             | Tip jar — TzKT token metadata lookup, unit conversion, FA1.2/FA2 transfer ops |
 | `src/lib/tipShare.ts`         | Post-tip share text + X/Bluesky intent URLs                                 |
+| `src/lib/sprinkle.ts`         | Sprinkler hand-off — tip-jar recipients per person, random nine, `?to=` link |
+| `src/hooks/useFriends.ts`     | Signed-in wallet's follows (shared store, optimistic follow/unfollow)       |
+| `netlify/functions/friends.mts` | Friends API — wallet→wallet follows in Neon (`migrations/friends_001_init.sql`) |
 | `netlify/functions/tipCounters.ts` | Chain verification + Redis aggregate counters for tips                 |
 | `src/components/TipJar.tsx`   | Tip jar view widget (profile + project pages)                              |
 | `src/components/TipJarEditor.tsx` | Tip jar editor section (reused for profile and per-project jars)        |
@@ -103,6 +106,8 @@ All responses: `{ data: ..., network: "ghostnet" | "mainnet" }` on success, `{ e
 | `GET /api/v1/hackatar/:label`           | Generative avatar GIF (animated). Add `?static=1` for single-frame still.          |
 | `GET /api/v1/tips/:name`                | Public tip counters for a domain — count + per-asset totals, plus per-project     |
 | `POST /api/v1/tips/report`              | Report a tip op hash for counting. Body `{ opHash, label, project? }`. Verified against TzKT |
+| `GET /api/v1/friends` **[JWT]**          | The signed-in wallet's follows: `{ following: address[] }`. Private — own list only |
+| `PUT` / `DELETE /api/v1/friends/:address` **[JWT]** | Follow / unfollow a hack.tez owner wallet (idempotent, max 500)          |
 
 **Adding a new endpoint:** Add a handler function in `netlify/functions/api.mts` and register it in the `handler` dispatch block. The `export const config = { path: "/api/v1/:route*" }` at the bottom of that file registers all `/api/v1/*` routes — no `netlify.toml` redirect needed.
 
