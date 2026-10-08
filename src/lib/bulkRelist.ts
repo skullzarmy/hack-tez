@@ -44,6 +44,7 @@ import {
     isObjktMarketplace,
     OBJKT_TARGET,
 } from "./marketplaces/objkt";
+import { IPFS_GATEWAY_BASE } from "./pin";
 
 /** Our tool's tip recipient — opt-in revenue share on supported listings. */
 export const TIP_RECIPIENT = "tz1ZzSmVcnVaWNZKJradtrDnjSjzTp6qjTEW";
@@ -724,8 +725,18 @@ export function gatewayUri(uri: string | null): string | null {
     if (uri.startsWith("ipfs://")) {
         // Strip ipfs:// scheme and any ?query/#frag — ipfs gateways don't
         // accept those on the /ipfs/<cid> path.
-        const path = uri.slice(7).split(/[?#]/, 1)[0];
-        return `https://ipfs.io/ipfs/${path}`;
+        let path = uri.slice(7).split(/[?#]/, 1)[0].replace(/^\/+/, "");
+        if (path.startsWith("ipfs/")) {
+            path = path.slice(5);
+        }
+        return `${IPFS_GATEWAY_BASE}${path}`;
+    }
+    if (uri.startsWith("https://ipfs.io/ipfs/") || uri.startsWith("http://ipfs.io/ipfs/")) {
+        let path = uri.replace(/^https?:\/\/ipfs\.io\/ipfs\//, "").split(/[?#]/, 1)[0].replace(/^\/+/, "");
+        if (path.startsWith("ipfs/")) {
+            path = path.slice(5);
+        }
+        return `${IPFS_GATEWAY_BASE}${path}`;
     }
     return uri;
 }

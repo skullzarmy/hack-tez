@@ -2294,7 +2294,6 @@ async function handleAvatar(
 
 const IPFS_GATEWAYS = [
 	"https://ipfs.fileship.xyz/ipfs/",
-	"https://ipfs.io/ipfs/",
 	"https://gateway.pinata.cloud/ipfs/",
 ];
 
