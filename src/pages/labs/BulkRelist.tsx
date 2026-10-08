@@ -148,8 +148,17 @@ function StateChip({ state, reason }: { state: ListingState; reason?: string }) 
 }
 
 function Thumb({ listing, size }: { listing: Listing; size: number }) {
-    const src = gatewayUri(listing.token.displayUri) ?? gatewayUri(listing.token.thumbnailUri);
-    if (!src) {
+    const displaySrc = gatewayUri(listing.token.displayUri);
+    const thumbSrc = gatewayUri(listing.token.thumbnailUri);
+    const [imgSrc, setImgSrc] = useState<string | null>(displaySrc ?? thumbSrc);
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setImgSrc(displaySrc ?? thumbSrc);
+        setFailed(false);
+    }, [displaySrc, thumbSrc]);
+
+    if (!imgSrc || failed) {
         return (
             <div
                 style={{
@@ -164,11 +173,18 @@ function Thumb({ listing, size }: { listing: Listing; size: number }) {
     }
     return (
         <img
-            src={src}
+            src={imgSrc}
             alt={listing.token.name}
             loading="lazy"
             width={size}
             height={size}
+            onError={() => {
+                if (imgSrc === displaySrc && thumbSrc && thumbSrc !== displaySrc) {
+                    setImgSrc(thumbSrc);
+                } else {
+                    setFailed(true);
+                }
+            }}
             style={{
                 width: size,
                 height: size,
