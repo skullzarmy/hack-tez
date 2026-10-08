@@ -1,4 +1,4 @@
-export type LabStatus = "alpha" | "beta" | "production";
+export type LabStatus = "alpha" | "beta" | "production" | "stable";
 
 export interface LabMeta {
     slug: string;
@@ -56,7 +56,7 @@ function parseFrontmatter(raw: string): { data: Record<string, string | string[]
     return { data, content: match[2] };
 }
 
-const STATUS_ORDER: Record<LabStatus, number> = { production: 0, beta: 1, alpha: 2 };
+const STATUS_ORDER: Record<LabStatus, number> = { production: 0, stable: 0, beta: 1, alpha: 2 };
 
 function parseLab(filePath: string, raw: string): LabMeta {
     const { data, content } = parseFrontmatter(raw);

@@ -35,6 +35,7 @@ const STATUS_STYLE: Record<LabStatus, { color: string; bg: string; label: string
     alpha: { color: "var(--warn)", bg: "var(--warn-bg)", label: "alpha" },
     beta: { color: "var(--info)", bg: "var(--info-bg)", label: "beta" },
     production: { color: "var(--ok)", bg: "var(--ok-bg)", label: "production" },
+    stable: { color: "var(--ok)", bg: "var(--ok-bg)", label: "stable" },
 };
 
 function StatusBadge({ status }: { status: LabStatus }) {
