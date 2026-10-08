@@ -51,7 +51,15 @@ function computeNewPriceMutez(
     return ((old * bps) / 10_000n).toString();
 }
 
-function StatusBadge() {
+const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
+    alpha: { color: "var(--warn)", bg: "var(--warn-bg)" },
+    beta: { color: "var(--info)", bg: "var(--info-bg)" },
+    production: { color: "var(--ok)", bg: "var(--ok-bg)" },
+    stable: { color: "var(--ok)", bg: "var(--ok-bg)" },
+};
+
+function StatusBadge({ status = "stable" }: { status?: string }) {
+    const s = STATUS_STYLE[status] ?? STATUS_STYLE.stable;
     return (
         <span
             style={{
@@ -60,13 +68,13 @@ function StatusBadge() {
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 padding: "0.18em 0.55em",
-                color: "var(--warn)",
-                background: "var(--warn-bg)",
-                border: "1px solid var(--warn)",
+                color: s.color,
+                background: s.bg,
+                border: `1px solid ${s.color}`,
                 whiteSpace: "nowrap",
             }}
         >
-            alpha
+            {status}
         </span>
     );
 }
@@ -543,9 +551,9 @@ export default function BulkRelist() {
                         >
                             {lab?.title ?? "Bulk Relist"}
                         </h1>
-                        <StatusBadge />
+                        <StatusBadge status={lab?.status ?? "stable"} />
                         <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--fg-muted)" }}>
-                            v{lab?.version ?? "0.1.0"}
+                            v{lab?.version ?? "1.0"}
                         </span>
                     </div>
                     {lab?.summary && (

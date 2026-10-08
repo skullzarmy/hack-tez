@@ -12,7 +12,7 @@
  *    cancel + recreate op pairs into gas-safe batches.
  *  - `submitBatch` signs one batch at a time via the wallet client.
  *
- * Scope (v0.1.0):
+ * Scope (v1.0):
  *  - Mainnet only.
  *  - xtz-denominated listings only.
  *  - Objkt adapter: handles v1, v4, v6, v6.1, v6.2 + the fixed-pricing
