@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Grid3x3, List, Lock, Percent, RefreshCw } from "lucide-react";
 import { getLab } from "../../lib/labs";
-import { useTezos } from "../../context/TezosContext";
+import { useAddressChangeEffect, useTezos } from "../../context/TezosContext";
 import { usePageMeta } from "../../hooks/usePageMeta";
 import ConnectWallet from "../../components/ConnectWallet";
 import config from "../../config/tezos";
@@ -294,6 +294,19 @@ export default function BulkRelist() {
     useEffect(() => {
         if (showTool && !hasScanned && !loading) void scan();
     }, [showTool, hasScanned, loading, scan]);
+
+    // The active wallet changed (or disconnected) mid-session — the scanned
+    // listings/selection belong to the previous wallet, and any in-progress
+    // relist/cancel plan referenced listings owned by that wallet, not the
+    // one `client` now points at. Clear it all so the auto-scan effect above
+    // re-fires against the new address.
+    useAddressChangeEffect(() => {
+        setListings([]);
+        setSelected(new Set());
+        setHasScanned(false);
+        setScanError(null);
+        setSubmit({ status: "idle" });
+    });
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

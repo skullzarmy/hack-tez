@@ -70,6 +70,11 @@ interface TezosState {
     authError: string | null;
     refreshToken: () => Promise<void>;
     setActiveDomain: (domain: string) => void;
+    /** Bumps on every settled address transition (swap, or disconnect's
+     *  address -> null). Not bumped during Beacon hydration flux. Used by
+     *  `useAddressChangeEffect` — don't read directly unless you need the
+     *  raw counter for some other reason. */
+    addressEpoch: number;
 }
 
 // Preserve context identity across HMR — a new createContext() call on every
@@ -178,6 +183,13 @@ function clearAuthStorage() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
+/** Returns `session` only if its JWT's `sub`/`address` claim matches `addr`; else null. */
+function sessionMatchesAddress(session: AuthSession, addr: string): AuthSession | null {
+    const payload = decodeJwtPayload(session.token);
+    const sub = (payload?.sub ?? payload?.address) as string | undefined;
+    return sub === addr ? session : null;
+}
+
 /** Map TezosNetwork → auth Network (collapses shadownet → ghostnet for SIWE chain ID purposes). */
 function authNetwork(): Network {
     return config.name === "mainnet" ? "mainnet" : "ghostnet";
@@ -277,6 +289,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     );
     const [client, setClient] = useState<DAppClient | null>(null);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [addressEpoch, setAddressEpoch] = useState(0);
     const subscribedRef = useRef(false);
 
     const [token, setToken] = useState<string | null>(seed?.token ?? null);
@@ -482,6 +495,18 @@ export function TezosProvider({ children }: { children: ReactNode }) {
     // whole app into its signed-in UI while the wallet is still showing the
     // sign prompt, so the connect flow holds it back until auth lands.
     const awaitingAuthRef = useRef(false);
+    // Track `restoring` via ref so the null-account debounce below can gate on
+    // the current value without re-subscribing whenever `restoring` flips.
+    const restoringRef = useRef(restoring);
+    useEffect(() => {
+        restoringRef.current = restoring;
+    }, [restoring]);
+    // Pending debounce timer for a `ACTIVE_ACCOUNT_SET(null)` event. Beacon
+    // fires this during transient reconnect/restore flux even when the wallet
+    // is still connected, so we don't trust it immediately — we wait out the
+    // flux window, then re-confirm directly against the client before
+    // treating it as a real external disconnect.
+    const pendingNullClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const initClient = useCallback(async (): Promise<DAppClient> => {
         const c = await getOrCreateClient();
@@ -490,23 +515,36 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             const sdk = await loadSDK();
             c.subscribeToEvent(sdk.BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
                 if (account) {
+                    if (pendingNullClearRef.current) {
+                        clearTimeout(pendingNullClearRef.current);
+                        pendingNullClearRef.current = null;
+                    }
                     // requestPermissions() fires this before we've asked for a
                     // signature. connect() hydrates once authenticated.
                     if (!awaitingAuthRef.current) hydrateAccount(account.address);
+                    return;
                 }
-                // Beacon emits ACTIVE_ACCOUNT_SET with `account=null` during
-                // transient reconnect/restore flux even when the wallet is
-                // still connected. Do NOT clear address/session here — that
-                // would silently nuke a valid JWT and force a re-sign-in.
-                // Real disconnects come via the explicit disconnect() call;
-                // real address changes are handled by the address-change
-                // effect below; server-rejected refreshes are handled by
-                // onAuthLost.
+                // account === null: could be real external disconnect, or
+                // Beacon's transient reconnect flux. Debounce, then re-confirm
+                // directly against the client before trusting it — a blind
+                // clear here would silently nuke a valid JWT and force a
+                // re-sign-in on every bit of flux.
+                if (pendingNullClearRef.current) return;
+                pendingNullClearRef.current = setTimeout(() => {
+                    pendingNullClearRef.current = null;
+                    if (restoringRef.current || awaitingAuthRef.current) return;
+                    void c.getActiveAccount().then((confirmed) => {
+                        if (confirmed) return; // flux resolved itself
+                        setAddress(null);
+                        setDomain(null);
+                        clearSession();
+                    }).catch(() => { /* leave state as-is on transient query failure */ });
+                }, 1500);
             });
         }
         setClient(c);
         return c;
-    }, [hydrateAccount]);
+    }, [hydrateAccount, clearSession]);
 
     // Session restore on mount.
     useEffect(() => {
@@ -521,20 +559,46 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     return;
                 }
                 const stored = loadAuthSession();
-                if (stored) applySession(stored, { broadcast: false });
+                const matched = stored ? sessionMatchesAddress(stored, account.address) : null;
+                if (matched) {
+                    applySession(matched, { broadcast: false });
+                } else if (stored) {
+                    // Stored JWT belongs to a different address than Beacon just
+                    // restored — discard it rather than silently signing the user
+                    // in as the wrong identity.
+                    clearAuthStorage();
+                }
                 await hydrateAccount(account.address);
                 setRestoring(false);
             }).catch(() => setRestoring(false));
         }).catch(() => setRestoring(false));
     }, [hydrateAccount, initClient, applySession]);
 
+    // On any path where connect() can't complete (early-return or thrown
+    // error), Beacon's SDK/localStorage may have already paired a new
+    // account even though our flow never got to signature. Reconcile React's
+    // `address` to whatever Beacon actually ended up with instead of leaving
+    // it frozen at its pre-connect() value — this is what previously
+    // required a page refresh to fix.
+    const reconcileAfterFailedConnect = useCallback(async (c: DAppClient) => {
+        const reconciled = await c.getActiveAccount().catch(() => undefined);
+        if (reconciled) {
+            void hydrateAccount(reconciled.address);
+        } else if (address) {
+            setAddress(null);
+            setDomain(null);
+            clearSession();
+        }
+    }, [address, hydrateAccount, clearSession]);
+
     const connect = useCallback(async () => {
         setConnecting(true);
         setAuthError(null);
         awaitingAuthRef.current = true;
+        let c: DAppClient | undefined;
         try {
             const sdk = await loadSDK();
-            const c = await initClient();
+            c = await initClient();
 
             const existing = await c.getActiveAccount();
             let addr: string;
@@ -547,29 +611,34 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                     const scopes = [sdk.PermissionScope.OPERATION_REQUEST, sdk.PermissionScope.SIGN];
                     await c.requestPermissions({ scopes });
                     const account = await c.getActiveAccount();
-                    if (!account) return;
+                    if (!account) {
+                        await reconcileAfterFailedConnect(c);
+                        setAuthError("Wallet permission step did not complete. Please try connecting again.");
+                        return;
+                    }
                     addr = account.address;
                 }
             } else {
                 const scopes = [sdk.PermissionScope.OPERATION_REQUEST, sdk.PermissionScope.SIGN];
                 await c.requestPermissions({ scopes });
                 const account = await c.getActiveAccount();
-                if (!account) return;
+                if (!account) {
+                    await reconcileAfterFailedConnect(c);
+                    setAuthError("Wallet permission step did not complete. Please try connecting again.");
+                    return;
+                }
                 addr = account.address;
             }
 
             // Reuse stored JWT only if it's for THIS address (loadAuthSession
             // already enforces version + expiry).
             const stored = loadAuthSession();
-            if (stored) {
-                const payload = decodeJwtPayload(stored.token);
-                const sub = (payload?.sub ?? payload?.address) as string | undefined;
-                if (sub === addr) {
-                    applySession(stored);
-                    awaitingAuthRef.current = false;
-                    void hydrateAccount(addr);
-                    return;
-                }
+            const matched = stored ? sessionMatchesAddress(stored, addr) : null;
+            if (matched) {
+                applySession(matched);
+                awaitingAuthRef.current = false;
+                void hydrateAccount(addr);
+                return;
             }
 
             // Signature first — the signed-in UI only appears once the wallet
@@ -580,6 +649,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             awaitingAuthRef.current = false;
             void hydrateAccount(addr);
         } catch (err: unknown) {
+            if (c) await reconcileAfterFailedConnect(c);
             const errObj = err as Record<string, unknown>;
             const raw = err instanceof Error ? err.message : String(errObj?.message || "Authentication failed");
             // Beacon reports a user-rejected permission/signature as an abort.
@@ -607,7 +677,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
             setAwaitingSignature(false);
             setConnecting(false);
         }
-    }, [hydrateAccount, initClient, applySession]);
+    }, [hydrateAccount, initClient, applySession, reconcileAfterFailedConnect]);
 
     const setActiveDomain = useCallback(
         (newDomain: string) => {
@@ -666,6 +736,10 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         clearBeaconState();
         dAppClient = null;
         subscribedRef.current = false;
+        if (pendingNullClearRef.current) {
+            clearTimeout(pendingNullClearRef.current);
+            pendingNullClearRef.current = null;
+        }
         setClient(null);
         setAddress(null);
         setDomain(null);
@@ -681,15 +755,6 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         await disconnect();
     }, [disconnect]);
 
-    // Track `restoring` via ref so the address-change effect can gate on the
-    // current value without re-firing whenever `restoring` flips. During
-    // Beacon hydration `address` may transition spuriously; we must not nuke
-    // the session in that window.
-    const restoringRef = useRef(restoring);
-    useEffect(() => {
-        restoringRef.current = restoring;
-    }, [restoring]);
-
     // Clear JWT when wallet address changes (genuine wallet swap or explicit
     // disconnect). Skipped during the Beacon hydration phase to avoid
     // false-positive clears caused by transient null transitions.
@@ -698,6 +763,13 @@ export function TezosProvider({ children }: { children: ReactNode }) {
         const prev = prevAddressRef.current;
         prevAddressRef.current = address;
         if (restoringRef.current) return;
+        if (prev !== address) {
+            // Any settled transition (swap, or disconnect's address -> null)
+            // bumps the epoch so `useAddressChangeEffect` consumers can react.
+            // Mount-time null -> null (never connected) does NOT bump, since
+            // prev === address on first render.
+            setAddressEpoch((e) => e + 1);
+        }
         if (address && prev && address !== prev) {
             // True wallet swap: previous and new are both real, and different.
             clearSession();
@@ -728,6 +800,7 @@ export function TezosProvider({ children }: { children: ReactNode }) {
                 authError,
                 refreshToken: refreshTokenFn,
                 setActiveDomain,
+                addressEpoch,
             }}
         >
             {children}
@@ -752,4 +825,24 @@ export function useTezos() {
     const ctx = useContext(TezosContext);
     if (!ctx) throw new Error("useTezos must be used within TezosProvider");
     return ctx;
+}
+
+/**
+ * Runs `onChange` whenever the connected wallet address changes or
+ * disconnects while the calling component is mounted — but NOT on the
+ * component's own initial mount (so screens don't self-trigger their own
+ * "reset" logic just by rendering with whatever address is already active).
+ *
+ * Use this for any component holding state that becomes invalid/stale when
+ * the signed-in identity changes mid-session (edit forms, scan results,
+ * cached ownership-gated views).
+ */
+export function useAddressChangeEffect(onChange: (newAddress: string | null) => void) {
+    const { address, addressEpoch } = useTezos();
+    const epochRef = useRef(addressEpoch);
+    useEffect(() => {
+        if (epochRef.current === addressEpoch) return;
+        epochRef.current = addressEpoch;
+        onChange(address);
+    }, [addressEpoch, address, onChange]);
 }

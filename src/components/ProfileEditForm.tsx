@@ -15,7 +15,7 @@ import {
 import { Globe } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useTezos } from "../context/TezosContext";
+import { useAddressChangeEffect, useTezos } from "../context/TezosContext";
 import {
 	getBlueskyStatus,
 	isValidDid,
@@ -947,6 +947,15 @@ export function useProfileEdit(
 		}
 	}, [searchParams, record, walletAddress, editing, setSearchParams]);
 
+	// If the active wallet changes (or disconnects) while the form is open,
+	// the signed-in identity may no longer own this profile — fall back to
+	// read-only rather than leaving a stale privileged edit form mounted.
+	const handleAddressChange = useCallback((newAddress: string | null) => {
+		if (!editing) return;
+		if (newAddress === null || newAddress !== record?.owner) exitEditMode();
+	}, [editing, record?.owner]);
+	useAddressChangeEffect(handleAddressChange);
+
 	// Unsaved changes warning — suppressed during wallet operations (mobile deep-links
 	// to the wallet app, which triggers beforeunload)
 	const walletActiveRef = useRef(false);
@@ -1059,6 +1068,11 @@ export function useProfileEdit(
 
 	async function handleSubmit() {
 		if (!client || !record) return;
+		if (walletAddress !== record.owner) {
+			setSubmitError("Your wallet has changed — this form is no longer editable by you.");
+			exitEditMode();
+			return;
+		}
 
 		const errors = validateForm(form);
 		if (hasValidationErrors(errors)) {
