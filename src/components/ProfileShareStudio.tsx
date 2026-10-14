@@ -1,7 +1,9 @@
 import { SiBluesky, SiX } from "@icons-pack/react-simple-icons";
 import { Copy, Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { TezCityIcon } from "./icons/TezCityIcon";
 import config, { siteUrl } from "../config/tezos";
+import { buildTezCityShareIntentUrl } from "../lib/tezcity";
 import {
 	buildProfileShareIntentText,
 	formatShareStatus,
@@ -785,6 +787,16 @@ export function ProfileShareStudio({
 		);
 	}
 
+	function handleShareTezCity() {
+		const textParts = [state.title.trim(), state.subtitle.trim(), state.cta.trim()].filter(Boolean);
+		const intentUrl = buildTezCityShareIntentUrl({
+			text: textParts.join("\n\n"),
+			url: profileUrl,
+			hashtags: "Tezos",
+		});
+		window.open(intentUrl, "_blank", "noopener,noreferrer");
+	}
+
 	const { width, height } = PROFILE_SHARE_SIZES[state.format];
 	const previewWidth = Math.min(420, width * 0.34);
 	const previewScale = previewWidth / width;
@@ -1149,6 +1161,13 @@ export function ProfileShareStudio({
 								style={ACTION_BUTTON}
 							>
 								<SiBluesky size={14} /> Share to Bluesky
+							</button>
+							<button
+								type="button"
+								onClick={handleShareTezCity}
+								style={ACTION_BUTTON}
+							>
+								<TezCityIcon size={14} /> Share to TezCity
 							</button>
 						</div>
 

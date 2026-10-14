@@ -53,6 +53,8 @@ export interface TipRecipientInfo {
     twitter?: string;
     /** Bluesky DID or handle from the recipient's profile */
     bluesky?: string;
+    /** TezCity handle or domain from the recipient's profile */
+    tezcity?: string;
     /** Set when this jar belongs to a project rather than the profile */
     projectName?: string;
     projectSlug?: string;
@@ -162,6 +164,7 @@ export function TipJar({
                     displayName: info.displayName,
                     twitter: info.twitter,
                     blueskyHandle: blueskyHandle ?? undefined,
+                    tezcity: info.tezcity,
                     projectName: info.projectName,
                     projectSlug: info.projectSlug,
                 },

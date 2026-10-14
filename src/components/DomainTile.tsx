@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link as LinkIcon, SquarePen, Eye, ArrowDown, ArrowUp, Globe, Star } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
+import { TezCityIcon } from "./icons/TezCityIcon";
 import config from "../config/tezos";
+import { cleanTezCityHandle, tezcityProfileUrl } from "../lib/tezcity";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import type { SubdomainRecord } from "../lib/domains";
 import type { BuilderStatus } from "../types/profile";
@@ -169,7 +171,7 @@ export default function DomainTile({
             )}
 
             {/* Social links */}
-            {(profile.github || profile.twitter || profile.bluesky || profile.website) && (
+            {(profile.github || profile.twitter || profile.bluesky || profile.tezcity || profile.website) && (
                 <div className="domain-tile-socials">
                     {profile.bluesky && (
                         <a
@@ -204,6 +206,21 @@ export default function DomainTile({
                             <SiX size={16} />
                         </a>
                     )}
+                    {(() => {
+                        const url = tezcityProfileUrl(profile.tezcity);
+                        if (!url) return null;
+                        return (
+                            <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`@${cleanTezCityHandle(profile.tezcity)} on TezCity`}
+                                className="domain-tile-social"
+                            >
+                                <TezCityIcon size={16} />
+                            </a>
+                        );
+                    })()}
                     {websiteHref && (
                         <a
                             href={websiteHref}
