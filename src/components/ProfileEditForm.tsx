@@ -13,6 +13,7 @@ import {
 	SiYoutube,
 } from "@icons-pack/react-simple-icons";
 import { Globe } from "lucide-react";
+import { TezCityIcon } from "./icons/TezCityIcon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAddressChangeEffect, useTezos } from "../context/TezosContext";
@@ -1324,6 +1325,13 @@ const PLATFORM_DEFS: PlatformDef[] = [
 		stripAt: true,
 	},
 	{
+		field: "tezcity",
+		label: "TezCity",
+		icon: <TezCityIcon size={14} />,
+		placeholder: "handle.tez",
+		stripAt: true,
+	},
+	{
 		field: "website",
 		label: "Website",
 		icon: <Globe size={14} />,
@@ -1368,6 +1376,9 @@ function SocialsSection({
 		if (!selectedField || !handleInput.trim()) return;
 		const def = PLATFORM_DEFS.find((p) => p.field === selectedField);
 		let handle = handleInput.trim();
+		if (selectedField === "tezcity") {
+			handle = handle.replace(/^https?:\/\/tezcity\.com\/u\//i, "").replace(/\/+$/, "");
+		}
 		if (def?.stripAt) handle = handle.replace(/^@/, "");
 		if (!handle) return;
 		updateField(selectedField, handle as HackProfile[typeof selectedField]);

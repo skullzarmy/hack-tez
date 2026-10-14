@@ -359,6 +359,7 @@ export default function ProjectPage() {
 					displayName: ownerName,
 					twitter: record.profile.twitter,
 					bluesky: record.profile.bluesky,
+					tezcity: record.profile.tezcity,
 					projectName: project.name,
 					projectSlug: projectSlugParam,
 				}}

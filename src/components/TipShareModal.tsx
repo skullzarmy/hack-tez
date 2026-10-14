@@ -3,6 +3,7 @@
 import { SiBluesky, SiX } from "@icons-pack/react-simple-icons";
 import { Check, Copy, X as XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { TezCityIcon } from "./icons/TezCityIcon";
 import { opExplorerUrl } from "../lib/tips";
 import type { SharePlatform, TipShareContext } from "../lib/tipShare";
 import {
@@ -193,6 +194,11 @@ export function TipShareModal({
                                 label: "Bluesky",
                                 icon: <SiBluesky size={13} />,
                             },
+                            {
+                                id: "tezcity" as const,
+                                label: "TezCity",
+                                icon: <TezCityIcon size={13} />,
+                            },
                         ]
                     ).map((p) => {
                         const active = platform === p.id;
@@ -263,9 +269,12 @@ export function TipShareModal({
                             lineHeight: 1.5,
                         }}
                     >
-                        {mention.startsWith("@")
-                            ? `Tagging ${mention} on ${platform === "x" ? "X" : "Bluesky"}.`
-                            : `No ${platform === "x" ? "X" : "Bluesky"} handle on their profile — using their name.`}
+                        {(() => {
+                            const platformName = platform === "x" ? "X" : platform === "bsky" ? "Bluesky" : "TezCity";
+                            return mention.startsWith("@")
+                                ? `Tagging ${mention} on ${platformName}.`
+                                : `No ${platformName} handle on their profile — using their name.`;
+                        })()}
                     </p>
                 </div>
 
@@ -278,10 +287,12 @@ export function TipShareModal({
                     >
                         {platform === "x" ? (
                             <SiX size={13} />
-                        ) : (
+                        ) : platform === "bsky" ? (
                             <SiBluesky size={13} />
+                        ) : (
+                            <TezCityIcon size={13} />
                         )}
-                        Post to {platform === "x" ? "X" : "Bluesky"}
+                        Post to {platform === "x" ? "X" : platform === "bsky" ? "Bluesky" : "TezCity"}
                     </button>
                     <button type="button" onClick={handleCopy} style={GHOST_BUTTON}>
                         {copied ? (

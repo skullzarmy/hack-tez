@@ -6,6 +6,8 @@
  * always names someone, just not always with an @.
  */
 import { siteUrl } from "../config/tezos";
+import { buildTezCityShareIntentUrl } from "./tezcity";
+export { buildTezCityShareIntentUrl } from "./tezcity";
 
 export interface TipShareContext {
     /** Display units, e.g. "2.5" */
@@ -22,19 +24,21 @@ export interface TipShareContext {
     twitter?: string;
     /** Resolved Bluesky handle (not the DID) */
     blueskyHandle?: string;
+    /** TezCity handle or domain from the recipient's profile */
+    tezcity?: string;
     /** Set when the tip went to a project rather than the profile */
     projectName?: string;
     projectSlug?: string;
 }
 
-export type SharePlatform = "x" | "bsky";
+export type SharePlatform = "x" | "bsky" | "tezcity";
 
 /** Strip a leading @ and any URL wrapper a user may have pasted into their profile. */
 function normalizeHandle(raw: string | undefined): string | null {
     if (!raw) return null;
     const h = raw
         .trim()
-        .replace(/^https?:\/\/(x\.com|twitter\.com|bsky\.app\/profile)\//i, "")
+        .replace(/^https?:\/\/(x\.com|twitter\.com|bsky\.app\/profile|tezcity\.com\/u)\//i, "")
         .replace(/^@+/, "")
         .replace(/\/+$/, "");
     return h || null;
@@ -53,7 +57,11 @@ export function tipShareMention(
     platform: SharePlatform,
 ): string {
     const handle = normalizeHandle(
-        platform === "x" ? ctx.twitter : ctx.blueskyHandle,
+        platform === "x"
+            ? ctx.twitter
+            : platform === "bsky"
+              ? ctx.blueskyHandle
+              : ctx.tezcity,
     );
     if (handle) return `@${handle}`;
     return ctx.displayName || ctx.fullName;
@@ -73,6 +81,15 @@ export function buildTipShareText(
 }
 
 export function shareIntentUrl(text: string, platform: SharePlatform): string {
+    if (platform === "tezcity") {
+        const match = text.match(/\s*(https?:\/\/[^\s]+)\s*$/);
+        if (match) {
+            const url = match[1];
+            const body = text.slice(0, match.index).trim();
+            return buildTezCityShareIntentUrl({ text: body, url });
+        }
+        return buildTezCityShareIntentUrl({ text: text.trim() });
+    }
     const encoded = encodeURIComponent(text);
     return platform === "x"
         ? `https://x.com/intent/post?text=${encoded}`

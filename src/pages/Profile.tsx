@@ -23,7 +23,9 @@ import {
 import { ProfileShareStudio } from "../components/ProfileShareStudio";
 import { ProjectCard } from "../components/ProjectCard";
 import { TipJar } from "../components/TipJar";
+import { TezCityIcon } from "../components/icons/TezCityIcon";
 import config from "../config/tezos";
+import { tezcityProfileUrl } from "../lib/tezcity";
 import { useTezos } from "../context/TezosContext";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import { usePageMeta } from "../hooks/usePageMeta";
@@ -135,6 +137,12 @@ const SOCIAL_PLATFORMS: Array<{
 		label: "Twitch",
 		icon: <SiTwitch size={14} />,
 		buildUrl: (h) => `https://twitch.tv/${h}`,
+	},
+	{
+		field: "tezcity",
+		label: "TezCity",
+		icon: <TezCityIcon size={14} />,
+		buildUrl: (h) => tezcityProfileUrl(h),
 	},
 	{
 		field: "website",
@@ -753,6 +761,7 @@ export default function Profile() {
 								displayName,
 								twitter: profile.twitter,
 								bluesky: profile.bluesky,
+								tezcity: profile.tezcity,
 							}}
 						/>
 

@@ -3,6 +3,7 @@ import { ExternalLink, MessageSquare, X, Loader2 } from "lucide-react";
 import { useFloating, offset, flip, shift, autoUpdate } from "@floating-ui/react-dom";
 import ChatAvatar from "./ChatAvatar";
 import type { HackProfile } from "../../types/profile";
+import { tezcityProfileUrl } from "../../lib/tezcity";
 
 interface ProfilePopoutProps {
     domain: string;
@@ -199,6 +200,11 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
                         {profile?.bluesky && (
                             <ProfileLink href={`https://bsky.app/profile/${encodeURIComponent(profile.bluesky)}`} label="Bluesky" />
                         )}
+                        {(() => {
+                            const url = tezcityProfileUrl(profile?.tezcity);
+                            if (!url) return null;
+                            return <ProfileLink href={url} label="TezCity" />;
+                        })()}
                     </div>
                 </div>
             )}

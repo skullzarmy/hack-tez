@@ -8,6 +8,8 @@ import type { BuilderStatus } from "../types/profile";
 import { Hackatar } from "../components/Hackatar";
 import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
+import { TezCityIcon } from "../components/icons/TezCityIcon";
+import { cleanTezCityHandle, tezcityProfileUrl } from "../lib/tezcity";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
@@ -303,7 +305,7 @@ function HackerCard({
             )}
 
             {/* Link icons — pushed to bottom */}
-            {(profile.github || profile.twitter || profile.website) && (
+            {(profile.github || profile.twitter || profile.tezcity || profile.website) && (
                 <div
                     style={{
                         display: "flex",
@@ -322,6 +324,15 @@ function HackerCard({
                             <SiX size={12} />
                         </LinkIcon>
                     )}
+                    {(() => {
+                        const url = tezcityProfileUrl(profile.tezcity);
+                        if (!url) return null;
+                        return (
+                            <LinkIcon href={url} label={`@${cleanTezCityHandle(profile.tezcity)} on TezCity`}>
+                                <TezCityIcon size={12} />
+                            </LinkIcon>
+                        );
+                    })()}
                     {websiteHref && (
                         <LinkIcon href={websiteHref} label={profile.website ?? "Website"}>
                             <Globe size={12} />
