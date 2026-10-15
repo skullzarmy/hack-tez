@@ -125,6 +125,7 @@ export interface HackProfile {
   youtube?: string;
   twitch?: string;
   tezcity?: string;
+  teztree?: string;
 }
 
 // ── Key Mapping ──────────────────────────────────────────────────────
@@ -153,6 +154,7 @@ export const PROFILE_KEY_MAP = {
   youtube: "hack:youtube",
   twitch: "hack:twitch",
   tezcity: "hack:tezcity",
+  teztree: "hack:teztree",
 } as const satisfies Record<keyof HackProfile, string>;
 
 type ProfileField = keyof typeof PROFILE_KEY_MAP;
@@ -409,7 +411,7 @@ export function tipJarIsLive(jar: TipJar | undefined): jar is TipJar {
 
 // Simple string hack: fields (single-value social platforms)
 const HACK_STRING_FIELDS = new Set<ProfileField>([
-  "mastodon", "farcaster", "telegram", "discord", "instagram", "youtube", "twitch", "tezcity",
+  "mastodon", "farcaster", "telegram", "discord", "instagram", "youtube", "twitch", "tezcity", "teztree",
 ]);
 
 /**

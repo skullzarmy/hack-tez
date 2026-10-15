@@ -2111,6 +2111,7 @@ export default function Developers() {
                                             ["hack:skills", "hack.tez", "JSON string[], max 10 tags"],
                                             ["hack:projects", "hack.tez", "JSON ProjectEntry[], see below"],
                                             ["hack:tezcity", "hack.tez", "TezCity handle or .tez domain"],
+                                            ["hack:teztree", "hack.tez", "Teztree handle"],
                                         ].map(([key, source, desc]) => (
                                             <tr key={key} style={{ borderBottom: "1px solid var(--border)" }}>
                                                 <td style={{ padding: "0.4rem 0.75rem 0.4rem 0" }}>

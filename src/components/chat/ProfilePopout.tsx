@@ -4,6 +4,7 @@ import { useFloating, offset, flip, shift, autoUpdate } from "@floating-ui/react
 import ChatAvatar from "./ChatAvatar";
 import type { HackProfile } from "../../types/profile";
 import { tezcityProfileUrl } from "../../lib/tezcity";
+import { teztreeProfileUrl } from "../../lib/teztree";
 
 interface ProfilePopoutProps {
     domain: string;
@@ -204,6 +205,11 @@ export default function ProfilePopout({ domain, anchorRect, onClose, onStartDM }
                             const url = tezcityProfileUrl(profile?.tezcity);
                             if (!url) return null;
                             return <ProfileLink href={url} label="TezCity" />;
+                        })()}
+                        {(() => {
+                            const url = teztreeProfileUrl(profile?.teztree);
+                            if (!url) return null;
+                            return <ProfileLink href={url} label="Teztree" />;
                         })()}
                     </div>
                 </div>

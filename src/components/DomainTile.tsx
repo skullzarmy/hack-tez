@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link as LinkIcon, SquarePen, Eye, ArrowDown, ArrowUp, Globe, Star } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import { TezCityIcon } from "./icons/TezCityIcon";
+import { TezTreeIcon } from "./icons/TezTreeIcon";
 import config from "../config/tezos";
 import { cleanTezCityHandle, tezcityProfileUrl } from "../lib/tezcity";
+import { cleanTezTreeHandle, teztreeProfileUrl } from "../lib/teztree";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import type { SubdomainRecord } from "../lib/domains";
 import type { BuilderStatus } from "../types/profile";
@@ -171,7 +173,7 @@ export default function DomainTile({
             )}
 
             {/* Social links */}
-            {(profile.github || profile.twitter || profile.bluesky || profile.tezcity || profile.website) && (
+            {(profile.github || profile.twitter || profile.bluesky || profile.tezcity || profile.teztree || profile.website) && (
                 <div className="domain-tile-socials">
                     {profile.bluesky && (
                         <a
@@ -218,6 +220,21 @@ export default function DomainTile({
                                 className="domain-tile-social"
                             >
                                 <TezCityIcon size={16} />
+                            </a>
+                        );
+                    })()}
+                    {(() => {
+                        const url = teztreeProfileUrl(profile.teztree);
+                        if (!url) return null;
+                        return (
+                            <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`@${cleanTezTreeHandle(profile.teztree)} on Teztree`}
+                                className="domain-tile-social"
+                            >
+                                <TezTreeIcon size={16} />
                             </a>
                         );
                     })()}

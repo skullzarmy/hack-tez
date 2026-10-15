@@ -14,6 +14,7 @@ import {
 } from "@icons-pack/react-simple-icons";
 import { Globe } from "lucide-react";
 import { TezCityIcon } from "./icons/TezCityIcon";
+import { TezTreeIcon } from "./icons/TezTreeIcon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAddressChangeEffect, useTezos } from "../context/TezosContext";
@@ -1332,6 +1333,13 @@ const PLATFORM_DEFS: PlatformDef[] = [
 		stripAt: true,
 	},
 	{
+		field: "teztree",
+		label: "Teztree",
+		icon: <TezTreeIcon size={14} />,
+		placeholder: "handle",
+		stripAt: true,
+	},
+	{
 		field: "website",
 		label: "Website",
 		icon: <Globe size={14} />,
@@ -1378,6 +1386,9 @@ function SocialsSection({
 		let handle = handleInput.trim();
 		if (selectedField === "tezcity") {
 			handle = handle.replace(/^https?:\/\/tezcity\.com\/u\//i, "").replace(/\/+$/, "");
+		}
+		if (selectedField === "teztree") {
+			handle = handle.replace(/^https?:\/\/(www\.)?teztree\.com\//i, "").replace(/\/+$/, "");
 		}
 		if (def?.stripAt) handle = handle.replace(/^@/, "");
 		if (!handle) return;
