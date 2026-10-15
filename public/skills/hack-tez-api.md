@@ -387,6 +387,7 @@ Every key the directory can return. All are optional — a key the member never 
 | `youtube`       | string            | `hack:youtube`          |                                                             |
 | `twitch`        | string            | `hack:twitch`           |                                                             |
 | `tezcity`       | string            | `hack:tezcity`          |                                                             |
+| `teztree`       | string            | `hack:teztree`          |                                                             |
 
 **ProjectEntry** — `name` and `desc` are required, everything else is optional:
 
