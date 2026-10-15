@@ -24,8 +24,10 @@ import { ProfileShareStudio } from "../components/ProfileShareStudio";
 import { ProjectCard } from "../components/ProjectCard";
 import { TipJar } from "../components/TipJar";
 import { TezCityIcon } from "../components/icons/TezCityIcon";
+import { TezTreeIcon } from "../components/icons/TezTreeIcon";
 import config from "../config/tezos";
 import { tezcityProfileUrl } from "../lib/tezcity";
+import { teztreeProfileUrl } from "../lib/teztree";
 import { useTezos } from "../context/TezosContext";
 import { useBlueskyHandle } from "../hooks/useBlueskyHandle";
 import { usePageMeta } from "../hooks/usePageMeta";
@@ -143,6 +145,12 @@ const SOCIAL_PLATFORMS: Array<{
 		label: "TezCity",
 		icon: <TezCityIcon size={14} />,
 		buildUrl: (h) => tezcityProfileUrl(h),
+	},
+	{
+		field: "teztree",
+		label: "Teztree",
+		icon: <TezTreeIcon size={14} />,
+		buildUrl: (h) => teztreeProfileUrl(h),
 	},
 	{
 		field: "website",

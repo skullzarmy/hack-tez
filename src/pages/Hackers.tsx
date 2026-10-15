@@ -9,7 +9,9 @@ import { Hackatar } from "../components/Hackatar";
 import { Globe, ArrowLeft, ArrowRight } from "lucide-react";
 import { SiGithub, SiX, SiBluesky } from "@icons-pack/react-simple-icons";
 import { TezCityIcon } from "../components/icons/TezCityIcon";
+import { TezTreeIcon } from "../components/icons/TezTreeIcon";
 import { cleanTezCityHandle, tezcityProfileUrl } from "../lib/tezcity";
+import { cleanTezTreeHandle, teztreeProfileUrl } from "../lib/teztree";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
@@ -305,7 +307,7 @@ function HackerCard({
             )}
 
             {/* Link icons — pushed to bottom */}
-            {(profile.github || profile.twitter || profile.tezcity || profile.website) && (
+            {(profile.github || profile.twitter || profile.tezcity || profile.teztree || profile.website) && (
                 <div
                     style={{
                         display: "flex",
@@ -330,6 +332,15 @@ function HackerCard({
                         return (
                             <LinkIcon href={url} label={`@${cleanTezCityHandle(profile.tezcity)} on TezCity`}>
                                 <TezCityIcon size={12} />
+                            </LinkIcon>
+                        );
+                    })()}
+                    {(() => {
+                        const url = teztreeProfileUrl(profile.teztree);
+                        if (!url) return null;
+                        return (
+                            <LinkIcon href={url} label={`@${cleanTezTreeHandle(profile.teztree)} on Teztree`}>
+                                <TezTreeIcon size={12} />
                             </LinkIcon>
                         );
                     })()}
