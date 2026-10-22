@@ -20,8 +20,8 @@
     "jose": "^6.0.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.0.0",
-    "partykit": "^0.0.111",
+    "@cloudflare/workers-types": "^5.0.0",
+    "partykit": "^0.0.115",
     "typescript": "~5.9.3",
     "wrangler": "^4.0.0"
   }
