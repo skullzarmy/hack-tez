@@ -46,6 +46,7 @@ const Gaspedal = lazy(() => import("./pages/labs/Gaspedal"));
 const BulkRelist = lazy(() => import("./pages/labs/BulkRelist"));
 const Art4LifeTez = lazy(() => import("./pages/labs/Art4LifeTez"));
 const Fa2Deployer = lazy(() => import("./pages/labs/Fa2Deployer"));
+const IcoCommitments = lazy(() => import("./pages/labs/IcoCommitments"));
 
 interface ErrorBoundaryState {
     hasError: boolean;
@@ -430,6 +431,7 @@ export function AppShell() {
                     <Route path="/labs/bulk-relist" element={<Suspense fallback={null}><BulkRelist /></Suspense>} />
                     <Route path="/labs/art4lifetez" element={<Suspense fallback={null}><Art4LifeTez /></Suspense>} />
                     <Route path="/labs/fa2-deployer" element={<Suspense fallback={null}><Fa2Deployer /></Suspense>} />
+                    <Route path="/labs/ico-commitments" element={<Suspense fallback={null}><IcoCommitments /></Suspense>} />
                     <Route path="/labs/:slug" element={<Suspense fallback={null}><LabDetail /></Suspense>} />
                     <Route path="/" element={<Home />} />
                     <Route path="*" element={<Home />} />
