@@ -18,6 +18,7 @@ const NAV: NavSection[] = [
     { id: "overview", label: "Overview" },
     { id: "base-url", label: "Base URL" },
     { id: "conventions", label: "Conventions" },
+    { id: "best-practices", label: "Best Practices" },
     { id: "rate-limits", label: "Rate Limits" },
     { id: "error-codes", label: "Error Codes" },
     {
@@ -562,6 +563,39 @@ export default function Developers() {
                             <p>
                                 CORS: <code style={{ color: "var(--fg)" }}>Access-Control-Allow-Origin: *</code> — safe
                                 to call from any origin.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* ---- Best Practices ---- */}
+                    <section style={{ marginBottom: "2.5rem" }}>
+                        <SectionHeading id="best-practices">Best Practices</SectionHeading>
+                        <div
+                            style={{
+                                fontFamily: "var(--font)",
+                                fontSize: "0.78rem",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.9,
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.8rem",
+                            }}
+                        >
+                            <p>
+                                <strong style={{ color: "var(--fg)" }}>1. Cache address resolutions on your side.</strong>{" "}
+                                Address-to-domain bindings and reverse records change very rarely. If your app or site resolves wallet addresses, cache the result in memory (LRU map) or <code>sessionStorage</code>/<code>localStorage</code> for 10–30 minutes rather than firing a request on every component render.
+                            </p>
+                            <p>
+                                <strong style={{ color: "var(--fg)" }}>2. Batch with directory endpoints instead of N resolve calls.</strong>{" "}
+                                If you are rendering feeds, leaderboards, or lists of multiple addresses (e.g., 20–50 users), avoid firing dozens of serial <code>/api/v1/resolve/:address</code> calls. Instead, call <code>GET /api/v1/hackers?limit=100</code> once to retrieve all active hackers and index their primary domains by address locally.
+                            </p>
+                            <p>
+                                <strong style={{ color: "var(--fg)" }}>3. Rely on CDN edge caching & avoid cache busters.</strong>{" "}
+                                Responses carry <code>Netlify-CDN-Cache-Control</code> headers with <code>stale-while-revalidate</code> and durable global edge caching. Do not append random timestamps (e.g. <code>?t=...</code>) or cache-busting query parameters to requests, as this fragments edge caches and hurts response latency.
+                            </p>
+                            <p>
+                                <strong style={{ color: "var(--fg)" }}>4. Avatars & Hackatars.</strong>{" "}
+                                <code>/api/v1/hackatar/:label</code> is deterministic and cached immutably for 1 year at the edge. <code>/api/v1/avatar/:label</code> is cached for 1 hour with 24-hour background revalidation. Reference them directly in <code>&lt;img&gt;</code> tags.
                             </p>
                         </div>
                     </section>

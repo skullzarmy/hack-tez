@@ -66,6 +66,8 @@ export default async function handler(req: Request): Promise<Response> {
             // Always revalidate. Authors edit pending games at the same (gameId, version)
             // prefix, so we can't immutably cache. ETag makes revalidation a 304 most of the time.
             "Cache-Control": "public, max-age=0, must-revalidate",
+            "Netlify-CDN-Cache-Control": "public, max-age=60, stale-while-revalidate=300, durable",
+            "CDN-Cache-Control": "public, max-age=60, stale-while-revalidate=300",
             ETag: etag,
             // Override the site-wide DENY / frame-ancestors 'none' so the game can be embedded
             // in same-origin iframes (GamePlayer, AdminReview, EditGameForm preview).
