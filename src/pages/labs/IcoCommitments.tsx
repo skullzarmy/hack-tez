@@ -31,6 +31,7 @@ import {
     fetchIcoStats,
     fetchRecentActivations,
     formatDate,
+    formatFiat,
     formatNumber,
     formatXtz,
     shortAddress,
@@ -47,7 +48,17 @@ const SAMPLES = {
     activatedTz1: "tz1dd9TDNzfWptP63wcsBT4Yr5mhNgZdF7dj",
     unclaimedBtz1: "btz1LL9tNH31aV19K4BTuKgJpri7GPryvp3C4",
     nonIcoTz1: "tz1burnburnburnburnburnburnburjAYjjX",
+    exchangeSenderTz1: "tz1TKqshmjE5dJYdEpqQBPLgyABdLECSP3ta",
 };
+
+type RecentSortKey =
+    | "level"
+    | "amount"
+    | "claimValue"
+    | "currentBalance"
+    | "toExchange"
+    | "toWallet"
+    | "account";
 
 export default function IcoCommitments() {
     const lab = getLab("ico-commitments");
@@ -56,9 +67,14 @@ export default function IcoCommitments() {
     usePageMeta({
         title: "ICO Commitments — Tezos Fundraiser Verifier — Labs — hack.tez",
         description:
-            "Understand Tezos fundraiser (ICO) commitments, verify whether any account or operation was a legitimate activation, and inspect unclaimed genesis balances.",
+            "Understand Tezos fundraiser (ICO) commitments, verify whether any account or operation was a legitimate activation, and inspect unclaimed genesis balances and fund flows.",
         path: "/labs/ico-commitments",
     });
+
+    // -------------------------------------------------------------------------
+    // Currency Preference: USD vs EUR
+    // -------------------------------------------------------------------------
+    const [currency, setCurrency] = useState<"USD" | "EUR">("USD");
 
     // -------------------------------------------------------------------------
     // State: Stats & Unclaimed list
@@ -75,6 +91,9 @@ export default function IcoCommitments() {
     const [recentActivations, setRecentActivations] = useState<IcoCommitment[]>([]);
     const [recentLoading, setRecentLoading] = useState(true);
     const [recentError, setRecentError] = useState<string | null>(null);
+    const [recentFilter, setRecentFilter] = useState<"all" | "stayed" | "exchange" | "wallet">("all");
+    const [recentSortKey, setRecentSortKey] = useState<RecentSortKey>("level");
+    const [recentSortDir, setRecentSortDir] = useState<"asc" | "desc">("desc");
     const hasFetchedRecent = useRef(false);
 
     // -------------------------------------------------------------------------
@@ -147,7 +166,7 @@ export default function IcoCommitments() {
         }
         setRecentError(null);
         try {
-            const list = await fetchRecentActivations(20);
+            const list = await fetchRecentActivations(25);
             setRecentActivations(list);
             hasFetchedRecent.current = true;
         } catch (err) {
@@ -210,9 +229,6 @@ export default function IcoCommitments() {
         }
     }, [rpcUrl, rpcBtz1, rpcTz1]);
 
-    // -------------------------------------------------------------------------
-    // Helper to jump to Node verifier from checker result
-    // -------------------------------------------------------------------------
     const prefillNodeVerifier = useCallback((btz1: string, tz1?: string) => {
         setRpcBtz1(btz1);
         if (tz1) setRpcTz1(tz1);
@@ -223,19 +239,75 @@ export default function IcoCommitments() {
     }, []);
 
     // -------------------------------------------------------------------------
+    // Sort & filter recent activations
+    // -------------------------------------------------------------------------
+    const handleRecentSort = (key: RecentSortKey) => {
+        if (recentSortKey === key) {
+            setRecentSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+            setRecentSortKey(key);
+            setRecentSortDir("desc");
+        }
+    };
+
+    const sortedRecentActivations = useMemo(() => {
+        let list = recentActivations;
+
+        if (recentFilter === "stayed") {
+            list = list.filter((c) => (c.currentBalance ?? 0) >= (c.balance * 0.8));
+        } else if (recentFilter === "exchange") {
+            list = list.filter((c) => (c.toExchange ?? 0) > 0);
+        } else if (recentFilter === "wallet") {
+            list = list.filter((c) => (c.toWallet ?? 0) > 0);
+        }
+
+        return [...list].sort((a, b) => {
+            let diff = 0;
+            switch (recentSortKey) {
+                case "level":
+                    diff = (a.activationLevel ?? 0) - (b.activationLevel ?? 0);
+                    break;
+                case "amount":
+                    diff = a.balance - b.balance;
+                    break;
+                case "claimValue": {
+                    const priceA = currency === "USD" ? (a.quote?.usd ?? 0) : (a.quote?.eur ?? 0);
+                    const priceB = currency === "USD" ? (b.quote?.usd ?? 0) : (b.quote?.eur ?? 0);
+                    diff = (a.balance / 1e6) * priceA - (b.balance / 1e6) * priceB;
+                    break;
+                }
+                case "currentBalance":
+                    diff = (a.currentBalance ?? 0) - (b.currentBalance ?? 0);
+                    break;
+                case "toExchange":
+                    diff = (a.toExchange ?? 0) - (b.toExchange ?? 0);
+                    break;
+                case "toWallet":
+                    diff = (a.toWallet ?? 0) - (b.toWallet ?? 0);
+                    break;
+                case "account": {
+                    const addrA = a.activatedAccount?.address || "";
+                    const addrB = b.activatedAccount?.address || "";
+                    diff = addrA.localeCompare(addrB);
+                    break;
+                }
+            }
+            return recentSortDir === "desc" ? -diff : diff;
+        });
+    }, [recentActivations, recentFilter, recentSortKey, recentSortDir, currency]);
+
+    // -------------------------------------------------------------------------
     // Filter and sort unclaimed list
     // -------------------------------------------------------------------------
     const filteredUnclaimed = useMemo(() => {
         let result = unclaimedList;
 
-        // Quick filter
         if (unclaimedFilterMode === "whales") {
             result = result.filter((c) => c.balance >= 10_000_000_000);
         } else if (unclaimedFilterMode === "1k") {
             result = result.filter((c) => c.balance >= 1_000_000_000);
         }
 
-        // Text search
         if (unclaimedSearch.trim()) {
             const q = unclaimedSearch.trim().toLowerCase();
             result = result.filter((c) => {
@@ -244,7 +316,6 @@ export default function IcoCommitments() {
             });
         }
 
-        // Sort
         return [...result].sort((a, b) => {
             if (unclaimedSortKey === "balance") {
                 return unclaimedSortDir === "desc" ? b.balance - a.balance : a.balance - b.balance;
@@ -262,7 +333,7 @@ export default function IcoCommitments() {
     }, [filteredUnclaimed, page, pageSize]);
 
     return (
-        <div className="container" style={{ paddingBlock: "3rem", maxWidth: "980px" }}>
+        <div className="container" style={{ paddingBlock: "3rem", maxWidth: "1080px" }}>
             {/* Breadcrumb Navigation */}
             <Link
                 to="/labs"
@@ -305,22 +376,67 @@ export default function IcoCommitments() {
                             // ICO COMMITMENTS
                         </h1>
                     </div>
-                    {lab && (
-                        <span
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {/* Currency Toggle */}
+                        <div
                             style={{
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "0.65rem",
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                                padding: "0.2em 0.6em",
-                                color: "var(--ok)",
-                                background: "var(--ok-bg)",
-                                border: "1px solid var(--ok)",
+                                display: "inline-flex",
+                                border: "1px solid var(--border)",
+                                background: "var(--bg-2)",
                             }}
                         >
-                            mainnet verifier
-                        </span>
-                    )}
+                            <button
+                                type="button"
+                                onClick={() => setCurrency("USD")}
+                                style={{
+                                    background: currency === "USD" ? "var(--fg)" : "transparent",
+                                    color: currency === "USD" ? "var(--bg)" : "var(--fg-muted)",
+                                    border: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.68rem",
+                                    padding: "0.25rem 0.55rem",
+                                    cursor: "pointer",
+                                    fontWeight: currency === "USD" ? 700 : 400,
+                                }}
+                            >
+                                USD ($)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCurrency("EUR")}
+                                style={{
+                                    background: currency === "EUR" ? "var(--fg)" : "transparent",
+                                    color: currency === "EUR" ? "var(--bg)" : "var(--fg-muted)",
+                                    border: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.68rem",
+                                    padding: "0.25rem 0.55rem",
+                                    cursor: "pointer",
+                                    fontWeight: currency === "EUR" ? 700 : 400,
+                                }}
+                            >
+                                EUR (€)
+                            </button>
+                        </div>
+
+                        {lab && (
+                            <span
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.65rem",
+                                    letterSpacing: "0.08em",
+                                    textTransform: "uppercase",
+                                    padding: "0.2em 0.6em",
+                                    color: "var(--ok)",
+                                    background: "var(--ok-bg)",
+                                    border: "1px solid var(--ok)",
+                                }}
+                            >
+                                mainnet verifier
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Plain-language explainer (3-4 sentences max) */}
@@ -622,7 +738,8 @@ export default function IcoCommitments() {
 
                 <p style={{ color: "var(--fg-muted)", fontSize: "0.85rem", margin: "0 0 1rem" }}>
                     Paste an operation hash (<code>o…</code>), a <code>tz1…</code> account, or a blinded address (
-                    <code>btz1…</code>). We will verify whether it matches a real Tezos fundraiser commitment.
+                    <code>btz1…</code>). We will verify whether it matches a real Tezos fundraiser commitment, check its
+                    current balance, and inspect whether funds stayed or moved to an exchange.
                 </p>
 
                 {/* Input Form */}
@@ -756,6 +873,24 @@ export default function IcoCommitments() {
                     <button
                         type="button"
                         onClick={() => {
+                            setCheckInput(SAMPLES.exchangeSenderTz1);
+                            void runCheck(SAMPLES.exchangeSenderTz1);
+                        }}
+                        style={{
+                            background: "var(--bg)",
+                            border: "1px solid var(--border)",
+                            color: "var(--warn)",
+                            padding: "0.15rem 0.45rem",
+                            cursor: "pointer",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "0.68rem",
+                        }}
+                    >
+                        Sent to Binance (tz1…)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
                             setCheckInput(SAMPLES.unclaimedBtz1);
                             void runCheck(SAMPLES.unclaimedBtz1);
                         }}
@@ -870,7 +1005,7 @@ export default function IcoCommitments() {
                             <div
                                 style={{
                                     display: "grid",
-                                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                                     gap: "0.75rem",
                                     paddingTop: "0.8rem",
                                     borderTop: "1px solid rgba(255, 255, 255, 0.1)",
@@ -886,7 +1021,7 @@ export default function IcoCommitments() {
                                                 textTransform: "uppercase",
                                             }}
                                         >
-                                            Commitment Amount
+                                            Claimed ICO Amount
                                         </div>
                                         <div
                                             style={{
@@ -900,6 +1035,147 @@ export default function IcoCommitments() {
                                         </div>
                                         <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
                                             {formatNumber(checkResult.amountMutez ?? 0)} mutez
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Quote at Claim Time */}
+                                {checkResult.quote && (
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.65rem",
+                                                color: "var(--accent)",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            Value at Claim Time
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.95rem",
+                                                fontWeight: 700,
+                                                color: "var(--accent)",
+                                            }}
+                                        >
+                                            {currency === "USD"
+                                                ? formatFiat(
+                                                      (checkResult.amountXtz ?? 0) * (checkResult.quote.usd ?? 0),
+                                                      "USD",
+                                                  )
+                                                : formatFiat(
+                                                      (checkResult.amountXtz ?? 0) * (checkResult.quote.eur ?? 0),
+                                                      "EUR",
+                                                  )}
+                                        </div>
+                                        <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
+                                            Rate:{" "}
+                                            {currency === "USD"
+                                                ? `$${(checkResult.quote.usd ?? 0).toFixed(4)}/ꜩ`
+                                                : `€${(checkResult.quote.eur ?? 0).toFixed(4)}/ꜩ`}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Current Balance (Stayed) */}
+                                {checkResult.currentBalanceXtz !== undefined && (
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.65rem",
+                                                color: "var(--ok)",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            Current Balance (Stayed)
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "1rem",
+                                                fontWeight: 700,
+                                                color: "var(--ok)",
+                                            }}
+                                        >
+                                            {formatXtz(checkResult.currentBalanceMutez ?? 0)} ꜩ
+                                        </div>
+                                        <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
+                                            {checkResult.amountMutez
+                                                ? `${(((checkResult.currentBalanceMutez ?? 0) / checkResult.amountMutez) * 100).toFixed(1)}% of claimed tez`
+                                                : "Live account balance"}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Moved to Exchange */}
+                                {checkResult.toExchangeXtz !== undefined && (
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.65rem",
+                                                color:
+                                                    (checkResult.toExchangeXtz ?? 0) > 0
+                                                        ? "var(--warn)"
+                                                        : "var(--fg-muted)",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            Moved to Exchange
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "1rem",
+                                                fontWeight: 700,
+                                                color:
+                                                    (checkResult.toExchangeXtz ?? 0) > 0
+                                                        ? "var(--warn)"
+                                                        : "var(--fg-muted)",
+                                            }}
+                                        >
+                                            {formatXtz(checkResult.toExchangeMutez ?? 0)} ꜩ
+                                        </div>
+                                        <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
+                                            {checkResult.exchangeName
+                                                ? `Sent to ${checkResult.exchangeName}`
+                                                : (checkResult.toExchangeXtz ?? 0) > 0
+                                                ? "Sent to exchange deposit"
+                                                : "No exchange transfers"}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Moved to Other Wallet */}
+                                {checkResult.toWalletXtz !== undefined && (
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "0.65rem",
+                                                color: "var(--fg-muted)",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            Moved to Other Wallet
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "1rem",
+                                                fontWeight: 700,
+                                                color: "var(--fg)",
+                                            }}
+                                        >
+                                            {formatXtz(checkResult.toWalletMutez ?? 0)} ꜩ
+                                        </div>
+                                        <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
+                                            {(checkResult.toWalletXtz ?? 0) > 0
+                                                ? "Sent to private address"
+                                                : "No private transfers"}
                                         </div>
                                     </div>
                                 )}
@@ -924,30 +1200,6 @@ export default function IcoCommitments() {
                                             }}
                                         >
                                             {formatDate(checkResult.date)}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {checkResult.level && (
-                                    <div>
-                                        <div
-                                            style={{
-                                                fontFamily: "var(--font-mono)",
-                                                fontSize: "0.65rem",
-                                                color: "var(--fg-muted)",
-                                                textTransform: "uppercase",
-                                            }}
-                                        >
-                                            Block Level
-                                        </div>
-                                        <div
-                                            style={{
-                                                fontFamily: "var(--font-mono)",
-                                                fontSize: "0.85rem",
-                                                color: "var(--fg)",
-                                            }}
-                                        >
-                                            #{checkResult.level.toLocaleString()}
                                         </div>
                                     </div>
                                 )}
@@ -1050,6 +1302,82 @@ export default function IcoCommitments() {
                             </div>
                         )}
 
+                        {/* Outgoing Transfers List if present */}
+                        {checkResult.outgoingTransfers && checkResult.outgoingTransfers.length > 0 && (
+                            <div
+                                style={{
+                                    marginTop: "1rem",
+                                    paddingTop: "0.8rem",
+                                    borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: "0.72rem",
+                                        fontWeight: 600,
+                                        color: "var(--fg)",
+                                        marginBottom: "0.4rem",
+                                    }}
+                                >
+                                    Outgoing Transfers ({checkResult.outgoingTransfers.length}):
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                                    {checkResult.outgoingTransfers.map((tx) => (
+                                        <div
+                                            key={tx.hash}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                flexWrap: "wrap",
+                                                fontSize: "0.75rem",
+                                                fontFamily: "var(--font-mono)",
+                                                background: "rgba(0, 0, 0, 0.2)",
+                                                padding: "0.3rem 0.5rem",
+                                                border: "1px solid var(--border)",
+                                            }}
+                                        >
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                                <span style={{ fontWeight: 600, color: "var(--fg)" }}>
+                                                    {formatXtz(tx.amountMutez)} ꜩ
+                                                </span>
+                                                <span style={{ color: "var(--fg-muted)" }}>→</span>
+                                                <span title={tx.targetAddress}>{shortAddress(tx.targetAddress, 7, 5)}</span>
+                                                {tx.isExchange && (
+                                                    <span
+                                                        style={{
+                                                            fontSize: "0.62rem",
+                                                            textTransform: "uppercase",
+                                                            padding: "0.1em 0.4em",
+                                                            color: "var(--warn)",
+                                                            background: "var(--warn-bg)",
+                                                            border: "1px solid var(--warn)",
+                                                        }}
+                                                    >
+                                                        {tx.exchangeName || "Exchange"}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                <span style={{ color: "var(--fg-muted)", fontSize: "0.7rem" }}>
+                                                    {formatDate(tx.timestamp)}
+                                                </span>
+                                                <a
+                                                    href={`https://tzkt.io/${tx.hash}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ color: "var(--fg)", textDecoration: "underline" }}
+                                                >
+                                                    <ExternalLink size={11} aria-hidden="true" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Node verifier prefill button */}
                         {checkResult.blindedAddress && (
                             <div style={{ marginTop: "1rem", textAlign: "right" }}>
@@ -1084,7 +1412,7 @@ export default function IcoCommitments() {
             </section>
 
             {/* ------------------------------------------------------------- */}
-            {/* 3. Recent Activations Table                                   */}
+            {/* 3. Recent Activations Table (With Sortable Headers & Flow)    */}
             {/* ------------------------------------------------------------- */}
             <section aria-labelledby="recent-heading" style={{ marginBottom: "2.5rem" }}>
                 <div
@@ -1107,33 +1435,105 @@ export default function IcoCommitments() {
                                 letterSpacing: "-0.01em",
                             }}
                         >
-                            Recent Activations
+                            Recent Activations & Flow Analysis
                         </h2>
                         <p style={{ color: "var(--fg-muted)", fontSize: "0.8rem", margin: 0 }}>
-                            Newest Tezos fundraiser activations on mainnet. Each moved genesis tez into a live account.
+                            See current balances and whether claimed funds stayed in the wallet, went to an exchange (Binance, Coinbase, etc.), or moved elsewhere.
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={loadRecent}
-                        disabled={recentLoading}
-                        style={{
-                            background: "transparent",
-                            border: "1px solid var(--border)",
-                            color: "var(--fg-muted)",
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.7rem",
-                            padding: "0.3rem 0.6rem",
-                            cursor: recentLoading ? "not-allowed" : "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.35rem",
-                        }}
-                    >
-                        <RefreshCw size={12} className={recentLoading ? "animate-spin" : ""} aria-hidden="true" />
-                        Refresh
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {/* Flow Filter Buttons */}
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                border: "1px solid var(--border)",
+                                background: "var(--bg-2)",
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setRecentFilter("all")}
+                                style={{
+                                    background: recentFilter === "all" ? "var(--fg)" : "transparent",
+                                    color: recentFilter === "all" ? "var(--bg)" : "var(--fg-muted)",
+                                    border: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.68rem",
+                                    padding: "0.25rem 0.5rem",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRecentFilter("stayed")}
+                                style={{
+                                    background: recentFilter === "stayed" ? "var(--fg)" : "transparent",
+                                    color: recentFilter === "stayed" ? "var(--bg)" : "var(--fg-muted)",
+                                    border: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.68rem",
+                                    padding: "0.25rem 0.5rem",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Stayed (≥ 80%)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRecentFilter("exchange")}
+                                style={{
+                                    background: recentFilter === "exchange" ? "var(--fg)" : "transparent",
+                                    color: recentFilter === "exchange" ? "var(--bg)" : "var(--fg-muted)",
+                                    border: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.68rem",
+                                    padding: "0.25rem 0.5rem",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                To Exchange
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRecentFilter("wallet")}
+                                style={{
+                                    background: recentFilter === "wallet" ? "var(--fg)" : "transparent",
+                                    color: recentFilter === "wallet" ? "var(--bg)" : "var(--fg-muted)",
+                                    border: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "0.68rem",
+                                    padding: "0.25rem 0.5rem",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                To Other Wallet
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={loadRecent}
+                            disabled={recentLoading}
+                            style={{
+                                background: "transparent",
+                                border: "1px solid var(--border)",
+                                color: "var(--fg-muted)",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: "0.7rem",
+                                padding: "0.3rem 0.6rem",
+                                cursor: recentLoading ? "not-allowed" : "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.35rem",
+                            }}
+                        >
+                            <RefreshCw size={12} className={recentLoading ? "animate-spin" : ""} aria-hidden="true" />
+                            Refresh
+                        </button>
+                    </div>
                 </div>
 
                 <div
@@ -1156,19 +1556,98 @@ export default function IcoCommitments() {
                                     letterSpacing: "0.04em",
                                 }}
                             >
-                                <th style={{ padding: "0.6rem 0.8rem" }}>Date</th>
-                                <th style={{ padding: "0.6rem 0.8rem" }}>Amount (ꜩ)</th>
-                                <th style={{ padding: "0.6rem 0.8rem" }}>Activated Account</th>
-                                <th style={{ padding: "0.6rem 0.8rem" }}>Blinded (btz1)</th>
-                                <th style={{ padding: "0.6rem 0.8rem" }}>Block Level</th>
-                                <th style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>Inspect</th>
+                                <th
+                                    onClick={() => handleRecentSort("level")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                                >
+                                    Date / Level{" "}
+                                    {recentSortKey === "level" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th
+                                    onClick={() => handleRecentSort("amount")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                >
+                                    Claimed (ꜩ){" "}
+                                    {recentSortKey === "amount" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th
+                                    onClick={() => handleRecentSort("claimValue")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                >
+                                    Quote at Claim ({currency}){" "}
+                                    {recentSortKey === "claimValue" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th
+                                    onClick={() => handleRecentSort("currentBalance")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                >
+                                    Stayed in Wallet{" "}
+                                    {recentSortKey === "currentBalance" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th
+                                    onClick={() => handleRecentSort("toExchange")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                >
+                                    To Exchange{" "}
+                                    {recentSortKey === "toExchange" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th
+                                    onClick={() => handleRecentSort("toWallet")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                >
+                                    To Other Wallet{" "}
+                                    {recentSortKey === "toWallet" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th
+                                    onClick={() => handleRecentSort("account")}
+                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                                >
+                                    Account (tz1){" "}
+                                    {recentSortKey === "account" &&
+                                        (recentSortDir === "asc" ? (
+                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
+                                        ) : (
+                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
+                                        ))}
+                                </th>
+                                <th style={{ padding: "0.6rem 0.7rem", textAlign: "right" }}>Inspect</th>
                             </tr>
                         </thead>
                         <tbody>
                             {recentLoading && recentActivations.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={8}
                                         style={{
                                             padding: "2rem",
                                             textAlign: "center",
@@ -1177,13 +1656,13 @@ export default function IcoCommitments() {
                                             fontSize: "0.85rem",
                                         }}
                                     >
-                                        Loading recent activations…
+                                        Loading recent activations and fund flows…
                                     </td>
                                 </tr>
                             ) : recentError ? (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={8}
                                         style={{
                                             padding: "1.5rem",
                                             textAlign: "center",
@@ -1195,10 +1674,10 @@ export default function IcoCommitments() {
                                         {recentError}
                                     </td>
                                 </tr>
-                            ) : recentActivations.length === 0 ? (
+                            ) : sortedRecentActivations.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={8}
                                         style={{
                                             padding: "2rem",
                                             textAlign: "center",
@@ -1207,69 +1686,176 @@ export default function IcoCommitments() {
                                             fontSize: "0.85rem",
                                         }}
                                     >
-                                        No recent activations found.
+                                        No activations match this filter.
                                     </td>
                                 </tr>
                             ) : (
-                                recentActivations.map((c) => (
-                                    <tr
-                                        key={c.address}
-                                        style={{
-                                            borderBottom: "1px solid var(--border)",
-                                            fontSize: "0.8rem",
-                                            fontFamily: "var(--font-mono)",
-                                        }}
-                                    >
-                                        <td style={{ padding: "0.55rem 0.8rem", whiteSpace: "nowrap" }}>
-                                            {formatDate(c.activationTime)}
-                                        </td>
-                                        <td
+                                sortedRecentActivations.map((c) => {
+                                    const initXtz = c.balance / 1e6;
+                                    const curMutez = c.currentBalance ?? c.balance;
+                                    const exMutez = c.toExchange ?? 0;
+                                    const exXtz = exMutez / 1e6;
+                                    const wallMutez = c.toWallet ?? 0;
+                                    const wallXtz = wallMutez / 1e6;
+                                    const stayPct = c.balance > 0 ? (curMutez / c.balance) * 100 : 0;
+                                    const rate = currency === "USD" ? (c.quote?.usd ?? 0) : (c.quote?.eur ?? 0);
+                                    const fiatVal = initXtz * rate;
+
+                                    return (
+                                        <tr
+                                            key={c.activatedAccount?.address || c.address}
                                             style={{
-                                                padding: "0.55rem 0.8rem",
-                                                fontWeight: 600,
-                                                color: "var(--ok)",
-                                                whiteSpace: "nowrap",
+                                                borderBottom: "1px solid var(--border)",
+                                                fontSize: "0.78rem",
+                                                fontFamily: "var(--font-mono)",
                                             }}
                                         >
-                                            {formatXtz(c.balance)} ꜩ
-                                        </td>
-                                        <td style={{ padding: "0.55rem 0.8rem" }}>
-                                            {c.activatedAccount?.address ? (
-                                                <span title={c.activatedAccount.address}>
-                                                    {shortAddress(c.activatedAccount.address, 7, 5)}
-                                                </span>
-                                            ) : (
-                                                <span style={{ color: "var(--fg-muted)" }}>—</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: "0.55rem 0.8rem" }}>
-                                            <span title={c.address}>{shortAddress(c.address, 7, 5)}</span>
-                                        </td>
-                                        <td style={{ padding: "0.55rem 0.8rem", color: "var(--fg-muted)" }}>
-                                            #{c.activationLevel?.toLocaleString()}
-                                        </td>
-                                        <td style={{ padding: "0.55rem 0.8rem", textAlign: "right" }}>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setCheckInput(c.address);
-                                                    void runCheck(c.address);
-                                                    window.scrollTo({ top: 300, behavior: "smooth" });
-                                                }}
+                                            {/* Date / Level */}
+                                            <td style={{ padding: "0.55rem 0.7rem", whiteSpace: "nowrap" }}>
+                                                <div>{formatDate(c.activationTime)}</div>
+                                                <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
+                                                    #{c.activationLevel?.toLocaleString()}
+                                                </div>
+                                            </td>
+
+                                            {/* Claimed Amount */}
+                                            <td
                                                 style={{
-                                                    background: "var(--bg)",
-                                                    border: "1px solid var(--border)",
+                                                    padding: "0.55rem 0.7rem",
+                                                    fontWeight: 700,
                                                     color: "var(--fg)",
-                                                    fontSize: "0.68rem",
-                                                    padding: "0.2rem 0.5rem",
-                                                    cursor: "pointer",
+                                                    textAlign: "right",
+                                                    whiteSpace: "nowrap",
                                                 }}
                                             >
-                                                Check
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                                {formatXtz(c.balance)} ꜩ
+                                            </td>
+
+                                            {/* Fiat Quote at Claim */}
+                                            <td style={{ padding: "0.55rem 0.7rem", textAlign: "right", whiteSpace: "nowrap" }}>
+                                                {rate > 0 ? (
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, color: "var(--accent)" }}>
+                                                            {formatFiat(fiatVal, currency)}
+                                                        </div>
+                                                        <div style={{ fontSize: "0.65rem", color: "var(--fg-muted)" }}>
+                                                            {currency === "USD" ? `$${rate.toFixed(3)}/ꜩ` : `€${rate.toFixed(3)}/ꜩ`}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: "var(--fg-muted)" }}>—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Stayed in Wallet */}
+                                            <td
+                                                style={{
+                                                    padding: "0.55rem 0.7rem",
+                                                    textAlign: "right",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        fontWeight: 600,
+                                                        color: stayPct >= 80 ? "var(--ok)" : "var(--fg-muted)",
+                                                    }}
+                                                >
+                                                    {formatXtz(curMutez)} ꜩ
+                                                </div>
+                                                <div style={{ fontSize: "0.65rem", color: "var(--fg-muted)" }}>
+                                                    {stayPct.toFixed(1)}% stayed
+                                                </div>
+                                            </td>
+
+                                            {/* To Exchange */}
+                                            <td
+                                                style={{
+                                                    padding: "0.55rem 0.7rem",
+                                                    textAlign: "right",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {exXtz > 0 ? (
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, color: "var(--warn)" }}>
+                                                            {formatXtz(exMutez)} ꜩ
+                                                        </div>
+                                                        <div
+                                                            style={{
+                                                                fontSize: "0.65rem",
+                                                                color: "var(--warn)",
+                                                                textTransform: "uppercase",
+                                                            }}
+                                                        >
+                                                            {c.exchangeName || "Exchange"}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: "var(--fg-muted)" }}>0.00 ꜩ</span>
+                                                )}
+                                            </td>
+
+                                            {/* To Other Wallet */}
+                                            <td
+                                                style={{
+                                                    padding: "0.55rem 0.7rem",
+                                                    textAlign: "right",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {wallXtz > 0 ? (
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, color: "var(--fg)" }}>
+                                                            {formatXtz(wallMutez)} ꜩ
+                                                        </div>
+                                                        {c.topRecipient && (
+                                                            <div style={{ fontSize: "0.65rem", color: "var(--fg-muted)" }}>
+                                                                → {shortAddress(c.topRecipient, 5, 3)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: "var(--fg-muted)" }}>0.00 ꜩ</span>
+                                                )}
+                                            </td>
+
+                                            {/* Activated Account */}
+                                            <td style={{ padding: "0.55rem 0.7rem" }}>
+                                                {c.activatedAccount?.address ? (
+                                                    <span title={c.activatedAccount.address}>
+                                                        {shortAddress(c.activatedAccount.address, 6, 4)}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: "var(--fg-muted)" }}>—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Action Button */}
+                                            <td style={{ padding: "0.55rem 0.7rem", textAlign: "right" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const target = c.activatedAccount?.address || c.address;
+                                                        setCheckInput(target);
+                                                        void runCheck(target);
+                                                        window.scrollTo({ top: 300, behavior: "smooth" });
+                                                    }}
+                                                    style={{
+                                                        background: "var(--bg)",
+                                                        border: "1px solid var(--border)",
+                                                        color: "var(--fg)",
+                                                        fontSize: "0.68rem",
+                                                        padding: "0.2rem 0.5rem",
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    Inspect
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

@@ -1,11 +1,26 @@
 /**
  * ICO Commitments library for Tezos mainnet.
  * Interfaces, data fetching from TzKT v1 API, client-side caching,
- * and direct Tezos node RPC verification.
+ * fund flow analysis (stayed / to exchange / to other wallets),
+ * USD & EUR quotes at time of claim, and direct Tezos node RPC verification.
  */
 
 const TZKT_API = "https://api.tzkt.io/v1";
 export const DEFAULT_MAINNET_RPC = "https://rpc.tzkt.io/mainnet";
+
+export const EXCHANGE_REGEX =
+    /\b(binance|coinbase|kraken|okx|okex|gate\.io|kucoin|bitfinex|huobi|htx|bybit|mexc|mxc|upbit|crypto\.com|bithumb|gemini|bitstamp|bitrue|poloniex)\b/i;
+
+export interface OutgoingTransfer {
+    amountMutez: number;
+    amountXtz: number;
+    targetAddress: string;
+    targetAlias?: string;
+    isExchange: boolean;
+    exchangeName?: string;
+    hash: string;
+    timestamp: string;
+}
 
 export interface IcoCommitment {
     address: string;
@@ -14,6 +29,14 @@ export interface IcoCommitment {
     activationLevel?: number;
     activationTime?: string;
     activatedAccount?: { address: string };
+    opHash?: string;
+    quote?: { usd?: number; eur?: number };
+    currentBalance?: number;
+    toExchange?: number;
+    exchangeName?: string;
+    toWallet?: number;
+    topRecipient?: string;
+    disposition?: "stayed" | "exchange" | "wallet" | "split";
 }
 
 export interface IcoStats {
@@ -42,6 +65,15 @@ export interface IcoCheckResult {
     opHash?: string;
     tzktUrl?: string;
     opType?: string;
+    quote?: { usd?: number; eur?: number };
+    currentBalanceMutez?: number;
+    currentBalanceXtz?: number;
+    toExchangeMutez?: number;
+    toExchangeXtz?: number;
+    exchangeName?: string;
+    toWalletMutez?: number;
+    toWalletXtz?: number;
+    outgoingTransfers?: OutgoingTransfer[];
 }
 
 export interface NodeRpcVerification {
@@ -73,6 +105,18 @@ export function formatXtz(mutez: number | bigint | string, maxDecimals = 2): str
         minimumFractionDigits: 0,
         maximumFractionDigits: maxDecimals,
     }).format(xtz);
+}
+
+/**
+ * Format fiat amounts (USD or EUR).
+ */
+export function formatFiat(amount: number, currency: "USD" | "EUR"): string {
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(amount);
 }
 
 /**
@@ -110,6 +154,33 @@ export function formatDate(isoString?: string): string {
 export function shortAddress(addr: string, head = 8, tail = 6): string {
     if (!addr || addr.length <= head + tail) return addr;
     return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
+}
+
+/**
+ * Extract clean exchange name from TzKT alias.
+ */
+export function extractExchangeName(alias?: string | null): string | undefined {
+    if (!alias) return undefined;
+    const m = alias.match(EXCHANGE_REGEX);
+    if (!m) return undefined;
+    const raw = m[0].toLowerCase();
+    if (raw.includes("binance")) return "Binance";
+    if (raw.includes("coinbase")) return "Coinbase";
+    if (raw.includes("kraken")) return "Kraken";
+    if (raw.includes("okx") || raw.includes("okex")) return "OKX";
+    if (raw.includes("gate")) return "Gate.io";
+    if (raw.includes("kucoin")) return "KuCoin";
+    if (raw.includes("bitfinex")) return "Bitfinex";
+    if (raw.includes("huobi") || raw.includes("htx")) return "Huobi";
+    if (raw.includes("bybit")) return "Bybit";
+    if (raw.includes("mexc") || raw.includes("mxc")) return "MEXC";
+    if (raw.includes("upbit")) return "Upbit";
+    if (raw.includes("crypto.com")) return "Crypto.com";
+    if (raw.includes("bithumb")) return "Bithumb";
+    if (raw.includes("gemini")) return "Gemini";
+    if (raw.includes("bitstamp")) return "Bitstamp";
+    if (raw.includes("poloniex")) return "Poloniex";
+    return alias;
 }
 
 /**
@@ -178,15 +249,216 @@ export async function fetchIcoStats(): Promise<{ stats: IcoStats; unclaimed: Ico
     return { stats, unclaimed };
 }
 
+interface RawActivationOp {
+    type: string;
+    id: number;
+    level: number;
+    timestamp: string;
+    hash: string;
+    account: { address: string };
+    balance: number;
+    quote?: { usd?: number; eur?: number };
+}
+
+interface RawAccountSummary {
+    address: string;
+    balance: number;
+    numTransactions: number;
+}
+
+interface RawTx {
+    sender: { address: string };
+    target?: { address: string; alias?: string | null };
+    amount: number;
+    hash: string;
+    timestamp: string;
+}
+
 /**
- * Fetch recent activations ordered newest first by activationLevel.
+ * Fetch recent activations ordered newest first by level, enriched with:
+ * - USD and EUR quote at the time of claim
+ * - Current account balance (Stayed)
+ * - Outgoing amount to major exchanges (Binance, Coinbase, Kraken, etc.)
+ * - Outgoing amount to other private wallets
  */
 export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[]> {
-    const res = await fetch(`${TZKT_API}/commitments?activated=true&sort.desc=activationLevel&limit=${limit}`);
-    if (!res.ok) {
+    // 1. Fetch newest activation operations with USD & EUR quotes
+    const opsRes = await fetch(
+        `${TZKT_API}/operations/activations?quote=usd,eur&sort.desc=level&limit=${limit}`,
+    );
+    if (!opsRes.ok) {
         throw new Error("Failed to fetch recent activations from TzKT");
     }
-    return (await res.json()) as IcoCommitment[];
+    const ops: RawActivationOp[] = await opsRes.json();
+    if (ops.length === 0) return [];
+
+    const levels = ops.map((o) => o.level);
+    const addrs = ops.map((o) => o.account.address);
+
+    // 2. In parallel: fetch commitments (for btz1), current balances, and outgoing transfers
+    const [comsRes, accsRes, txsRes] = await Promise.all([
+        fetch(`${TZKT_API}/commitments?activationLevel.in=${levels.join(",")}`),
+        fetch(`${TZKT_API}/accounts?address.in=${addrs.join(",")}&select=address,balance,numTransactions`),
+        fetch(
+            `${TZKT_API}/operations/transactions?sender.in=${addrs.join(",")}&status=applied&limit=500&select=sender,target,amount,hash,timestamp`,
+        ),
+    ]);
+
+    const coms: IcoCommitment[] = comsRes.ok ? await comsRes.json() : [];
+    const accs: RawAccountSummary[] = accsRes.ok ? await accsRes.json() : [];
+    const txs: RawTx[] = txsRes.ok ? await txsRes.json() : [];
+
+    // Map commitments by level + account
+    const comMap = new Map<string, string>();
+    for (const c of coms) {
+        if (c.activatedAccount?.address) {
+            comMap.set(c.activatedAccount.address.toLowerCase(), c.address);
+        }
+    }
+
+    // Map account balances
+    const accMap = new Map<string, number>();
+    for (const a of accs) {
+        accMap.set(a.address.toLowerCase(), a.balance);
+    }
+
+    // Map outgoing transactions per sender
+    const txMap = new Map<string, RawTx[]>();
+    for (const tx of txs) {
+        const s = tx.sender.address.toLowerCase();
+        if (!txMap.has(s)) txMap.set(s, []);
+        txMap.get(s)!.push(tx);
+    }
+
+    // Assemble enriched activations
+    return ops.map((op) => {
+        const addrLower = op.account.address.toLowerCase();
+        const btz1 = comMap.get(addrLower) || "";
+        const curBalMutez = accMap.get(addrLower) ?? op.balance;
+        const senderTxs = txMap.get(addrLower) || [];
+
+        let toExchangeMutez = 0;
+        let toWalletMutez = 0;
+        let exchangeName: string | undefined;
+        let topRecipient: string | undefined;
+
+        for (const tx of senderTxs) {
+            const alias = tx.target?.alias;
+            const exName = extractExchangeName(alias);
+            if (exName) {
+                toExchangeMutez += tx.amount;
+                if (!exchangeName) exchangeName = exName;
+            } else {
+                toWalletMutez += tx.amount;
+                if (!topRecipient && tx.target?.address) {
+                    topRecipient = tx.target.address;
+                }
+            }
+        }
+
+        // Determine disposition
+        let disposition: "stayed" | "exchange" | "wallet" | "split" = "stayed";
+        if (op.balance > 0) {
+            const stayRatio = curBalMutez / op.balance;
+            const exRatio = toExchangeMutez / op.balance;
+            const wallRatio = toWalletMutez / op.balance;
+
+            if (stayRatio >= 0.8) {
+                disposition = "stayed";
+            } else if (exRatio >= 0.5) {
+                disposition = "exchange";
+            } else if (wallRatio >= 0.5) {
+                disposition = "wallet";
+            } else {
+                disposition = "split";
+            }
+        }
+
+        return {
+            address: btz1,
+            balance: op.balance,
+            activated: true,
+            activationLevel: op.level,
+            activationTime: op.timestamp,
+            activatedAccount: { address: op.account.address },
+            opHash: op.hash,
+            quote: op.quote,
+            currentBalance: curBalMutez,
+            toExchange: toExchangeMutez,
+            exchangeName,
+            toWallet: toWalletMutez,
+            topRecipient,
+            disposition,
+        };
+    });
+}
+
+/**
+ * Fetch live fund flow and outgoing transfers for an activated account.
+ */
+async function fetchAccountFlow(accountAddress: string): Promise<{
+    currentBalanceMutez: number;
+    toExchangeMutez: number;
+    toWalletMutez: number;
+    exchangeName?: string;
+    transfers: OutgoingTransfer[];
+}> {
+    const [accRes, txsRes] = await Promise.all([
+        fetch(`${TZKT_API}/accounts/${encodeURIComponent(accountAddress)}`),
+        fetch(
+            `${TZKT_API}/operations/transactions?sender=${encodeURIComponent(accountAddress)}&status=applied&limit=25&select=target,amount,hash,timestamp`,
+        ),
+    ]);
+
+    let currentBalanceMutez = 0;
+    if (accRes.ok) {
+        const acc = await accRes.json();
+        currentBalanceMutez = acc.balance ?? 0;
+    }
+
+    let toExchangeMutez = 0;
+    let toWalletMutez = 0;
+    let exchangeName: string | undefined;
+    const transfers: OutgoingTransfer[] = [];
+
+    if (txsRes.ok) {
+        interface RawSingleTx {
+            target?: { address: string; alias?: string | null };
+            amount: number;
+            hash: string;
+            timestamp: string;
+        }
+        const txList: RawSingleTx[] = await txsRes.json();
+        for (const t of txList) {
+            const alias = t.target?.alias;
+            const ex = extractExchangeName(alias);
+            const isEx = !!ex;
+            if (isEx) {
+                toExchangeMutez += t.amount;
+                if (!exchangeName) exchangeName = ex;
+            } else {
+                toWalletMutez += t.amount;
+            }
+            transfers.push({
+                amountMutez: t.amount,
+                amountXtz: t.amount / 1e6,
+                targetAddress: t.target?.address || "",
+                targetAlias: alias || undefined,
+                isExchange: isEx,
+                exchangeName: ex,
+                hash: t.hash,
+                timestamp: t.timestamp,
+            });
+        }
+    }
+
+    return {
+        currentBalanceMutez,
+        toExchangeMutez,
+        toWalletMutez,
+        exchangeName,
+        transfers,
+    };
 }
 
 /**
@@ -216,21 +488,39 @@ export async function checkIcoInput(
             if (res.status === 200) {
                 const item = (await res.json()) as IcoCommitment;
                 if (item.activated) {
-                    // It is activated! Attempt to find activation operation hash
                     let opHash: string | undefined;
+                    let quote: { usd?: number; eur?: number } | undefined;
+                    let flowData: {
+                        currentBalanceMutez: number;
+                        toExchangeMutez: number;
+                        toWalletMutez: number;
+                        exchangeName?: string;
+                        transfers: OutgoingTransfer[];
+                    } = {
+                        currentBalanceMutez: 0,
+                        toExchangeMutez: 0,
+                        toWalletMutez: 0,
+                        transfers: [],
+                    };
+
                     if (item.activatedAccount?.address) {
                         try {
-                            const opRes = await fetch(
-                                `${TZKT_API}/operations/activations?account=${encodeURIComponent(item.activatedAccount.address)}`,
-                            );
+                            const [opRes, flow] = await Promise.all([
+                                fetch(
+                                    `${TZKT_API}/operations/activations?account=${encodeURIComponent(item.activatedAccount.address)}&quote=usd,eur`,
+                                ),
+                                fetchAccountFlow(item.activatedAccount.address),
+                            ]);
                             if (opRes.ok) {
                                 const ops = await opRes.json();
                                 if (Array.isArray(ops) && ops.length > 0) {
                                     opHash = ops[0].hash;
+                                    quote = ops[0].quote;
                                 }
                             }
+                            flowData = flow;
                         } catch {
-                            // Non-critical, opHash remains undefined
+                            // Non-critical
                         }
                     }
 
@@ -247,6 +537,15 @@ export async function checkIcoInput(
                         blindedAddress: item.address,
                         accountAddress: item.activatedAccount?.address,
                         opHash,
+                        quote,
+                        currentBalanceMutez: flowData.currentBalanceMutez,
+                        currentBalanceXtz: flowData.currentBalanceMutez / 1e6,
+                        toExchangeMutez: flowData.toExchangeMutez,
+                        toExchangeXtz: flowData.toExchangeMutez / 1e6,
+                        exchangeName: flowData.exchangeName,
+                        toWalletMutez: flowData.toWalletMutez,
+                        toWalletXtz: flowData.toWalletMutez / 1e6,
+                        outgoingTransfers: flowData.transfers,
                         tzktUrl: opHash ? `https://tzkt.io/${opHash}` : `https://tzkt.io/${item.address}`,
                     };
                 }
@@ -265,7 +564,7 @@ export async function checkIcoInput(
                 };
             }
 
-            // 204 or 404 from TzKT: check local cache fallback just in case
+            // Fallback to local cache
             if (unclaimedList) {
                 const found = unclaimedList.find((c) => c.address.toLowerCase() === input.toLowerCase());
                 if (found) {
@@ -305,26 +604,26 @@ export async function checkIcoInput(
     // 2. Account address (tz1...)
     if (detectedType === "account") {
         try {
-            const actRes = await fetch(`${TZKT_API}/operations/activations?account=${encodeURIComponent(input)}`);
+            const actRes = await fetch(
+                `${TZKT_API}/operations/activations?account=${encodeURIComponent(input)}&quote=usd,eur`,
+            );
             if (actRes.ok) {
                 const activations = await actRes.json();
                 if (Array.isArray(activations) && activations.length > 0) {
                     const op = activations[0];
-                    // Look up commitment at that activationLevel to resolve blinded address
+
+                    const [comRes, flow] = await Promise.all([
+                        fetch(`${TZKT_API}/commitments?activationLevel=${op.level}`),
+                        fetchAccountFlow(input),
+                    ]);
+
                     let blindedAddress: string | undefined;
-                    try {
-                        const comRes = await fetch(`${TZKT_API}/commitments?activationLevel=${op.level}`);
-                        if (comRes.ok) {
-                            const coms: IcoCommitment[] = await comRes.json();
-                            const match = coms.find(
-                                (c) => c.activatedAccount?.address?.toLowerCase() === input.toLowerCase(),
-                            );
-                            if (match) {
-                                blindedAddress = match.address;
-                            }
-                        }
-                    } catch {
-                        // Non-critical
+                    if (comRes.ok) {
+                        const coms: IcoCommitment[] = await comRes.json();
+                        const match = coms.find(
+                            (c) => c.activatedAccount?.address?.toLowerCase() === input.toLowerCase(),
+                        );
+                        if (match) blindedAddress = match.address;
                     }
 
                     return {
@@ -340,6 +639,15 @@ export async function checkIcoInput(
                         blindedAddress,
                         accountAddress: op.account?.address || input,
                         opHash: op.hash,
+                        quote: op.quote,
+                        currentBalanceMutez: flow.currentBalanceMutez,
+                        currentBalanceXtz: flow.currentBalanceMutez / 1e6,
+                        toExchangeMutez: flow.toExchangeMutez,
+                        toExchangeXtz: flow.toExchangeMutez / 1e6,
+                        exchangeName: flow.exchangeName,
+                        toWalletMutez: flow.toWalletMutez,
+                        toWalletXtz: flow.toWalletMutez / 1e6,
+                        outgoingTransfers: flow.transfers,
                         tzktUrl: `https://tzkt.io/${op.hash}`,
                     };
                 }
@@ -380,40 +688,43 @@ export async function checkIcoInput(
     // 3. Operation hash (o...)
     if (detectedType === "operation") {
         try {
-            const opRes = await fetch(`${TZKT_API}/operations/${encodeURIComponent(input)}`);
+            const opRes = await fetch(
+                `${TZKT_API}/operations/${encodeURIComponent(input)}?quote=usd,eur`,
+            );
             if (opRes.ok) {
                 const ops = await opRes.json();
                 if (Array.isArray(ops) && ops.length > 0) {
-                    interface RawOp {
+                    interface RawOpDetail {
                         type: string;
                         level: number;
                         timestamp: string;
                         hash: string;
                         balance?: number;
                         account?: { address: string };
+                        quote?: { usd?: number; eur?: number };
                     }
-                    const activationOp = (ops as RawOp[]).find((o) => o.type === "activation");
-                    if (activationOp) {
+                    const activationOp = (ops as RawOpDetail[]).find((o) => o.type === "activation");
+                    if (activationOp && activationOp.account?.address) {
+                        const targetAddr = activationOp.account.address;
+                        const [comRes, flow] = await Promise.all([
+                            fetch(`${TZKT_API}/commitments?activationLevel=${activationOp.level}`),
+                            fetchAccountFlow(targetAddr),
+                        ]);
+
                         let blindedAddress: string | undefined;
-                        try {
-                            const comRes = await fetch(`${TZKT_API}/commitments?activationLevel=${activationOp.level}`);
-                            if (comRes.ok) {
-                                const coms: IcoCommitment[] = await comRes.json();
-                                const targetAccount = activationOp.account?.address?.toLowerCase();
-                                const match = coms.find(
-                                    (c) => c.activatedAccount?.address?.toLowerCase() === targetAccount,
-                                );
-                                if (match) blindedAddress = match.address;
-                            }
-                        } catch {
-                            // Non-critical
+                        if (comRes.ok) {
+                            const coms: IcoCommitment[] = await comRes.json();
+                            const match = coms.find(
+                                (c) => c.activatedAccount?.address?.toLowerCase() === targetAddr.toLowerCase(),
+                            );
+                            if (match) blindedAddress = match.address;
                         }
 
                         const bal = activationOp.balance ?? 0;
                         return {
                             status: "activation",
                             verdict: "Matches an ICO commitment — activated",
-                            explanation: `Operation is a legitimate ICO activation at block #${activationOp.level.toLocaleString()} moving ${formatXtz(bal)} ꜩ to ${activationOp.account?.address}.`,
+                            explanation: `Operation is a legitimate ICO activation at block #${activationOp.level.toLocaleString()} moving ${formatXtz(bal)} ꜩ to ${targetAddr}.`,
                             input,
                             detectedType: "operation",
                             amountMutez: bal,
@@ -421,14 +732,23 @@ export async function checkIcoInput(
                             date: activationOp.timestamp,
                             level: activationOp.level,
                             blindedAddress,
-                            accountAddress: activationOp.account?.address,
+                            accountAddress: targetAddr,
                             opHash: activationOp.hash,
+                            quote: activationOp.quote,
+                            currentBalanceMutez: flow.currentBalanceMutez,
+                            currentBalanceXtz: flow.currentBalanceMutez / 1e6,
+                            toExchangeMutez: flow.toExchangeMutez,
+                            toExchangeXtz: flow.toExchangeMutez / 1e6,
+                            exchangeName: flow.exchangeName,
+                            toWalletMutez: flow.toWalletMutez,
+                            toWalletXtz: flow.toWalletMutez / 1e6,
+                            outgoingTransfers: flow.transfers,
                             tzktUrl: `https://tzkt.io/${activationOp.hash}`,
                         };
                     }
 
                     // Operation exists, but not an activation
-                    const firstOp = ops[0] as RawOp;
+                    const firstOp = ops[0] as RawOpDetail;
                     return {
                         status: "not_ico",
                         verdict: "Not an ICO activation / no match",
@@ -488,7 +808,6 @@ export async function checkIcoInput(
 
 /**
  * Verify commitment and account balance directly against a Tezos Node RPC.
- * Useful for bakers and advanced users to independently verify node context.
  */
 export async function verifyOnNodeRpc(
     rpcUrl: string,
