@@ -9,7 +9,18 @@ const TZKT_API = "https://api.tzkt.io/v1";
 export const DEFAULT_MAINNET_RPC = "https://rpc.tzkt.io/mainnet";
 
 export const EXCHANGE_REGEX =
-    /\b(binance|coinbase|kraken|okx|okex|gate\.io|kucoin|bitfinex|huobi|htx|bybit|mexc|mxc|upbit|crypto\.com|bithumb|gemini|bitstamp|bitrue|poloniex)\b/i;
+    /\b(binance|coinbase|kraken|okx|okex|gate\.io|kucoin|bitfinex|huobi|htx|bybit|mexc|mxc|upbit|crypto\.com|bithumb|gemini|bitstamp|bitrue|poloniex|hitbtc)\b/i;
+
+export interface ExchangeHopInfo {
+    isExchange: boolean;
+    exchangeName?: string;
+    hops: number; // 0 = direct, 1 = 1 hop, 2 = 2 hops
+    viaAddress?: string; // intermediate address
+    targetAddress: string;
+    amountMutez: number;
+    amountXtz: number;
+    opHash?: string;
+}
 
 export interface OutgoingTransfer {
     amountMutez: number;
@@ -18,6 +29,8 @@ export interface OutgoingTransfer {
     targetAlias?: string;
     isExchange: boolean;
     exchangeName?: string;
+    hops?: number;
+    viaAddress?: string;
     hash: string;
     timestamp: string;
 }
@@ -33,6 +46,9 @@ export interface IcoCommitment {
     quote?: { usd?: number; eur?: number };
     currentBalance?: number;
     toExchange?: number;
+    directExchangeMutez?: number;
+    exchangeHops?: number; // 0 = direct, 1 = 1 hop, 2 = 2 hops
+    exchangeVia?: string;
     exchangeName?: string;
     toWallet?: number;
     topRecipient?: string;
@@ -70,6 +86,9 @@ export interface IcoCheckResult {
     currentBalanceXtz?: number;
     toExchangeMutez?: number;
     toExchangeXtz?: number;
+    directExchangeMutez?: number;
+    exchangeHops?: number;
+    exchangeVia?: string;
     exchangeName?: string;
     toWalletMutez?: number;
     toWalletXtz?: number;
@@ -157,7 +176,7 @@ export function shortAddress(addr: string, head = 8, tail = 6): string {
 }
 
 export const KNOWN_EXCHANGE_ADDRESSES: Record<string, string> = {
-    // Binance
+    // Binance Hot & Master Wallets
     tz2WDATNYnp7FdsmuZDYSidioZqeoLNZqXvE: "Binance",
     tz1ch7nvDDAchbAPfTio3yBsdvN1SZJZj1wY: "Binance",
     tz2HuFb9Pk2xBLEr7qawQ9JxU7xyNQix82CD: "Binance",
@@ -165,6 +184,10 @@ export const KNOWN_EXCHANGE_ADDRESSES: Record<string, string> = {
     tz1YfmputBQz6zku8HJV22XPrPZimmYYU1Pw: "Binance",
     tz1S8MNvuFEUsWgjHvi3AxibRBf388NhT1q2: "Binance",
     tz1SiPXX4MYGNJNDsRc7n8hkvUqFzg8xqF9m: "Binance",
+    // Binance Identified Deposit Sweepers
+    tz29tq7EdrPCeycYVQaqTJL3voWwpobM8gU5: "Binance",
+    tz2VF9HmJ1LzQcvgQkzVAob1Rd5X7A6JWycA: "Binance",
+    tz2NATcDGLp7wwAmcMcNYag2JREpHCnjfAKX: "Binance",
     // Coinbase
     tz1TmBz5CkiMrrcpxATTg1nDtd1CUoBd17DC: "Coinbase",
     tz1NcoDFXMAfB26mpBhVrdSHmppyTeccT6Fi: "Coinbase",
@@ -193,6 +216,7 @@ export const KNOWN_EXCHANGE_ADDRESSES: Record<string, string> = {
     tz1fWQgef75HrhvpcmPr4VKKhe3SDLGGKjts: "MEXC",
     tz1UaicmU7G4HSo3NBDUNqkeuHGMPtYWK52Y: "MEXC",
     // Upbit
+    tz1UFvMwCR9fYRfpGXbcpESNFwmbfgzV264m: "Upbit",
     tz1cYfMsbsGhxPqDovmaQHDByTeqiRTygEpc: "Upbit",
     tz1VoBhbndhXrPTGgPtA6xHza9LnVPC8x6mV: "Upbit",
     tz1Zt3uRxGFF7MyJUhVEFa4iGrc6tqfG8o7Y: "Upbit",
@@ -207,6 +231,8 @@ export const KNOWN_EXCHANGE_ADDRESSES: Record<string, string> = {
     tz1ZsK9mPA8XwUSw5kNqoJG3pXJ2f: "Huobi",
     // Bithumb
     tz1MqUjLpkCXMXMqg5A7KNWYaL98Ysm8qnZ9: "Bithumb",
+    // HitBTC
+    tz1egoxWxfhwm94YrK5nB5BdyBjnEVm2kSzx: "HitBTC",
 };
 
 /**
@@ -337,7 +363,7 @@ interface RawTx {
  * Fetch recent activations ordered newest first by level, enriched with:
  * - USD and EUR quote at the time of claim
  * - Current account balance (Stayed)
- * - Outgoing amount to major exchanges (Binance, Coinbase, Kraken, etc.)
+ * - Multi-hop exchange flow detection (Direct, 1-hop, 2-hops deep to Binance, Coinbase, Kraken, etc.)
  * - Outgoing amount to other private wallets
  */
 export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[]> {
@@ -366,7 +392,7 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
     // Filter accounts that have outgoing transactions
     const activeAddrs = accs.filter((a) => a.numTransactions > 0).map((a) => a.address);
 
-    // Fetch outgoing transactions in small chunks of 4 to prevent TzKT 504 Gateway Timeout
+    // 3. Fetch Hop 0 outgoing transactions in small chunks of 4 to prevent TzKT 504 Gateway Timeout
     const txMap = new Map<string, RawTx[]>();
     const CHUNK_SIZE = 4;
     for (let i = 0; i < activeAddrs.length; i += CHUNK_SIZE) {
@@ -388,6 +414,75 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
         }
     }
 
+    // 4. Collect Hop 1 recipients to trace multi-hop flows to exchanges
+    const hop1Addrs: string[] = [];
+    for (const [, txs] of txMap.entries()) {
+        for (const t of txs) {
+            if (t.target?.address) {
+                const directEx = extractExchangeName(t.target.alias, t.target.address);
+                if (!directEx && !hop1Addrs.includes(t.target.address)) {
+                    hop1Addrs.push(t.target.address);
+                }
+            }
+        }
+    }
+
+    // Query Hop 1 transactions in chunks of 4
+    const hop1TxMap = new Map<string, RawTx[]>();
+    for (let i = 0; i < hop1Addrs.length; i += CHUNK_SIZE) {
+        const chunk = hop1Addrs.slice(i, i + CHUNK_SIZE);
+        try {
+            const h1Res = await fetch(
+                `${TZKT_API}/operations/transactions?sender.in=${chunk.join(",")}&status=applied&limit=100&select=sender,target,amount,hash,timestamp`,
+            );
+            if (h1Res.ok) {
+                const chunkTxs: RawTx[] = await h1Res.json();
+                for (const tx of chunkTxs) {
+                    const s = tx.sender.address.toLowerCase();
+                    if (!hop1TxMap.has(s)) hop1TxMap.set(s, []);
+                    hop1TxMap.get(s)!.push(tx);
+                }
+            }
+        } catch {
+            // Non-critical
+        }
+    }
+
+    // 5. Collect Hop 2 addresses from any Hop 1 recipient that forwarded funds
+    const hop2Addrs: string[] = [];
+    for (const [, h1Txs] of hop1TxMap.entries()) {
+        for (const h1t of h1Txs) {
+            if (h1t.target?.address) {
+                const isEx = extractExchangeName(h1t.target.alias, h1t.target.address);
+                if (!isEx && !hop2Addrs.includes(h1t.target.address) && !hop1Addrs.includes(h1t.target.address)) {
+                    hop2Addrs.push(h1t.target.address);
+                }
+            }
+        }
+    }
+
+    // Query Hop 2 transactions in chunks of 4 (limited to first 8 to maintain quick response)
+    const hop2TxMap = new Map<string, RawTx[]>();
+    const limitedH2 = hop2Addrs.slice(0, 8);
+    for (let i = 0; i < limitedH2.length; i += CHUNK_SIZE) {
+        const chunk = limitedH2.slice(i, i + CHUNK_SIZE);
+        try {
+            const h2Res = await fetch(
+                `${TZKT_API}/operations/transactions?sender.in=${chunk.join(",")}&status=applied&limit=100&select=sender,target,amount,hash,timestamp`,
+            );
+            if (h2Res.ok) {
+                const chunkTxs: RawTx[] = await h2Res.json();
+                for (const tx of chunkTxs) {
+                    const s = tx.sender.address.toLowerCase();
+                    if (!hop2TxMap.has(s)) hop2TxMap.set(s, []);
+                    hop2TxMap.get(s)!.push(tx);
+                }
+            }
+        } catch {
+            // Non-critical
+        }
+    }
+
     // Map commitments by account address
     const comMap = new Map<string, string>();
     for (const c of coms) {
@@ -402,37 +497,90 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
         accMap.set(a.address.toLowerCase(), a.balance);
     }
 
-    // Assemble enriched activations
+    // Assemble enriched activations with multi-hop tracing
     return ops.map((op) => {
         const addrLower = op.account.address.toLowerCase();
         const btz1 = comMap.get(addrLower) || "";
         const curBalMutez = accMap.get(addrLower) ?? op.balance;
         const senderTxs = txMap.get(addrLower) || [];
 
-        let toExchangeMutez = 0;
-        let toWalletMutez = 0;
+        let directExchangeMutez = 0;
+        let hoppedExchangeMutez = 0;
+        let exchangeHops: number | undefined;
+        let exchangeVia: string | undefined;
         let exchangeName: string | undefined;
+        let toWalletMutez = 0;
         let topRecipient: string | undefined;
 
         for (const tx of senderTxs) {
-            const alias = tx.target?.alias;
-            const exName = extractExchangeName(alias, tx.target?.address);
-            if (exName) {
-                toExchangeMutez += tx.amount;
-                if (!exchangeName) exchangeName = exName;
-            } else {
-                toWalletMutez += tx.amount;
-                if (!topRecipient && tx.target?.address) {
+            const directEx = extractExchangeName(tx.target?.alias, tx.target?.address);
+            if (directEx) {
+                directExchangeMutez += tx.amount;
+                if (!exchangeName) {
+                    exchangeName = directEx;
+                    exchangeHops = 0;
+                }
+            } else if (tx.target?.address) {
+                const targetLower = tx.target.address.toLowerCase();
+                if (!topRecipient) {
                     topRecipient = tx.target.address;
+                }
+
+                // Check Hop 1 (did the intermediate address transfer to an exchange?)
+                const h1Txs = hop1TxMap.get(targetLower) || [];
+                let foundHop1Ex = false;
+                for (const h1t of h1Txs) {
+                    const h1Ex = extractExchangeName(h1t.target?.alias, h1t.target?.address);
+                    if (h1Ex) {
+                        hoppedExchangeMutez += tx.amount;
+                        if (!exchangeName) {
+                            exchangeName = h1Ex;
+                            exchangeHops = 1;
+                            exchangeVia = tx.target.address;
+                        }
+                        foundHop1Ex = true;
+                        break;
+                    }
+                }
+
+                // If not found in Hop 1, check Hop 2 (2 hops away)
+                if (!foundHop1Ex) {
+                    let foundHop2Ex = false;
+                    for (const h1t of h1Txs) {
+                        if (h1t.target?.address) {
+                            const h2TargetLower = h1t.target.address.toLowerCase();
+                            const h2Txs = hop2TxMap.get(h2TargetLower) || [];
+                            for (const h2t of h2Txs) {
+                                const h2Ex = extractExchangeName(h2t.target?.alias, h2t.target?.address);
+                                if (h2Ex) {
+                                    hoppedExchangeMutez += tx.amount;
+                                    if (!exchangeName) {
+                                        exchangeName = h2Ex;
+                                        exchangeHops = 2;
+                                        exchangeVia = h1t.target.address;
+                                    }
+                                    foundHop2Ex = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (foundHop2Ex) break;
+                    }
+
+                    if (!foundHop2Ex) {
+                        toWalletMutez += tx.amount;
+                    }
                 }
             }
         }
+
+        const totalToExchangeMutez = directExchangeMutez > 0 ? directExchangeMutez : hoppedExchangeMutez;
 
         // Determine disposition
         let disposition: "stayed" | "exchange" | "wallet" | "split" = "stayed";
         if (op.balance > 0) {
             const stayRatio = curBalMutez / op.balance;
-            const exRatio = toExchangeMutez / op.balance;
+            const exRatio = totalToExchangeMutez / op.balance;
             const wallRatio = toWalletMutez / op.balance;
 
             if (stayRatio >= 0.8) {
@@ -456,7 +604,10 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
             opHash: op.hash,
             quote: op.quote,
             currentBalance: curBalMutez,
-            toExchange: toExchangeMutez,
+            toExchange: totalToExchangeMutez,
+            directExchangeMutez,
+            exchangeHops,
+            exchangeVia,
             exchangeName,
             toWallet: toWalletMutez,
             topRecipient,
@@ -466,11 +617,15 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
 }
 
 /**
- * Fetch live fund flow and outgoing transfers for an activated account.
+ * Fetch live fund flow and outgoing transfers for an activated account,
+ * tracing 1 and 2 hops deep to identify exchange destinations.
  */
 async function fetchAccountFlow(accountAddress: string): Promise<{
     currentBalanceMutez: number;
     toExchangeMutez: number;
+    directExchangeMutez: number;
+    exchangeHops?: number;
+    exchangeVia?: string;
     toWalletMutez: number;
     exchangeName?: string;
     transfers: OutgoingTransfer[];
@@ -488,9 +643,12 @@ async function fetchAccountFlow(accountAddress: string): Promise<{
         currentBalanceMutez = acc.balance ?? 0;
     }
 
-    let toExchangeMutez = 0;
-    let toWalletMutez = 0;
+    let directExchangeMutez = 0;
+    let hoppedExchangeMutez = 0;
+    let exchangeHops: number | undefined;
+    let exchangeVia: string | undefined;
     let exchangeName: string | undefined;
+    let toWalletMutez = 0;
     const transfers: OutgoingTransfer[] = [];
 
     if (txsRes.ok) {
@@ -501,32 +659,118 @@ async function fetchAccountFlow(accountAddress: string): Promise<{
             timestamp: string;
         }
         const txList: RawSingleTx[] = await txsRes.json();
+
+        // Trace each outgoing transfer
         for (const t of txList) {
             const alias = t.target?.alias;
-            const ex = extractExchangeName(alias, t.target?.address);
-            const isEx = !!ex;
-            if (isEx) {
-                toExchangeMutez += t.amount;
-                if (!exchangeName) exchangeName = ex;
-            } else {
-                toWalletMutez += t.amount;
+            const directEx = extractExchangeName(alias, t.target?.address);
+
+            if (directEx) {
+                directExchangeMutez += t.amount;
+                if (!exchangeName) {
+                    exchangeName = directEx;
+                    exchangeHops = 0;
+                }
+                transfers.push({
+                    amountMutez: t.amount,
+                    amountXtz: t.amount / 1e6,
+                    targetAddress: t.target?.address || "",
+                    targetAlias: alias || undefined,
+                    isExchange: true,
+                    exchangeName: directEx,
+                    hops: 0,
+                    hash: t.hash,
+                    timestamp: t.timestamp,
+                });
+            } else if (t.target?.address) {
+                // Check Hop 1: query intermediate recipient's outgoing
+                let hopEx: string | undefined;
+                let hopCount: number | undefined;
+                let hopVia: string | undefined;
+
+                try {
+                    const h1Res = await fetch(
+                        `${TZKT_API}/operations/transactions?sender=${encodeURIComponent(t.target.address)}&status=applied&limit=10&select=target,amount`,
+                    );
+                    if (h1Res.ok) {
+                        const h1Txs: { target?: { address: string; alias?: string | null } }[] = await h1Res.json();
+                        for (const h1 of h1Txs) {
+                            const ex1 = extractExchangeName(h1.target?.alias, h1.target?.address);
+                            if (ex1) {
+                                hopEx = ex1;
+                                hopCount = 1;
+                                hopVia = t.target.address;
+                                break;
+                            }
+                        }
+
+                        // If not found in Hop 1, check Hop 2
+                        if (!hopEx && h1Txs.length > 0 && h1Txs[0].target?.address) {
+                            const h2Target = h1Txs[0].target.address;
+                            const h2Res = await fetch(
+                                `${TZKT_API}/operations/transactions?sender=${encodeURIComponent(h2Target)}&status=applied&limit=5&select=target,amount`,
+                            );
+                            if (h2Res.ok) {
+                                const h2Txs: { target?: { address: string; alias?: string | null } }[] = await h2Res.json();
+                                for (const h2 of h2Txs) {
+                                    const ex2 = extractExchangeName(h2.target?.alias, h2.target?.address);
+                                    if (ex2) {
+                                        hopEx = ex2;
+                                        hopCount = 2;
+                                        hopVia = h2Target;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch {
+                    // Non-critical
+                }
+
+                if (hopEx) {
+                    hoppedExchangeMutez += t.amount;
+                    if (!exchangeName) {
+                        exchangeName = hopEx;
+                        exchangeHops = hopCount;
+                        exchangeVia = hopVia;
+                    }
+                    transfers.push({
+                        amountMutez: t.amount,
+                        amountXtz: t.amount / 1e6,
+                        targetAddress: t.target.address,
+                        targetAlias: alias || undefined,
+                        isExchange: true,
+                        exchangeName: hopEx,
+                        hops: hopCount,
+                        viaAddress: hopVia,
+                        hash: t.hash,
+                        timestamp: t.timestamp,
+                    });
+                } else {
+                    toWalletMutez += t.amount;
+                    transfers.push({
+                        amountMutez: t.amount,
+                        amountXtz: t.amount / 1e6,
+                        targetAddress: t.target.address,
+                        targetAlias: alias || undefined,
+                        isExchange: false,
+                        hash: t.hash,
+                        timestamp: t.timestamp,
+                    });
+                }
             }
-            transfers.push({
-                amountMutez: t.amount,
-                amountXtz: t.amount / 1e6,
-                targetAddress: t.target?.address || "",
-                targetAlias: alias || undefined,
-                isExchange: isEx,
-                exchangeName: ex,
-                hash: t.hash,
-                timestamp: t.timestamp,
-            });
         }
     }
 
+    const totalToExchangeMutez = directExchangeMutez > 0 ? directExchangeMutez : hoppedExchangeMutez;
+
     return {
         currentBalanceMutez,
-        toExchangeMutez,
+        toExchangeMutez: totalToExchangeMutez,
+        directExchangeMutez,
+        exchangeHops,
+        exchangeVia,
         toWalletMutez,
         exchangeName,
         transfers,
@@ -565,12 +809,16 @@ export async function checkIcoInput(
                     let flowData: {
                         currentBalanceMutez: number;
                         toExchangeMutez: number;
+                        directExchangeMutez: number;
+                        exchangeHops?: number;
+                        exchangeVia?: string;
                         toWalletMutez: number;
                         exchangeName?: string;
                         transfers: OutgoingTransfer[];
                     } = {
                         currentBalanceMutez: 0,
                         toExchangeMutez: 0,
+                        directExchangeMutez: 0,
                         toWalletMutez: 0,
                         transfers: [],
                     };
@@ -614,6 +862,9 @@ export async function checkIcoInput(
                         currentBalanceXtz: flowData.currentBalanceMutez / 1e6,
                         toExchangeMutez: flowData.toExchangeMutez,
                         toExchangeXtz: flowData.toExchangeMutez / 1e6,
+                        directExchangeMutez: flowData.directExchangeMutez,
+                        exchangeHops: flowData.exchangeHops,
+                        exchangeVia: flowData.exchangeVia,
                         exchangeName: flowData.exchangeName,
                         toWalletMutez: flowData.toWalletMutez,
                         toWalletXtz: flowData.toWalletMutez / 1e6,
@@ -716,6 +967,9 @@ export async function checkIcoInput(
                         currentBalanceXtz: flow.currentBalanceMutez / 1e6,
                         toExchangeMutez: flow.toExchangeMutez,
                         toExchangeXtz: flow.toExchangeMutez / 1e6,
+                        directExchangeMutez: flow.directExchangeMutez,
+                        exchangeHops: flow.exchangeHops,
+                        exchangeVia: flow.exchangeVia,
                         exchangeName: flow.exchangeName,
                         toWalletMutez: flow.toWalletMutez,
                         toWalletXtz: flow.toWalletMutez / 1e6,
@@ -811,6 +1065,9 @@ export async function checkIcoInput(
                             currentBalanceXtz: flow.currentBalanceMutez / 1e6,
                             toExchangeMutez: flow.toExchangeMutez,
                             toExchangeXtz: flow.toExchangeMutez / 1e6,
+                            directExchangeMutez: flow.directExchangeMutez,
+                            exchangeHops: flow.exchangeHops,
+                            exchangeVia: flow.exchangeVia,
                             exchangeName: flow.exchangeName,
                             toWalletMutez: flow.toWalletMutez,
                             toWalletXtz: flow.toWalletMutez / 1e6,

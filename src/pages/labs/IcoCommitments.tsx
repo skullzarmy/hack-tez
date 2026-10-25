@@ -380,6 +380,8 @@ export default function IcoCommitments() {
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         {/* Currency Toggle */}
                         <div
+                            role="group"
+                            aria-label="Select currency for valuation quotes"
                             style={{
                                 display: "inline-flex",
                                 border: "1px solid var(--border)",
@@ -389,13 +391,15 @@ export default function IcoCommitments() {
                             <button
                                 type="button"
                                 onClick={() => setCurrency("USD")}
+                                aria-pressed={currency === "USD"}
                                 style={{
                                     background: currency === "USD" ? "var(--fg)" : "transparent",
                                     color: currency === "USD" ? "var(--bg)" : "var(--fg-muted)",
                                     border: "none",
                                     fontFamily: "var(--font-mono)",
-                                    fontSize: "0.68rem",
-                                    padding: "0.25rem 0.55rem",
+                                    fontSize: "0.72rem",
+                                    padding: "0.3rem 0.65rem",
+                                    minHeight: "34px",
                                     cursor: "pointer",
                                     fontWeight: currency === "USD" ? 700 : 400,
                                 }}
@@ -405,13 +409,15 @@ export default function IcoCommitments() {
                             <button
                                 type="button"
                                 onClick={() => setCurrency("EUR")}
+                                aria-pressed={currency === "EUR"}
                                 style={{
                                     background: currency === "EUR" ? "var(--fg)" : "transparent",
                                     color: currency === "EUR" ? "var(--bg)" : "var(--fg-muted)",
                                     border: "none",
                                     fontFamily: "var(--font-mono)",
-                                    fontSize: "0.68rem",
-                                    padding: "0.25rem 0.55rem",
+                                    fontSize: "0.72rem",
+                                    padding: "0.3rem 0.65rem",
+                                    minHeight: "34px",
                                     cursor: "pointer",
                                     fontWeight: currency === "EUR" ? 700 : 400,
                                 }}
@@ -465,13 +471,13 @@ export default function IcoCommitments() {
             </header>
 
             {/* ------------------------------------------------------------- */}
-            {/* 1. Summary Cards                                              */}
+            {/* 1. Summary Cards (Finite Genesis Commitments)                 */}
             {/* ------------------------------------------------------------- */}
             <section aria-label="Commitment statistics" style={{ marginBottom: "2.5rem" }}>
                 <div
                     style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
                         gap: "0.75rem",
                     }}
                 >
@@ -480,7 +486,9 @@ export default function IcoCommitments() {
                         style={{
                             border: "1px solid var(--border)",
                             background: "var(--bg-2)",
-                            padding: "1rem",
+                            padding: "0.85rem 1rem",
+                            minWidth: 0,
+                            overflow: "hidden",
                         }}
                     >
                         <div
@@ -498,9 +506,12 @@ export default function IcoCommitments() {
                         <div
                             style={{
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "1.4rem",
+                                fontSize: "clamp(1.1rem, 1.8vw + 0.4rem, 1.4rem)",
                                 fontWeight: 700,
                                 color: "var(--fg)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                             }}
                         >
                             {statsLoading ? "…" : formatNumber(stats?.totalCount ?? 31525)}
@@ -515,7 +526,9 @@ export default function IcoCommitments() {
                         style={{
                             border: "1px solid var(--border)",
                             background: "var(--bg-2)",
-                            padding: "1rem",
+                            padding: "0.85rem 1rem",
+                            minWidth: 0,
+                            overflow: "hidden",
                         }}
                     >
                         <div
@@ -533,9 +546,12 @@ export default function IcoCommitments() {
                         <div
                             style={{
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "1.4rem",
+                                fontSize: "clamp(1.1rem, 1.8vw + 0.4rem, 1.4rem)",
                                 fontWeight: 700,
                                 color: "var(--ok)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                             }}
                         >
                             {statsLoading ? "…" : formatNumber(stats?.claimedCount ?? 0)}
@@ -552,7 +568,9 @@ export default function IcoCommitments() {
                         style={{
                             border: "1px solid var(--border)",
                             background: "var(--bg-2)",
-                            padding: "1rem",
+                            padding: "0.85rem 1rem",
+                            minWidth: 0,
+                            overflow: "hidden",
                         }}
                     >
                         <div
@@ -570,9 +588,12 @@ export default function IcoCommitments() {
                         <div
                             style={{
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "1.4rem",
+                                fontSize: "clamp(1.1rem, 1.8vw + 0.4rem, 1.4rem)",
                                 fontWeight: 700,
                                 color: "var(--warn)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                             }}
                         >
                             {statsLoading ? "…" : formatNumber(stats?.unclaimedCount ?? 0)}
@@ -582,12 +603,14 @@ export default function IcoCommitments() {
                         </div>
                     </div>
 
-                    {/* Total Unclaimed XTZ */}
+                    {/* Total Unclaimed XTZ (Dynamically sized single line, no logo wrapping) */}
                     <div
                         style={{
                             border: "1px solid var(--border)",
                             background: "var(--bg-2)",
-                            padding: "1rem",
+                            padding: "0.85rem 1rem",
+                            minWidth: 0,
+                            overflow: "hidden",
                         }}
                     >
                         <div
@@ -603,14 +626,41 @@ export default function IcoCommitments() {
                             Unclaimed XTZ
                         </div>
                         <div
+                            title={stats ? `${formatNumber(stats.unclaimedXtz)} ꜩ` : undefined}
                             style={{
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "1.4rem",
-                                fontWeight: 700,
-                                color: "var(--accent)",
+                                display: "flex",
+                                alignItems: "baseline",
+                                gap: "0.35rem",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
                             }}
                         >
-                            {statsLoading ? "…" : `${formatNumber(stats?.unclaimedXtz ?? 0)} ꜩ`}
+                            <span
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "clamp(1.02rem, 1.6vw + 0.35rem, 1.35rem)",
+                                    fontWeight: 700,
+                                    color: "var(--accent)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    letterSpacing: "-0.01em",
+                                }}
+                            >
+                                {statsLoading ? "…" : formatNumber(stats?.unclaimedXtz ?? 0)}
+                            </span>
+                            <span
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "clamp(0.85rem, 1.3vw + 0.3rem, 1.05rem)",
+                                    fontWeight: 600,
+                                    color: "var(--accent)",
+                                    whiteSpace: "nowrap",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                ꜩ
+                            </span>
                         </div>
                         <div style={{ fontSize: "0.7rem", color: "var(--fg-muted)", marginTop: "0.2rem" }}>
                             ~20M tez still unclaimed
@@ -622,7 +672,9 @@ export default function IcoCommitments() {
                         style={{
                             border: "1px solid var(--border)",
                             background: "var(--bg-2)",
-                            padding: "1rem",
+                            padding: "0.85rem 1rem",
+                            minWidth: 0,
+                            overflow: "hidden",
                         }}
                     >
                         <div
@@ -640,9 +692,12 @@ export default function IcoCommitments() {
                         <div
                             style={{
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "1.4rem",
+                                fontSize: "clamp(1.1rem, 1.8vw + 0.4rem, 1.4rem)",
                                 fontWeight: 700,
                                 color: "var(--purple)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                             }}
                         >
                             {statsLoading ? "…" : formatNumber(stats?.over10kCount ?? 0)}
@@ -679,7 +734,7 @@ export default function IcoCommitments() {
                 style={{
                     border: "1px solid var(--border-2)",
                     background: "var(--bg-2)",
-                    padding: "1.5rem",
+                    padding: "clamp(1rem, 2.5vw, 1.5rem)",
                     marginBottom: "2.5rem",
                 }}
             >
@@ -721,8 +776,9 @@ export default function IcoCommitments() {
                                 border: "1px solid var(--border)",
                                 color: "var(--fg)",
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "0.7rem",
-                                padding: "0.25rem 0.6rem",
+                                fontSize: "0.72rem",
+                                padding: "0.35rem 0.65rem",
+                                minHeight: "36px",
                                 cursor: "pointer",
                                 display: "inline-flex",
                                 alignItems: "center",
@@ -739,10 +795,10 @@ export default function IcoCommitments() {
                 <p style={{ color: "var(--fg-muted)", fontSize: "0.85rem", margin: "0 0 1rem" }}>
                     Paste an operation hash (<code>o…</code>), a <code>tz1…</code> account, or a blinded address (
                     <code>btz1…</code>). We will verify whether it matches a real Tezos fundraiser commitment, check its
-                    current balance, and inspect whether funds stayed or moved to an exchange.
+                    current balance, and inspect multi-hop fund flows to major exchanges (Binance, Coinbase, Kraken, etc.).
                 </p>
 
-                {/* Input Form */}
+                {/* Input Form with WCAG label */}
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
@@ -750,14 +806,19 @@ export default function IcoCommitments() {
                     }}
                     style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.8rem" }}
                 >
-                    <div style={{ flex: "1 1 320px", position: "relative" }}>
+                    <label htmlFor="ico-checker-input" style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", border: 0 }}>
+                        Address or operation hash to verify
+                    </label>
+                    <div style={{ flex: "1 1 280px", position: "relative" }}>
                         <input
+                            id="ico-checker-input"
                             type="text"
                             value={checkInput}
                             onChange={(e) => setCheckInput(e.target.value)}
                             placeholder="Paste o…, tz1…, or btz1…"
                             style={{
                                 width: "100%",
+                                minHeight: "42px",
                                 padding: "0.65rem 0.8rem",
                                 fontFamily: "var(--font-mono)",
                                 fontSize: "0.85rem",
@@ -785,7 +846,12 @@ export default function IcoCommitments() {
                                     border: "none",
                                     color: "var(--fg-muted)",
                                     cursor: "pointer",
-                                    padding: "0.2rem",
+                                    padding: "0.4rem",
+                                    minWidth: "32px",
+                                    minHeight: "32px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
                                 }}
                             >
                                 <X size={16} aria-hidden="true" />
@@ -804,6 +870,7 @@ export default function IcoCommitments() {
                             fontSize: "0.85rem",
                             fontWeight: 600,
                             padding: "0.65rem 1.4rem",
+                            minHeight: "42px",
                             cursor: checkBusy || !checkInput.trim() ? "not-allowed" : "pointer",
                             opacity: checkBusy || !checkInput.trim() ? 0.6 : 1,
                             display: "inline-flex",
@@ -844,10 +911,13 @@ export default function IcoCommitments() {
                             background: "var(--bg)",
                             border: "1px solid var(--border)",
                             color: "var(--fg-2)",
-                            padding: "0.15rem 0.45rem",
+                            padding: "0.3rem 0.6rem",
+                            minHeight: "34px",
                             cursor: "pointer",
                             fontFamily: "var(--font-mono)",
-                            fontSize: "0.68rem",
+                            fontSize: "0.72rem",
+                            display: "inline-flex",
+                            alignItems: "center",
                         }}
                     >
                         Activated op (o…)
@@ -862,10 +932,13 @@ export default function IcoCommitments() {
                             background: "var(--bg)",
                             border: "1px solid var(--border)",
                             color: "var(--fg-2)",
-                            padding: "0.15rem 0.45rem",
+                            padding: "0.3rem 0.6rem",
+                            minHeight: "34px",
                             cursor: "pointer",
                             fontFamily: "var(--font-mono)",
-                            fontSize: "0.68rem",
+                            fontSize: "0.72rem",
+                            display: "inline-flex",
+                            alignItems: "center",
                         }}
                     >
                         Activated account (tz1…)
@@ -880,10 +953,13 @@ export default function IcoCommitments() {
                             background: "var(--bg)",
                             border: "1px solid var(--border)",
                             color: "var(--warn)",
-                            padding: "0.15rem 0.45rem",
+                            padding: "0.3rem 0.6rem",
+                            minHeight: "34px",
                             cursor: "pointer",
                             fontFamily: "var(--font-mono)",
-                            fontSize: "0.68rem",
+                            fontSize: "0.72rem",
+                            display: "inline-flex",
+                            alignItems: "center",
                         }}
                     >
                         Sent to Binance (tz1…)
@@ -898,10 +974,13 @@ export default function IcoCommitments() {
                             background: "var(--bg)",
                             border: "1px solid var(--border)",
                             color: "var(--fg-2)",
-                            padding: "0.15rem 0.45rem",
+                            padding: "0.3rem 0.6rem",
+                            minHeight: "34px",
                             cursor: "pointer",
                             fontFamily: "var(--font-mono)",
-                            fontSize: "0.68rem",
+                            fontSize: "0.72rem",
+                            display: "inline-flex",
+                            alignItems: "center",
                         }}
                     >
                         Unclaimed commitment (btz1…)
@@ -911,6 +990,8 @@ export default function IcoCommitments() {
                 {/* Verdict Display */}
                 {checkResult && (
                     <div
+                        role="status"
+                        aria-live="polite"
                         style={{
                             marginTop: "1.5rem",
                             border: "1px solid",
@@ -1029,6 +1110,7 @@ export default function IcoCommitments() {
                                                 fontSize: "1rem",
                                                 fontWeight: 700,
                                                 color: "var(--fg)",
+                                                whiteSpace: "nowrap",
                                             }}
                                         >
                                             {formatXtz(checkResult.amountMutez ?? 0, 6)} ꜩ
@@ -1058,6 +1140,7 @@ export default function IcoCommitments() {
                                                 fontSize: "0.95rem",
                                                 fontWeight: 700,
                                                 color: "var(--accent)",
+                                                whiteSpace: "nowrap",
                                             }}
                                         >
                                             {currency === "USD"
@@ -1098,6 +1181,7 @@ export default function IcoCommitments() {
                                                 fontSize: "1rem",
                                                 fontWeight: 700,
                                                 color: "var(--ok)",
+                                                whiteSpace: "nowrap",
                                             }}
                                         >
                                             {formatXtz(checkResult.currentBalanceMutez ?? 0)} ꜩ
@@ -1135,16 +1219,27 @@ export default function IcoCommitments() {
                                                     (checkResult.toExchangeXtz ?? 0) > 0
                                                         ? "var(--warn)"
                                                         : "var(--fg-muted)",
+                                                whiteSpace: "nowrap",
                                             }}
                                         >
                                             {formatXtz(checkResult.toExchangeMutez ?? 0)} ꜩ
                                         </div>
-                                        <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)" }}>
-                                            {checkResult.exchangeName
-                                                ? `Sent to ${checkResult.exchangeName}`
-                                                : (checkResult.toExchangeXtz ?? 0) > 0
-                                                ? "Sent to exchange deposit"
-                                                : "No exchange transfers"}
+                                        <div style={{ fontSize: "0.68rem", color: "var(--fg-muted)", lineHeight: 1.4 }}>
+                                            {(checkResult.toExchangeXtz ?? 0) > 0 ? (
+                                                checkResult.exchangeHops === 0 ? (
+                                                    `Direct transfer to ${checkResult.exchangeName || "exchange"}`
+                                                ) : (
+                                                    <div>
+                                                        <span style={{ color: "var(--fg)", fontWeight: 600 }}>No direct exchange transfers</span>
+                                                        <div style={{ color: "var(--warn)", marginTop: "0.1rem" }}>
+                                                            Reached {checkResult.exchangeName || "exchange"} in {checkResult.exchangeHops} hop{(checkResult.exchangeHops ?? 1) > 1 ? "s" : ""}
+                                                            {checkResult.exchangeVia ? ` via ${shortAddress(checkResult.exchangeVia, 5, 4)}` : ""}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                "No direct exchange transfers (none within 2 hops)"
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1168,6 +1263,7 @@ export default function IcoCommitments() {
                                                 fontSize: "1rem",
                                                 fontWeight: 700,
                                                 color: "var(--fg)",
+                                                whiteSpace: "nowrap",
                                             }}
                                         >
                                             {formatXtz(checkResult.toWalletMutez ?? 0)} ꜩ
@@ -1239,7 +1335,12 @@ export default function IcoCommitments() {
                                                     border: "none",
                                                     color: "var(--fg-muted)",
                                                     cursor: "pointer",
-                                                    padding: "0.1rem",
+                                                    padding: "0.25rem",
+                                                    minWidth: "28px",
+                                                    minHeight: "28px",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
                                                 }}
                                             >
                                                 {copiedKey === "blinded" ? (
@@ -1287,7 +1388,12 @@ export default function IcoCommitments() {
                                                     border: "none",
                                                     color: "var(--fg-muted)",
                                                     cursor: "pointer",
-                                                    padding: "0.1rem",
+                                                    padding: "0.25rem",
+                                                    minWidth: "28px",
+                                                    minHeight: "28px",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
                                                 }}
                                             >
                                                 {copiedKey === "account" ? (
@@ -1353,9 +1459,12 @@ export default function IcoCommitments() {
                                                             color: "var(--warn)",
                                                             background: "var(--warn-bg)",
                                                             border: "1px solid var(--warn)",
+                                                            letterSpacing: "0.02em",
                                                         }}
                                                     >
-                                                        {tx.exchangeName || "Exchange"}
+                                                        {tx.hops === 0
+                                                            ? `Direct • ${tx.exchangeName || "Exchange"}`
+                                                            : `${tx.exchangeName || "Exchange"} (${tx.hops} hop${(tx.hops ?? 1) > 1 ? "s" : ""})`}
                                                     </span>
                                                 )}
                                             </div>
@@ -1445,6 +1554,8 @@ export default function IcoCommitments() {
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         {/* Flow Filter Buttons */}
                         <div
+                            role="group"
+                            aria-label="Filter recent activations by fund disposition"
                             style={{
                                 display: "inline-flex",
                                 border: "1px solid var(--border)",
@@ -1454,13 +1565,15 @@ export default function IcoCommitments() {
                             <button
                                 type="button"
                                 onClick={() => setRecentFilter("all")}
+                                aria-pressed={recentFilter === "all"}
                                 style={{
                                     background: recentFilter === "all" ? "var(--fg)" : "transparent",
                                     color: recentFilter === "all" ? "var(--bg)" : "var(--fg-muted)",
                                     border: "none",
                                     fontFamily: "var(--font-mono)",
-                                    fontSize: "0.68rem",
-                                    padding: "0.25rem 0.5rem",
+                                    fontSize: "0.72rem",
+                                    padding: "0.3rem 0.6rem",
+                                    minHeight: "34px",
                                     cursor: "pointer",
                                 }}
                             >
@@ -1469,13 +1582,15 @@ export default function IcoCommitments() {
                             <button
                                 type="button"
                                 onClick={() => setRecentFilter("stayed")}
+                                aria-pressed={recentFilter === "stayed"}
                                 style={{
                                     background: recentFilter === "stayed" ? "var(--fg)" : "transparent",
                                     color: recentFilter === "stayed" ? "var(--bg)" : "var(--fg-muted)",
                                     border: "none",
                                     fontFamily: "var(--font-mono)",
-                                    fontSize: "0.68rem",
-                                    padding: "0.25rem 0.5rem",
+                                    fontSize: "0.72rem",
+                                    padding: "0.3rem 0.6rem",
+                                    minHeight: "34px",
                                     cursor: "pointer",
                                 }}
                             >
@@ -1484,13 +1599,15 @@ export default function IcoCommitments() {
                             <button
                                 type="button"
                                 onClick={() => setRecentFilter("exchange")}
+                                aria-pressed={recentFilter === "exchange"}
                                 style={{
                                     background: recentFilter === "exchange" ? "var(--fg)" : "transparent",
                                     color: recentFilter === "exchange" ? "var(--bg)" : "var(--fg-muted)",
                                     border: "none",
                                     fontFamily: "var(--font-mono)",
-                                    fontSize: "0.68rem",
-                                    padding: "0.25rem 0.5rem",
+                                    fontSize: "0.72rem",
+                                    padding: "0.3rem 0.6rem",
+                                    minHeight: "34px",
                                     cursor: "pointer",
                                 }}
                             >
@@ -1499,13 +1616,15 @@ export default function IcoCommitments() {
                             <button
                                 type="button"
                                 onClick={() => setRecentFilter("wallet")}
+                                aria-pressed={recentFilter === "wallet"}
                                 style={{
                                     background: recentFilter === "wallet" ? "var(--fg)" : "transparent",
                                     color: recentFilter === "wallet" ? "var(--bg)" : "var(--fg-muted)",
                                     border: "none",
                                     fontFamily: "var(--font-mono)",
-                                    fontSize: "0.68rem",
-                                    padding: "0.25rem 0.5rem",
+                                    fontSize: "0.72rem",
+                                    padding: "0.3rem 0.6rem",
+                                    minHeight: "34px",
                                     cursor: "pointer",
                                 }}
                             >
@@ -1557,90 +1676,235 @@ export default function IcoCommitments() {
                                 }}
                             >
                                 <th
-                                    onClick={() => handleRecentSort("level")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "level" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap" }}
                                 >
-                                    Date / Level{" "}
-                                    {recentSortKey === "level" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("level")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                        }}
+                                    >
+                                        <span>Date / Level</span>
+                                        {recentSortKey === "level" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => handleRecentSort("amount")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "amount" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap", textAlign: "right" }}
                                 >
-                                    Claimed (ꜩ){" "}
-                                    {recentSortKey === "amount" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("amount")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                            marginLeft: "auto",
+                                        }}
+                                    >
+                                        <span>Claimed (ꜩ)</span>
+                                        {recentSortKey === "amount" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => handleRecentSort("claimValue")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "claimValue" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap", textAlign: "right" }}
                                 >
-                                    Quote at Claim ({currency}){" "}
-                                    {recentSortKey === "claimValue" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("claimValue")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                            marginLeft: "auto",
+                                        }}
+                                    >
+                                        <span>Quote at Claim ({currency})</span>
+                                        {recentSortKey === "claimValue" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => handleRecentSort("currentBalance")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "currentBalance" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap", textAlign: "right" }}
                                 >
-                                    Stayed in Wallet{" "}
-                                    {recentSortKey === "currentBalance" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("currentBalance")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                            marginLeft: "auto",
+                                        }}
+                                    >
+                                        <span>Stayed in Wallet</span>
+                                        {recentSortKey === "currentBalance" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => handleRecentSort("toExchange")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "toExchange" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap", textAlign: "right" }}
                                 >
-                                    To Exchange{" "}
-                                    {recentSortKey === "toExchange" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("toExchange")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                            marginLeft: "auto",
+                                        }}
+                                    >
+                                        <span>To Exchange</span>
+                                        {recentSortKey === "toExchange" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => handleRecentSort("toWallet")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: "right" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "toWallet" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap", textAlign: "right" }}
                                 >
-                                    To Other Wallet{" "}
-                                    {recentSortKey === "toWallet" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("toWallet")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                            marginLeft: "auto",
+                                        }}
+                                    >
+                                        <span>To Other Wallet</span>
+                                        {recentSortKey === "toWallet" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => handleRecentSort("account")}
-                                    style={{ padding: "0.6rem 0.7rem", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                                    scope="col"
+                                    aria-sort={recentSortKey === "account" ? (recentSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem", whiteSpace: "nowrap" }}
                                 >
-                                    Account (tz1){" "}
-                                    {recentSortKey === "account" &&
-                                        (recentSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRecentSort("account")}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                        }}
+                                    >
+                                        <span>Account (tz1)</span>
+                                        {recentSortKey === "account" &&
+                                            (recentSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
-                                <th style={{ padding: "0.6rem 0.7rem", textAlign: "right" }}>Inspect</th>
+                                <th scope="col" style={{ padding: "0.6rem 0.7rem", textAlign: "right" }}>Inspect</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1781,18 +2045,46 @@ export default function IcoCommitments() {
                                                         <div style={{ fontWeight: 600, color: "var(--warn)" }}>
                                                             {formatXtz(exMutez)} ꜩ
                                                         </div>
-                                                        <div
-                                                            style={{
-                                                                fontSize: "0.65rem",
-                                                                color: "var(--warn)",
-                                                                textTransform: "uppercase",
-                                                            }}
-                                                        >
-                                                            {c.exchangeName || "Exchange"}
-                                                        </div>
+                                                        {c.exchangeHops === 0 ? (
+                                                            <div
+                                                                style={{
+                                                                    fontSize: "0.65rem",
+                                                                    color: "var(--warn)",
+                                                                    textTransform: "uppercase",
+                                                                }}
+                                                            >
+                                                                Direct • {c.exchangeName || "Exchange"}
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <span
+                                                                    style={{
+                                                                        fontSize: "0.62rem",
+                                                                        color: "var(--warn)",
+                                                                        background: "var(--warn-bg)",
+                                                                        border: "1px solid var(--warn)",
+                                                                        padding: "0.05rem 0.3rem",
+                                                                        textTransform: "uppercase",
+                                                                        display: "inline-block",
+                                                                        marginTop: "0.1rem",
+                                                                        fontWeight: 600,
+                                                                    }}
+                                                                >
+                                                                    {c.exchangeName || "Exchange"} ({c.exchangeHops} hop{(c.exchangeHops ?? 1) > 1 ? "s" : ""})
+                                                                </span>
+                                                                <div style={{ fontSize: "0.62rem", color: "var(--fg-muted)", marginTop: "0.15rem" }}>
+                                                                    No direct transfers • via {shortAddress(c.exchangeVia || "", 4, 3)}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <span style={{ color: "var(--fg-muted)" }}>0.00 ꜩ</span>
+                                                    <div>
+                                                        <div style={{ color: "var(--fg-muted)" }}>0.00 ꜩ</div>
+                                                        <div style={{ fontSize: "0.62rem", color: "var(--fg-muted)" }}>
+                                                            No direct transfers
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </td>
 
@@ -1845,8 +2137,10 @@ export default function IcoCommitments() {
                                                         background: "var(--bg)",
                                                         border: "1px solid var(--border)",
                                                         color: "var(--fg)",
-                                                        fontSize: "0.68rem",
-                                                        padding: "0.2rem 0.5rem",
+                                                        fontFamily: "var(--font-mono)",
+                                                        fontSize: "0.72rem",
+                                                        padding: "0.25rem 0.55rem",
+                                                        minHeight: "32px",
                                                         cursor: "pointer",
                                                     }}
                                                 >
@@ -1928,6 +2222,8 @@ export default function IcoCommitments() {
                 >
                     {/* Quick Filter Tabs */}
                     <div
+                        role="group"
+                        aria-label="Filter unclaimed commitments by balance"
                         style={{
                             display: "inline-flex",
                             border: "1px solid var(--border)",
@@ -1940,13 +2236,15 @@ export default function IcoCommitments() {
                                 setUnclaimedFilterMode("all");
                                 setPage(1);
                             }}
+                            aria-pressed={unclaimedFilterMode === "all"}
                             style={{
                                 background: unclaimedFilterMode === "all" ? "var(--fg)" : "transparent",
                                 color: unclaimedFilterMode === "all" ? "var(--bg)" : "var(--fg-muted)",
                                 border: "none",
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "0.7rem",
+                                fontSize: "0.72rem",
                                 padding: "0.35rem 0.65rem",
+                                minHeight: "34px",
                                 cursor: "pointer",
                             }}
                         >
@@ -1958,13 +2256,15 @@ export default function IcoCommitments() {
                                 setUnclaimedFilterMode("whales");
                                 setPage(1);
                             }}
+                            aria-pressed={unclaimedFilterMode === "whales"}
                             style={{
                                 background: unclaimedFilterMode === "whales" ? "var(--fg)" : "transparent",
                                 color: unclaimedFilterMode === "whales" ? "var(--bg)" : "var(--fg-muted)",
                                 border: "none",
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "0.7rem",
+                                fontSize: "0.72rem",
                                 padding: "0.35rem 0.65rem",
+                                minHeight: "34px",
                                 cursor: "pointer",
                             }}
                         >
@@ -1976,13 +2276,15 @@ export default function IcoCommitments() {
                                 setUnclaimedFilterMode("1k");
                                 setPage(1);
                             }}
+                            aria-pressed={unclaimedFilterMode === "1k"}
                             style={{
                                 background: unclaimedFilterMode === "1k" ? "var(--fg)" : "transparent",
                                 color: unclaimedFilterMode === "1k" ? "var(--bg)" : "var(--fg-muted)",
                                 border: "none",
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "0.7rem",
+                                fontSize: "0.72rem",
                                 padding: "0.35rem 0.65rem",
+                                minHeight: "34px",
                                 cursor: "pointer",
                             }}
                         >
@@ -1992,7 +2294,11 @@ export default function IcoCommitments() {
 
                     {/* Search Input */}
                     <div style={{ flex: "1 1 200px" }}>
+                        <label htmlFor="unclaimed-search" style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", border: 0 }}>
+                            Search unclaimed commitments
+                        </label>
                         <input
+                            id="unclaimed-search"
                             type="text"
                             value={unclaimedSearch}
                             onChange={(e) => {
@@ -2002,6 +2308,7 @@ export default function IcoCommitments() {
                             placeholder="Filter by btz1 address or balance…"
                             style={{
                                 width: "100%",
+                                minHeight: "36px",
                                 padding: "0.4rem 0.65rem",
                                 fontFamily: "var(--font-mono)",
                                 fontSize: "0.78rem",
@@ -2025,8 +2332,9 @@ export default function IcoCommitments() {
                             fontFamily: "var(--font-mono)",
                         }}
                     >
-                        <span>Rows:</span>
+                        <label htmlFor="unclaimed-page-size">Rows:</label>
                         <select
+                            id="unclaimed-page-size"
                             value={pageSize}
                             onChange={(e) => {
                                 setPageSize(Number(e.target.value));
@@ -2039,6 +2347,7 @@ export default function IcoCommitments() {
                                 fontFamily: "var(--font-mono)",
                                 fontSize: "0.72rem",
                                 padding: "0.25rem 0.4rem",
+                                minHeight: "36px",
                             }}
                         >
                             <option value={25}>25</option>
@@ -2069,51 +2378,90 @@ export default function IcoCommitments() {
                                     letterSpacing: "0.04em",
                                 }}
                             >
-                                <th style={{ padding: "0.6rem 0.8rem", width: "50px" }}>#</th>
+                                <th scope="col" style={{ padding: "0.6rem 0.8rem", width: "50px" }}>#</th>
                                 <th
-                                    onClick={() => {
-                                        if (unclaimedSortKey === "address") {
-                                            setUnclaimedSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                                        } else {
-                                            setUnclaimedSortKey("address");
-                                            setUnclaimedSortDir("asc");
-                                        }
-                                    }}
-                                    style={{ padding: "0.6rem 0.8rem", cursor: "pointer", userSelect: "none" }}
+                                    scope="col"
+                                    aria-sort={unclaimedSortKey === "address" ? (unclaimedSortDir === "asc" ? "ascending" : "descending") : "none"}
+                                    style={{ padding: "0.3rem 0.5rem" }}
                                 >
-                                    Blinded Address (btz1){" "}
-                                    {unclaimedSortKey === "address" &&
-                                        (unclaimedSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (unclaimedSortKey === "address") {
+                                                setUnclaimedSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                                            } else {
+                                                setUnclaimedSortKey("address");
+                                                setUnclaimedSortDir("asc");
+                                            }
+                                        }}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                        }}
+                                    >
+                                        <span>Blinded Address (btz1)</span>
+                                        {unclaimedSortKey === "address" &&
+                                            (unclaimedSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
                                 <th
-                                    onClick={() => {
-                                        if (unclaimedSortKey === "balance") {
-                                            setUnclaimedSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                                        } else {
-                                            setUnclaimedSortKey("balance");
-                                            setUnclaimedSortDir("desc");
-                                        }
-                                    }}
+                                    scope="col"
+                                    aria-sort={unclaimedSortKey === "balance" ? (unclaimedSortDir === "asc" ? "ascending" : "descending") : "none"}
                                     style={{
-                                        padding: "0.6rem 0.8rem",
-                                        cursor: "pointer",
-                                        userSelect: "none",
+                                        padding: "0.3rem 0.5rem",
                                         textAlign: "right",
                                     }}
                                 >
-                                    Balance (XTZ){" "}
-                                    {unclaimedSortKey === "balance" &&
-                                        (unclaimedSortDir === "asc" ? (
-                                            <ChevronUp size={12} style={{ verticalAlign: "middle" }} />
-                                        ) : (
-                                            <ChevronDown size={12} style={{ verticalAlign: "middle" }} />
-                                        ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (unclaimedSortKey === "balance") {
+                                                setUnclaimedSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                                            } else {
+                                                setUnclaimedSortKey("balance");
+                                                setUnclaimedSortDir("desc");
+                                            }
+                                        }}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: "inherit",
+                                            font: "inherit",
+                                            textTransform: "inherit",
+                                            letterSpacing: "inherit",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.3rem",
+                                            padding: "0.3rem 0.4rem",
+                                            minHeight: "36px",
+                                            marginLeft: "auto",
+                                        }}
+                                    >
+                                        <span>Balance (XTZ)</span>
+                                        {unclaimedSortKey === "balance" &&
+                                            (unclaimedSortDir === "asc" ? (
+                                                <ChevronUp size={12} aria-hidden="true" />
+                                            ) : (
+                                                <ChevronDown size={12} aria-hidden="true" />
+                                            ))}
+                                    </button>
                                 </th>
-                                <th style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>Action</th>
+                                <th scope="col" style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2168,13 +2516,18 @@ export default function IcoCommitments() {
                                                     <button
                                                         type="button"
                                                         onClick={() => copyToClipboard(c.address, c.address)}
-                                                        aria-label="Copy address"
+                                                        aria-label={`Copy address ${c.address}`}
                                                         style={{
                                                             background: "transparent",
                                                             border: "none",
                                                             color: "var(--fg-muted)",
                                                             cursor: "pointer",
-                                                            padding: "0.1rem",
+                                                            padding: "0.25rem",
+                                                            minWidth: "28px",
+                                                            minHeight: "28px",
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
                                                         }}
                                                     >
                                                         {copiedKey === c.address ? (
@@ -2207,8 +2560,10 @@ export default function IcoCommitments() {
                                                         background: "var(--bg)",
                                                         border: "1px solid var(--border)",
                                                         color: "var(--fg)",
-                                                        fontSize: "0.68rem",
-                                                        padding: "0.2rem 0.5rem",
+                                                        fontFamily: "var(--font-mono)",
+                                                        fontSize: "0.72rem",
+                                                        padding: "0.25rem 0.55rem",
+                                                        minHeight: "32px",
                                                         cursor: "pointer",
                                                     }}
                                                 >
@@ -2247,11 +2602,13 @@ export default function IcoCommitments() {
                                 type="button"
                                 onClick={() => setPage(1)}
                                 disabled={page <= 1}
+                                aria-label="First page"
                                 style={{
                                     background: "var(--bg-2)",
                                     border: "1px solid var(--border)",
                                     color: "var(--fg)",
-                                    padding: "0.25rem 0.5rem",
+                                    padding: "0.35rem 0.65rem",
+                                    minHeight: "36px",
                                     cursor: page <= 1 ? "not-allowed" : "pointer",
                                     opacity: page <= 1 ? 0.5 : 1,
                                 }}
@@ -2262,15 +2619,19 @@ export default function IcoCommitments() {
                                 type="button"
                                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                                 disabled={page <= 1}
+                                aria-label="Previous page"
                                 style={{
                                     background: "var(--bg-2)",
                                     border: "1px solid var(--border)",
                                     color: "var(--fg)",
-                                    padding: "0.25rem 0.5rem",
+                                    padding: "0.35rem 0.65rem",
+                                    minHeight: "36px",
+                                    minWidth: "36px",
                                     cursor: page <= 1 ? "not-allowed" : "pointer",
                                     opacity: page <= 1 ? 0.5 : 1,
                                     display: "inline-flex",
                                     alignItems: "center",
+                                    justifyContent: "center",
                                 }}
                             >
                                 <ChevronLeft size={14} aria-hidden="true" />
@@ -2279,15 +2640,19 @@ export default function IcoCommitments() {
                                 type="button"
                                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                                 disabled={page >= totalPages}
+                                aria-label="Next page"
                                 style={{
                                     background: "var(--bg-2)",
                                     border: "1px solid var(--border)",
                                     color: "var(--fg)",
-                                    padding: "0.25rem 0.5rem",
+                                    padding: "0.35rem 0.65rem",
+                                    minHeight: "36px",
+                                    minWidth: "36px",
                                     cursor: page >= totalPages ? "not-allowed" : "pointer",
                                     opacity: page >= totalPages ? 0.5 : 1,
                                     display: "inline-flex",
                                     alignItems: "center",
+                                    justifyContent: "center",
                                 }}
                             >
                                 <ChevronRight size={14} aria-hidden="true" />
@@ -2296,11 +2661,13 @@ export default function IcoCommitments() {
                                 type="button"
                                 onClick={() => setPage(totalPages)}
                                 disabled={page >= totalPages}
+                                aria-label="Last page"
                                 style={{
                                     background: "var(--bg-2)",
                                     border: "1px solid var(--border)",
                                     color: "var(--fg)",
-                                    padding: "0.25rem 0.5rem",
+                                    padding: "0.35rem 0.65rem",
+                                    minHeight: "36px",
                                     cursor: page >= totalPages ? "not-allowed" : "pointer",
                                     opacity: page >= totalPages ? 0.5 : 1,
                                 }}
@@ -2390,6 +2757,7 @@ export default function IcoCommitments() {
                             {/* RPC URL Input */}
                             <div>
                                 <label
+                                    htmlFor="node-rpc-url"
                                     style={{
                                         display: "block",
                                         fontFamily: "var(--font-mono)",
@@ -2402,12 +2770,14 @@ export default function IcoCommitments() {
                                     Node RPC URL
                                 </label>
                                 <input
+                                    id="node-rpc-url"
                                     type="text"
                                     value={rpcUrl}
                                     onChange={(e) => setRpcUrl(e.target.value)}
                                     placeholder="e.g. http://localhost:8732 or https://rpc.tzkt.io/mainnet"
                                     style={{
                                         width: "100%",
+                                        minHeight: "38px",
                                         padding: "0.5rem 0.7rem",
                                         fontFamily: "var(--font-mono)",
                                         fontSize: "0.8rem",
@@ -2423,6 +2793,7 @@ export default function IcoCommitments() {
                             {/* Blinded Address Input */}
                             <div>
                                 <label
+                                    htmlFor="node-rpc-btz1"
                                     style={{
                                         display: "block",
                                         fontFamily: "var(--font-mono)",
@@ -2435,12 +2806,14 @@ export default function IcoCommitments() {
                                     Blinded Address (btz1…)
                                 </label>
                                 <input
+                                    id="node-rpc-btz1"
                                     type="text"
                                     value={rpcBtz1}
                                     onChange={(e) => setRpcBtz1(e.target.value)}
                                     placeholder="btz1…"
                                     style={{
                                         width: "100%",
+                                        minHeight: "38px",
                                         padding: "0.5rem 0.7rem",
                                         fontFamily: "var(--font-mono)",
                                         fontSize: "0.8rem",
@@ -2456,6 +2829,7 @@ export default function IcoCommitments() {
                             {/* Activated Account Input (Optional) */}
                             <div>
                                 <label
+                                    htmlFor="node-rpc-tz1"
                                     style={{
                                         display: "block",
                                         fontFamily: "var(--font-mono)",
@@ -2468,12 +2842,14 @@ export default function IcoCommitments() {
                                     Activated Account (tz1…, optional)
                                 </label>
                                 <input
+                                    id="node-rpc-tz1"
                                     type="text"
                                     value={rpcTz1}
                                     onChange={(e) => setRpcTz1(e.target.value)}
                                     placeholder="tz1… to verify live node balance"
                                     style={{
                                         width: "100%",
+                                        minHeight: "38px",
                                         padding: "0.5rem 0.7rem",
                                         fontFamily: "var(--font-mono)",
                                         fontSize: "0.8rem",
@@ -2496,9 +2872,10 @@ export default function IcoCommitments() {
                                 color: "var(--bg)",
                                 border: "none",
                                 fontFamily: "var(--font-mono)",
-                                fontSize: "0.8rem",
+                                fontSize: "0.82rem",
                                 fontWeight: 600,
-                                padding: "0.55rem 1.2rem",
+                                padding: "0.6rem 1.2rem",
+                                minHeight: "40px",
                                 cursor: rpcBusy || !rpcBtz1.trim() ? "not-allowed" : "pointer",
                                 opacity: rpcBusy || !rpcBtz1.trim() ? 0.6 : 1,
                                 display: "inline-flex",
