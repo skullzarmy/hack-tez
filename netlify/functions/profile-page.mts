@@ -157,7 +157,9 @@ export default async function handler(
             return new Response(template, {
                 headers: {
                     "Content-Type": "text/html; charset=utf-8",
-                    "Cache-Control": "public, max-age=60, s-maxage=120",
+                    "Cache-Control": "public, max-age=30, stale-while-revalidate=120",
+                    "Netlify-CDN-Cache-Control": "public, max-age=60, stale-while-revalidate=120, durable",
+                    "CDN-Cache-Control": "public, max-age=60, stale-while-revalidate=120",
                 },
             });
         }
@@ -175,14 +177,18 @@ export default async function handler(
         return new Response(html, {
             headers: {
                 "Content-Type": "text/html; charset=utf-8",
-                "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=86400",
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=86400",
+                "Netlify-CDN-Cache-Control": "public, max-age=300, stale-while-revalidate=86400, durable",
+                "CDN-Cache-Control": "public, max-age=300, stale-while-revalidate=86400",
             },
         });
     } catch {
         return new Response(template, {
             headers: {
                 "Content-Type": "text/html; charset=utf-8",
-                "Cache-Control": "public, max-age=60, s-maxage=120",
+                "Cache-Control": "public, max-age=30, stale-while-revalidate=120",
+                "Netlify-CDN-Cache-Control": "public, max-age=60, stale-while-revalidate=120, durable",
+                "CDN-Cache-Control": "public, max-age=60, stale-while-revalidate=120",
             },
         });
     }

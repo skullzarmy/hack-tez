@@ -69,15 +69,23 @@ function loadCanonicalSdk(): Uint8Array {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200, extra?: HeadersInit): Response {
     return new Response(JSON.stringify(data), {
         status,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", ...extra },
     });
 }
 
 function err(message: string, code: string, status: number): Response {
     return json({ error: message, code }, status);
+}
+
+function cacheHeaders(cdnTtl = 60, browserTtl = 30, swr = 300): Record<string, string> {
+    return {
+        "Cache-Control": `public, max-age=${browserTtl}, stale-while-revalidate=${swr}`,
+        "Netlify-CDN-Cache-Control": `public, max-age=${cdnTtl}, stale-while-revalidate=${swr}, durable`,
+        "CDN-Cache-Control": `public, max-age=${cdnTtl}, stale-while-revalidate=${swr}`,
+    };
 }
 
 function nanoid(n = 21): string {
@@ -137,7 +145,7 @@ async function listGames(url: URL): Promise<Response> {
                     ORDER BY play_count DESC, updated_at DESC
                     LIMIT ${limit} OFFSET ${offset}`;
 
-    return json({ games: rowsAs<GameRow>(rows).map(toGameSummary), limit, offset });
+    return json({ games: rowsAs<GameRow>(rows).map(toGameSummary), limit, offset }, 200, cacheHeaders(60, 30, 300));
 }
 
 async function getGame(slug: string): Promise<Response> {
@@ -164,7 +172,7 @@ async function getGame(slug: string): Promise<Response> {
             score: Number(r.best_score),
             lastPlayed: r.last_played,
         })),
-    });
+    }, 200, cacheHeaders(60, 30, 300));
 }
 
 async function getLeaderboard(url: URL, slug: string): Promise<Response> {
@@ -188,7 +196,7 @@ async function getLeaderboard(url: URL, slug: string): Promise<Response> {
             score: Number(r.best_score),
             lastPlayed: r.last_played,
         })),
-    });
+    }, 200, cacheHeaders(30, 15, 120));
 }
 
 async function getChampions(url: URL): Promise<Response> {
@@ -208,7 +216,7 @@ async function getChampions(url: URL): Promise<Response> {
             totalScore: Number(r.total_score),
             firstPlaceCount: Number(r.first_place_count),
         })),
-    });
+    }, 200, cacheHeaders(60, 30, 300));
 }
 
 async function getPlayer(domain: string): Promise<Response> {
@@ -237,7 +245,7 @@ async function getPlayer(domain: string): Promise<Response> {
             score: Number(r.score),
             playedAt: r.created_at,
         })),
-    });
+    }, 200, cacheHeaders(30, 15, 120));
 }
 
 async function getRecent(url: URL): Promise<Response> {
@@ -258,7 +266,7 @@ async function getRecent(url: URL): Promise<Response> {
             title: r.title,
             playedAt: r.created_at,
         })),
-    });
+    }, 200, cacheHeaders(20, 10, 60));
 }
 
 async function listMyGames(req: Request): Promise<Response> {

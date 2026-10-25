@@ -25,7 +25,9 @@ export default async function handler(
         return new Response(did, {
             headers: {
                 "content-type": "text/plain; charset=utf-8",
-                "cache-control": "public, max-age=300",
+                "cache-control": "public, max-age=300, stale-while-revalidate=86400",
+                "Netlify-CDN-Cache-Control": "public, max-age=3600, stale-while-revalidate=86400, durable",
+                "CDN-Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
                 "access-control-allow-origin": "*",
             },
         });

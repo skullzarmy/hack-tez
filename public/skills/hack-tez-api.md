@@ -969,6 +969,23 @@ All errors include a human-readable `error` string alongside the `code`.
 
 ---
 
+## Best Practices (Caching & Batching)
+
+1. **Client-side caching for address resolutions:**
+   - Address-to-domain bindings and reverse records change infrequently.
+   - Cache results from `/api/v1/resolve/:address`, `/api/v1/owner/:address`, and `/api/v1/profile/:name` in client memory (LRU map) or `sessionStorage` / `localStorage` for 10–30 minutes rather than querying on every component render.
+2. **Batch resolutions with directory endpoints:**
+   - If rendering a leaderboard, transaction list, or user feed with multiple addresses, avoid firing dozens of serial `/api/v1/resolve/:address` requests.
+   - Query `GET /api/v1/hackers?limit=100` once to build an in-memory `address -> primaryDomain` lookup table.
+3. **Respect CDN edge caching:**
+   - All GET endpoints use `Netlify-CDN-Cache-Control` with `stale-while-revalidate` and global durable edge caching.
+   - Do NOT append arbitrary cache-busting query parameters (e.g. `?t=${Date.now()}`) to requests.
+4. **Avatars & Hackatars:**
+   - `/api/v1/hackatar/:label` is deterministic and cached permanently at the edge (`max-age=31536000, immutable`).
+   - `/api/v1/avatar/:label` is cached for 1 hour with 24-hour background revalidation. Reference directly in `<img>` tags without client cache busters.
+
+---
+
 ## Common Patterns
 
 ### Check availability then show registration UI

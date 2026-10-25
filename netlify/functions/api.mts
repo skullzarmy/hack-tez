@@ -157,6 +157,42 @@ function err(message: string, code: string, status = 400): Response {
 	return json({ error: message, code }, status);
 }
 
+/**
+ * Standard edge CDN + downstream caching headers.
+ * Netlify Edge ignores `Cache-Control: s-maxage` on serverless functions unless
+ * `Netlify-CDN-Cache-Control` (or `CDN-Cache-Control`) is explicitly present.
+ */
+function cacheHeaders(options: {
+	cdnTtl: number;
+	browserTtl?: number;
+	swr?: number;
+	durable?: boolean;
+	vary?: string;
+}): Record<string, string> {
+	const cdnTtl = options.cdnTtl;
+	const browserTtl = options.browserTtl ?? Math.min(cdnTtl, 60);
+	const swr = options.swr ?? Math.max(cdnTtl * 2, 120);
+	const durableFlag = options.durable !== false ? ", durable" : "";
+
+	const headers: Record<string, string> = {
+		"Cache-Control": `public, max-age=${browserTtl}, stale-while-revalidate=${swr}`,
+		"Netlify-CDN-Cache-Control": `public, max-age=${cdnTtl}, stale-while-revalidate=${swr}${durableFlag}`,
+		"CDN-Cache-Control": `public, max-age=${cdnTtl}, stale-while-revalidate=${swr}`,
+	};
+
+	if (options.vary) {
+		headers["Netlify-Vary"] = options.vary;
+	}
+
+	return headers;
+}
+
+const IMMUTABLE_CACHE_HEADERS: Record<string, string> = {
+	"Cache-Control": "public, max-age=31536000, immutable",
+	"Netlify-CDN-Cache-Control": "public, max-age=31536000, durable",
+	"CDN-Cache-Control": "public, max-age=31536000, durable",
+};
+
 const LABEL_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const TZ_ADDRESS_RE =
 	/^(tz[123][1-9A-HJ-NP-Za-km-z]{33}|KT1[1-9A-HJ-NP-Za-km-z]{33})$/;
@@ -551,7 +587,7 @@ async function handleTezosX(
 			network: "tezosx-previewnet",
 		},
 		200,
-		{ "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+		cacheHeaders({ cdnTtl: 60, browserTtl: 30, swr: 300 }),
 	);
 }
 
@@ -587,9 +623,11 @@ async function handleDomain(
 	);
 
 	if (!data.domain) {
-		return json({ data: null, available: true, network: net.name }, 200, {
-			"Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
-		});
+		return json(
+			{ data: null, available: true, network: net.name },
+			200,
+			cacheHeaders({ cdnTtl: 30, browserTtl: 15, swr: 120 }),
+		);
 	}
 
 	return json(
@@ -604,7 +642,7 @@ async function handleDomain(
 			network: net.name,
 		},
 		200,
-		{ "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+		cacheHeaders({ cdnTtl: 60, browserTtl: 30, swr: 300 }),
 	);
 }
 
@@ -645,9 +683,11 @@ async function handleProfile(
 	]);
 
 	if (!result.domain) {
-		return json({ error: "not found" }, 404, {
-			"Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
-		});
+		return json(
+			{ error: "not found" },
+			404,
+			cacheHeaders({ cdnTtl: 30, browserTtl: 15, swr: 120 }),
+		);
 	}
 
 	const profile = parseProfileFromData(result.domain.data ?? []);
@@ -665,7 +705,7 @@ async function handleProfile(
 			network: net.name,
 		},
 		200,
-		{ "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+		cacheHeaders({ cdnTtl: 60, browserTtl: 30, swr: 300 }),
 	);
 }
 
@@ -689,9 +729,7 @@ async function handleAvailability(
 	return json(
 		{ label, available: data.domain === null, network: net.name },
 		200,
-		{
-			"Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
-		},
+		cacheHeaders({ cdnTtl: 20, browserTtl: 10, swr: 60 }),
 	);
 }
 
@@ -747,9 +785,7 @@ async function handleOwner(
 	return json(
 		{ data: domains, count: domains.length, primary, network: net.name },
 		200,
-		{
-			"Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
-		},
+		cacheHeaders({ cdnTtl: 120, browserTtl: 60, swr: 600 }),
 	);
 }
 
@@ -827,7 +863,7 @@ async function handleResolve(
 			network: net.name,
 		},
 		200,
-		{ "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+		cacheHeaders({ cdnTtl: 120, browserTtl: 60, swr: 600 }),
 	);
 }
 
@@ -1053,8 +1089,7 @@ async function handleDomains(
 						headers: {
 							"Content-Type": "application/json",
 							...CORS_HEADERS,
-							"Cache-Control":
-								"public, s-maxage=120, stale-while-revalidate=300",
+							...cacheHeaders({ cdnTtl: 120, browserTtl: 60, swr: 600, vary: "query=limit" }),
 							"X-Cache": "HIT",
 						},
 					});
@@ -1065,7 +1100,7 @@ async function handleDomains(
 					headers: {
 						"Content-Type": "application/json",
 						...CORS_HEADERS,
-						"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+						...cacheHeaders({ cdnTtl: 120, browserTtl: 60, swr: 600, vary: "query=limit" }),
 						"X-Cache": "STALE",
 					},
 				});
@@ -1093,7 +1128,7 @@ async function handleDomains(
 	}
 
 	return json(responseBody, 200, {
-		"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+		...cacheHeaders({ cdnTtl: 120, browserTtl: 60, swr: 600, vary: "query=limit" }),
 		"X-Cache": "MISS",
 	});
 }
@@ -1613,7 +1648,12 @@ async function handleMembers(
 		},
 		200,
 		{
-			"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+			...cacheHeaders({
+				cdnTtl: 120,
+				browserTtl: 60,
+				swr: 600,
+				vary: "query=limit|offset|sort|status|skill|q|owner|primary|hasProjects|projects|tips",
+			}),
 			"X-Cache": cache,
 		},
 	);
@@ -1742,7 +1782,12 @@ async function handleHackers(
 		},
 		200,
 		{
-			"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+			...cacheHeaders({
+				cdnTtl: 120,
+				browserTtl: 60,
+				swr: 600,
+				vary: "query=limit|offset|sort|status|skill|q|owner|primary|hasProjects|projects|tips",
+			}),
 			"X-Cache": cache,
 		},
 	);
@@ -1862,7 +1907,7 @@ async function handleMember(
 	}
 
 	return json({ data: shaped, network: net.name }, 200, {
-		"Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
+		...cacheHeaders({ cdnTtl: 60, browserTtl: 30, swr: 300, vary: "query=tips" }),
 	});
 }
 
@@ -1934,7 +1979,12 @@ async function handleProjects(
 		},
 		200,
 		{
-			"Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+			...cacheHeaders({
+				cdnTtl: 120,
+				browserTtl: 60,
+				swr: 600,
+				vary: "query=limit|offset|environment|status|member|q",
+			}),
 			"X-Cache": cache,
 		},
 	);
@@ -2029,9 +2079,7 @@ async function handleActivity(
 	return json(
 		{ data: events, count: events.length, limit, network: net.name },
 		200,
-		{
-			"Cache-Control": "public, s-maxage=20, stale-while-revalidate=40",
-		},
+		cacheHeaders({ cdnTtl: 30, browserTtl: 15, swr: 60, vary: "query=limit" }),
 	);
 }
 
@@ -2052,7 +2100,7 @@ async function handleConfig(
 				network: net.name,
 			},
 			200,
-			{ "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+			cacheHeaders({ cdnTtl: 300, browserTtl: 60, swr: 3600 }),
 		);
 	}
 
@@ -2080,7 +2128,7 @@ async function handleConfig(
 			network: net.name,
 		},
 		200,
-		{ "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+		cacheHeaders({ cdnTtl: 300, browserTtl: 60, swr: 3600 }),
 	);
 }
 
@@ -2131,7 +2179,7 @@ async function handleHackatar(
 			return new Response(cached, {
 				headers: {
 					"Content-Type": "image/gif",
-					"Cache-Control": "public, max-age=31536000, immutable",
+					...IMMUTABLE_CACHE_HEADERS,
 					...CORS_HEADERS,
 				},
 			});
@@ -2214,7 +2262,7 @@ async function handleHackatar(
 	return new Response(imageBytes, {
 		headers: {
 			"Content-Type": "image/gif",
-			"Cache-Control": "public, max-age=31536000, immutable",
+			...IMMUTABLE_CACHE_HEADERS,
 			...CORS_HEADERS,
 		},
 	});
@@ -2282,8 +2330,7 @@ async function handleAvatar(
 		return new Response(image.bytes, {
 			headers: {
 				"Content-Type": image.contentType,
-				"Cache-Control":
-					"public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+				...cacheHeaders({ cdnTtl: 3600, browserTtl: 300, swr: 86400 }),
 				...CORS_HEADERS,
 			},
 		});
@@ -2399,8 +2446,7 @@ async function handleShareCard(
 	return new Response(pngData, {
 		headers: {
 			"Content-Type": "image/png",
-			// Temporary debug mode: force function execution on every request.
-			"Cache-Control": "no-store, max-age=0",
+			...cacheHeaders({ cdnTtl: 3600, browserTtl: 600, swr: 86400 }),
 			"X-Share-Card-Version": SHARE_CARD_DEBUG_VERSION,
 			"X-Share-Card-Label": normalizedLabel,
 			"X-Share-Card-Path-Count": String(pathNodeCount),
@@ -2645,18 +2691,26 @@ async function handleBlueskyStatus(label: string): Promise<Response> {
 	}
 
 	if (!record) {
-		return json({ data: { label, linked: false } });
+		return json(
+			{ data: { label, linked: false } },
+			200,
+			cacheHeaders({ cdnTtl: 300, browserTtl: 60, swr: 3600 }),
+		);
 	}
 
 	const did = record.value.replace(/^did=/, "");
-	return json({
-		data: {
-			label,
-			linked: true,
-			did,
-			handle: `${label}.hacktez.com`,
+	return json(
+		{
+			data: {
+				label,
+				linked: true,
+				did,
+				handle: `${label}.hacktez.com`,
+			},
 		},
-	});
+		200,
+		cacheHeaders({ cdnTtl: 300, browserTtl: 60, swr: 3600 }),
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -2829,14 +2883,16 @@ async function handleTips(
 		return json(
 			{ data: { label, count: 0, totals: [], projects: [] }, network: net.name },
 			200,
-			{ "Cache-Control": "public, s-maxage=30" },
+			cacheHeaders({ cdnTtl: 30, browserTtl: 15, swr: 120 }),
 		);
 	}
 
 	const counters = await readTipCounters({ redis, net: net.name, label });
-	return json({ data: { label, ...counters }, network: net.name }, 200, {
-		"Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
-	});
+	return json(
+		{ data: { label, ...counters }, network: net.name },
+		200,
+		cacheHeaders({ cdnTtl: 30, browserTtl: 15, swr: 120 }),
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -2995,6 +3051,7 @@ export default async function handler(
 				docs: "/developers",
 			},
 			200,
+			cacheHeaders({ cdnTtl: 86400, browserTtl: 3600, swr: 86400 }),
 		);
 	} catch (e) {
 		const message = e instanceof Error ? e.message : "Unknown error";
