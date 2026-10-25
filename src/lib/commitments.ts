@@ -156,10 +156,69 @@ export function shortAddress(addr: string, head = 8, tail = 6): string {
     return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
 }
 
+export const KNOWN_EXCHANGE_ADDRESSES: Record<string, string> = {
+    // Binance
+    tz2WDATNYnp7FdsmuZDYSidioZqeoLNZqXvE: "Binance",
+    tz1ch7nvDDAchbAPfTio3yBsdvN1SZJZj1wY: "Binance",
+    tz2HuFb9Pk2xBLEr7qawQ9JxU7xyNQix82CD: "Binance",
+    tz2Ex1GRf2C8k1jXPiyxrwXqWishfePKKMLf: "Binance",
+    tz1YfmputBQz6zku8HJV22XPrPZimmYYU1Pw: "Binance",
+    tz1S8MNvuFEUsWgjHvi3AxibRBf388NhT1q2: "Binance",
+    tz1SiPXX4MYGNJNDsRc7n8hkvUqFzg8xqF9m: "Binance",
+    // Coinbase
+    tz1TmBz5CkiMrrcpxATTg1nDtd1CUoBd17DC: "Coinbase",
+    tz1NcoDFXMAfB26mpBhVrdSHmppyTeccT6Fi: "Coinbase",
+    tz1Z7eWGw18LqUgRqmDqNZFQx7f8GEHXRfT8: "Coinbase",
+    tz1bDhCGNZLQw1QXgf6MCzo6EtAVSGkqEB11: "Coinbase",
+    tz1MXjdb684ByEP5qUn5J7EMub7Sr8eBziDe: "Coinbase",
+    tz1irJKkXS2DBWkU1NnmFQx1c1L7pbGg4yhk: "Coinbase",
+    tz1ZM7q2CPKEiJ1wuv2TeCkR12t2eiwWqe6F: "Coinbase",
+    // Kraken
+    tz1bDXD6nNSrebqmAnnKKwnX1QdePSMCj4MX: "Kraken",
+    tz1NH4A2kRyFQUYhyi9aL8jrrySQUrCgNsX9: "Kraken",
+    tz1YpWsMwc4gSyjtxEF3JbmN6YrGiDidaSmg: "Kraken",
+    tz1cgJLxcS8ZTgq5dXPtojJJR7Bp8fKDyxPK: "Kraken",
+    tz1e9ZH87proooFwLidjvE8fhusWfeDf3bgk: "Kraken",
+    tz1RCFbB9GpALpsZtu6J58sb74dm8qe6XBzv: "Kraken",
+    // OKX
+    tz1bP2D7nvbmpf8N9gPqgpFRirsDL4syNTig: "OKX",
+    tz1RjoHc98dBoqaH2jawF62XNKh7YsHwbkEv: "OKX",
+    tz1UuQ4HWDu3ALNRgAq94dX9MhqhQhnuY3gC: "OKX",
+    // Gate.io
+    tz1hjem5Rpf4KAVbwMLJet75TDb8HjAKnTYk: "Gate.io",
+    tz1NpWrAyDL9k2Lmnyxcgr9xuJakbBxdq7FB: "Gate.io",
+    // Bybit
+    tz1PpZctTPYj3GjY1B9wtWJh4hgd3XMo1t3R: "Bybit",
+    // MEXC
+    tz1fWQgef75HrhvpcmPr4VKKhe3SDLGGKjts: "MEXC",
+    tz1UaicmU7G4HSo3NBDUNqkeuHGMPtYWK52Y: "MEXC",
+    // Upbit
+    tz1cYfMsbsGhxPqDovmaQHDByTeqiRTygEpc: "Upbit",
+    tz1VoBhbndhXrPTGgPtA6xHza9LnVPC8x6mV: "Upbit",
+    tz1Zt3uRxGFF7MyJUhVEFa4iGrc6tqfG8o7Y: "Upbit",
+    tz1beW9AVJjE9QpTGYVPdtZCF5w1NPknMJ3T: "Upbit",
+    // Crypto.com
+    tz1azZRMCfzLRjbuJFZkTRv9mDTgaEYZxYfD: "Crypto.com",
+    tz1RM5vXeUmastvs1H7pJrs7fe21rMHyKYN9: "Crypto.com",
+    tz1ZQqRYMAwswy3pHSrpCoAyFin9wvk9togY: "Crypto.com",
+    tz1WyndeaAx36WExobV9hBknyoCn89D3HVWT: "Crypto.com",
+    tz1Pm31zkj5tryYwhuqE7hhzYnULzrA5g5cf: "Crypto.com",
+    // Huobi
+    tz1ZsK9mPA8XwUSw5kNqoJG3pXJ2f: "Huobi",
+    // Bithumb
+    tz1MqUjLpkCXMXMqg5A7KNWYaL98Ysm8qnZ9: "Bithumb",
+};
+
 /**
- * Extract clean exchange name from TzKT alias.
+ * Extract clean exchange name from TzKT alias or known exchange address.
  */
-export function extractExchangeName(alias?: string | null): string | undefined {
+export function extractExchangeName(
+    alias?: string | null,
+    address?: string | null,
+): string | undefined {
+    if (address && KNOWN_EXCHANGE_ADDRESSES[address]) {
+        return KNOWN_EXCHANGE_ADDRESSES[address];
+    }
     if (!alias) return undefined;
     const m = alias.match(EXCHANGE_REGEX);
     if (!m) return undefined;
@@ -295,20 +354,41 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
     const levels = ops.map((o) => o.level);
     const addrs = ops.map((o) => o.account.address);
 
-    // 2. In parallel: fetch commitments (for btz1), current balances, and outgoing transfers
-    const [comsRes, accsRes, txsRes] = await Promise.all([
+    // 2. Fetch commitments (for btz1) and current balances
+    const [comsRes, accsRes] = await Promise.all([
         fetch(`${TZKT_API}/commitments?activationLevel.in=${levels.join(",")}`),
         fetch(`${TZKT_API}/accounts?address.in=${addrs.join(",")}&select=address,balance,numTransactions`),
-        fetch(
-            `${TZKT_API}/operations/transactions?sender.in=${addrs.join(",")}&status=applied&limit=500&select=sender,target,amount,hash,timestamp`,
-        ),
     ]);
 
     const coms: IcoCommitment[] = comsRes.ok ? await comsRes.json() : [];
     const accs: RawAccountSummary[] = accsRes.ok ? await accsRes.json() : [];
-    const txs: RawTx[] = txsRes.ok ? await txsRes.json() : [];
 
-    // Map commitments by level + account
+    // Filter accounts that have outgoing transactions
+    const activeAddrs = accs.filter((a) => a.numTransactions > 0).map((a) => a.address);
+
+    // Fetch outgoing transactions in small chunks of 4 to prevent TzKT 504 Gateway Timeout
+    const txMap = new Map<string, RawTx[]>();
+    const CHUNK_SIZE = 4;
+    for (let i = 0; i < activeAddrs.length; i += CHUNK_SIZE) {
+        const chunk = activeAddrs.slice(i, i + CHUNK_SIZE);
+        try {
+            const txsRes = await fetch(
+                `${TZKT_API}/operations/transactions?sender.in=${chunk.join(",")}&status=applied&limit=200&select=sender,target,amount,hash,timestamp`,
+            );
+            if (txsRes.ok) {
+                const chunkTxs: RawTx[] = await txsRes.json();
+                for (const tx of chunkTxs) {
+                    const s = tx.sender.address.toLowerCase();
+                    if (!txMap.has(s)) txMap.set(s, []);
+                    txMap.get(s)!.push(tx);
+                }
+            }
+        } catch {
+            // Non-critical: continue to next chunk
+        }
+    }
+
+    // Map commitments by account address
     const comMap = new Map<string, string>();
     for (const c of coms) {
         if (c.activatedAccount?.address) {
@@ -320,14 +400,6 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
     const accMap = new Map<string, number>();
     for (const a of accs) {
         accMap.set(a.address.toLowerCase(), a.balance);
-    }
-
-    // Map outgoing transactions per sender
-    const txMap = new Map<string, RawTx[]>();
-    for (const tx of txs) {
-        const s = tx.sender.address.toLowerCase();
-        if (!txMap.has(s)) txMap.set(s, []);
-        txMap.get(s)!.push(tx);
     }
 
     // Assemble enriched activations
@@ -344,7 +416,7 @@ export async function fetchRecentActivations(limit = 25): Promise<IcoCommitment[
 
         for (const tx of senderTxs) {
             const alias = tx.target?.alias;
-            const exName = extractExchangeName(alias);
+            const exName = extractExchangeName(alias, tx.target?.address);
             if (exName) {
                 toExchangeMutez += tx.amount;
                 if (!exchangeName) exchangeName = exName;
@@ -431,7 +503,7 @@ async function fetchAccountFlow(accountAddress: string): Promise<{
         const txList: RawSingleTx[] = await txsRes.json();
         for (const t of txList) {
             const alias = t.target?.alias;
-            const ex = extractExchangeName(alias);
+            const ex = extractExchangeName(alias, t.target?.address);
             const isEx = !!ex;
             if (isEx) {
                 toExchangeMutez += t.amount;
