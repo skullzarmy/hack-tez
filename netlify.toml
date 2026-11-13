@@ -76,3 +76,11 @@
   [headers.values]
     X-Frame-Options = "SAMEORIGIN"
     Content-Security-Policy = "frame-ancestors 'self'"
+
+# Standalone lab HTML tools must be embeddable in same-origin iframes
+# and allowed to run their own inline scripts.
+[[headers]]
+  for = "/lab-files/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "frame-ancestors 'self'"
