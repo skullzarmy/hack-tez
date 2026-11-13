@@ -20,6 +20,7 @@ import {
 const NFT_CONTRACT = "KT1UTDzQvKNau6KUMKomsNPaSYrLxuRJ35HK";
 const NFT_TOKEN_ID = "1";
 const OBJKT_URL = `https://objkt.com/tokens/${NFT_CONTRACT}/${NFT_TOKEN_ID}`;
+const OBJKT_THUMB_URL = `https://assets.objkt.media/file/assets-003/${NFT_CONTRACT}/${NFT_TOKEN_ID}/thumb288`;
 const PARAXENO_X_URL = "https://x.com/paraxenod";
 const TOOL_SRC = "/lab-files/paint-with-paraxeno.html";
 
@@ -38,6 +39,10 @@ export default function PaintWithParaxeno() {
     const [loadingToken, setLoadingToken] = useState(true);
     const [tokenError, setTokenError] = useState<string | null>(null);
     const [buy, setBuy] = useState<BuyState>({ status: "idle" });
+    const [thumbSrc, setThumbSrc] = useState<string>(OBJKT_THUMB_URL);
+    const [iframeHeight, setIframeHeight] = useState<number>(920);
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+    const observerRef = useRef<ResizeObserver | null>(null);
     const hasFetched = useRef(false);
 
     usePageMeta({
@@ -66,12 +71,35 @@ export default function PaintWithParaxeno() {
 
     useEffect(() => {
         void loadToken();
+        return () => {
+            observerRef.current?.disconnect();
+        };
     }, [loadToken]);
+
+    const syncIframeHeight = useCallback(() => {
+        const doc = iframeRef.current?.contentDocument;
+        if (!doc) return;
+        const next = Math.max(doc.documentElement?.scrollHeight ?? 0, doc.body?.scrollHeight ?? 0, 720);
+        setIframeHeight(next);
+    }, []);
+
+    const handleIframeLoad = useCallback(() => {
+        syncIframeHeight();
+        const doc = iframeRef.current?.contentDocument;
+        if (!doc || typeof ResizeObserver === "undefined") return;
+        observerRef.current?.disconnect();
+        const ro = new ResizeObserver(() => {
+            syncIframeHeight();
+        });
+        if (doc.body) ro.observe(doc.body);
+        if (doc.documentElement) ro.observe(doc.documentElement);
+        observerRef.current = ro;
+    }, [syncIframeHeight]);
 
     const bestListing = token?.listings.find((l) => l.marketplaceContract === OBJKT_MARKETPLACE_V3) ?? null;
     const totalAvailable = token?.listings.reduce((sum, l) => sum + l.amountLeft, 0) ?? 0;
     const isMainnet = config.name === "mainnet";
-    const thumbUrl = ipfsToHttp(token?.displayUri);
+    const fallbackThumb = ipfsToHttp(token?.displayUri);
 
     async function handleBuy() {
         if (!client || !address || !bestListing || !isMainnet) return;
@@ -202,23 +230,26 @@ export default function PaintWithParaxeno() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", minWidth: 0, flex: "1 1 280px" }}>
-                    {thumbUrl && (
-                        <a href={OBJKT_URL} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-                            <img
-                                src={thumbUrl}
-                                alt={token?.name ?? "Paint with Paraxeno NFT"}
-                                width={56}
-                                height={56}
-                                style={{
-                                    width: "56px",
-                                    height: "56px",
-                                    objectFit: "cover",
-                                    border: "1px solid var(--border)",
-                                    display: "block",
-                                }}
-                            />
-                        </a>
-                    )}
+                    <a href={OBJKT_URL} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                        <img
+                            src={thumbSrc}
+                            alt={token?.name ?? "Paint with Paraxeno NFT"}
+                            width={56}
+                            height={56}
+                            onError={() => {
+                                if (fallbackThumb && thumbSrc !== fallbackThumb) {
+                                    setThumbSrc(fallbackThumb);
+                                }
+                            }}
+                            style={{
+                                width: "56px",
+                                height: "56px",
+                                objectFit: "cover",
+                                border: "1px solid var(--border)",
+                                display: "block",
+                            }}
+                        />
+                    </a>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                             <span
@@ -385,13 +416,15 @@ export default function PaintWithParaxeno() {
                     border: "1px solid var(--border)",
                     background: "#0b0a0e",
                     width: "100%",
-                    height: "clamp(640px, 82vh, 1080px)",
+                    height: `${iframeHeight}px`,
                     overflow: "hidden",
                 }}
             >
                 <iframe
+                    ref={iframeRef}
                     src={TOOL_SRC}
                     title="Paint with Paraxeno"
+                    onLoad={handleIframeLoad}
                     style={{
                         width: "100%",
                         height: "100%",
