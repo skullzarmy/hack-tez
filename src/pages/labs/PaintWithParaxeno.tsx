@@ -20,7 +20,7 @@ import {
 const NFT_CONTRACT = "KT1UTDzQvKNau6KUMKomsNPaSYrLxuRJ35HK";
 const NFT_TOKEN_ID = "1";
 const OBJKT_URL = `https://objkt.com/tokens/${NFT_CONTRACT}/${NFT_TOKEN_ID}`;
-const OBJKT_THUMB_URL = "/lab-files/paint-with-paraxeno-thumb.jpg";
+const DEFAULT_DISPLAY_URI = "ipfs://bafkreifkzyl65tscza43hv7muy47odjowl5cc5nqnmeigmo7ncaa32xyxy";
 const PARAXENO_X_URL = "https://x.com/paraxenod";
 const TOOL_SRC = "/lab-files/paint-with-paraxeno.html";
 
@@ -39,7 +39,6 @@ export default function PaintWithParaxeno() {
     const [loadingToken, setLoadingToken] = useState(true);
     const [tokenError, setTokenError] = useState<string | null>(null);
     const [buy, setBuy] = useState<BuyState>({ status: "idle" });
-    const [thumbSrc, setThumbSrc] = useState<string>(OBJKT_THUMB_URL);
     const [iframeHeight, setIframeHeight] = useState<number>(920);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
@@ -99,7 +98,7 @@ export default function PaintWithParaxeno() {
     const bestListing = token?.listings.find((l) => l.marketplaceContract === OBJKT_MARKETPLACE_V3) ?? null;
     const totalAvailable = token?.listings.reduce((sum, l) => sum + l.amountLeft, 0) ?? 0;
     const isMainnet = config.name === "mainnet";
-    const fallbackThumb = ipfsToHttp(token?.displayUri);
+    const thumbSrc = ipfsToHttp(token?.displayUri ?? DEFAULT_DISPLAY_URI);
 
     async function handleBuy() {
         if (!client || !address || !bestListing || !isMainnet) return;
@@ -230,26 +229,23 @@ export default function PaintWithParaxeno() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", minWidth: 0, flex: "1 1 280px" }}>
-                    <a href={OBJKT_URL} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-                        <img
-                            src={thumbSrc}
-                            alt={token?.name ?? "Paint with Paraxeno NFT"}
-                            width={56}
-                            height={56}
-                            onError={() => {
-                                if (fallbackThumb && thumbSrc !== fallbackThumb) {
-                                    setThumbSrc(fallbackThumb);
-                                }
-                            }}
-                            style={{
-                                width: "56px",
-                                height: "56px",
-                                objectFit: "cover",
-                                border: "1px solid var(--border)",
-                                display: "block",
-                            }}
-                        />
-                    </a>
+                    {thumbSrc && (
+                        <a href={OBJKT_URL} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                            <img
+                                src={thumbSrc}
+                                alt={token?.name ?? "Paint with Paraxeno NFT"}
+                                width={56}
+                                height={56}
+                                style={{
+                                    width: "56px",
+                                    height: "56px",
+                                    objectFit: "cover",
+                                    border: "1px solid var(--border)",
+                                    display: "block",
+                                }}
+                            />
+                        </a>
+                    )}
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                             <span
