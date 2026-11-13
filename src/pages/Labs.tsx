@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import {
     Cloud,
+    Coins,
     Factory,
     FlaskConical,
     Gauge,
@@ -22,6 +23,7 @@ import { usePageMeta } from "../hooks/usePageMeta";
  *  Unknown or missing names fall back to the flask. */
 const LAB_ICONS: Record<string, LucideIcon> = {
     cloud: Cloud,
+    coins: Coins,
     factory: Factory,
     gauge: Gauge,
     milk: Milk,

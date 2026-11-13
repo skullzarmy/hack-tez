@@ -1,10 +1,21 @@
 import type { Config, Context } from "@netlify/functions";
 import { sql, verifyJwt, getDomain, isAdmin, isModerator, isBanned, slugify, auditLog } from "./wiki-db.mts";
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+function json(data: unknown, status = 200, extra?: HeadersInit) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...extra },
+  });
 }
 function err(msg: string, code: string, status: number) { return json({ error: msg, code }, status); }
+
+function cacheHeaders(cdnTtl = 60, browserTtl = 30, swr = 300): Record<string, string> {
+  return {
+    "Cache-Control": `public, max-age=${browserTtl}, stale-while-revalidate=${swr}`,
+    "Netlify-CDN-Cache-Control": `public, max-age=${cdnTtl}, stale-while-revalidate=${swr}, durable`,
+    "CDN-Cache-Control": `public, max-age=${cdnTtl}, stale-while-revalidate=${swr}`,
+  };
+}
 
 // ts_headline wraps matches in whatever StartSel/StopSel we give it, but it does
 // NOT escape the surrounding article text — so asking Postgres for <mark> directly
@@ -198,7 +209,7 @@ async function listArticles(url: URL) {
     rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.last_editor,a.updated_at,a.revision,c.slug AS cat_slug,c.name AS cat_name FROM wiki_articles a LEFT JOIN wiki_categories c ON a.category_id=c.id WHERE a.status='published' ORDER BY a.updated_at DESC LIMIT ${limit} OFFSET ${offset}`;
   }
   const articles = rowsAs<ArticleListRow>(rows).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision }));
-  return json({ articles, total: articles.length, limit, offset });
+  return json({ articles, total: articles.length, limit, offset }, 200, cacheHeaders(60, 30, 300));
 }
 
 async function getArticle(req: Request, slug: string) {
@@ -227,14 +238,14 @@ async function getArticle(req: Request, slug: string) {
   }
 
   const tags = await sql`SELECT t.slug,t.name FROM wiki_article_tags at2 JOIN wiki_tags t ON at2.tag_id=t.id WHERE at2.article_id=${r.id}`;
-  return json({ slug: r.slug, title: r.title, content: r.content, markdown: r.markdown, summary: r.summary, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, tags, author: r.author, lastEditor: r.last_editor, status: r.status, lockedBy: r.locked_by, lockReason: r.lock_reason, lockExpires: r.lock_expires, createdAt: r.created_at, updatedAt: r.updated_at, revision: r.revision, currentUserIsMod });
+  return json({ slug: r.slug, title: r.title, content: r.content, markdown: r.markdown, summary: r.summary, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, tags, author: r.author, lastEditor: r.last_editor, status: r.status, lockedBy: r.locked_by, lockReason: r.lock_reason, lockExpires: r.lock_expires, createdAt: r.created_at, updatedAt: r.updated_at, revision: r.revision, currentUserIsMod }, 200, cacheHeaders(60, 30, 300));
 }
 
 async function getRevisions(slug: string) {
   const art = await sql`SELECT id FROM wiki_articles WHERE slug=${slug}`;
   if (!art.length) return err("Article not found", "NOT_FOUND", 404);
   const rows = await sql`SELECT id,revision,title,editor,edit_summary,created_at FROM wiki_revisions WHERE article_id=${art[0].id} ORDER BY revision DESC LIMIT 100`;
-  return json({ revisions: rowsAs<RevisionListRow>(rows).map((r) => ({ id: r.id, revision: r.revision, title: r.title, editor: r.editor, editSummary: r.edit_summary, createdAt: r.created_at })) });
+  return json({ revisions: rowsAs<RevisionListRow>(rows).map((r) => ({ id: r.id, revision: r.revision, title: r.title, editor: r.editor, editSummary: r.edit_summary, createdAt: r.created_at })) }, 200, cacheHeaders(60, 30, 300));
 }
 
 async function getRevision(slug: string, revNum: string) {
@@ -243,7 +254,7 @@ async function getRevision(slug: string, revNum: string) {
   const rows = await sql`SELECT revision,title,content,markdown,summary,editor,edit_summary,created_at FROM wiki_revisions WHERE article_id=${art[0].id} AND revision=${Number(revNum)}`;
   if (!rows.length) return err("Revision not found", "NOT_FOUND", 404);
   const r = rowsAs<RevisionRow>(rows)[0];
-  return json({ slug: art[0].slug, title: r.title, content: r.content, markdown: r.markdown, summary: r.summary, author: r.editor, editSummary: r.edit_summary, createdAt: r.created_at, revision: r.revision });
+  return json({ slug: art[0].slug, title: r.title, content: r.content, markdown: r.markdown, summary: r.summary, author: r.editor, editSummary: r.edit_summary, createdAt: r.created_at, revision: r.revision }, 200, cacheHeaders(120, 60, 600));
 }
 
 interface SearchRow {
@@ -261,13 +272,13 @@ async function searchArticles(url: URL) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 100);
   const tsquery = q.split(/\s+/).map(t => `${t.replace(/[^a-zA-Z0-9]/g, "")}:*`).join(" & ");
   const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.updated_at, ts_headline('english',a.markdown,to_tsquery('english',${tsquery}),${`StartSel=${HL_START},StopSel=${HL_END},MaxFragments=2,MaxWords=40`}) AS excerpt FROM wiki_articles a WHERE a.status='published' AND a.search_vector @@ to_tsquery('english',${tsquery}) ORDER BY ts_rank(a.search_vector,to_tsquery('english',${tsquery})) DESC LIMIT ${limit}`;
-  return json({ query: q, results: (rows as unknown as SearchRow[]).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, excerpt: renderExcerpt(r.excerpt), author: r.author, updatedAt: r.updated_at })) });
+  return json({ query: q, results: (rows as unknown as SearchRow[]).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, excerpt: renderExcerpt(r.excerpt), author: r.author, updatedAt: r.updated_at })) }, 200, cacheHeaders(30, 15, 120));
 }
 
 async function getRecent(url: URL) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 50);
   const rows = await sql`SELECT a.slug,a.title,a.summary,a.author,a.last_editor,a.updated_at,a.revision,c.slug AS cat_slug,c.name AS cat_name FROM wiki_articles a LEFT JOIN wiki_categories c ON a.category_id=c.id WHERE a.status='published' ORDER BY a.updated_at DESC LIMIT ${limit}`;
-  return json({ articles: rowsAs<ArticleListRow>(rows).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision })) });
+  return json({ articles: rowsAs<ArticleListRow>(rows).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, author: r.author, lastEditor: r.last_editor, category: r.cat_slug ? { slug: r.cat_slug, name: r.cat_name } : null, updatedAt: r.updated_at, revision: r.revision })) }, 200, cacheHeaders(30, 15, 120));
 }
 
 async function getStats() {
@@ -276,7 +287,7 @@ async function getStats() {
     sql`SELECT COUNT(DISTINCT author) AS count FROM wiki_articles WHERE status='published'`,
     sql`SELECT COUNT(*) AS count FROM wiki_revisions`,
   ]);
-  return json({ articles: Number(a[0].count), contributors: Number(c[0].count), revisions: Number(r[0].count) });
+  return json({ articles: Number(a[0].count), contributors: Number(c[0].count), revisions: Number(r[0].count) }, 200, cacheHeaders(120, 60, 600));
 }
 
 async function listCategories() {
@@ -295,12 +306,12 @@ async function listCategories() {
       parentId: r.parent_id,
       articleCount: Number(r.count)
     })) 
-  });
+  }, 200, cacheHeaders(300, 60, 1200));
 }
 
 async function listTags() {
   const rows = await sql`SELECT t.slug,t.name,COUNT(at2.article_id) AS count FROM wiki_tags t LEFT JOIN wiki_article_tags at2 ON t.id=at2.tag_id GROUP BY t.id ORDER BY count DESC`;
-  return json({ tags: rowsAs<TagRow>(rows).map((r) => ({ slug: r.slug, name: r.name, count: Number(r.count) })) });
+  return json({ tags: rowsAs<TagRow>(rows).map((r) => ({ slug: r.slug, name: r.name, count: Number(r.count) })) }, 200, cacheHeaders(300, 60, 1200));
 }
 
 async function getLlmsTxt() {
@@ -311,7 +322,12 @@ async function getLlmsTxt() {
   txt += "\n## Recent Articles\n";
   for (const a of recent) txt += `- [${a.title}](https://hacktez.com/wiki/${a.slug})${a.summary ? ` — ${a.summary}` : ""}\n`;
   txt += "\n## API\n- Articles: /api/v1/wiki/articles\n- Search: /api/v1/wiki/search?q=\n- Categories: /api/v1/wiki/categories\n";
-  return new Response(txt, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(txt, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      ...cacheHeaders(3600, 300, 86400),
+    },
+  });
 }
 
 async function getLlmsFullTxt() {
@@ -328,7 +344,12 @@ async function getLlmsFullTxt() {
     txt += `${a.markdown}\n`;
   }
   
-  return new Response(txt, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(txt, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      ...cacheHeaders(3600, 300, 86400),
+    },
+  });
 }
 
 // --- Auth-gated handlers ---
