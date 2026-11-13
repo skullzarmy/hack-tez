@@ -177,7 +177,7 @@ export default function PaintWithParaxeno() {
                                 color: "var(--fg-muted)",
                             }}
                         >
-                            v{lab?.version ?? "6.73"}
+                            v{lab?.version ?? "6.75"}
                         </span>
                     </div>
                     <p style={{ color: "var(--fg-muted)", fontSize: "0.85rem", margin: "0.4rem 0 0", maxWidth: "68ch" }}>

@@ -2,7 +2,7 @@
 title: Paint with Paraxeno
 slug: paint-with-paraxeno
 status: production
-version: 6.73
+version: 6.75
 kind: tool
 icon: palette
 interactive: true
