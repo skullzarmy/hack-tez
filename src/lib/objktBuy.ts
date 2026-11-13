@@ -3,6 +3,7 @@
  * Uses raw Micheline via DAppClient.requestOperation() (hack.tez convention).
  */
 import type { DAppClient, TezosOperationType } from "@tezos-x/octez.connect-sdk";
+import { IPFS_GATEWAY_BASE } from "./pin";
 
 export const OBJKT_GRAPHQL = "https://data.objkt.com/v3/graphql";
 /** Objkt marketplace v3 contract on Tezos mainnet. */
@@ -75,11 +76,11 @@ query ObjktToken($fa: String!, $tokenId: String!) {
   }
 }`;
 
-/** Convert an ipfs:// URI to an HTTPS gateway URL. */
+/** Convert an ipfs:// URI to an HTTPS gateway URL via fileship. */
 export function ipfsToHttp(uri: string | null | undefined): string | null {
     if (!uri) return null;
     if (uri.startsWith("ipfs://")) {
-        return `https://ipfs.io/ipfs/${uri.slice("ipfs://".length)}`;
+        return `${IPFS_GATEWAY_BASE}${uri.slice("ipfs://".length)}`;
     }
     return uri;
 }
