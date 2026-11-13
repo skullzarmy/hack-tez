@@ -20,7 +20,7 @@ import {
 const NFT_CONTRACT = "KT1UTDzQvKNau6KUMKomsNPaSYrLxuRJ35HK";
 const NFT_TOKEN_ID = "1";
 const OBJKT_URL = `https://objkt.com/tokens/${NFT_CONTRACT}/${NFT_TOKEN_ID}`;
-const OBJKT_THUMB_URL = `https://assets.objkt.media/file/assets-003/${NFT_CONTRACT}/${NFT_TOKEN_ID}/thumb288`;
+const OBJKT_THUMB_URL = "/lab-files/paint-with-paraxeno-thumb.jpg";
 const PARAXENO_X_URL = "https://x.com/paraxenod";
 const TOOL_SRC = "/lab-files/paint-with-paraxeno.html";
 
